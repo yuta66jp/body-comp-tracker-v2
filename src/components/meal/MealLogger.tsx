@@ -2,13 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Loader2, PenLine } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, PenLine } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { FoodPicker } from "./FoodPicker";
 import { Cart, calcCartTotals } from "./Cart";
 import type { CartItem } from "./Cart";
 import type { FoodMaster } from "@/lib/supabase/types";
-
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -16,9 +15,12 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function MealLogger() {
+interface MealLoggerProps {
+  sidebar?: boolean; // サイドバーモード: 常時展開・縦レイアウト
+}
+
+export function MealLogger({ sidebar = false }: MealLoggerProps) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [date, setDate] = useState(todayStr);
   const [weight, setWeight] = useState("");
   const [note, setNote] = useState("");
@@ -76,94 +78,96 @@ export function MealLogger() {
       setCartItems([]);
       setNote("");
       setWeight("");
-      router.refresh(); // Server Component のキャッシュを再フェッチ
+      router.refresh();
       setTimeout(() => setStatus("idle"), 2000);
     }
   }
 
-  const totals = calcCartTotals(cartItems);
-
   const inputCls =
     "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400";
 
-  return (
-    <div className="rounded-2xl border border-slate-100 bg-white shadow-sm">
-      {/* ヘッダー */}
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-5 py-4 text-left"
-      >
+  const content = (
+    <div className={sidebar ? "flex flex-col gap-4" : "border-t border-slate-100 px-5 pb-5 pt-4"}>
+      {/* 日付・体重・メモ */}
+      <div className={`grid gap-3 ${sidebar ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-3"}`}>
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">日付</label>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">体重 (kg)</label>
+          <input type="number" step="0.1" min="0" placeholder="70.5" value={weight}
+            onChange={(e) => setWeight(e.target.value)} className={inputCls} />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">メモ</label>
+          <input type="text" placeholder="任意" value={note}
+            onChange={(e) => setNote(e.target.value)} className={inputCls} />
+        </div>
+      </div>
+
+      {/* 食品検索 */}
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">食品を追加</p>
+        <FoodPicker onAdd={addFood} onAddSet={addFromMenu} />
+      </div>
+
+      {/* カート */}
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">カート</p>
+        <Cart items={cartItems} onChange={setCartItems} />
+      </div>
+
+      {/* 保存ボタン */}
+      <div className="flex items-center justify-end gap-3">
+        {status === "error" && (
+          <span className="flex items-center gap-1.5 text-xs font-medium text-rose-500">
+            <AlertCircle size={14} /> 保存に失敗しました
+          </span>
+        )}
+        {status === "saved" && (
+          <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+            <CheckCircle2 size={14} /> 保存しました
+          </span>
+        )}
+        <button
+          onClick={handleSave}
+          disabled={status === "saving" || (weight === "" && cartItems.length === 0)}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md disabled:opacity-40"
+        >
+          {status === "saving"
+            ? <><Loader2 size={14} className="animate-spin" /> 保存中...</>
+            : <>保存</>}
+        </button>
+      </div>
+    </div>
+  );
+
+  // サイドバーモード: 折りたたみなし
+  if (sidebar) {
+    return (
+      <div className="flex flex-col gap-4">
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50">
             <PenLine size={15} className="text-blue-600" />
           </div>
-          <div>
-            <span className="text-sm font-semibold text-slate-700">食事ログを入力</span>
-            {!open && cartItems.length > 0 && (
-              <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                {cartItems.length} 品 · {totals.calories} kcal
-              </span>
-            )}
-          </div>
+          <span className="text-sm font-semibold text-slate-700">食事ログ</span>
         </div>
-        {open
-          ? <ChevronUp size={16} className="text-slate-400" />
-          : <ChevronDown size={16} className="text-slate-400" />}
-      </button>
+        {content}
+      </div>
+    );
+  }
 
-      {open && (
-        <div className="border-t border-slate-100 px-5 pb-5 pt-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">日付</label>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">体重 (kg)</label>
-              <input type="number" step="0.1" min="0" placeholder="70.5" value={weight}
-                onChange={(e) => setWeight(e.target.value)} className={inputCls} />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">メモ</label>
-              <input type="text" placeholder="任意" value={note}
-                onChange={(e) => setNote(e.target.value)} className={inputCls} />
-            </div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">食品を追加</p>
-              <FoodPicker onAdd={addFood} onAddSet={addFromMenu} />
-            </div>
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">カート</p>
-              <Cart items={cartItems} onChange={setCartItems} />
-            </div>
-          </div>
-
-          <div className="mt-4 flex items-center justify-end gap-3">
-            {status === "error" && (
-              <span className="flex items-center gap-1.5 text-xs font-medium text-rose-500">
-                <AlertCircle size={14} /> 保存に失敗しました
-              </span>
-            )}
-            {status === "saved" && (
-              <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
-                <CheckCircle2 size={14} /> 保存しました
-              </span>
-            )}
-            <button
-              onClick={handleSave}
-              disabled={status === "saving" || (weight === "" && cartItems.length === 0)}
-              className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md disabled:opacity-40"
-            >
-              {status === "saving"
-                ? <><Loader2 size={14} className="animate-spin" /> 保存中...</>
-                : <>保存</>}
-            </button>
-          </div>
+  // 通常モード（使用箇所なし・後方互換のため残す）
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white shadow-sm">
+      <div className="flex items-center gap-2.5 px-5 py-4">
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50">
+          <PenLine size={15} className="text-blue-600" />
         </div>
-      )}
+        <span className="text-sm font-semibold text-slate-700">食事ログを入力</span>
+      </div>
+      {content}
     </div>
   );
 }

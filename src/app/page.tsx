@@ -6,7 +6,6 @@ import { MealLogger } from "@/components/meal/MealLogger";
 import type { DailyLog, Prediction, AnalyticsCache, Setting } from "@/lib/supabase/types";
 import type { MonthStats } from "@/components/history/SeasonSummary";
 
-
 export const revalidate = 3600;
 
 async function fetchLogs(): Promise<DailyLog[]> {
@@ -53,14 +52,12 @@ function buildMonthStats(logs: DailyLog[], months = 3): MonthStats[] {
     if (!map.has(month)) map.set(month, []);
     map.get(month)!.push(log);
   }
-
   const avg = (vals: (number | null)[]) => {
     const v = vals.filter((x): x is number => x !== null);
     return v.length > 0 ? v.reduce((a, b) => a + b, 0) / v.length : null;
   };
-
   return Array.from(map.entries())
-    .sort((a, b) => b[0].localeCompare(a[0])) // 降順（新しい月が上）
+    .sort((a, b) => b[0].localeCompare(a[0]))
     .slice(0, months)
     .map(([month, entries]) => {
       const withWeight = entries.filter((d) => d.weight !== null);
@@ -95,15 +92,27 @@ export default async function DashboardPage() {
   const goalWeight = typeof settings["goal_weight"] === "number" ? settings["goal_weight"] : undefined;
   const monthlyTarget = typeof settings["monthly_target"] === "number" ? settings["monthly_target"] : undefined;
   const contestDate = typeof settings["contest_date"] === "string" ? settings["contest_date"] : undefined;
-
   const monthStats = buildMonthStats(logs, 3);
 
   return (
-    <main className="min-h-screen bg-gray-50 p-6">
-      <h1 className="mb-6 text-xl font-bold text-gray-800">Body Composition Tracker</h1>
-      <div className="space-y-6">
-        <MealLogger />
-        {logs.length > 0 && (
+    <div className="flex min-h-screen gap-6 bg-slate-50 py-6">
+      {/* サイドバー */}
+      <aside className="hidden w-80 flex-shrink-0 lg:block">
+        <div className="sticky top-20 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <MealLogger sidebar />
+        </div>
+      </aside>
+
+      {/* メインコンテンツ */}
+      <main className="min-w-0 flex-1 space-y-6">
+        {/* モバイル用 MealLogger（lg 未満で表示） */}
+        <div className="lg:hidden">
+          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+            <MealLogger sidebar />
+          </div>
+        </div>
+
+        {logs.length > 0 ? (
           <>
             <KpiCards logs={logs} settings={settings} avgTdee={latestTdee} />
             {predictions.length > 0 && (
@@ -118,13 +127,12 @@ export default async function DashboardPage() {
             )}
             <LogsAndSummaryTabs logs={logs} monthStats={monthStats} />
           </>
-        )}
-        {logs.length === 0 && (
-          <p className="text-center text-sm text-gray-400">
-            上のフォームから最初のログを入力してください。
+        ) : (
+          <p className="rounded-2xl border border-slate-100 bg-white p-8 text-center text-sm text-slate-400 shadow-sm">
+            左のフォームから最初のログを入力してください。
           </p>
         )}
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
