@@ -121,8 +121,15 @@ export function ForecastChart({
     ...visibleForecast,
     ...(goalWeight && rangeTab === "default" ? [goalWeight] : []),
   ];
-  const yMin = Math.min(55, rangeWeights.length > 0 ? Math.floor(Math.min(...rangeWeights)) - 1 : 55);
-  const yMax = rangeWeights.length > 0 ? Math.ceil(Math.max(...rangeWeights)) + 1 : 80;
+
+  // タブごとのパディング（7日は±1.5kg、31日は±2.5kg、全体は広め）
+  const yPad = rangeTab === "7d" ? 1.5 : rangeTab === "31d" ? 2.5 : 1;
+  const dataMin = rangeWeights.length > 0 ? Math.min(...rangeWeights) : 55;
+  const dataMax = rangeWeights.length > 0 ? Math.max(...rangeWeights) : 80;
+  const yMin = rangeTab === "default"
+    ? Math.min(55, Math.floor(dataMin - yPad))
+    : Math.floor((dataMin - yPad) * 10) / 10;
+  const yMax = Math.ceil((dataMax + yPad) * 10) / 10;
 
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -159,7 +166,8 @@ export function ForecastChart({
             domain={[yMin, yMax]}
             tick={{ fontSize: 11 }}
             tickFormatter={(v: number) => `${v}kg`}
-            width={48}
+            tickCount={rangeTab === "7d" ? 4 : rangeTab === "31d" ? 5 : undefined}
+            width={52}
           />
           <Tooltip
             formatter={(value: any, name: any) => {
