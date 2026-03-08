@@ -3,17 +3,16 @@ analyze.py — XGBoost 因子分析バッチ
 旧: logic.py の run_xgboost_importance() を移植
 
 current_weight を説明変数から除外してリーケージを防ぐ。
+旧版に合わせて cal_lag1 / rolling_cal_7 / p_lag1 / f_lag1 / c_lag1 の 5 特徴を使用。
 結果は analytics_cache.payload (JSONB) に保存する。
 
 実行: python ml-pipeline/analyze.py
 """
 
 import logging
-import math
 import os
 from datetime import datetime, timezone
 
-import numpy as np
 import pandas as pd
 import xgboost as xgb
 from supabase import create_client
@@ -21,9 +20,16 @@ from supabase import create_client
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-# current_weight は除外 (リーケージ対策)
-FEATURE_COLS = ["calories", "protein", "fat", "carbs"]
-TARGET_COL = "weight"
+# 旧版と同じ 5 特徴 (current_weight はリーケージのため除外)
+FEATURE_COLS = ["cal_lag1", "rolling_cal_7", "p_lag1", "f_lag1", "c_lag1"]
+FEATURE_LABELS = {
+    "cal_lag1": "カロリー（当日）",
+    "rolling_cal_7": "カロリー（週平均）",
+    "p_lag1": "タンパク質",
+    "f_lag1": "脂質",
+    "c_lag1": "炭水化物",
+}
+MIN_ROWS = 14
 
 
 def fetch_daily_logs(client) -> pd.DataFrame:
@@ -33,21 +39,42 @@ def fetch_daily_logs(client) -> pd.DataFrame:
 
 def run_importance(df: pd.DataFrame) -> dict[str, float]:
     """XGBoost で特徴量重要度を計算して返す。"""
-    df = df.dropna(subset=FEATURE_COLS + [TARGET_COL])
-
-    # 翌日の体重を予測ターゲットにする (当日の current_weight を使わない)
     df = df.copy()
-    df["target"] = df[TARGET_COL].shift(-1)
-    df = df.dropna(subset=["target"])
+    df = df.dropna(subset=["weight", "calories", "protein", "fat", "carbs"])
+    df = df.sort_values("log_date").reset_index(drop=True)
+
+    # 特徴量エンジニアリング (旧版踏襲)
+    df["cal_lag1"] = df["calories"]
+    df["rolling_cal_7"] = df["calories"].rolling(window=7, min_periods=1).mean()
+    df["p_lag1"] = df["protein"]
+    df["f_lag1"] = df["fat"]
+    df["c_lag1"] = df["carbs"]
+
+    # ターゲット: 翌日の体重変化 (リーケージ回避)
+    df["target"] = df["weight"].shift(-1)
+    df = df.dropna(subset=FEATURE_COLS + ["target"])
+
+    if len(df) < MIN_ROWS:
+        raise ValueError(f"有効行数が不足 ({len(df)} < {MIN_ROWS})")
 
     X = df[FEATURE_COLS].values
     y = df["target"].values
 
-    model = xgb.XGBRegressor(n_estimators=200, max_depth=4, random_state=42, verbosity=0)
+    model = xgb.XGBRegressor(n_estimators=100, max_depth=3, random_state=42, verbosity=0)
     model.fit(X, y)
 
-    importance = dict(zip(FEATURE_COLS, model.feature_importances_.tolist()))
-    return importance
+    raw = dict(zip(FEATURE_COLS, model.feature_importances_.tolist()))
+
+    # ラベルと重要度（%）を合わせて返す
+    total = sum(raw.values()) or 1.0
+    return {
+        col: {
+            "label": FEATURE_LABELS[col],
+            "importance": round(raw[col], 6),
+            "pct": round(raw[col] / total * 100, 1),
+        }
+        for col in FEATURE_COLS
+    }
 
 
 def main() -> None:
@@ -58,12 +85,17 @@ def main() -> None:
     logger.info("Fetching daily_logs...")
     df = fetch_daily_logs(client)
 
-    if len(df) < 30:
+    if len(df) < MIN_ROWS:
         logger.warning("Insufficient data (%d rows). Skipping analysis.", len(df))
         return
 
     logger.info("Running XGBoost importance...")
-    importance = run_importance(df)
+    try:
+        importance = run_importance(df)
+    except ValueError as e:
+        logger.warning("%s", e)
+        return
+
     logger.info("Importance: %s", importance)
 
     client.table("analytics_cache").upsert(

@@ -43,3 +43,16 @@ export function calcBmr(params: {
   const base = 10 * weightKg + 6.25 * heightCm - 5 * ageYears;
   return isMale ? base + 5 : base - 161;
 }
+
+/**
+ * BMR × 活動係数で理論 TDEE を算出する。
+ */
+export function calcTheoreticalTdee(params: {
+  weightKg: number;
+  heightCm: number;
+  ageYears: number;
+  isMale: boolean;
+  activityFactor: number;
+}): number {
+  return calcBmr(params) * params.activityFactor;
+}

@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, History, UtensilsCrossed, Settings } from "lucide-react";
+import { LayoutDashboard, History, UtensilsCrossed, Settings, Salad, Activity } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/", label: "ダッシュボード", icon: LayoutDashboard },
+  { href: "/macro", label: "栄養", icon: Salad },
+  { href: "/tdee", label: "TDEE", icon: Activity },
   { href: "/history", label: "履歴", icon: History },
   { href: "/foods", label: "食品DB", icon: UtensilsCrossed },
   { href: "/settings", label: "設定", icon: Settings },
