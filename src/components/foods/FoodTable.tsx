@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition } from "react";
-import { Trash2, Plus, Search } from "lucide-react";
+import { Trash2, Plus, Search, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { FoodMaster } from "@/lib/supabase/types";
 
@@ -27,10 +27,22 @@ const EMPTY_FOOD: NewFood = {
   category: "",
 };
 
+type SortKey = "name" | "calories" | "protein" | "fat" | "carbs";
+type SortDir = "asc" | "desc";
+
+function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; sortDir: SortDir }) {
+  if (col !== sortKey) return <ChevronsUpDown size={12} className="inline ml-1 text-slate-300" />;
+  return sortDir === "asc"
+    ? <ChevronUp size={12} className="inline ml-1 text-blue-500" />
+    : <ChevronDown size={12} className="inline ml-1 text-blue-500" />;
+}
+
 export function FoodTable({ initialFoods }: FoodTableProps) {
   const [foods, setFoods] = useState<FoodMaster[]>(initialFoods);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("すべて");
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<NewFood>(EMPTY_FOOD);
   const [error, setError] = useState<string | null>(null);
@@ -47,8 +59,25 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
     let result = foods;
     if (category !== "すべて") result = result.filter((f) => f.category === category);
     if (query) result = result.filter((f) => f.name.toLowerCase().includes(query.toLowerCase()));
-    return result;
-  }, [foods, query, category]);
+
+    return [...result].sort((a, b) => {
+      const aVal = sortKey === "name" ? a.name : a[sortKey];
+      const bVal = sortKey === "name" ? b.name : b[sortKey];
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        return sortDir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      }
+      return sortDir === "asc" ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
+    });
+  }, [foods, query, category, sortKey, sortDir]);
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("desc"); // 数値列は大きい順をデフォルトに
+    }
+  }
 
   async function handleAdd() {
     if (!form.name.trim()) return setError("食品名は必須です");
@@ -60,11 +89,9 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
       carbs: parseFloat(form.carbs) || 0,
       category: form.category.trim() || null,
     };
-
     const supabase = createClient();
     const { error: err } = await supabase.from("food_master").insert(payload as never);
     if (err) return setError(err.message);
-
     setFoods((prev) => [...prev, payload].sort((a, b) => a.name.localeCompare(b.name)));
     setForm(EMPTY_FOOD);
     setShowForm(false);
@@ -74,31 +101,33 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
   function handleDelete(name: string) {
     startTransition(async () => {
       const supabase = createClient();
-      const { error: err } = await supabase
-        .from("food_master")
-        .delete()
-        .eq("name", name as never);
+      const { error: err } = await supabase.from("food_master").delete().eq("name", name as never);
       if (!err) setFoods((prev) => prev.filter((f) => f.name !== name));
     });
   }
+
+  const thCls = (key: SortKey) =>
+    `px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 cursor-pointer select-none hover:text-slate-700 transition-colors ${
+      key === "name" ? "text-left" : "text-right"
+    }`;
 
   return (
     <div className="space-y-4">
       {/* ツールバー */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
           <input
             type="text"
             placeholder="食品名で検索..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+            className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
           />
         </div>
         <button
           onClick={() => { setShowForm((v) => !v); setError(null); }}
-          className="flex items-center gap-1.5 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
+          className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
         >
           <Plus size={15} />
           追加
@@ -127,11 +156,11 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
       {/* 追加フォーム */}
       {showForm && (
         <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-          <p className="mb-3 text-sm font-semibold text-gray-700">新規食品を追加 (100g あたり)</p>
+          <p className="mb-3 text-sm font-semibold text-slate-700">新規食品を追加 (100g あたり)</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {(["name", "calories", "protein", "fat", "carbs", "category"] as const).map((field) => (
               <div key={field}>
-                <label className="mb-1 block text-xs font-medium text-gray-500">
+                <label className="mb-1 block text-xs font-medium text-slate-500">
                   {{ name: "食品名", calories: "kcal", protein: "P (g)", fat: "F (g)", carbs: "C (g)", category: "カテゴリ" }[field]}
                 </label>
                 <input
@@ -140,7 +169,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
                   min="0"
                   value={form[field]}
                   onChange={(e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))}
-                  className="w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-blue-400"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-blue-400"
                 />
               </div>
             ))}
@@ -149,13 +178,13 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
           <div className="mt-3 flex justify-end gap-2">
             <button
               onClick={() => { setShowForm(false); setForm(EMPTY_FOOD); setError(null); }}
-              className="rounded-lg border border-gray-200 bg-white px-4 py-1.5 text-sm hover:bg-gray-50"
+              className="rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-sm hover:bg-slate-50"
             >
               キャンセル
             </button>
             <button
               onClick={handleAdd}
-              className="rounded-lg bg-blue-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-600"
+              className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"
             >
               保存
             </button>
@@ -164,41 +193,53 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
       )}
 
       {/* テーブル */}
-      <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="border-b border-gray-100 bg-gray-50">
+            <thead className="border-b border-slate-100 bg-slate-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">食品名</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">kcal</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">P (g)</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">F (g)</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">C (g)</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">カテゴリ</th>
+                <th className={thCls("name")} onClick={() => handleSort("name")}>
+                  食品名 <SortIcon col="name" sortKey={sortKey} sortDir={sortDir} />
+                </th>
+                <th className={thCls("calories")} onClick={() => handleSort("calories")}>
+                  kcal <SortIcon col="calories" sortKey={sortKey} sortDir={sortDir} />
+                </th>
+                <th className={thCls("protein")} onClick={() => handleSort("protein")}>
+                  P (g) <SortIcon col="protein" sortKey={sortKey} sortDir={sortDir} />
+                </th>
+                <th className={thCls("fat")} onClick={() => handleSort("fat")}>
+                  F (g) <SortIcon col="fat" sortKey={sortKey} sortDir={sortDir} />
+                </th>
+                <th className={thCls("carbs")} onClick={() => handleSort("carbs")}>
+                  C (g) <SortIcon col="carbs" sortKey={sortKey} sortDir={sortDir} />
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  カテゴリ
+                </th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-sm text-gray-400">
-                    {query ? "該当なし" : "食品が登録されていません"}
+                  <td colSpan={7} className="py-8 text-center text-sm text-slate-400">
+                    {query || category !== "すべて" ? "該当なし" : "食品が登録されていません"}
                   </td>
                 </tr>
               ) : (
                 filtered.map((food) => (
-                  <tr key={food.name} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="px-4 py-2.5 font-medium text-gray-800">{food.name}</td>
-                    <td className="px-4 py-2.5 text-right text-gray-600">{food.calories}</td>
-                    <td className="px-4 py-2.5 text-right text-gray-600">{food.protein}</td>
-                    <td className="px-4 py-2.5 text-right text-gray-600">{food.fat}</td>
-                    <td className="px-4 py-2.5 text-right text-gray-600">{food.carbs}</td>
-                    <td className="px-4 py-2.5 text-gray-500">{food.category ?? "—"}</td>
+                  <tr key={food.name} className="border-b border-slate-50 hover:bg-slate-50">
+                    <td className="px-4 py-2.5 font-medium text-slate-800">{food.name}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">{food.calories}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">{food.protein}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">{food.fat}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">{food.carbs}</td>
+                    <td className="px-4 py-2.5 text-slate-400 text-xs">{food.category ?? "—"}</td>
                     <td className="px-4 py-2.5 text-right">
                       <button
                         onClick={() => handleDelete(food.name)}
                         disabled={isPending}
-                        className="text-gray-300 hover:text-rose-500 disabled:opacity-40"
+                        className="text-slate-300 hover:text-rose-500 disabled:opacity-40"
                         aria-label={`${food.name}を削除`}
                       >
                         <Trash2 size={15} />
@@ -210,9 +251,9 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
             </tbody>
           </table>
         </div>
-        <div className="border-t border-gray-100 px-4 py-2 text-xs text-gray-400">
+        <div className="border-t border-slate-100 px-4 py-2 text-xs text-slate-400">
           {filtered.length} 件 / 全 {foods.length} 件
-            {category !== "すべて" && <span className="ml-1 text-blue-500">（{category}）</span>}
+          {category !== "すべて" && <span className="ml-1 text-blue-500">（{category}）</span>}
         </div>
       </div>
     </div>

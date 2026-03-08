@@ -30,10 +30,23 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
   const [addFood, setAddFood] = useState("");
   const [addAmount, setAddAmount] = useState("100");
+  const [addCategory, setAddCategory] = useState("すべて");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const foodMap = useMemo(() => new Map(foods.map((f) => [f.name, f])), [foods]);
+
+  const foodCategories = useMemo(() => {
+    const cats = Array.from(
+      new Set(foods.map((f) => f.category).filter((c): c is string => !!c))
+    ).sort();
+    return ["すべて", ...cats];
+  }, [foods]);
+
+  const filteredFoodsForAdd = useMemo(() =>
+    addCategory === "すべて" ? foods : foods.filter((f) => f.category === addCategory),
+    [foods, addCategory]
+  );
 
   function startNew() {
     setEditing({ originalName: null, name: "", items: [] });
@@ -127,6 +140,25 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
           </div>
 
           {/* 食品追加行 */}
+          {/* カテゴリフィルター */}
+          {foodCategories.length > 1 && (
+            <div className="flex gap-1.5 overflow-x-auto pb-1">
+              {foodCategories.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => { setAddCategory(cat); setAddFood(""); }}
+                  className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                    addCategory === cat
+                      ? "bg-amber-500 text-white"
+                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex gap-2">
             <select
               value={addFood}
@@ -134,7 +166,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
               className="flex-1 rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm outline-none focus:border-amber-400"
             >
               <option value="">食品を選択...</option>
-              {foods.map((f) => (
+              {filteredFoodsForAdd.map((f) => (
                 <option key={f.name} value={f.name}>{f.name}</option>
               ))}
             </select>
