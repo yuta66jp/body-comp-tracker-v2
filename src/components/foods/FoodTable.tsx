@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { Trash2, Plus, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { FoodMaster } from "@/lib/supabase/types";
@@ -30,14 +30,25 @@ const EMPTY_FOOD: NewFood = {
 export function FoodTable({ initialFoods }: FoodTableProps) {
   const [foods, setFoods] = useState<FoodMaster[]>(initialFoods);
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("すべて");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<NewFood>(EMPTY_FOOD);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const filtered = foods.filter((f) =>
-    f.name.toLowerCase().includes(query.toLowerCase())
-  );
+  const categories = useMemo(() => {
+    const cats = Array.from(
+      new Set(foods.map((f) => f.category).filter((c): c is string => !!c))
+    ).sort();
+    return ["すべて", ...cats];
+  }, [foods]);
+
+  const filtered = useMemo(() => {
+    let result = foods;
+    if (category !== "すべて") result = result.filter((f) => f.category === category);
+    if (query) result = result.filter((f) => f.name.toLowerCase().includes(query.toLowerCase()));
+    return result;
+  }, [foods, query, category]);
 
   async function handleAdd() {
     if (!form.name.trim()) return setError("食品名は必須です");
@@ -93,6 +104,25 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
           追加
         </button>
       </div>
+
+      {/* カテゴリフィルター */}
+      {categories.length > 1 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setCategory(cat)}
+              className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                category === cat
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 追加フォーム */}
       {showForm && (
@@ -182,6 +212,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
         </div>
         <div className="border-t border-gray-100 px-4 py-2 text-xs text-gray-400">
           {filtered.length} 件 / 全 {foods.length} 件
+            {category !== "すべて" && <span className="ml-1 text-blue-500">（{category}）</span>}
         </div>
       </div>
     </div>
