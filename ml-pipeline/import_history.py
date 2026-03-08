@@ -68,6 +68,13 @@ def main() -> None:
     records = load_csv(csv_path)
     logger.info("Loaded %d rows", len(records))
 
+    # (log_date, season) で重複排除（同日複数記録がある場合は最後を採用）
+    dedup: dict[tuple[str, str], dict] = {}
+    for r in records:
+        dedup[(r["log_date"], r["season"])] = r
+    records = list(dedup.values())
+    logger.info("After dedup: %d rows", len(records))
+
     # シーズン別サマリー
     seasons: dict[str, dict] = {}
     for r in records:
