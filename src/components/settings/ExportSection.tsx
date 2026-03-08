@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { Download } from "lucide-react";
-import { toLocalDateStr } from "@/lib/utils/date";
+import { toJstDateStr } from "@/lib/utils/date";
 
-function todayStr() { return toLocalDateStr(); }
+function todayStr() { return toJstDateStr(); }
 function firstOfMonthStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  // JST 基準で今月1日を返す
+  const today = toJstDateStr();
+  return today.slice(0, 7) + "-01";
 }
 
 export function ExportSection() {

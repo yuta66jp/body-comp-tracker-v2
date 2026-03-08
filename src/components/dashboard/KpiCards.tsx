@@ -3,7 +3,7 @@
 import { TrendingDown, TrendingUp, Minus, Weight, Flame, CalendarClock, Zap, Target } from "lucide-react";
 import type { DailyLog } from "@/lib/supabase/types";
 import { calcWeightTrend } from "@/lib/utils/calcTrend";
-import { toLocalDateStr } from "@/lib/utils/date";
+import { toJstDateStr } from "@/lib/utils/date";
 
 const KCAL_PER_KG = 7200;
 
@@ -101,7 +101,7 @@ export function KpiCards({ logs, settings, avgTdee }: KpiCardsProps) {
       if (daysNeeded > 0 && daysNeeded < 730) {
         const d = new Date();
         d.setDate(d.getDate() + Math.round(daysNeeded));
-        goalReachDate = toLocalDateStr(d);
+        goalReachDate = toJstDateStr(d);
         goalReachLabel = goalReachDate.slice(5); // MM-DD
       } else {
         goalReachLabel = "停滞中";

@@ -8,12 +8,12 @@ import { FoodPicker } from "./FoodPicker";
 import { Cart, calcCartTotals } from "./Cart";
 import type { CartItem } from "./Cart";
 import type { FoodMaster } from "@/lib/supabase/types";
-import { toLocalDateStr } from "@/lib/utils/date";
+import { toJstDateStr } from "@/lib/utils/date";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 function todayStr() {
-  return toLocalDateStr();
+  return toJstDateStr();
 }
 
 interface MealLoggerProps {

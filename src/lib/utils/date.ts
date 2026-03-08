@@ -1,20 +1,62 @@
 /**
- * date.ts — タイムゾーン安全な日付ユーティリティ
+ * date.ts — JST 基準の日付ユーティリティ
  *
- * `new Date().toISOString().slice(0, 10)` は UTC で日付を返すため、
- * JST (UTC+9) の 00:00〜08:59 では前日の日付になる問題がある。
- * このモジュールの関数はローカルタイムゾーンで日付を返す。
+ * 背景:
+ *   - UTC サーバー（Next.js SSR・GitHub Actions など）と JST ブラウザで
+ *     「今日の日付」が食い違う問題がある。
+ *   - `new Date().toISOString().slice(0, 10)` は UTC 日付を返すため、
+ *     JST の 00:00〜08:59 では前日の日付になる。
+ *   - `getFullYear() / getMonth() / getDate()` は実行環境のローカル TZ 依存のため、
+ *     UTC サーバー上では JST とは異なる日付を返す。
  *
- * また `new Date("YYYY-MM-DD")` は ISO 8601 の日付のみ文字列として UTC 午前0時に
- * パースされるため、タイムゾーンがある環境では意図しない日付になる場合がある。
- * "YYYY-MM-DD" 文字列からローカル日付を作成する場合は parseLocalDateStr() を使うこと。
+ * 対策:
+ *   - 日付文字列を生成する関数 (toJstDateStr) は UTC+9 オフセットを加算して
+ *     JST の日付として固定する。環境の TZ 設定に依存しない。
+ *   - 日付文字列を解釈する関数 (parseLocalDateStr) はローカル Date を生成する。
+ *     addDaysStr / dateRangeStr は文字列 → Date → 文字列 の変換をするため、
+ *     JST で統一される。
+ *
+ * 責務の分離:
+ *   - toJstDateStr()   : Date → YYYY-MM-DD 文字列（JST 固定）
+ *   - parseLocalDateStr(): YYYY-MM-DD 文字列 → Date（入力検証付き）
+ *   - addDaysStr()     : YYYY-MM-DD + N日 → YYYY-MM-DD
+ *   - dateRangeStr()   : from 〜 to の YYYY-MM-DD 配列
  */
 
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000; // UTC+9
+
 /**
- * "YYYY-MM-DD" 文字列をローカルタイムゾーンの Date に変換する。
+ * 指定した Date（省略時は現在時刻）を JST 基準の YYYY-MM-DD 形式に変換する。
  *
- * `new Date("YYYY-MM-DD")` は UTC 午前0時として解釈されるため、
- * JST 環境では前日の 09:00 になってしまう。本関数はローカル日付として解釈する。
+ * 実行環境の TZ 設定（UTC サーバー / JST ブラウザ）に関係なく、
+ * 常に JST の日付文字列を返す。
+ *
+ * @param date - 変換対象の Date。省略時は `new Date()` を使用。
+ * @returns "YYYY-MM-DD" 形式の文字列（JST 基準）
+ */
+export function toJstDateStr(date: Date = new Date()): string {
+  // UTC+9 オフセットを加算して JST の「今の時刻」を UTC の世界で表現し、
+  // ISO 文字列の日付部分を取り出す。
+  const jst = new Date(date.getTime() + JST_OFFSET_MS);
+  return jst.toISOString().slice(0, 10);
+}
+
+/**
+ * @deprecated toJstDateStr() を使用してください。
+ * 実行環境依存のローカルタイムゾーンで日付を生成していたが、
+ * UTC サーバーと JST ブラウザで結果が異なるため JST 固定の toJstDateStr に移行。
+ */
+export function toLocalDateStr(date?: Date): string {
+  return toJstDateStr(date);
+}
+
+/**
+ * "YYYY-MM-DD" 文字列を Date に変換する（入力検証付き）。
+ *
+ * `new Date("YYYY-MM-DD")` は UTC 午前0時として解釈されるため使用しない。
+ * 本関数は `new Date(y, m-1, d)` でローカル午前0時の Date を返す。
+ * addDaysStr / dateRangeStr の内部で使用し、最終的に toJstDateStr() で
+ * JST の YYYY-MM-DD 文字列に変換される。
  *
  * 以下の入力は不正とみなし null を返す:
  * - "YYYY-MM-DD" 形式でない ("abc", "2026/03/01", 空文字)
@@ -22,14 +64,12 @@
  * - 実在しない日付 ("2026-02-31")
  *
  * @param s - "YYYY-MM-DD" 形式の文字列
- * @returns ローカルタイムゾーンの Date（時刻は 00:00:00）。不正な入力は null。
+ * @returns Date オブジェクト。不正な入力は null。
  */
 export function parseLocalDateStr(s: string): Date | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
   const [y, m, d] = s.split("-").map(Number);
-  // 月の範囲チェック (1〜12)
   if (m < 1 || m > 12) return null;
-  // 実在する日付か確認: Date が月をオーバーフローしないことで検証
   const date = new Date(y, m - 1, d);
   if (date.getFullYear() !== y || date.getMonth() + 1 !== m || date.getDate() !== d) {
     return null;
@@ -38,43 +78,21 @@ export function parseLocalDateStr(s: string): Date | null {
 }
 
 /**
- * 指定した Date（省略時は今日）をローカルタイムゾーンで YYYY-MM-DD 形式に変換する。
- *
- * @param date - 変換対象の Date。省略時は `new Date()` を使用。
- * @returns "YYYY-MM-DD" 形式の文字列
- */
-export function toLocalDateStr(date?: Date): string {
-  const d = date ?? new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-/**
- * ある日付に指定日数を加算した日付を YYYY-MM-DD で返す。
- *
- * `new Date(base)` ではなく parseLocalDateStr() を使うことで、
- * タイムゾーンによる日付ずれを防いでいる。
- * base が不正な形式の場合は null を返す。
+ * ある日付に指定日数を加算した日付を YYYY-MM-DD で返す（JST 基準）。
  *
  * @param base - 基準日 (YYYY-MM-DD)
  * @param days - 加算する日数（負の値で減算）
- * @returns YYYY-MM-DD 文字列。base が不正な場合は null。
+ * @returns YYYY-MM-DD 文字列（JST 基準）。base が不正な場合は null。
  */
 export function addDaysStr(base: string, days: number): string | null {
   const d = parseLocalDateStr(base);
   if (d === null) return null;
   d.setDate(d.getDate() + days);
-  return toLocalDateStr(d);
+  return toJstDateStr(d);
 }
 
 /**
- * from 〜 to の範囲の日付文字列配列を返す（両端を含む）。
- *
- * `new Date(from)` ではなく parseLocalDateStr() を使うことで、
- * タイムゾーンによる日付ずれを防いでいる。
- * from または to が不正な形式の場合は空配列を返す。
+ * from 〜 to の範囲の日付文字列配列を返す（両端を含む、JST 基準）。
  *
  * @param from - 開始日 (YYYY-MM-DD)
  * @param to   - 終了日 (YYYY-MM-DD)
@@ -86,7 +104,7 @@ export function dateRangeStr(from: string, to: string): string[] {
   const end = parseLocalDateStr(to);
   if (cur === null || end === null) return [];
   while (cur <= end) {
-    dates.push(toLocalDateStr(cur));
+    dates.push(toJstDateStr(cur));
     cur.setDate(cur.getDate() + 1);
   }
   return dates;

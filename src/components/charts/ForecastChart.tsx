@@ -13,7 +13,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import type { DailyLog, Prediction } from "@/lib/supabase/types";
-import { toLocalDateStr, addDaysStr, dateRangeStr } from "@/lib/utils/date";
+import { toJstDateStr, addDaysStr, dateRangeStr } from "@/lib/utils/date";
 
 interface ForecastChartProps {
   logs: DailyLog[];
@@ -49,7 +49,7 @@ export function ForecastChart({
 }: ForecastChartProps) {
   const [rangeTab, setRangeTab] = useState<RangeTab>("default");
 
-  const today = toLocalDateStr();
+  const today = toJstDateStr();
 
   // 最新測定日（体重あり）
   const latestLogDate = logs
