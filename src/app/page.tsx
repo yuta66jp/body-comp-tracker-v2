@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { KpiCards } from "@/components/dashboard/KpiCards";
 import { ForecastChart } from "@/components/charts/ForecastChart";
 import { LogsAndSummaryTabs } from "@/components/dashboard/LogsAndSummaryTabs";
-import { MealLogger } from "@/components/meal/MealLogger";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import type { DailyLog, Prediction, AnalyticsCache, Setting } from "@/lib/supabase/types";
 import type { MonthStats } from "@/components/history/SeasonSummary";
 
@@ -95,44 +95,27 @@ export default async function DashboardPage() {
   const monthStats = buildMonthStats(logs, 3);
 
   return (
-    <div className="flex min-h-screen gap-6 bg-slate-50 py-6">
-      {/* サイドバー */}
-      <aside className="hidden w-80 flex-shrink-0 lg:block">
-        <div className="sticky top-20 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-          <MealLogger sidebar />
-        </div>
-      </aside>
-
-      {/* メインコンテンツ */}
-      <main className="min-w-0 flex-1 space-y-6">
-        {/* モバイル用 MealLogger（lg 未満で表示） */}
-        <div className="lg:hidden">
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <MealLogger sidebar />
-          </div>
-        </div>
-
-        {logs.length > 0 ? (
-          <>
-            <KpiCards logs={logs} settings={settings} avgTdee={latestTdee} />
-            {predictions.length > 0 && (
-              <ForecastChart
-                logs={logs}
-                predictions={predictions}
-                sma7={sma7}
-                goalWeight={goalWeight}
-                monthlyTarget={monthlyTarget}
-                contestDate={contestDate}
-              />
-            )}
-            <LogsAndSummaryTabs logs={logs} monthStats={monthStats} />
-          </>
-        ) : (
-          <p className="rounded-2xl border border-slate-100 bg-white p-8 text-center text-sm text-slate-400 shadow-sm">
-            左のフォームから最初のログを入力してください。
-          </p>
-        )}
-      </main>
-    </div>
+    <DashboardLayout>
+      {logs.length > 0 ? (
+        <>
+          <KpiCards logs={logs} settings={settings} avgTdee={latestTdee} />
+          {predictions.length > 0 && (
+            <ForecastChart
+              logs={logs}
+              predictions={predictions}
+              sma7={sma7}
+              goalWeight={goalWeight}
+              monthlyTarget={monthlyTarget}
+              contestDate={contestDate}
+            />
+          )}
+          <LogsAndSummaryTabs logs={logs} monthStats={monthStats} />
+        </>
+      ) : (
+        <p className="rounded-2xl border border-slate-100 bg-white p-8 text-center text-sm text-slate-400 shadow-sm">
+          左のフォームから最初のログを入力してください。
+        </p>
+      )}
+    </DashboardLayout>
   );
 }
