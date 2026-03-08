@@ -63,7 +63,7 @@ export function MealLogger() {
       fat: cartItems.length > 0 ? totals.fat : null,
       carbs: cartItems.length > 0 ? totals.carbs : null,
       note: note || null,
-    });
+    } as never);
 
     if (error) {
       console.error("upsert error:", error.message);

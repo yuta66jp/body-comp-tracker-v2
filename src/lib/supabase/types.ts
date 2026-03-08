@@ -146,6 +146,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      career_logs: {
+        Row: {
+          id: number;
+          log_date: string;
+          weight: number;
+          season: string;
+          target_date: string;
+          note: string | null;
+        };
+        Insert: {
+          id?: number;
+          log_date: string;
+          weight: number;
+          season: string;
+          target_date: string;
+          note?: string | null;
+        };
+        Update: {
+          id?: number;
+          log_date?: string;
+          weight?: number;
+          season?: string;
+          target_date?: string;
+          note?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -161,6 +188,7 @@ export type MenuMaster = Database["public"]["Tables"]["menu_master"]["Row"];
 export type Setting = Database["public"]["Tables"]["settings"]["Row"];
 export type Prediction = Database["public"]["Tables"]["predictions"]["Row"];
 export type AnalyticsCache = Database["public"]["Tables"]["analytics_cache"]["Row"];
+export type CareerLog = Database["public"]["Tables"]["career_logs"]["Row"];
 
 /** menu_master.recipe JSONB の要素型 (旧版: {name, amount}) */
 export interface RecipeItem {
