@@ -3,84 +3,8 @@
 import { useState, useRef } from "react";
 import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-
-interface ParsedRow {
-  log_date: string;
-  weight: number | null;
-  calories: number | null;
-  protein: number | null;
-  fat: number | null;
-  carbs: number | null;
-  note: string | null;
-}
-
-interface ParseResult {
-  rows: ParsedRow[];
-  errors: string[];
-}
-
-// 列名の正規化（エクスポート形式 / 旧版 CSV など複数フォーマットに対応）
-const ALIASES: Record<string, keyof ParsedRow> = {
-  log_date: "log_date", date: "log_date",
-  weight: "weight", "weight(kg)": "weight",
-  calories: "calories", "calories(kcal)": "calories", kcal: "calories",
-  protein: "protein", "protein(g)": "protein", p: "protein",
-  fat: "fat", "fat(g)": "fat", f: "fat",
-  carbs: "carbs", "carbs(g)": "carbs", c: "carbs",
-  note: "note", memo: "note",
-};
-
-function normalizeKey(raw: string): keyof ParsedRow | null {
-  return ALIASES[raw.toLowerCase().trim().replace(/\s+/g, "")] ?? null;
-}
-
-function parseNum(v: string): number | null {
-  const n = parseFloat(v.trim());
-  return isNaN(n) ? null : n;
-}
-
-function parseCSV(text: string): ParseResult {
-  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").filter((l) => l.trim());
-  if (lines.length < 2) return { rows: [], errors: ["データ行がありません"] };
-
-  const headers = lines[0].split(",").map((h) => h.trim().replace(/^["']|["']$/g, ""));
-  const keyMap = headers.map(normalizeKey);
-
-  if (!keyMap.includes("log_date")) {
-    return { rows: [], errors: ["日付列（log_date または Date）が見つかりません"] };
-  }
-
-  const rows: ParsedRow[] = [];
-  const errors: string[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const cells = lines[i].split(",").map((c) => c.trim().replace(/^["']|["']$/g, ""));
-    const raw: Record<string, string> = {};
-    keyMap.forEach((key, idx) => { if (key) raw[key] = cells[idx] ?? ""; });
-
-    const dateStr = raw["log_date"]?.trim();
-    if (!dateStr) continue;
-
-    // YYYY-MM-DD or YYYY/MM/DD
-    const normalized = dateStr.replace(/\//g, "-").slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
-      errors.push(`行 ${i + 1}: 日付フォーマットが不正（${dateStr}）`);
-      continue;
-    }
-
-    rows.push({
-      log_date: normalized,
-      weight: raw["weight"] ? parseNum(raw["weight"]) : null,
-      calories: raw["calories"] ? parseNum(raw["calories"]) : null,
-      protein: raw["protein"] ? parseNum(raw["protein"]) : null,
-      fat: raw["fat"] ? parseNum(raw["fat"]) : null,
-      carbs: raw["carbs"] ? parseNum(raw["carbs"]) : null,
-      note: raw["note"] || null,
-    });
-  }
-
-  return { rows, errors };
-}
+import { parseCSV } from "@/lib/utils/csvParser";
+import type { ParseResult } from "@/lib/utils/csvParser";
 
 const BATCH_SIZE = 50;
 

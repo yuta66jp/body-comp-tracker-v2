@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { Plus, ChevronDown, ChevronUp } from "lucide-react";
 
 interface SeasonManagerProps {
   seasons: Array<{ season: string; targetDate: string; count: number; peakWeight: number }>;
@@ -23,19 +22,32 @@ export function SeasonManager({ seasons }: SeasonManagerProps) {
     if (!season || !targetDate || !logDate || !weight) {
       return setError("シーズン名・大会日・記録日・体重は必須です");
     }
+    const parsedWeight = parseFloat(weight);
+    if (isNaN(parsedWeight)) {
+      return setError("体重は有効な数値を入力してください");
+    }
     setError(null);
-    const supabase = createClient();
-    const { error: err } = await supabase.from("career_logs").upsert(
-      {
-        season: season.trim(),
-        target_date: targetDate,
-        log_date: logDate,
-        weight: parseFloat(weight),
-        note: note || null,
-      } as never,
-      { onConflict: "log_date,season" }
-    );
-    if (err) return setError(err.message);
+
+    try {
+      const res = await fetch("/api/career-logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          season: season.trim(),
+          target_date: targetDate,
+          log_date: logDate,
+          weight: parsedWeight,
+          note: note || null,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return setError((data as { error?: string }).error ?? `エラー (${res.status})`);
+      }
+    } catch (e) {
+      return setError(e instanceof Error ? e.message : "ネットワークエラー");
+    }
+
     setSuccess(true);
     setLogDate("");
     setWeight("");

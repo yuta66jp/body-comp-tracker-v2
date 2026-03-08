@@ -7,6 +7,7 @@ import {
   buildDaysOutSeries,
   buildDaysOutChartData,
 } from "@/lib/utils/calcSeason";
+import { toLocalDateStr } from "@/lib/utils/date";
 import type { DailyLog, CareerLog, Setting } from "@/lib/supabase/types";
 
 export const revalidate = 3600;
@@ -51,7 +52,7 @@ export default async function HistoryPage() {
   // Settings から contest_date・current_season を取得
   const contestDate = typeof settings["contest_date"] === "string"
     ? settings["contest_date"]
-    : new Date().toISOString().slice(0, 10);
+    : toLocalDateStr();
 
   const currentSeasonLabel = typeof settings["current_season"] === "string" && settings["current_season"]
     ? settings["current_season"]

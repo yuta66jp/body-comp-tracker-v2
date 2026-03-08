@@ -47,19 +47,35 @@ def run_model(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def main() -> None:
-    url = os.environ["SUPABASE_URL"]
-    key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not url or not key:
+        logger.error(
+            "Missing required environment variables: SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY"
+        )
+        raise SystemExit(1)
+
     client = create_client(url, key)
 
-    logger.info("Fetching weight data...")
-    df = fetch_daily_logs(client)
+    logger.info("Fetching weight data from daily_logs...")
+    try:
+        df = fetch_daily_logs(client)
+    except Exception as e:
+        logger.error("Failed to fetch daily_logs: %s", e)
+        raise SystemExit(1)
+
+    logger.info("Fetched %d rows with weight data.", len(df))
 
     if len(df) < 14:
         logger.warning("Insufficient data (%d rows). Skipping prediction.", len(df))
         return
 
     logger.info("Running NeuralProphet (rows=%d)...", len(df))
-    forecast = run_model(df)
+    try:
+        forecast = run_model(df)
+    except Exception as e:
+        logger.error("NeuralProphet model failed: %s", e)
+        raise SystemExit(1)
 
     records = [
         {
@@ -73,9 +89,15 @@ def main() -> None:
     ]
     records = [r for r in records if r["yhat"] is not None]
 
-    # 既存の予測を削除してから upsert (日付単位で冪等)
-    client.table("predictions").upsert(records, on_conflict="ds").execute()
-    logger.info("Upserted %d predictions.", len(records))
+    logger.info("Upserting %d predictions to 'predictions' table...", len(records))
+    try:
+        # 既存の予測を削除してから upsert (日付単位で冪等)
+        client.table("predictions").upsert(records, on_conflict="ds").execute()
+    except Exception as e:
+        logger.error("Failed to upsert predictions: %s", e)
+        raise SystemExit(1)
+
+    logger.info("Done. Upserted %d predictions to 'predictions'.", len(records))
 
 
 if __name__ == "__main__":

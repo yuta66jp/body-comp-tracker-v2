@@ -5,6 +5,7 @@
  * 脂肪 1kg = 7,200 kcal (エビデンスベース: Hall et al., 2012)
  * ※旧コードの 6,800 との不一致を 7,200 に統一。
  */
+import { toLocalDateStr } from "./date";
 
 export const KCAL_PER_KG_FAT = 7_200;
 
@@ -69,7 +70,7 @@ export function calcMetabolicSim(
   startDate?: string
 ): SimPoint[] {
   const ADAPTATION_FACTOR = 30; // kcal/kg
-  const start = new Date(startDate ?? new Date().toISOString().slice(0, 10));
+  const start = new Date(startDate ?? toLocalDateStr());
   const end = new Date(targetDate);
   const days = Math.round((end.getTime() - start.getTime()) / 86_400_000);
   if (days <= 0) return [];
@@ -87,7 +88,7 @@ export function calcMetabolicSim(
     const d = new Date(start);
     d.setDate(d.getDate() + i);
     points.push({
-      date: d.toISOString().slice(0, 10),
+      date: toLocalDateStr(d),
       weight: Math.round(simWeight * 100) / 100,
     });
   }

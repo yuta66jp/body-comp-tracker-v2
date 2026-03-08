@@ -78,34 +78,55 @@ def run_importance(df: pd.DataFrame) -> dict[str, float]:
 
 
 def main() -> None:
-    url = os.environ["SUPABASE_URL"]
-    key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not url or not key:
+        logger.error(
+            "Missing required environment variables: SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY"
+        )
+        raise SystemExit(1)
+
     client = create_client(url, key)
 
     logger.info("Fetching daily_logs...")
-    df = fetch_daily_logs(client)
+    try:
+        df = fetch_daily_logs(client)
+    except Exception as e:
+        logger.error("Failed to fetch daily_logs: %s", e)
+        raise SystemExit(1)
+
+    logger.info("Fetched %d rows from daily_logs.", len(df))
 
     if len(df) < MIN_ROWS:
         logger.warning("Insufficient data (%d rows). Skipping analysis.", len(df))
         return
 
-    logger.info("Running XGBoost importance...")
+    logger.info("Running XGBoost importance (rows=%d)...", len(df))
     try:
         importance = run_importance(df)
     except ValueError as e:
-        logger.warning("%s", e)
+        logger.warning("Skipping: %s", e)
         return
+    except Exception as e:
+        logger.error("XGBoost training failed: %s", e)
+        raise SystemExit(1)
 
     logger.info("Importance: %s", importance)
 
-    client.table("analytics_cache").upsert(
-        {
-            "metric_type": "xgboost_importance",
-            "payload": importance,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }
-    ).execute()
-    logger.info("Saved xgboost_importance to analytics_cache.")
+    logger.info("Saving xgboost_importance to 'analytics_cache'...")
+    try:
+        client.table("analytics_cache").upsert(
+            {
+                "metric_type": "xgboost_importance",
+                "payload": importance,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
+    except Exception as e:
+        logger.error("Failed to save analytics_cache: %s", e)
+        raise SystemExit(1)
+
+    logger.info("Done. Saved xgboost_importance to 'analytics_cache'.")
 
 
 if __name__ == "__main__":

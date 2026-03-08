@@ -112,8 +112,8 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
                 </div>
               ) : (
                 <input
-                  type={meta.type === "date" ? "date" : "number"}
-                  step="any"
+                  type={meta.type}
+                  step={meta.type === "number" ? "any" : undefined}
                   placeholder={meta.placeholder}
                   value={values[key] ?? ""}
                   onChange={(e) => set(key, e.target.value)}

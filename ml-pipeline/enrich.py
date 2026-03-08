@@ -48,12 +48,24 @@ def enrich_data(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def main() -> None:
-    url = os.environ["SUPABASE_URL"]
-    key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not url or not key:
+        logger.error(
+            "Missing required environment variables: SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY"
+        )
+        raise SystemExit(1)
+
     client = create_client(url, key)
 
     logger.info("Fetching daily_logs...")
-    df = fetch_daily_logs(client)
+    try:
+        df = fetch_daily_logs(client)
+    except Exception as e:
+        logger.error("Failed to fetch daily_logs: %s", e)
+        raise SystemExit(1)
+
+    logger.info("Fetched %d rows from daily_logs.", len(df))
 
     if df.empty:
         logger.warning("No data found in daily_logs. Skipping.")
@@ -78,14 +90,20 @@ def main() -> None:
 
     records = [sanitize(r) for r in payload.to_dict(orient="records")]
 
-    client.table("analytics_cache").upsert(
-        {
-            "metric_type": "enriched_logs",
-            "payload": records,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }
-    ).execute()
-    logger.info("Saved enriched_logs to analytics_cache.")
+    logger.info("Saving enriched_logs (%d records) to 'analytics_cache'...", len(records))
+    try:
+        client.table("analytics_cache").upsert(
+            {
+                "metric_type": "enriched_logs",
+                "payload": records,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
+    except Exception as e:
+        logger.error("Failed to save analytics_cache: %s", e)
+        raise SystemExit(1)
+
+    logger.info("Done. Saved %d enriched records to 'analytics_cache'.", len(records))
 
 
 if __name__ == "__main__":

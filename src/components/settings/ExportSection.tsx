@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { Download } from "lucide-react";
+import { toLocalDateStr } from "@/lib/utils/date";
 
-function todayStr() { return new Date().toISOString().slice(0, 10); }
+function todayStr() { return toLocalDateStr(); }
 function firstOfMonthStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;

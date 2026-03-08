@@ -13,6 +13,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import type { DailyLog, Prediction } from "@/lib/supabase/types";
+import { toLocalDateStr, addDaysStr, dateRangeStr } from "@/lib/utils/date";
 
 interface ForecastChartProps {
   logs: DailyLog[];
@@ -38,23 +39,6 @@ const RANGE_TABS: { key: RangeTab; label: string }[] = [
   { key: "31d",     label: "31日" },
 ];
 
-function dateRange(from: string, to: string): string[] {
-  const dates: string[] = [];
-  const cur = new Date(from);
-  const end = new Date(to);
-  while (cur <= end) {
-    dates.push(cur.toISOString().slice(0, 10));
-    cur.setDate(cur.getDate() + 1);
-  }
-  return dates;
-}
-
-function addDays(base: string, days: number): string {
-  const d = new Date(base);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 export function ForecastChart({
   logs,
   predictions,
@@ -65,7 +49,7 @@ export function ForecastChart({
 }: ForecastChartProps) {
   const [rangeTab, setRangeTab] = useState<RangeTab>("default");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalDateStr();
 
   // 最新測定日（体重あり）
   const latestLogDate = logs
@@ -89,18 +73,18 @@ export function ForecastChart({
   let viewEndStr: string;
 
   if (rangeTab === "7d") {
-    viewStartStr = addDays(latestLogDate, -6);  // 最新測定日を含む7日間
+    viewStartStr = addDaysStr(latestLogDate, -6);  // 最新測定日を含む7日間
     viewEndStr = latestLogDate;
   } else if (rangeTab === "31d") {
-    viewStartStr = addDays(latestLogDate, -30); // 最新測定日を含む31日間
+    viewStartStr = addDaysStr(latestLogDate, -30); // 最新測定日を含む31日間
     viewEndStr = latestLogDate;
   } else {
     // default: 45日前〜大会日（または最後の予測日）
-    viewStartStr = addDays(today, -45);
+    viewStartStr = addDaysStr(today, -45);
     viewEndStr = contestDate && contestDate > lastForecastDate ? contestDate : lastForecastDate;
   }
 
-  const allDates = dateRange(viewStartStr, viewEndStr);
+  const allDates = dateRangeStr(viewStartStr, viewEndStr);
 
   const data: ChartPoint[] = allDates.map((date) => ({
     date,
