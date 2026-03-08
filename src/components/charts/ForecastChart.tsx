@@ -80,7 +80,7 @@ export function ForecastChart({
     ...sim.map((d) => d.weight),
     ...(goalWeight ? [goalWeight] : []),
   ];
-  const yMin = allWeights.length > 0 ? Math.floor(Math.min(...allWeights)) - 1 : 50;
+  const yMin = Math.min(55, allWeights.length > 0 ? Math.floor(Math.min(...allWeights)) - 1 : 55);
   const yMax = allWeights.length > 0 ? Math.ceil(Math.max(...allWeights)) + 1 : 80;
 
   return (
