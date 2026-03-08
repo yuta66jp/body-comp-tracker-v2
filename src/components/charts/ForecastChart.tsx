@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   ComposedChart,
   Line,
@@ -19,7 +20,7 @@ interface ForecastChartProps {
   sma7: Array<{ date: string; value: number }>;
   goalWeight?: number;
   monthlyTarget?: number;
-  contestDate?: string; // YYYY-MM-DD
+  contestDate?: string;
 }
 
 interface ChartPoint {
@@ -29,7 +30,14 @@ interface ChartPoint {
   sma7?: number;
 }
 
-/** YYYY-MM-DD を 1 日ずつ生成 */
+type RangeTab = "default" | "7d" | "31d";
+
+const RANGE_TABS: { key: RangeTab; label: string }[] = [
+  { key: "default", label: "全体" },
+  { key: "7d",      label: "7日" },
+  { key: "31d",     label: "31日" },
+];
+
 function dateRange(from: string, to: string): string[] {
   const dates: string[] = [];
   const cur = new Date(from);
@@ -41,6 +49,12 @@ function dateRange(from: string, to: string): string[] {
   return dates;
 }
 
+function addDays(base: string, days: number): string {
+  const d = new Date(base);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 export function ForecastChart({
   logs,
   predictions,
@@ -49,7 +63,14 @@ export function ForecastChart({
   monthlyTarget,
   contestDate,
 }: ForecastChartProps) {
+  const [rangeTab, setRangeTab] = useState<RangeTab>("default");
+
   const today = new Date().toISOString().slice(0, 10);
+
+  // 最新測定日（体重あり）
+  const latestLogDate = logs
+    .filter((d) => d.weight !== null)
+    .sort((a, b) => b.log_date.localeCompare(a.log_date))[0]?.log_date ?? today;
 
   const actualMap = new Map(
     logs.filter((d) => d.weight !== null).map((d) => [d.log_date, d.weight!])
@@ -59,40 +80,72 @@ export function ForecastChart({
     predictions.filter((p) => p.ds >= today).map((p) => [p.ds, p.yhat])
   );
 
-  // 表示開始: 45日前
-  const viewStart = new Date();
-  viewStart.setDate(viewStart.getDate() - 45);
-  const viewStartStr = viewStart.toISOString().slice(0, 10);
-
-  // 表示終了: contestDate があればそこまで、なければ最後の予測日
+  // タブごとの表示範囲
   const lastForecastDate = predictions.length > 0
     ? [...predictions].sort((a, b) => b.ds.localeCompare(a.ds))[0].ds
     : today;
-  const viewEndStr = contestDate && contestDate > lastForecastDate
-    ? contestDate
-    : lastForecastDate;
 
-  // viewStart〜viewEnd の全日付を生成して隙間なく X 軸を作る
+  let viewStartStr: string;
+  let viewEndStr: string;
+
+  if (rangeTab === "7d") {
+    viewStartStr = addDays(latestLogDate, -6);  // 最新測定日を含む7日間
+    viewEndStr = latestLogDate;
+  } else if (rangeTab === "31d") {
+    viewStartStr = addDays(latestLogDate, -30); // 最新測定日を含む31日間
+    viewEndStr = latestLogDate;
+  } else {
+    // default: 45日前〜大会日（または最後の予測日）
+    viewStartStr = addDays(today, -45);
+    viewEndStr = contestDate && contestDate > lastForecastDate ? contestDate : lastForecastDate;
+  }
+
   const allDates = dateRange(viewStartStr, viewEndStr);
 
   const data: ChartPoint[] = allDates.map((date) => ({
     date,
     actual: actualMap.get(date),
     sma7: sma7Map.get(date),
-    forecast: forecastMap.get(date),
+    forecast: rangeTab === "default" ? forecastMap.get(date) : undefined,
   }));
 
+  // Y 軸範囲
+  const visibleActual = allDates
+    .map((d) => actualMap.get(d))
+    .filter((v): v is number => v !== undefined);
+  const visibleForecast = rangeTab === "default"
+    ? allDates.map((d) => forecastMap.get(d)).filter((v): v is number => v !== undefined)
+    : [];
   const rangeWeights = [
-    ...logs.filter((d) => d.weight !== null).map((d) => d.weight!),
-    ...predictions.map((p) => p.yhat),
-    ...(goalWeight ? [goalWeight] : []),
+    ...visibleActual,
+    ...visibleForecast,
+    ...(goalWeight && rangeTab === "default" ? [goalWeight] : []),
   ];
   const yMin = Math.min(55, rangeWeights.length > 0 ? Math.floor(Math.min(...rangeWeights)) - 1 : 55);
   const yMax = rangeWeights.length > 0 ? Math.ceil(Math.max(...rangeWeights)) + 1 : 80;
 
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-      <h2 className="mb-4 text-sm font-semibold text-slate-700">体重推移・予測</h2>
+      {/* ヘッダー + タブ */}
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-slate-700">体重推移・予測</h2>
+        <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+          {RANGE_TABS.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setRangeTab(key)}
+              className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                rangeTab === key
+                  ? "bg-white text-slate-800 shadow-sm"
+                  : "text-slate-400 hover:text-slate-600"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <ResponsiveContainer width="100%" height={300}>
         <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -100,7 +153,7 @@ export function ForecastChart({
             dataKey="date"
             tick={{ fontSize: 11 }}
             tickFormatter={(v: string) => v.slice(5)}
-            minTickGap={30}
+            minTickGap={rangeTab === "7d" ? 0 : 30}
           />
           <YAxis
             domain={[yMin, yMax]}
@@ -133,7 +186,8 @@ export function ForecastChart({
             }}
           />
 
-          {goalWeight && (
+          {/* 参照線（全体ビューのみ） */}
+          {rangeTab === "default" && goalWeight && (
             <ReferenceLine
               y={goalWeight}
               stroke="#ef4444"
@@ -141,7 +195,7 @@ export function ForecastChart({
               label={{ value: "Goal", fontSize: 10, fill: "#ef4444" }}
             />
           )}
-          {monthlyTarget && monthlyTarget > 0 && (
+          {rangeTab === "default" && monthlyTarget && monthlyTarget > 0 && (
             <ReferenceLine
               y={monthlyTarget}
               stroke="#f97316"
@@ -155,7 +209,7 @@ export function ForecastChart({
             strokeDasharray="4 4"
             label={{ value: "今日", fontSize: 10, fill: "#94a3b8" }}
           />
-          {contestDate && (
+          {rangeTab === "default" && contestDate && (
             <ReferenceLine
               x={contestDate}
               stroke="#ef4444"
@@ -164,14 +218,16 @@ export function ForecastChart({
             />
           )}
 
+          {/* 実測（青ドット） */}
           <Line
             type="monotone"
             dataKey="actual"
             stroke="rgba(0,191,255,0.5)"
             strokeWidth={0}
-            dot={{ r: 3, fill: "rgba(0,191,255,0.5)", strokeWidth: 0 }}
+            dot={{ r: rangeTab === "7d" ? 5 : 3, fill: "rgba(0,191,255,0.6)", strokeWidth: 0 }}
             connectNulls={false}
           />
+          {/* 7日平均（シアン実線） */}
           <Line
             type="monotone"
             dataKey="sma7"
@@ -180,14 +236,17 @@ export function ForecastChart({
             dot={false}
             connectNulls
           />
-          <Line
-            type="monotone"
-            dataKey="forecast"
-            stroke="rgba(255,136,0,0.9)"
-            strokeWidth={3}
-            dot={false}
-            connectNulls
-          />
+          {/* AI予測（全体ビューのみ） */}
+          {rangeTab === "default" && (
+            <Line
+              type="monotone"
+              dataKey="forecast"
+              stroke="rgba(255,136,0,0.9)"
+              strokeWidth={3}
+              dot={false}
+              connectNulls
+            />
+          )}
         </ComposedChart>
       </ResponsiveContainer>
     </div>
