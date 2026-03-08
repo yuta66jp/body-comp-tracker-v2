@@ -1,8 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { KpiCards } from "@/components/dashboard/KpiCards";
 import { ForecastChart } from "@/components/charts/ForecastChart";
-import { MacroChart } from "@/components/charts/MacroChart";
-import { TdeeChart } from "@/components/charts/TdeeChart";
+import { RecentLogsTable } from "@/components/dashboard/RecentLogsTable";
 import { MealLogger } from "@/components/meal/MealLogger";
 import type { DailyLog, Prediction } from "@/lib/supabase/types";
 
@@ -48,10 +47,7 @@ export default async function DashboardPage() {
             {predictions.length > 0 && (
               <ForecastChart logs={logs} predictions={predictions} />
             )}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <MacroChart logs={logs} />
-              <TdeeChart logs={logs} />
-            </div>
+            <RecentLogsTable logs={logs} />
           </>
         )}
         {logs.length === 0 && (
