@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingDown, TrendingUp, Minus, Scale, Flame, Beef, Droplets } from "lucide-react";
+import { TrendingDown, TrendingUp, Minus, Weight, Flame, Beef, CalendarCheck } from "lucide-react";
 import type { DailyLog } from "@/lib/supabase/types";
 import { calcWeightTrend } from "@/lib/utils/calcTrend";
 
@@ -11,33 +11,47 @@ interface KpiCardsProps {
 interface KpiCardProps {
   label: string;
   value: string;
+  unit?: string;
   sub?: string;
   icon: React.ReactNode;
+  accent: string;       // Tailwind bg クラス (アイコン背景)
+  iconColor: string;    // Tailwind text クラス
   trend?: "up" | "down" | "flat";
-  trendPositive?: "up" | "down"; // どちら向きが良いか
+  trendPositive?: "up" | "down";
 }
 
-function KpiCard({ label, value, sub, icon, trend, trendPositive }: KpiCardProps) {
+function KpiCard({
+  label, value, unit, sub, icon,
+  accent, iconColor, trend, trendPositive,
+}: KpiCardProps) {
   const TrendIcon =
     trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus;
 
-  const trendColor =
+  const isGood =
     trend === undefined || trend === "flat"
-      ? "text-gray-400"
-      : trend === trendPositive
-      ? "text-emerald-500"
-      : "text-rose-500";
+      ? null
+      : trend === trendPositive;
+
+  const trendColor =
+    isGood === null ? "text-slate-400" : isGood ? "text-emerald-500" : "text-rose-500";
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-gray-500">{label}</span>
-        <span className="text-gray-400">{icon}</span>
+    <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+      <div className="flex items-start justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+        <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${accent}`}>
+          <span className={iconColor}>{icon}</span>
+        </div>
       </div>
-      <p className="mt-3 text-3xl font-bold text-gray-900">{value}</p>
-      {(sub || trend) && (
-        <div className={`mt-1 flex items-center gap-1 text-sm ${trendColor}`}>
-          {trend && <TrendIcon size={14} />}
+      <div className="mt-3 flex items-baseline gap-1">
+        <span className="text-[2rem] font-bold leading-none tracking-tight text-slate-900">
+          {value}
+        </span>
+        {unit && <span className="text-sm font-medium text-slate-400">{unit}</span>}
+      </div>
+      {(sub !== undefined || trend !== undefined) && (
+        <div className={`mt-2 flex items-center gap-1 text-xs font-medium ${trendColor}`}>
+          {trend && <TrendIcon size={13} />}
           <span>{sub}</span>
         </div>
       )}
@@ -48,26 +62,25 @@ function KpiCard({ label, value, sub, icon, trend, trendPositive }: KpiCardProps
 export function KpiCards({ logs }: KpiCardsProps) {
   const sorted = [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date));
   const latest = sorted[sorted.length - 1];
-  const recent = sorted.slice(-14); // 直近 14 日
+  const recent = sorted.slice(-14);
 
-  // 体重トレンド (直近 14 日)
   const weightData = recent
     .filter((d) => d.weight !== null)
     .map((d) => ({ date: d.log_date, weight: d.weight! }));
   const trend = calcWeightTrend(weightData);
   const slopePerWeek = trend.slope * 7;
 
-  // 平均カロリー・タンパク質 (直近 7 日)
   const last7 = sorted.slice(-7);
   const avgCalories =
-    last7.filter((d) => d.calories !== null).reduce((s, d) => s + d.calories!, 0) /
-    (last7.filter((d) => d.calories !== null).length || 1);
+    last7.filter((d) => d.calories !== null).length > 0
+      ? last7.filter((d) => d.calories !== null).reduce((s, d) => s + d.calories!, 0) /
+        last7.filter((d) => d.calories !== null).length
+      : null;
   const avgProtein =
-    last7.filter((d) => d.protein !== null).reduce((s, d) => s + d.protein!, 0) /
-    (last7.filter((d) => d.protein !== null).length || 1);
-
-  const fmt = (n: number | null, unit: string, digits = 1) =>
-    n !== null ? `${n.toFixed(digits)}${unit}` : "—";
+    last7.filter((d) => d.protein !== null).length > 0
+      ? last7.filter((d) => d.protein !== null).reduce((s, d) => s + d.protein!, 0) /
+        last7.filter((d) => d.protein !== null).length
+      : null;
 
   const trendLabel =
     Math.abs(slopePerWeek) < 0.05
@@ -81,27 +94,40 @@ export function KpiCards({ logs }: KpiCardsProps) {
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
       <KpiCard
         label="現在体重"
-        value={fmt(latest?.weight ?? null, " kg")}
+        value={latest?.weight !== null && latest?.weight !== undefined
+          ? latest.weight.toFixed(1) : "—"}
+        unit="kg"
         sub={weightData.length >= 2 ? trendLabel : undefined}
-        icon={<Scale size={20} />}
+        icon={<Weight size={18} />}
+        accent="bg-blue-50"
+        iconColor="text-blue-600"
         trend={weightData.length >= 2 ? trendDir : undefined}
         trendPositive="down"
       />
       <KpiCard
-        label="平均カロリー (7日)"
-        value={fmt(avgCalories, " kcal", 0)}
-        icon={<Flame size={20} />}
+        label="平均カロリー 7日"
+        value={avgCalories !== null ? Math.round(avgCalories).toLocaleString() : "—"}
+        unit="kcal"
+        icon={<Flame size={18} />}
+        accent="bg-orange-50"
+        iconColor="text-orange-500"
       />
       <KpiCard
-        label="平均タンパク質 (7日)"
-        value={fmt(avgProtein, " g", 0)}
-        icon={<Beef size={20} />}
+        label="平均タンパク質 7日"
+        value={avgProtein !== null ? Math.round(avgProtein).toString() : "—"}
+        unit="g"
+        icon={<Beef size={18} />}
+        accent="bg-emerald-50"
+        iconColor="text-emerald-600"
       />
       <KpiCard
         label="ログ日数"
-        value={`${logs.length} 日`}
-        sub={`直近: ${latest?.log_date ?? "—"}`}
-        icon={<Droplets size={20} />}
+        value={logs.length.toString()}
+        unit="日"
+        sub={`最終: ${latest?.log_date ?? "—"}`}
+        icon={<CalendarCheck size={18} />}
+        accent="bg-violet-50"
+        iconColor="text-violet-600"
       />
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Save } from "lucide-react";
+import { ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Loader2, PenLine } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { FoodPicker } from "./FoodPicker";
 import { Cart, calcCartTotals } from "./Cart";
@@ -79,91 +79,83 @@ export function MealLogger() {
 
   const totals = calcCartTotals(cartItems);
 
+  const inputCls =
+    "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400";
+
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
-      {/* ヘッダー (折りたたみトグル) */}
+    <div className="rounded-2xl border border-slate-100 bg-white shadow-sm">
+      {/* ヘッダー */}
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between px-5 py-4 text-left"
       >
-        <div>
-          <span className="text-base font-semibold text-gray-700">食事ログを入力</span>
-          {!open && cartItems.length > 0 && (
-            <span className="ml-2 text-sm text-blue-500">
-              {cartItems.length} 品 / {totals.calories} kcal
-            </span>
-          )}
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50">
+            <PenLine size={15} className="text-blue-600" />
+          </div>
+          <div>
+            <span className="text-sm font-semibold text-slate-700">食事ログを入力</span>
+            {!open && cartItems.length > 0 && (
+              <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                {cartItems.length} 品 · {totals.calories} kcal
+              </span>
+            )}
+          </div>
         </div>
-        {open ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
+        {open
+          ? <ChevronUp size={16} className="text-slate-400" />
+          : <ChevronDown size={16} className="text-slate-400" />}
       </button>
 
       {open && (
-        <div className="border-t border-gray-100 px-5 pb-5 pt-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {/* 日付 */}
+        <div className="border-t border-slate-100 px-5 pb-5 pt-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">日付</label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
-              />
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">日付</label>
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
             </div>
-            {/* 体重 */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">体重 (kg)</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                placeholder="例: 70.5"
-                value={weight}
-                onChange={(e) => setWeight(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
-              />
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">体重 (kg)</label>
+              <input type="number" step="0.1" min="0" placeholder="70.5" value={weight}
+                onChange={(e) => setWeight(e.target.value)} className={inputCls} />
             </div>
-            {/* メモ */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">メモ</label>
-              <input
-                type="text"
-                placeholder="任意"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
-              />
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">メモ</label>
+              <input type="text" placeholder="任意" value={note}
+                onChange={(e) => setNote(e.target.value)} className={inputCls} />
             </div>
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {/* 食品検索 */}
             <div>
-              <p className="mb-2 text-xs font-medium text-gray-500">食品を追加</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">食品を追加</p>
               <FoodPicker onAdd={addFood} onAddSet={addFromMenu} />
             </div>
-            {/* カート */}
             <div>
-              <p className="mb-2 text-xs font-medium text-gray-500">カート</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">カート</p>
               <Cart items={cartItems} onChange={setCartItems} />
             </div>
           </div>
 
-          {/* 保存ボタン */}
           <div className="mt-4 flex items-center justify-end gap-3">
             {status === "error" && (
-              <p className="text-sm text-rose-500">保存に失敗しました</p>
+              <span className="flex items-center gap-1.5 text-xs font-medium text-rose-500">
+                <AlertCircle size={14} /> 保存に失敗しました
+              </span>
             )}
             {status === "saved" && (
-              <p className="text-sm text-emerald-600">保存しました</p>
+              <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                <CheckCircle2 size={14} /> 保存しました
+              </span>
             )}
             <button
               onClick={handleSave}
               disabled={status === "saving" || (weight === "" && cartItems.length === 0)}
-              className="flex items-center gap-2 rounded-lg bg-blue-500 px-5 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-40"
+              className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md disabled:opacity-40"
             >
-              <Save size={15} />
-              {status === "saving" ? "保存中..." : "保存"}
+              {status === "saving"
+                ? <><Loader2 size={14} className="animate-spin" /> 保存中...</>
+                : <>保存</>}
             </button>
           </div>
         </div>

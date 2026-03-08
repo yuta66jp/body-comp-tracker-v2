@@ -2,37 +2,56 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, History, UtensilsCrossed, Settings, Salad, Activity } from "lucide-react";
+import {
+  LayoutDashboard,
+  CalendarDays,
+  Database,
+  Settings2,
+  PieChart,
+  Zap,
+} from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/", label: "ダッシュボード", icon: LayoutDashboard },
-  { href: "/macro", label: "栄養", icon: Salad },
-  { href: "/tdee", label: "TDEE", icon: Activity },
-  { href: "/history", label: "履歴", icon: History },
-  { href: "/foods", label: "食品DB", icon: UtensilsCrossed },
-  { href: "/settings", label: "設定", icon: Settings },
+  { href: "/",        label: "ダッシュボード", icon: LayoutDashboard },
+  { href: "/macro",   label: "栄養",          icon: PieChart },
+  { href: "/tdee",    label: "TDEE",          icon: Zap },
+  { href: "/history", label: "履歴",          icon: CalendarDays },
+  { href: "/foods",   label: "食品DB",        icon: Database },
+  { href: "/settings",label: "設定",          icon: Settings2 },
 ];
 
 export function NavBar() {
   const pathname = usePathname();
 
   return (
-    <nav className="sticky top-0 z-10 border-b border-gray-100 bg-white">
-      <div className="mx-auto flex max-w-5xl items-center gap-1 px-4 py-2">
-        <span className="mr-4 text-sm font-bold text-gray-800">BCT</span>
+    <nav className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 backdrop-blur-md">
+      <div className="mx-auto flex max-w-5xl items-center gap-0.5 px-4 py-2.5">
+        {/* ロゴ */}
+        <div className="mr-5 flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600">
+            <span className="text-[11px] font-black tracking-tight text-white">BC</span>
+          </div>
+          <span className="hidden text-sm font-bold text-slate-800 sm:block">Tracker</span>
+        </div>
+
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           return (
             <Link
               key={href}
               href={href}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`group flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150 ${
                 active
-                  ? "bg-blue-50 text-blue-600"
-                  : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
               }`}
             >
-              <Icon size={15} />
+              <Icon
+                size={16}
+                className={`flex-shrink-0 transition-transform duration-150 group-hover:scale-110 ${
+                  active ? "text-blue-600" : ""
+                }`}
+              />
               <span className="hidden sm:inline">{label}</span>
             </Link>
           );
