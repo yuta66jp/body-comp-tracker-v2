@@ -21,6 +21,20 @@ interface DaysOutChartProps {
 // 過去シーズン: 古→新 でグレー系（薄→濃）
 const PAST_COLORS = ["#d1d5db", "#9ca3af", "#6b7280", "#4b5563", "#374151"];
 
+/** シーズンの最後の非 null daysOut 値を返す */
+function lastNonNullDaysOut(
+  data: Array<Record<string, number | null>>,
+  season: string
+): number | null {
+  let last: number | null = null;
+  for (const row of data) {
+    if (row[season] !== null && row[season] !== undefined) {
+      last = row.daysOut as number;
+    }
+  }
+  return last;
+}
+
 export function DaysOutChart({ data, seasons, currentSeason }: DaysOutChartProps) {
   const sortedSeasons = [...seasons].sort((a, b) => {
     if (a === currentSeason) return 1;
@@ -29,6 +43,12 @@ export function DaysOutChart({ data, seasons, currentSeason }: DaysOutChartProps
   });
 
   const pastSeasons = sortedSeasons.filter((s) => s !== currentSeason);
+
+  // 各シーズンの最終 daysOut を事前計算（レンダリング中の再計算を避ける）
+  const lastDaysOutMap = new Map<string, number | null>();
+  for (const season of sortedSeasons) {
+    lastDaysOutMap.set(season, lastNonNullDaysOut(data, season));
+  }
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
@@ -63,9 +83,10 @@ export function DaysOutChart({ data, seasons, currentSeason }: DaysOutChartProps
           <Legend />
           <ReferenceLine x={0} stroke="#ef4444" strokeDasharray="4 4" label={{ value: "大会日", fontSize: 10 }} />
 
-          {/* 過去シーズン（グレー系・小ドット付き） */}
+          {/* 過去シーズン（グレー系・末端ドット付き） */}
           {pastSeasons.map((season, i) => {
             const color = PAST_COLORS[i % PAST_COLORS.length];
+            const endDaysOut = lastDaysOutMap.get(season);
             return (
               <Line
                 key={season}
@@ -74,15 +95,10 @@ export function DaysOutChart({ data, seasons, currentSeason }: DaysOutChartProps
                 stroke={color}
                 strokeWidth={1.5}
                 dot={(props: any) => {
-                  const { cx, cy, index } = props;
-                  // 最後の非 null 点のみドットを描画
-                  const values = data.map((d) => d[season]);
-                  const lastNonNull = values.reduce((last, v, idx) =>
-                    v !== null ? idx : last, -1);
-                  if (index !== lastNonNull) return <g key={index} />;
+                  const { cx, cy, payload } = props;
+                  if (payload.daysOut !== endDaysOut) return <g />;
                   return (
                     <circle
-                      key={index}
                       cx={cx}
                       cy={cy}
                       r={4}
@@ -98,34 +114,33 @@ export function DaysOutChart({ data, seasons, currentSeason }: DaysOutChartProps
           })}
 
           {/* 現在シーズン（赤・太線・大ドット） */}
-          {currentSeason && (
-            <Line
-              key={currentSeason}
-              type="monotone"
-              dataKey={currentSeason}
-              stroke="#ef4444"
-              strokeWidth={2.5}
-              dot={(props: any) => {
-                const { cx, cy, index } = props;
-                const values = data.map((d) => d[currentSeason]);
-                const lastNonNull = values.reduce((last, v, idx) =>
-                  v !== null ? idx : last, -1);
-                if (index !== lastNonNull) return <g key={index} />;
-                return (
-                  <circle
-                    key={index}
-                    cx={cx}
-                    cy={cy}
-                    r={6}
-                    fill="#ef4444"
-                    stroke="#fff"
-                    strokeWidth={2}
-                  />
-                );
-              }}
-              connectNulls
-            />
-          )}
+          {currentSeason && (() => {
+            const endDaysOut = lastDaysOutMap.get(currentSeason);
+            return (
+              <Line
+                key={currentSeason}
+                type="monotone"
+                dataKey={currentSeason}
+                stroke="#ef4444"
+                strokeWidth={2.5}
+                dot={(props: any) => {
+                  const { cx, cy, payload } = props;
+                  if (payload.daysOut !== endDaysOut) return <g />;
+                  return (
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={6}
+                      fill="#ef4444"
+                      stroke="#fff"
+                      strokeWidth={2}
+                    />
+                  );
+                }}
+                connectNulls
+              />
+            );
+          })()}
         </LineChart>
       </ResponsiveContainer>
     </div>
