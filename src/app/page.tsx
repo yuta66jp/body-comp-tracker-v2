@@ -93,7 +93,11 @@ export default async function DashboardPage() {
         <MealLogger />
         {logs.length > 0 && (
           <>
-            <KpiCards logs={logs} />
+            <KpiCards
+              logs={logs}
+              settings={settings}
+              avgTdee={latestTdee}
+            />
             {predictions.length > 0 && (
               <ForecastChart
                 logs={logs}
