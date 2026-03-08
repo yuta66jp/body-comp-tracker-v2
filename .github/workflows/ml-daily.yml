@@ -1,0 +1,40 @@
+name: ML Daily Batch
+
+on:
+  schedule:
+    # 毎日 AM 3:00 JST (= UTC 18:00 前日)
+    - cron: "0 18 * * *"
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  predict:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r ml-pipeline/requirements.txt
+
+      - name: Run enrich
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python ml-pipeline/enrich.py
+
+      - name: Run predict
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python ml-pipeline/predict.py
+
+      - name: Run analyze
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python ml-pipeline/analyze.py

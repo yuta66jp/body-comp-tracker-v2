@@ -1,0 +1,6 @@
+neuralprophet==0.9.*
+xgboost==2.*
+pandas==2.*
+numpy==1.*
+supabase==2.*
+python-dotenv==1.*
