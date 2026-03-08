@@ -3,7 +3,7 @@ import { KpiCards } from "@/components/dashboard/KpiCards";
 import { ForecastChart } from "@/components/charts/ForecastChart";
 import { LogsAndSummaryTabs } from "@/components/dashboard/LogsAndSummaryTabs";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import type { DailyLog, Prediction, AnalyticsCache, Setting } from "@/lib/supabase/types";
+import type { DailyLog, Prediction, AnalyticsCache, Setting, CareerLog } from "@/lib/supabase/types";
 import type { MonthStats } from "@/components/history/SeasonSummary";
 
 export const revalidate = 3600;
@@ -45,6 +45,48 @@ async function fetchSettings(): Promise<Record<string, number | string | null>> 
   );
 }
 
+async function fetchCareerLogs(): Promise<CareerLog[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("career_logs").select("log_date, season, target_date").order("log_date");
+  if (error) return [];
+  return (data as CareerLog[]) ?? [];
+}
+
+/** career_logs から日付→シーズン名のマップを構築 */
+function buildSeasonMap(careerLogs: CareerLog[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const log of careerLogs) {
+    map.set(log.log_date, log.season);
+  }
+  return map;
+}
+
+/** career_logs の各シーズンの日付範囲を算出 */
+function buildSeasonRanges(careerLogs: CareerLog[]): Array<{ season: string; start: string; end: string }> {
+  const map = new Map<string, { start: string; end: string }>();
+  for (const log of careerLogs) {
+    const cur = map.get(log.season);
+    if (!cur) {
+      map.set(log.season, { start: log.log_date, end: log.log_date });
+    } else {
+      if (log.log_date < cur.start) cur.start = log.log_date;
+      if (log.log_date > cur.end) cur.end = log.log_date;
+    }
+  }
+  return Array.from(map.entries()).map(([season, { start, end }]) => ({ season, start, end }));
+}
+
+/** 月（YYYY-MM）が属するシーズンを推定 */
+function getSeasonForMonth(month: string, ranges: Array<{ season: string; start: string; end: string }>, currentSeason: string | null): string | null {
+  const monthStart = `${month}-01`;
+  const monthEnd = `${month}-31`;
+  for (const r of ranges) {
+    if (r.start <= monthEnd && r.end >= monthStart) return r.season;
+  }
+  return currentSeason; // career_logs に該当なし → 現在シーズン
+}
+
 function buildMonthStats(logs: DailyLog[], months = 3): MonthStats[] {
   const map = new Map<string, DailyLog[]>();
   for (const log of logs) {
@@ -74,11 +116,12 @@ function buildMonthStats(logs: DailyLog[], months = 3): MonthStats[] {
 }
 
 export default async function DashboardPage() {
-  const [logs, predictions, enriched, settings] = await Promise.all([
+  const [logs, predictions, enriched, settings, careerLogs] = await Promise.all([
     fetchLogs(),
     fetchPredictions(),
     fetchEnrichedLogs(),
     fetchSettings(),
+    fetchCareerLogs(),
   ]);
 
   const sma7 = (enriched ?? [])
@@ -92,12 +135,29 @@ export default async function DashboardPage() {
   const goalWeight = typeof settings["goal_weight"] === "number" ? settings["goal_weight"] : undefined;
   const monthlyTarget = typeof settings["monthly_target"] === "number" ? settings["monthly_target"] : undefined;
   const contestDate = typeof settings["contest_date"] === "string" ? settings["contest_date"] : undefined;
-  const monthStats = buildMonthStats(logs, 3);
+  const currentSeason = typeof settings["current_season"] === "string" ? settings["current_season"] : null;
+
+  // シーズン関連データ
+  const seasonMap = buildSeasonMap(careerLogs);
+  const seasonRanges = buildSeasonRanges(careerLogs);
+
+  const monthStats = buildMonthStats(logs, 3).map((s) => ({
+    ...s,
+    season: getSeasonForMonth(s.month, seasonRanges, currentSeason),
+  }));
 
   return (
     <DashboardLayout>
       {logs.length > 0 ? (
         <>
+          {/* シーズンバッジ */}
+          {currentSeason && (
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                📅 {currentSeason}
+              </span>
+            </div>
+          )}
           <KpiCards logs={logs} settings={settings} avgTdee={latestTdee} />
           {predictions.length > 0 && (
             <ForecastChart
@@ -109,7 +169,7 @@ export default async function DashboardPage() {
               contestDate={contestDate}
             />
           )}
-          <LogsAndSummaryTabs logs={logs} monthStats={monthStats} />
+          <LogsAndSummaryTabs logs={logs} monthStats={monthStats} seasonMap={seasonMap} currentSeason={currentSeason} />
         </>
       ) : (
         <p className="rounded-2xl border border-slate-100 bg-white p-8 text-center text-sm text-slate-400 shadow-sm">

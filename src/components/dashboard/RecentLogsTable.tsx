@@ -5,10 +5,12 @@ import type { DailyLog } from "@/lib/supabase/types";
 
 interface RecentLogsTableProps {
   logs: DailyLog[];
-  embedded?: boolean; // タブ内埋め込み時は外枠・ヘッダーを出さない
+  embedded?: boolean;
+  seasonMap?: Map<string, string>;   // log_date → season name
+  currentSeason?: string | null;
 }
 
-export function RecentLogsTable({ logs, embedded = false }: RecentLogsTableProps) {
+export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeason }: RecentLogsTableProps) {
   const sorted = [...logs]
     .filter((d) => d.weight !== null)
     .sort((a, b) => b.log_date.localeCompare(a.log_date))
@@ -43,7 +45,17 @@ export function RecentLogsTable({ logs, embedded = false }: RecentLogsTableProps
             const DeltaIcon = delta === null ? null : delta > 0 ? ArrowUp : delta < 0 ? ArrowDown : Minus;
             return (
               <tr key={log.log_date} className="transition-colors hover:bg-slate-50/70">
-                <td className="py-2 pr-4 font-mono text-xs font-medium text-slate-600">{log.log_date}</td>
+                <td className="py-2 pr-4">
+                  <div className="font-mono text-xs font-medium text-slate-600">{log.log_date}</div>
+                  {(() => {
+                    const season = seasonMap?.get(log.log_date) ?? currentSeason;
+                    return season ? (
+                      <span className="mt-0.5 inline-block rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-blue-500">
+                        {season}
+                      </span>
+                    ) : null;
+                  })()}
+                </td>
                 <td className="py-2 pr-4 text-right font-semibold text-slate-800">
                   {log.weight?.toFixed(1)}
                   <span className="ml-0.5 text-xs font-normal text-slate-400">kg</span>

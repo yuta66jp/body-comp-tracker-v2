@@ -9,16 +9,17 @@ import type { MonthStats } from "@/components/history/SeasonSummary";
 interface LogsAndSummaryTabsProps {
   logs: DailyLog[];
   monthStats: MonthStats[];
+  seasonMap?: Map<string, string>;
+  currentSeason?: string | null;
 }
 
 type Tab = "logs" | "monthly";
 
-export function LogsAndSummaryTabs({ logs, monthStats }: LogsAndSummaryTabsProps) {
+export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason }: LogsAndSummaryTabsProps) {
   const [tab, setTab] = useState<Tab>("logs");
 
   return (
     <div className="rounded-2xl border border-slate-100 bg-white shadow-sm">
-      {/* タブヘッダー */}
       <div className="flex border-b border-slate-100">
         {(["logs", "monthly"] as Tab[]).map((t) => (
           <button
@@ -35,10 +36,9 @@ export function LogsAndSummaryTabs({ logs, monthStats }: LogsAndSummaryTabsProps
         ))}
       </div>
 
-      {/* タブコンテンツ */}
       <div className="p-5">
         {tab === "logs" ? (
-          <RecentLogsTable logs={logs} embedded />
+          <RecentLogsTable logs={logs} embedded seasonMap={seasonMap} currentSeason={currentSeason} />
         ) : (
           monthStats.length > 0
             ? <SeasonSummary stats={monthStats} />

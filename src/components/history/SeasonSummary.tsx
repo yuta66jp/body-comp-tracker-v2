@@ -8,6 +8,7 @@ interface MonthStats {
   startWeight: number | null;
   endWeight: number | null;
   days: number;
+  season?: string | null;
 }
 
 interface SeasonSummaryProps {
@@ -17,12 +18,17 @@ interface SeasonSummaryProps {
 export function SeasonSummary({ stats }: SeasonSummaryProps) {
   if (stats.length === 0) return null;
 
+  const hasSeasons = stats.some((s) => s.season);
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-slate-100 text-left">
             <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">月</th>
+            {hasSeasons && (
+              <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">シーズン</th>
+            )}
             <th className="pb-2 pr-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">日数</th>
             <th className="pb-2 pr-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">開始</th>
             <th className="pb-2 pr-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">終了</th>
@@ -39,6 +45,17 @@ export function SeasonSummary({ stats }: SeasonSummaryProps) {
             return (
               <tr key={s.month} className="transition-colors hover:bg-slate-50/70">
                 <td className="py-2 pr-4 font-mono text-xs font-medium text-slate-600">{s.month}</td>
+                {hasSeasons && (
+                  <td className="py-2 pr-4">
+                    {s.season ? (
+                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                        {s.season}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-300">—</span>
+                    )}
+                  </td>
+                )}
                 <td className="py-2 pr-4 text-right text-xs text-slate-500">{s.days}</td>
                 <td className="py-2 pr-4 text-right text-xs text-slate-500">
                   {s.startWeight?.toFixed(1) ?? "—"}

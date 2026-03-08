@@ -20,6 +20,7 @@ interface FieldMeta {
 }
 
 const FIELDS: Record<string, FieldMeta> = {
+  current_season:    { label: "現在のシーズン", type: "text", placeholder: "2026_TokyoNovice" },
   current_phase:     { label: "現在のフェーズ", type: "select", options: ["Cut", "Bulk"] },
   goal_weight:       { label: "目標体重", unit: "kg", type: "number", placeholder: "58.5" },
   monthly_target:    { label: "月次目標体重", unit: "kg", type: "number", placeholder: "62.0" },
