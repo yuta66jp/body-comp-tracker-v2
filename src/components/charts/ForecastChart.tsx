@@ -75,13 +75,14 @@ export function ForecastChart({
     sim: simMap.get(date),
   }));
 
-  const allWeights = [
+  // Y軸範囲: シムは外れ値になりがちなので除外し、実測・予測・目標のみで算出
+  const rangeWeights = [
     ...logs.filter((d) => d.weight !== null).map((d) => d.weight!),
-    ...sim.map((d) => d.weight),
+    ...predictions.map((p) => p.yhat),
     ...(goalWeight ? [goalWeight] : []),
   ];
-  const yMin = Math.min(55, allWeights.length > 0 ? Math.floor(Math.min(...allWeights)) - 1 : 55);
-  const yMax = allWeights.length > 0 ? Math.ceil(Math.max(...allWeights)) + 1 : 80;
+  const yMin = Math.min(55, rangeWeights.length > 0 ? Math.floor(Math.min(...rangeWeights)) - 1 : 55);
+  const yMax = rangeWeights.length > 0 ? Math.ceil(Math.max(...rangeWeights)) + 1 : 80;
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
