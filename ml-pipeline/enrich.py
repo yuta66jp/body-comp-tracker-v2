@@ -64,6 +64,8 @@ def main() -> None:
     # analytics_cache に JSONB として保存 (upsert で冪等)
     payload = enriched[["log_date", "weight_sma7", "tdee_estimated"]].copy()
     payload["log_date"] = payload["log_date"].dt.strftime("%Y-%m-%d")
+    # inf → NaN → None の順で正規化 (JSON シリアライズ対策)
+    payload = payload.replace([np.inf, -np.inf], np.nan)
     payload = payload.where(pd.notna(payload), None)
 
     client.table("analytics_cache").upsert(
