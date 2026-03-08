@@ -1,11 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { KpiCards } from "@/components/dashboard/KpiCards";
 import { ForecastChart } from "@/components/charts/ForecastChart";
-import { RecentLogsTable } from "@/components/dashboard/RecentLogsTable";
-import { SeasonSummary } from "@/components/history/SeasonSummary";
+import { LogsAndSummaryTabs } from "@/components/dashboard/LogsAndSummaryTabs";
 import { MealLogger } from "@/components/meal/MealLogger";
 import type { DailyLog, Prediction, AnalyticsCache, Setting } from "@/lib/supabase/types";
 import type { MonthStats } from "@/components/history/SeasonSummary";
+
 
 export const revalidate = 3600;
 
@@ -60,9 +60,8 @@ function buildMonthStats(logs: DailyLog[], months = 3): MonthStats[] {
   };
 
   return Array.from(map.entries())
-    .sort((a, b) => b[0].localeCompare(a[0])) // 新しい月順
+    .sort((a, b) => b[0].localeCompare(a[0])) // 降順（新しい月が上）
     .slice(0, months)
-    .reverse()
     .map(([month, entries]) => {
       const withWeight = entries.filter((d) => d.weight !== null);
       return {
@@ -117,10 +116,7 @@ export default async function DashboardPage() {
                 contestDate={contestDate}
               />
             )}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <RecentLogsTable logs={logs} />
-              {monthStats.length > 0 && <SeasonSummary stats={monthStats} />}
-            </div>
+            <LogsAndSummaryTabs logs={logs} monthStats={monthStats} />
           </>
         )}
         {logs.length === 0 && (
