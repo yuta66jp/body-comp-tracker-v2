@@ -9,8 +9,9 @@ current_weight を説明変数から除外してリーケージを防ぐ。
 """
 
 import logging
+import math
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -69,7 +70,7 @@ def main() -> None:
         {
             "metric_type": "xgboost_importance",
             "payload": importance,
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
     ).execute()
     logger.info("Saved xgboost_importance to analytics_cache.")

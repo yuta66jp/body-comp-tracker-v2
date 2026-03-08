@@ -6,8 +6,9 @@ enrich.py — TDEE逆算・SMA計算・データ加工バッチ
 """
 
 import logging
+import math
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -64,15 +65,24 @@ def main() -> None:
     # analytics_cache に JSONB として保存 (upsert で冪等)
     payload = enriched[["log_date", "weight_sma7", "tdee_estimated"]].copy()
     payload["log_date"] = payload["log_date"].dt.strftime("%Y-%m-%d")
-    # inf → NaN → None の順で正規化 (JSON シリアライズ対策)
+    # inf → NaN → None の順で正規化
     payload = payload.replace([np.inf, -np.inf], np.nan)
     payload = payload.where(pd.notna(payload), None)
+
+    # to_dict() が None を NaN に戻すため、dict 変換後にも非有限値を除去する
+    def sanitize(record: dict) -> dict:
+        return {
+            k: (None if isinstance(v, float) and not math.isfinite(v) else v)
+            for k, v in record.items()
+        }
+
+    records = [sanitize(r) for r in payload.to_dict(orient="records")]
 
     client.table("analytics_cache").upsert(
         {
             "metric_type": "enriched_logs",
-            "payload": payload.to_dict(orient="records"),
-            "updated_at": datetime.utcnow().isoformat(),
+            "payload": records,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
     ).execute()
     logger.info("Saved enriched_logs to analytics_cache.")

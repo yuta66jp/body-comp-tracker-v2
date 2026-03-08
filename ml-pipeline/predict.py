@@ -6,8 +6,9 @@ predict.py — NeuralProphet 体重予測バッチ
 """
 
 import logging
+import math
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 import pandas as pd
 from neuralprophet import NeuralProphet
@@ -63,12 +64,14 @@ def main() -> None:
     records = [
         {
             "ds": row["ds"].strftime("%Y-%m-%d"),
-            "yhat": round(float(row["yhat"]), 3),
+            "yhat": yhat if math.isfinite(yhat := round(float(row["yhat"]), 3)) else None,
             "model_version": MODEL_VERSION,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
         for _, row in forecast.iterrows()
+        if not forecast.empty
     ]
+    records = [r for r in records if r["yhat"] is not None]
 
     # 既存の予測を削除してから upsert (日付単位で冪等)
     client.table("predictions").upsert(records, on_conflict="ds").execute()
