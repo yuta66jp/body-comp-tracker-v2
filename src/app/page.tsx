@@ -67,6 +67,9 @@ export default async function DashboardPage() {
   const monthlyTarget = typeof settings["monthly_target"] === "number"
     ? settings["monthly_target"]
     : undefined;
+  const contestDate = typeof settings["contest_date"] === "string"
+    ? settings["contest_date"]
+    : undefined;
 
   return (
     <main className="min-h-screen bg-gray-50 p-6">
@@ -87,6 +90,7 @@ export default async function DashboardPage() {
                 sma7={sma7}
                 goalWeight={goalWeight}
                 monthlyTarget={monthlyTarget}
+                contestDate={contestDate}
               />
             )}
             <RecentLogsTable logs={logs} />

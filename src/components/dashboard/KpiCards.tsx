@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingDown, TrendingUp, Minus, Weight, Flame, CalendarClock, Zap } from "lucide-react";
+import { TrendingDown, TrendingUp, Minus, Weight, Flame, CalendarClock, Zap, Target } from "lucide-react";
 import type { DailyLog } from "@/lib/supabase/types";
 import { calcWeightTrend } from "@/lib/utils/calcTrend";
 
@@ -81,12 +81,37 @@ export function KpiCards({ logs, settings, avgTdee }: KpiCardsProps) {
     ? Math.max(1, Math.round((new Date(contestDate).getTime() - Date.now()) / 86_400_000))
     : null;
 
-  // --- 推奨カロリー調整 ---
+  // --- 目標到達予定日（線形トレンドから算出）---
   const goalWeight = typeof settings["goal_weight"] === "number" ? settings["goal_weight"] : null;
+  const currentWeight = latest?.weight ?? null;
+  const slopePerDay = trend.slope; // kg/day
+
+  let goalReachDate: string | null = null;
+  let goalReachLabel = "—";
+
+  if (goalWeight !== null && currentWeight !== null) {
+    const gap0 = currentWeight - goalWeight;
+    if (Math.abs(gap0) < 0.1) {
+      goalReachLabel = "達成済み ✓";
+    } else if (slopePerDay === 0 || (gap0 > 0 && slopePerDay >= 0) || (gap0 < 0 && slopePerDay <= 0)) {
+      goalReachLabel = "停滞中";
+    } else {
+      const daysNeeded = gap0 / (-slopePerDay);
+      if (daysNeeded > 0 && daysNeeded < 730) {
+        const d = new Date();
+        d.setDate(d.getDate() + Math.round(daysNeeded));
+        goalReachDate = d.toISOString().slice(0, 10);
+        goalReachLabel = goalReachDate.slice(5); // MM-DD
+      } else {
+        goalReachLabel = "停滞中";
+      }
+    }
+  }
+
+  // --- 推奨カロリー調整 ---
   const phase = typeof settings["current_phase"] === "string" ? settings["current_phase"] : "Cut";
   const isCut = phase !== "Bulk";
 
-  const currentWeight = latest?.weight ?? null;
   const gap = currentWeight !== null && goalWeight !== null ? currentWeight - goalWeight : null;
 
   let actionValue = "Keep";
@@ -127,7 +152,7 @@ export function KpiCards({ logs, settings, avgTdee }: KpiCardsProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
       {/* 現在体重 */}
       <KpiCard
         label="現在体重"
@@ -195,6 +220,35 @@ export function KpiCards({ logs, settings, avgTdee }: KpiCardsProps) {
             {phase}
           </span>
         </div>
+      </div>
+
+      {/* 目標到達予定日 */}
+      <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+        <div className="flex items-start justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">目標到達予定</p>
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50">
+            <Target size={18} className="text-teal-600" />
+          </div>
+        </div>
+        <div className="mt-3">
+          <span className={`text-2xl font-bold leading-none tracking-tight ${
+            goalReachDate
+              ? "text-teal-600"
+              : goalReachLabel === "達成済み ✓"
+              ? "text-emerald-500"
+              : "text-slate-400"
+          }`}>
+            {goalReachLabel}
+          </span>
+        </div>
+        {goalReachDate && goalWeight !== null && (
+          <p className="mt-2 text-xs text-slate-400">
+            {goalWeight.toFixed(1)} kg 到達の推定日
+          </p>
+        )}
+        {!goalWeight && (
+          <p className="mt-2 text-xs text-slate-300">目標体重未設定</p>
+        )}
       </div>
     </div>
   );

@@ -19,6 +19,7 @@ interface ForecastChartProps {
   sma7: Array<{ date: string; value: number }>;
   goalWeight?: number;
   monthlyTarget?: number;
+  contestDate?: string; // YYYY-MM-DD
 }
 
 interface ChartPoint {
@@ -28,12 +29,25 @@ interface ChartPoint {
   sma7?: number;
 }
 
+/** YYYY-MM-DD を 1 日ずつ生成 */
+function dateRange(from: string, to: string): string[] {
+  const dates: string[] = [];
+  const cur = new Date(from);
+  const end = new Date(to);
+  while (cur <= end) {
+    dates.push(cur.toISOString().slice(0, 10));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+
 export function ForecastChart({
   logs,
   predictions,
   sma7,
   goalWeight,
   monthlyTarget,
+  contestDate,
 }: ForecastChartProps) {
   const today = new Date().toISOString().slice(0, 10);
 
@@ -45,15 +59,21 @@ export function ForecastChart({
     predictions.filter((p) => p.ds >= today).map((p) => [p.ds, p.yhat])
   );
 
+  // 表示開始: 45日前
   const viewStart = new Date();
   viewStart.setDate(viewStart.getDate() - 45);
   const viewStartStr = viewStart.toISOString().slice(0, 10);
 
-  const allDates = Array.from(
-    new Set([...actualMap.keys(), ...forecastMap.keys()])
-  )
-    .filter((d) => d >= viewStartStr)
-    .sort();
+  // 表示終了: contestDate があればそこまで、なければ最後の予測日
+  const lastForecastDate = predictions.length > 0
+    ? [...predictions].sort((a, b) => b.ds.localeCompare(a.ds))[0].ds
+    : today;
+  const viewEndStr = contestDate && contestDate > lastForecastDate
+    ? contestDate
+    : lastForecastDate;
+
+  // viewStart〜viewEnd の全日付を生成して隙間なく X 軸を作る
+  const allDates = dateRange(viewStartStr, viewEndStr);
 
   const data: ChartPoint[] = allDates.map((date) => ({
     date,
@@ -135,6 +155,14 @@ export function ForecastChart({
             strokeDasharray="4 4"
             label={{ value: "今日", fontSize: 10, fill: "#94a3b8" }}
           />
+          {contestDate && (
+            <ReferenceLine
+              x={contestDate}
+              stroke="#ef4444"
+              strokeWidth={2}
+              label={{ value: "大会", fontSize: 10, fill: "#ef4444", position: "top" }}
+            />
+          )}
 
           <Line
             type="monotone"

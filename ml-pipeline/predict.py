@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger(__name__)
 
 MODEL_VERSION = "neuralprophet-v1"
-FORECAST_DAYS = 90
+FORECAST_DAYS = 180  # 大会日が半年先でもカバーできるよう拡張（旧版は90日）
 ADAPTATION_FACTOR = 30  # 代謝適応係数 (日数)
 
 
