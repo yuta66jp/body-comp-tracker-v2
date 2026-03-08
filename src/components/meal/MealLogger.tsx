@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Loader2, PenLine } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { FoodPicker } from "./FoodPicker";
@@ -16,6 +17,7 @@ function todayStr() {
 }
 
 export function MealLogger() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState(todayStr);
   const [weight, setWeight] = useState("");
@@ -73,6 +75,8 @@ export function MealLogger() {
       setStatus("saved");
       setCartItems([]);
       setNote("");
+      setWeight("");
+      router.refresh(); // Server Component のキャッシュを再フェッチ
       setTimeout(() => setStatus("idle"), 2000);
     }
   }
