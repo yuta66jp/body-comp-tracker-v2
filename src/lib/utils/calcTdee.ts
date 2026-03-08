@@ -5,7 +5,7 @@
  * 脂肪 1kg = 7,200 kcal (エビデンスベース: Hall et al., 2012)
  * ※旧コードの 6,800 との不一致を 7,200 に統一。
  */
-import { toLocalDateStr } from "./date";
+import { toLocalDateStr, parseLocalDateStr } from "./date";
 
 export const KCAL_PER_KG_FAT = 7_200;
 
@@ -70,8 +70,10 @@ export function calcMetabolicSim(
   startDate?: string
 ): SimPoint[] {
   const ADAPTATION_FACTOR = 30; // kcal/kg
-  const start = new Date(startDate ?? toLocalDateStr());
-  const end = new Date(targetDate);
+  // parseLocalDateStr を使い "YYYY-MM-DD" をローカル日付として解釈する
+  // （new Date("YYYY-MM-DD") は UTC 午前0時にパースされ、JST 環境でずれが生じるため）
+  const start = parseLocalDateStr(startDate ?? toLocalDateStr());
+  const end = parseLocalDateStr(targetDate);
   const days = Math.round((end.getTime() - start.getTime()) / 86_400_000);
   if (days <= 0) return [];
 

@@ -1,13 +1,23 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, ChevronDown, ChevronUp } from "lucide-react";
+
+/**
+ * セキュリティノート:
+ * NEXT_PUBLIC_ADMIN_SECRET はブラウザに公開される点に注意。
+ * 本番環境では Supabase Auth や NextAuth.js を用いたセッションベースの認証を推奨。
+ * 現在の実装は管理者用の簡易保護であり、ソースを見れば秘密を確認できるため、
+ * 機密性の高い操作には使用しないこと。
+ */
 
 interface SeasonManagerProps {
   seasons: Array<{ season: string; targetDate: string; count: number; peakWeight: number }>;
 }
 
 export function SeasonManager({ seasons }: SeasonManagerProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [season, setSeason] = useState("");
   const [targetDate, setTargetDate] = useState("");
@@ -31,7 +41,12 @@ export function SeasonManager({ seasons }: SeasonManagerProps) {
     try {
       const res = await fetch("/api/career-logs", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          // NEXT_PUBLIC_ADMIN_SECRET はクライアントに公開される簡易保護。
+          // 本番では認証ベースのアクセス制御への移行を推奨。
+          "x-admin-secret": process.env.NEXT_PUBLIC_ADMIN_SECRET ?? "",
+        },
         body: JSON.stringify({
           season: season.trim(),
           target_date: targetDate,
@@ -48,6 +63,7 @@ export function SeasonManager({ seasons }: SeasonManagerProps) {
       return setError(e instanceof Error ? e.message : "ネットワークエラー");
     }
 
+    router.refresh();
     setSuccess(true);
     setLogDate("");
     setWeight("");

@@ -46,12 +46,56 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
 
   const [values, setValues] = useState<Record<string, string>>(initMap);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   function set(key: string, val: string) {
     setValues((prev) => ({ ...prev, [key]: val }));
+    // 入力変更時に対象フィールドのエラーをクリア
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
+
+  /** 各フィールドの範囲バリデーションを行い、エラーがあれば fieldErrors にセットして false を返す。 */
+  function validate(): boolean {
+    const errors: Record<string, string> = {};
+
+    function checkRange(key: string, min: number, max: number, label: string) {
+      const raw = values[key] ?? "";
+      if (raw === "") return; // 空欄は未設定扱いでスキップ
+      const v = parseFloat(raw);
+      if (isNaN(v) || v < min || v > max) {
+        errors[key] = `${label} は ${min}〜${max} の範囲で入力してください`;
+      }
+    }
+
+    checkRange("height_cm", 100, 250, "身長");
+    checkRange("age", 1, 120, "年齢");
+    checkRange("activity_factor", 1.2, 2.5, "活動係数");
+    checkRange("protein_target_g", 0, 500, "タンパク質目標");
+    checkRange("goal_weight", 20, 200, "目標体重");
+    checkRange("monthly_target", 20, 200, "月次目標体重");
+
+    // current_phase は "Cut" / "Bulk" のみ許容
+    const phase = values["current_phase"] ?? "";
+    if (phase !== "" && !["Cut", "Bulk"].includes(phase)) {
+      errors["current_phase"] = 'フェーズは "Cut" または "Bulk" を選択してください';
+    }
+
+    // contest_date は YYYY-MM-DD 形式のみ許容
+    const contestDate = values["contest_date"] ?? "";
+    if (contestDate !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(contestDate)) {
+      errors["contest_date"] = "日付は YYYY-MM-DD 形式で入力してください";
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
   }
 
   async function handleSave() {
+    if (!validate()) return;
     setStatus("saving");
     const supabase = createClient();
 
@@ -117,8 +161,11 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
                   placeholder={meta.placeholder}
                   value={values[key] ?? ""}
                   onChange={(e) => set(key, e.target.value)}
-                  className={inputCls}
+                  className={`${inputCls} ${fieldErrors[key] ? "border-rose-400 focus:border-rose-400 focus:ring-rose-100" : ""}`}
                 />
+              )}
+              {fieldErrors[key] && (
+                <p className="mt-1 text-xs text-rose-500">{fieldErrors[key]}</p>
               )}
             </div>
           );

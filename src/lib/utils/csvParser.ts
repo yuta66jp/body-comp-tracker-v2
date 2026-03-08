@@ -3,8 +3,14 @@
  *
  * - RFC 4180 準拠のクォート付きセル（"value with, comma"）に対応
  * - CRLF / LF / CR の改行コードに対応
- * - 列数不一致（多い / 少ない）を許容し、不足列は空文字として扱う
  * - 必須列（log_date）が欠損している場合はエラーを返す
+ *
+ * 制限事項:
+ * - クォートフィールド内の改行（multiline フィールド）は非対応。
+ *   CSV は事前に改行コードを LF に正規化したうえで行分割するため、
+ *   フィールド内の改行はそのまま別行として扱われる。
+ * - 列数不足の行（実際のセル数 < ヘッダー数）はスキップし、errors に記録する。
+ *   列数が多い場合（実際のセル数 > ヘッダー数）の余剰列は無視する。
  */
 
 export interface ParsedRow {
@@ -114,7 +120,8 @@ export function parseCSV(text: string): ParseResult {
   for (let i = 1; i < lines.length; i++) {
     const cells = splitCSVLine(lines[i]);
 
-    // 列数不一致の警告（エラーにはしない — 不足分は空文字、余剰は無視）
+    // 列数不足の行はスキップして errors に記録する。
+    // 余剰列（cells.length > headers.length）は keyMap の範囲外として自然に無視される。
     if (cells.length < headers.length) {
       errors.push(
         `行 ${i + 1}: 列数が不足しています（期待 ${headers.length} 列、実際 ${cells.length} 列）— スキップ`

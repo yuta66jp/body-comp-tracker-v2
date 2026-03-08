@@ -37,8 +37,15 @@ def fetch_daily_logs(client) -> pd.DataFrame:
     return pd.DataFrame(response.data)
 
 
-def run_importance(df: pd.DataFrame) -> dict[str, float]:
-    """XGBoost で特徴量重要度を計算して返す。"""
+def run_importance(df: pd.DataFrame) -> dict[str, dict[str, float | str]]:
+    """XGBoost で特徴量重要度を計算して返す。
+
+    Returns:
+        特徴量名をキーとする辞書。各値は以下のキーを持つ辞書:
+        - label (str): 日本語ラベル
+        - importance (float): XGBoost の feature_importances_ の生値（0〜1）
+        - pct (float): 全特徴量合計に対する割合（%）
+    """
     df = df.copy()
     df = df.dropna(subset=["weight", "calories", "protein", "fat", "carbs"])
     df = df.sort_values("log_date").reset_index(drop=True)

@@ -8,13 +8,40 @@
  * クライアントから直接 upsert/delete すると anon ロールで失敗するため、
  * このルートハンドラで service_role キーを使ってサーバー側で実行する。
  *
+ * 認証:
+ *   - リクエストヘッダー x-admin-secret が環境変数 ADMIN_SECRET と一致しない場合は 401 を返す。
+ *   - NEXT_PUBLIC_ 環境変数は使用しない（クライアントに漏洩するため）。
+ *   - 本番環境では ADMIN_SECRET を Supabase Auth 等の認証に置き換えることを推奨。
+ *
  * POST  /api/career-logs  → upsert (season + log_date が一意制約)
  * DELETE /api/career-logs → delete (id 指定)
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { revalidatePath } from "next/cache";
 import type { Database } from "@/lib/supabase/types";
+
+/**
+ * リクエストヘッダーの x-admin-secret を検証する。
+ * ADMIN_SECRET 環境変数が未設定の場合は設定ミスとして 500 を返す。
+ * 一致しない場合は 401 を返す。
+ * 問題なければ null を返す（呼び出し元でエラーレスポンスとして返すこと）。
+ */
+function checkAdminSecret(req: NextRequest): NextResponse | null {
+  const secret = process.env.ADMIN_SECRET;
+  if (!secret) {
+    return NextResponse.json(
+      { error: "ADMIN_SECRET is not configured on the server" },
+      { status: 500 }
+    );
+  }
+  const provided = req.headers.get("x-admin-secret");
+  if (provided !== secret) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return null;
+}
 
 /** service_role キーを使用するサーバー専用クライアント */
 function createServiceClient() {
@@ -28,6 +55,9 @@ function createServiceClient() {
 
 /** POST: career_logs に upsert */
 export async function POST(req: NextRequest) {
+  const authError = checkAdminSecret(req);
+  if (authError) return authError;
+
   let body: unknown;
   try {
     body = await req.json();
@@ -79,11 +109,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  revalidatePath("/history");
   return NextResponse.json({ ok: true }, { status: 200 });
 }
 
 /** DELETE: career_logs から id で削除 */
 export async function DELETE(req: NextRequest) {
+  const authError = checkAdminSecret(req);
+  if (authError) return authError;
+
   let body: unknown;
   try {
     body = await req.json();

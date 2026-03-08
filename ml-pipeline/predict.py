@@ -77,17 +77,26 @@ def main() -> None:
         logger.error("NeuralProphet model failed: %s", e)
         raise SystemExit(1)
 
-    records = [
-        {
-            "ds": row["ds"].strftime("%Y-%m-%d"),
-            "yhat": yhat if math.isfinite(yhat := round(float(row["yhat"]), 3)) else None,
-            "model_version": MODEL_VERSION,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }
-        for _, row in forecast.iterrows()
-        if not forecast.empty
-    ]
-    records = [r for r in records if r["yhat"] is not None]
+    if forecast.empty:
+        logger.warning("Forecast result is empty. Skipping upsert.")
+        return
+
+    # created_at は全レコード共通で1回だけ生成する
+    created_at = datetime.now(timezone.utc).isoformat()
+
+    # iterrows() より itertuples() の方がメモリ効率が良い
+    records = []
+    for row in forecast.itertuples(index=False):
+        yhat = round(float(row.yhat), 3)
+        if math.isfinite(yhat):
+            records.append(
+                {
+                    "ds": row.ds.strftime("%Y-%m-%d"),
+                    "yhat": yhat,
+                    "model_version": MODEL_VERSION,
+                    "created_at": created_at,
+                }
+            )
 
     logger.info("Upserting %d predictions to 'predictions' table...", len(records))
     try:

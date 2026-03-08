@@ -81,12 +81,31 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
 
   async function handleAdd() {
     if (!form.name.trim()) return setError("食品名は必須です");
+
+    // calories / protein / fat / carbs は必須。空文字や NaN はエラー
+    const numFields = ["calories", "protein", "fat", "carbs"] as const;
+    const labelMap: Record<string, string> = {
+      calories: "kcal",
+      protein: "P (g)",
+      fat: "F (g)",
+      carbs: "C (g)",
+    };
+    for (const field of numFields) {
+      if (form[field].trim() === "") {
+        return setError(`${labelMap[field]} は必須です`);
+      }
+      const v = parseFloat(form[field]);
+      if (isNaN(v) || v < 0) {
+        return setError(`${labelMap[field]} には 0 以上の数値を入力してください`);
+      }
+    }
+
     const payload: FoodMaster = {
       name: form.name.trim(),
-      calories: parseFloat(form.calories) || 0,
-      protein: parseFloat(form.protein) || 0,
-      fat: parseFloat(form.fat) || 0,
-      carbs: parseFloat(form.carbs) || 0,
+      calories: parseFloat(form.calories),
+      protein: parseFloat(form.protein),
+      fat: parseFloat(form.fat),
+      carbs: parseFloat(form.carbs),
       category: form.category.trim() || null,
     };
     const supabase = createClient();
