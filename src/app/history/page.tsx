@@ -71,6 +71,10 @@ export default async function HistoryPage() {
     }));
 
   const allCareerLogs = [...careerLogs, ...currentAsCareer];
+
+  // 現在シーズンを含む全シーズンメタ（SeasonLowChart 用）
+  const allSeasonMeta = calcSeasonMeta(allCareerLogs);
+
   const seriesMap = buildDaysOutSeries(allCareerLogs);
   const daysOutData = buildDaysOutChartData(seriesMap, -300, 0);
   const allSeasons = Array.from(seriesMap.keys());
@@ -109,8 +113,8 @@ export default async function HistoryPage() {
               seasons={allSeasons}
               currentSeason={currentSeasonLabel}
             />
-            {seasonMeta.length > 0 && (
-              <SeasonLowChart seasons={seasonMeta} />
+            {allSeasonMeta.length > 0 && (
+              <SeasonLowChart seasons={allSeasonMeta} currentSeason={currentSeasonLabel} />
             )}
             <SeasonManager seasons={seasonManagerItems} />
           </>

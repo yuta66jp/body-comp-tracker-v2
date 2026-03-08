@@ -18,11 +18,10 @@ interface DaysOutChartProps {
   currentSeason?: string;
 }
 
-// 過去シーズンはグレー系、現在シーズンは赤
-const PAST_COLORS = ["#c8c8c8", "#b0b0b0", "#989898", "#808080", "#686868"];
+// 過去シーズン: 古→新 でグレー系（薄→濃）
+const PAST_COLORS = ["#d1d5db", "#9ca3af", "#6b7280", "#4b5563", "#374151"];
 
 export function DaysOutChart({ data, seasons, currentSeason }: DaysOutChartProps) {
-  // シーズンを時系列順にソート（現在シーズンを最後に）
   const sortedSeasons = [...seasons].sort((a, b) => {
     if (a === currentSeason) return 1;
     if (b === currentSeason) return -1;
@@ -64,20 +63,41 @@ export function DaysOutChart({ data, seasons, currentSeason }: DaysOutChartProps
           <Legend />
           <ReferenceLine x={0} stroke="#ef4444" strokeDasharray="4 4" label={{ value: "大会日", fontSize: 10 }} />
 
-          {/* 過去シーズン（グレー系） */}
-          {pastSeasons.map((season, i) => (
-            <Line
-              key={season}
-              type="monotone"
-              dataKey={season}
-              stroke={PAST_COLORS[i % PAST_COLORS.length]}
-              strokeWidth={1.5}
-              dot={false}
-              connectNulls
-            />
-          ))}
+          {/* 過去シーズン（グレー系・小ドット付き） */}
+          {pastSeasons.map((season, i) => {
+            const color = PAST_COLORS[i % PAST_COLORS.length];
+            return (
+              <Line
+                key={season}
+                type="monotone"
+                dataKey={season}
+                stroke={color}
+                strokeWidth={1.5}
+                dot={(props: any) => {
+                  const { cx, cy, index } = props;
+                  // 最後の非 null 点のみドットを描画
+                  const values = data.map((d) => d[season]);
+                  const lastNonNull = values.reduce((last, v, idx) =>
+                    v !== null ? idx : last, -1);
+                  if (index !== lastNonNull) return <g key={index} />;
+                  return (
+                    <circle
+                      key={index}
+                      cx={cx}
+                      cy={cy}
+                      r={4}
+                      fill={color}
+                      stroke="#fff"
+                      strokeWidth={1.5}
+                    />
+                  );
+                }}
+                connectNulls
+              />
+            );
+          })}
 
-          {/* 現在シーズン（赤・太線） */}
+          {/* 現在シーズン（赤・太線・大ドット） */}
           {currentSeason && (
             <Line
               key={currentSeason}
@@ -85,7 +105,24 @@ export function DaysOutChart({ data, seasons, currentSeason }: DaysOutChartProps
               dataKey={currentSeason}
               stroke="#ef4444"
               strokeWidth={2.5}
-              dot={false}
+              dot={(props: any) => {
+                const { cx, cy, index } = props;
+                const values = data.map((d) => d[currentSeason]);
+                const lastNonNull = values.reduce((last, v, idx) =>
+                  v !== null ? idx : last, -1);
+                if (index !== lastNonNull) return <g key={index} />;
+                return (
+                  <circle
+                    key={index}
+                    cx={cx}
+                    cy={cy}
+                    r={6}
+                    fill="#ef4444"
+                    stroke="#fff"
+                    strokeWidth={2}
+                  />
+                );
+              }}
               connectNulls
             />
           )}

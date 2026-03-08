@@ -14,23 +14,36 @@ import {
 import type { SeasonMeta } from "@/lib/utils/calcSeason";
 
 interface SeasonLowChartProps {
-  seasons: SeasonMeta[];
+  seasons: SeasonMeta[];       // 過去シーズン（career_logs）
+  currentSeason?: string;      // 現在シーズンのラベル
 }
 
-export function SeasonLowChart({ seasons }: SeasonLowChartProps) {
+// 過去シーズン: 古→新 でグレー系（薄→濃）、現在シーズン: 青
+const PAST_COLORS = ["#d1d5db", "#9ca3af", "#6b7280", "#4b5563", "#334155"];
+const CURRENT_COLOR = "#3b82f6";
+
+export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) {
   const data = seasons.map((s, i) => {
     const prev = seasons[i - 1];
     const delta = prev ? s.peakWeight - prev.peakWeight : null;
+    const isCurrent = s.season === currentSeason;
     return {
       season: s.season.replace(/_/g, " "),
+      rawSeason: s.season,
       weight: s.peakWeight,
+      peakDate: s.peakDate,
+      targetDate: s.targetDate,
       delta,
+      isCurrent,
     };
   });
 
-  // Y 軸の範囲を少し余裕を持たせる
-  const minW = Math.min(...data.map((d) => d.weight));
-  const maxW = Math.max(...data.map((d) => d.weight));
+  const allWeights = data.map((d) => d.weight);
+  const minW = Math.min(...allWeights);
+  const maxW = Math.max(...allWeights);
+
+  // 過去シーズンのインデックス（色の割り当てに使う）
+  let pastIdx = 0;
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
@@ -39,7 +52,7 @@ export function SeasonLowChart({ seasons }: SeasonLowChartProps) {
       <ResponsiveContainer width="100%" height={260}>
         <BarChart data={data} margin={{ top: 24, right: 8, bottom: 4, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-          <XAxis dataKey="season" tick={{ fontSize: 11 }} />
+          <XAxis dataKey="season" tick={{ fontSize: 10 }} />
           <YAxis
             domain={[Math.floor(minW) - 1, Math.ceil(maxW) + 1]}
             tick={{ fontSize: 11 }}
@@ -48,26 +61,26 @@ export function SeasonLowChart({ seasons }: SeasonLowChartProps) {
           />
           <Tooltip
             formatter={(v: any, _: any, entry: any) => {
-              const delta = entry?.payload?.delta;
+              const { delta, isCurrent, peakDate } = entry?.payload ?? {};
               const deltaStr = delta !== null && delta !== undefined
                 ? ` (前年比 ${delta > 0 ? "+" : ""}${delta.toFixed(1)}kg)`
                 : "";
-              return [`${Number(v).toFixed(1)} kg${deltaStr}`, "仕上がり体重"];
+              const tag = isCurrent ? " [今季]" : "";
+              const dateStr = peakDate ? ` / ${peakDate}` : "";
+              return [`${Number(v).toFixed(1)} kg${deltaStr}${dateStr}${tag}`, "仕上がり体重"];
             }}
           />
           <Bar dataKey="weight" radius={[6, 6, 0, 0]}>
-            {data.map((entry, i) => (
-              <Cell
-                key={i}
-                fill={
-                  entry.delta === null
-                    ? "#3b82f6"
-                    : entry.delta < 0
-                    ? "#10b981"   // 減少 = 改善（緑）
-                    : "#f59e0b"   // 増加 = やや後退（黄）
-                }
-              />
-            ))}
+            {data.map((entry, i) => {
+              let color: string;
+              if (entry.isCurrent) {
+                color = CURRENT_COLOR;
+              } else {
+                color = PAST_COLORS[pastIdx % PAST_COLORS.length];
+                pastIdx++;
+              }
+              return <Cell key={i} fill={color} />;
+            })}
             <LabelList
               dataKey="weight"
               position="top"
@@ -92,9 +105,19 @@ export function SeasonLowChart({ seasons }: SeasonLowChartProps) {
           </thead>
           <tbody>
             {data.map((row, i) => (
-              <tr key={row.season} className="border-b border-gray-50 hover:bg-gray-50">
-                <td className="py-2 pr-4 font-medium text-gray-800">{row.season}</td>
-                <td className="py-2 pr-4 text-right text-gray-500">{seasons[i].targetDate}</td>
+              <tr
+                key={row.season}
+                className={`border-b border-gray-50 hover:bg-gray-50 ${row.isCurrent ? "font-semibold" : ""}`}
+              >
+                <td className="py-2 pr-4 text-gray-800">
+                  {row.season}
+                  {row.isCurrent && (
+                    <span className="ml-1.5 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600">
+                      今季
+                    </span>
+                  )}
+                </td>
+                <td className="py-2 pr-4 text-right text-gray-500">{row.targetDate}</td>
                 <td className="py-2 pr-4 text-right font-semibold text-gray-800">
                   {row.weight.toFixed(1)} kg
                 </td>
@@ -103,7 +126,7 @@ export function SeasonLowChart({ seasons }: SeasonLowChartProps) {
                     ? "text-gray-300"
                     : row.delta < 0
                     ? "text-emerald-600"
-                    : "text-amber-500"
+                    : "text-rose-500"
                 }`}>
                   {row.delta !== null
                     ? `${row.delta > 0 ? "+" : ""}${row.delta.toFixed(1)} kg`
