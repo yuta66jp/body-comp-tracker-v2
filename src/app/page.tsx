@@ -3,7 +3,6 @@ import { KpiCards } from "@/components/dashboard/KpiCards";
 import { ForecastChart } from "@/components/charts/ForecastChart";
 import { RecentLogsTable } from "@/components/dashboard/RecentLogsTable";
 import { MealLogger } from "@/components/meal/MealLogger";
-import { calcMetabolicSim } from "@/lib/utils/calcTdee";
 import type { DailyLog, Prediction, AnalyticsCache, Setting } from "@/lib/supabase/types";
 
 export const revalidate = 3600;
@@ -58,26 +57,9 @@ export default async function DashboardPage() {
     .filter((r) => r.weight_sma7 !== null)
     .map((r) => ({ date: r.log_date, value: r.weight_sma7! }));
 
-  // 代謝シミュレーション
-  const latestWeight = logs.filter((d) => d.weight !== null).at(-1)?.weight ?? null;
   const latestTdee = (enriched ?? [])
     .filter((r) => r.tdee_estimated !== null)
     .at(-1)?.tdee_estimated ?? null;
-  const avgCalories7 = (() => {
-    const last7 = logs.slice(-7).filter((d) => d.calories !== null);
-    return last7.length > 0
-      ? last7.reduce((s, d) => s + d.calories!, 0) / last7.length
-      : null;
-  })();
-
-  const targetDate = typeof settings["contest_date"] === "string"
-    ? settings["contest_date"]
-    : null;
-
-  const sim =
-    latestWeight && latestTdee && avgCalories7 && targetDate
-      ? calcMetabolicSim(latestWeight, latestTdee, avgCalories7, targetDate)
-      : [];
 
   const goalWeight = typeof settings["goal_weight"] === "number"
     ? settings["goal_weight"]
@@ -103,7 +85,6 @@ export default async function DashboardPage() {
                 logs={logs}
                 predictions={predictions}
                 sma7={sma7}
-                sim={sim}
                 goalWeight={goalWeight}
                 monthlyTarget={monthlyTarget}
               />
