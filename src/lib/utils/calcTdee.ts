@@ -74,6 +74,7 @@ export function calcMetabolicSim(
   // （new Date("YYYY-MM-DD") は UTC 午前0時にパースされ、JST 環境でずれが生じるため）
   const start = parseLocalDateStr(startDate ?? toLocalDateStr());
   const end = parseLocalDateStr(targetDate);
+  if (start === null || end === null) return [];
   const days = Math.round((end.getTime() - start.getTime()) / 86_400_000);
   if (days <= 0) return [];
 

@@ -223,6 +223,7 @@ export function ImportSection() {
         <code className="font-mono">log_date, weight, calories, protein, fat, carbs, note</code>
         <p className="mt-1">・同日のデータは上書き（upsert）されます</p>
         <p>・エクスポートしたCSVをそのままインポート可能です</p>
+        <p className="mt-1 text-amber-500">・note フィールドなどのセル内改行を含む CSV は未対応です。事前に改行を削除してください</p>
       </div>
     </div>
   );

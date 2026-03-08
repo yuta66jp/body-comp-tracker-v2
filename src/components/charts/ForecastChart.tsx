@@ -73,14 +73,14 @@ export function ForecastChart({
   let viewEndStr: string;
 
   if (rangeTab === "7d") {
-    viewStartStr = addDaysStr(latestLogDate, -6);  // 最新測定日を含む7日間
+    viewStartStr = addDaysStr(latestLogDate, -6) ?? today;  // 最新測定日を含む7日間
     viewEndStr = latestLogDate;
   } else if (rangeTab === "31d") {
-    viewStartStr = addDaysStr(latestLogDate, -30); // 最新測定日を含む31日間
+    viewStartStr = addDaysStr(latestLogDate, -30) ?? today; // 最新測定日を含む31日間
     viewEndStr = latestLogDate;
   } else {
     // default: 45日前〜大会日（または最後の予測日）
-    viewStartStr = addDaysStr(today, -45);
+    viewStartStr = addDaysStr(today, -45) ?? today;
     viewEndStr = contestDate && contestDate > lastForecastDate ? contestDate : lastForecastDate;
   }
 

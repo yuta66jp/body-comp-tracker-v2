@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Save, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Setting } from "@/lib/supabase/types";
+import { normalizeSettingField } from "./normalizeSettingField";
 
 interface SettingsFormProps {
   initialSettings: Setting[];
@@ -103,10 +104,20 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
       const meta = FIELDS[key];
       const raw = values[key] ?? "";
       const isNumeric = meta.type === "number";
+      const isDate = meta.type === "date";
+
+      // text / select フィールド: 前後空白を除去
+      const normalizedStr = (!isNumeric && !isDate) ? raw.trim() : raw;
+      // number フィールド: parseFloat して有限数でなければ null
+      const parsedNum = isNumeric && raw.trim() !== "" ? parseFloat(raw.trim()) : NaN;
+      const numValue = isNumeric ? (Number.isFinite(parsedNum) ? parsedNum : null) : null;
+      // date フィールド: YYYY-MM-DD 形式のみ保存（それ以外は null）
+      const dateValue = isDate && /^\d{4}-\d{2}-\d{2}$/.test(raw.trim()) ? raw.trim() : null;
+
       return {
         key,
-        value_num: isNumeric && raw !== "" ? parseFloat(raw) : null,
-        value_str: !isNumeric && raw !== "" ? raw : null,
+        value_num: numValue,
+        value_str: isNumeric ? null : (isDate ? dateValue : (normalizedStr !== "" ? normalizedStr : null)),
       };
     });
 
