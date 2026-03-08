@@ -7,7 +7,7 @@ import {
   buildDaysOutSeries,
   buildDaysOutChartData,
 } from "@/lib/utils/calcSeason";
-import type { DailyLog, CareerLog } from "@/lib/supabase/types";
+import type { DailyLog, CareerLog, Setting } from "@/lib/supabase/types";
 
 export const revalidate = 3600;
 
@@ -32,29 +32,41 @@ async function fetchCurrentLogs(): Promise<DailyLog[]> {
   return (data as DailyLog[]) ?? [];
 }
 
-function currentSeasonLabel(logs: DailyLog[]): string {
-  const year = logs.at(-1)?.log_date.slice(0, 4) ?? new Date().getFullYear().toString();
-  return `${year}_Current`;
+async function fetchSettings(): Promise<Record<string, string | number | null>> {
+  const supabase = createClient();
+  const { data } = await supabase.from("settings").select("key, value_num, value_str");
+  const rows = (data as Setting[] | null) ?? [];
+  return Object.fromEntries(
+    rows.map((r) => [r.key, r.value_num !== null ? r.value_num : r.value_str])
+  );
 }
 
 export default async function HistoryPage() {
-  const [careerLogs, currentLogs] = await Promise.all([
+  const [careerLogs, currentLogs, settings] = await Promise.all([
     fetchCareerLogs(),
     fetchCurrentLogs(),
+    fetchSettings(),
   ]);
+
+  // Settings から contest_date・current_season を取得
+  const contestDate = typeof settings["contest_date"] === "string"
+    ? settings["contest_date"]
+    : new Date().toISOString().slice(0, 10);
+
+  const currentSeasonLabel = typeof settings["current_season"] === "string" && settings["current_season"]
+    ? settings["current_season"]
+    : `${currentLogs.at(-1)?.log_date.slice(0, 4) ?? new Date().getFullYear()}_Current`;
 
   const seasonMeta = calcSeasonMeta(careerLogs);
 
-  const currentLabel = currentSeasonLabel(currentLogs);
-  const today = new Date().toISOString().slice(0, 10);
   const currentAsCareer: CareerLog[] = currentLogs
     .filter((d) => d.weight !== null)
     .map((d) => ({
       id: 0,
       log_date: d.log_date,
       weight: d.weight!,
-      season: currentLabel,
-      target_date: today,
+      season: currentSeasonLabel,
+      target_date: contestDate, // ← settings.contest_date を使用
       note: null,
     }));
 
@@ -74,13 +86,28 @@ export default async function HistoryPage() {
     <main className="min-h-screen bg-gray-50 p-6">
       <h1 className="mb-6 text-xl font-bold text-gray-800">キャリア比較</h1>
 
+      {/* 現在シーズンの設定表示 */}
+      <div className="mb-4 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+        <span>
+          現在シーズン:
+          <span className="ml-1 font-semibold text-blue-600">{currentSeasonLabel}</span>
+        </span>
+        <span>
+          大会日:
+          <span className="ml-1 font-semibold text-red-500">{contestDate}</span>
+        </span>
+        <span className="text-slate-300">
+          ※ 設定ページの「現在のシーズン」「コンテスト日」で変更できます
+        </span>
+      </div>
+
       <div className="space-y-6">
         {allCareerLogs.length > 0 ? (
           <>
             <DaysOutChart
               data={daysOutData}
               seasons={allSeasons}
-              currentSeason={currentLabel}
+              currentSeason={currentSeasonLabel}
             />
             {seasonMeta.length > 0 && (
               <SeasonLowChart seasons={seasonMeta} />
