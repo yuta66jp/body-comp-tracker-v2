@@ -161,3 +161,9 @@ export type MenuMaster = Database["public"]["Tables"]["menu_master"]["Row"];
 export type Setting = Database["public"]["Tables"]["settings"]["Row"];
 export type Prediction = Database["public"]["Tables"]["predictions"]["Row"];
 export type AnalyticsCache = Database["public"]["Tables"]["analytics_cache"]["Row"];
+
+/** menu_master.recipe JSONB の要素型 (旧版: {name, amount}) */
+export interface RecipeItem {
+  name: string;   // food_master.name と対応
+  amount: number; // グラム数
+}

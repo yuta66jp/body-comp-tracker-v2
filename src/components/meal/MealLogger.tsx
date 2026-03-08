@@ -8,6 +8,7 @@ import { Cart, calcCartTotals } from "./Cart";
 import type { CartItem } from "./Cart";
 import type { FoodMaster } from "@/lib/supabase/types";
 
+
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 function todayStr() {
@@ -26,12 +27,26 @@ export function MealLogger() {
     setCartItems((prev) => {
       const existing = prev.findIndex((item) => item.food.name === food.name);
       if (existing >= 0) {
-        // 既にカートにある場合は 100g 追加
         return prev.map((item, i) =>
           i === existing ? { ...item, grams: item.grams + 100 } : item
         );
       }
       return [...prev, { food, grams: 100 }];
+    });
+  }
+
+  function addFromMenu(items: CartItem[]) {
+    setCartItems((prev) => {
+      const next = [...prev];
+      for (const item of items) {
+        const existing = next.findIndex((c) => c.food.name === item.food.name);
+        if (existing >= 0) {
+          next[existing] = { ...next[existing], grams: next[existing].grams + item.grams };
+        } else {
+          next.push(item);
+        }
+      }
+      return next;
     });
   }
 
@@ -125,7 +140,7 @@ export function MealLogger() {
             {/* 食品検索 */}
             <div>
               <p className="mb-2 text-xs font-medium text-gray-500">食品を追加</p>
-              <FoodPicker onAdd={addFood} />
+              <FoodPicker onAdd={addFood} onAddSet={addFromMenu} />
             </div>
             {/* カート */}
             <div>
