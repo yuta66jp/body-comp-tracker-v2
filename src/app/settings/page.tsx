@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { SettingsForm } from "@/components/settings/SettingsForm";
 import { ExportSection } from "@/components/settings/ExportSection";
+import { ImportSection } from "@/components/settings/ImportSection";
 import type { Setting } from "@/lib/supabase/types";
 
 export const revalidate = 0;
@@ -23,7 +24,10 @@ export default async function SettingsPage() {
       <h1 className="mb-6 text-xl font-bold text-gray-800">設定</h1>
       <div className="space-y-6">
         <SettingsForm initialSettings={settings} />
-        <ExportSection />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <ExportSection />
+          <ImportSection />
+        </div>
       </div>
     </main>
   );
