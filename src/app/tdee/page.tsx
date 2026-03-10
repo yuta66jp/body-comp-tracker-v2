@@ -58,12 +58,7 @@ export default async function TdeePage() {
         })
       : null;
 
-  // enriched_logs からグラフデータ構築
-  const rawCalMap = new Map(
-    rawLogs.filter((d) => d.calories !== null).map((d) => [d.log_date, d.calories!])
-  );
-
-  // 10日移動平均カロリー
+  // 10日移動平均カロリー（グラフ用）
   const sortedRaw = [...rawLogs].sort((a, b) => a.log_date.localeCompare(b.log_date));
   const calMaMap = new Map<string, number>();
   for (let i = 0; i < sortedRaw.length; i++) {
@@ -88,10 +83,14 @@ export default async function TdeePage() {
   const avgCalories7 = sortedRaw.slice(-7).filter((d) => d.calories !== null)
     .reduce((s, d) => s + d.calories!, 0) / (sortedRaw.slice(-7).filter((d) => d.calories !== null).length || 1) || null;
 
-  const tableData = (enriched ?? []).map((row) => ({
+  // rawLogs を主軸にして直近14日を表示（enriched にない新規エントリも反映）
+  const enrichedTdeeMap = new Map(
+    (enriched ?? []).map((r) => [r.log_date, r.tdee_estimated])
+  );
+  const tableData = sortedRaw.slice(-14).map((row) => ({
     date: row.log_date,
-    calories: rawCalMap.get(row.log_date) ?? null,
-    tdee: row.tdee_estimated,
+    calories: row.calories,
+    tdee: enrichedTdeeMap.get(row.log_date) ?? null,
   }));
 
   return (

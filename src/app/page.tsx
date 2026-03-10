@@ -6,8 +6,6 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import type { DailyLog, Prediction, AnalyticsCache, Setting, CareerLog } from "@/lib/supabase/types";
 import type { MonthStats } from "@/components/history/SeasonSummary";
 
-export const revalidate = 3600;
-
 async function fetchLogs(): Promise<DailyLog[]> {
   const supabase = createClient();
   const { data, error } = await supabase

@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { CheckCircle2, AlertCircle, Loader2, PenLine } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { saveDailyLog } from "@/app/actions/saveDailyLog";
 import { FoodPicker } from "./FoodPicker";
 import { Cart, calcCartTotals } from "./Cart";
 import type { CartItem } from "./Cart";
@@ -21,7 +20,6 @@ interface MealLoggerProps {
 }
 
 export function MealLogger({ sidebar = false }: MealLoggerProps) {
-  const router = useRouter();
   const [date, setDate] = useState(todayStr);
   const [weight, setWeight] = useState("");
   const [note, setNote] = useState("");
@@ -58,9 +56,8 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
   async function handleSave() {
     setStatus("saving");
     const totals = calcCartTotals(cartItems);
-    const supabase = createClient();
 
-    const { error } = await supabase.from("daily_logs").upsert({
+    const result = await saveDailyLog({
       log_date: date,
       weight: weight !== "" ? parseFloat(weight) : null,
       calories: cartItems.length > 0 ? totals.calories : null,
@@ -68,10 +65,10 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
       fat: cartItems.length > 0 ? totals.fat : null,
       carbs: cartItems.length > 0 ? totals.carbs : null,
       note: note || null,
-    } as never);
+    });
 
-    if (error) {
-      console.error("upsert error:", error.message);
+    if (!result.ok) {
+      console.error("save error:", result.message);
       setStatus("error");
       setTimeout(() => setStatus("idle"), 3000);
     } else {
@@ -79,7 +76,6 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
       setCartItems([]);
       setNote("");
       setWeight("");
-      router.refresh();
       setTimeout(() => setStatus("idle"), 2000);
     }
   }
