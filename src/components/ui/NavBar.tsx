@@ -9,15 +9,17 @@ import {
   Settings2,
   PieChart,
   Zap,
+  BarChart2,
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/",        label: "ダッシュボード", icon: LayoutDashboard },
-  { href: "/macro",   label: "栄養",          icon: PieChart },
-  { href: "/tdee",    label: "TDEE",          icon: Zap },
-  { href: "/history", label: "履歴",          icon: CalendarDays },
-  { href: "/foods",   label: "食品DB",        icon: Database },
-  { href: "/settings",label: "設定",          icon: Settings2 },
+  { href: "/",                   label: "ダッシュボード", icon: LayoutDashboard },
+  { href: "/macro",              label: "栄養",          icon: PieChart },
+  { href: "/tdee",               label: "TDEE",          icon: Zap },
+  { href: "/history",            label: "履歴",          icon: CalendarDays },
+  { href: "/forecast-accuracy",  label: "予測精度",      icon: BarChart2 },
+  { href: "/foods",              label: "食品DB",        icon: Database },
+  { href: "/settings",           label: "設定",          icon: Settings2 },
 ];
 
 export function NavBar() {

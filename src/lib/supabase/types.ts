@@ -14,6 +14,132 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      forecast_backtest_runs: {
+        Row: {
+          id: string;
+          created_at: string;
+          model_name: string;
+          model_version: string | null;
+          horizons: number[];
+          train_min_date: string | null;
+          train_max_date: string | null;
+          n_source_rows: number;
+          notes: string | null;
+          config: Json;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          model_name: string;
+          model_version?: string | null;
+          horizons: number[];
+          train_min_date?: string | null;
+          train_max_date?: string | null;
+          n_source_rows?: number;
+          notes?: string | null;
+          config?: Json;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          model_name?: string;
+          model_version?: string | null;
+          horizons?: number[];
+          train_min_date?: string | null;
+          train_max_date?: string | null;
+          n_source_rows?: number;
+          notes?: string | null;
+          config?: Json;
+        };
+        Relationships: [];
+      };
+      forecast_backtest_metrics: {
+        Row: {
+          id: string;
+          run_id: string;
+          model_name: string;
+          horizon_days: number;
+          mae: number;
+          rmse: number;
+          mape: number | null;
+          bias: number | null;
+          n_predictions: number;
+          computed_at: string;
+          extra: Json;
+        };
+        Insert: {
+          id?: string;
+          run_id: string;
+          model_name: string;
+          horizon_days: number;
+          mae: number;
+          rmse: number;
+          mape?: number | null;
+          bias?: number | null;
+          n_predictions?: number;
+          computed_at?: string;
+          extra?: Json;
+        };
+        Update: {
+          id?: string;
+          run_id?: string;
+          model_name?: string;
+          horizon_days?: number;
+          mae?: number;
+          rmse?: number;
+          mape?: number | null;
+          bias?: number | null;
+          n_predictions?: number;
+          computed_at?: string;
+          extra?: Json;
+        };
+        Relationships: [];
+      };
+      forecast_backtest_predictions: {
+        Row: {
+          id: string;
+          run_id: string;
+          model_name: string;
+          forecast_origin_date: string;
+          target_date: string;
+          horizon_days: number;
+          predicted_weight: number;
+          actual_weight: number;
+          error: number;
+          abs_error: number;
+          squared_error: number;
+          ape: number | null;
+        };
+        Insert: {
+          id?: string;
+          run_id: string;
+          model_name: string;
+          forecast_origin_date: string;
+          target_date: string;
+          horizon_days: number;
+          predicted_weight: number;
+          actual_weight: number;
+          error: number;
+          abs_error: number;
+          squared_error: number;
+          ape?: number | null;
+        };
+        Update: {
+          id?: string;
+          run_id?: string;
+          model_name?: string;
+          forecast_origin_date?: string;
+          target_date?: string;
+          horizon_days?: number;
+          predicted_weight?: number;
+          actual_weight?: number;
+          error?: number;
+          abs_error?: number;
+          squared_error?: number;
+          ape?: number | null;
+        };
+        Relationships: [];
+      };
       daily_logs: {
         Row: {
           log_date: string;
@@ -195,3 +321,11 @@ export interface RecipeItem {
   name: string;   // food_master.name と対応
   amount: number; // グラム数
 }
+
+// Backtest table aliases
+export type ForecastBacktestRun =
+  Database["public"]["Tables"]["forecast_backtest_runs"]["Row"];
+export type ForecastBacktestMetric =
+  Database["public"]["Tables"]["forecast_backtest_metrics"]["Row"];
+export type ForecastBacktestPrediction =
+  Database["public"]["Tables"]["forecast_backtest_predictions"]["Row"];

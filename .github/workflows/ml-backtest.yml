@@ -1,0 +1,29 @@
+name: ML Forecast Backtest
+
+on:
+  # 毎週月曜 AM 4:00 JST (= UTC 日曜 19:00) に自動実行
+  # 日次バッチ(ml-daily.yml)より後に起動して最新データを使う
+  schedule:
+    - cron: "0 19 * * 0"
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r ml-pipeline/requirements.txt
+
+      - name: Run forecast backtest
+        run: python ml-pipeline/backtest.py
