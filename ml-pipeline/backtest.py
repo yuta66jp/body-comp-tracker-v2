@@ -12,17 +12,28 @@ backtest.py — 体重予測モデルの walk-forward 精度評価
   - 未来情報リークなし
   - 各起点 × 各ホライズン × 各モデルで誤差を記録
 
+評価軸 (--series-type):
+  daily (デフォルト):
+    各予測を target_date の単日実測体重と比較
+  sma7:
+    各予測を target_date 終端の 7 日間移動平均実測体重と比較
+    ノイズ (水分変動 ±0.5〜1.5 kg) を除いた精度を評価できる
+    [リークなし保証] horizon >= 7 のため SMA7 ウィンドウ
+    [target_date-6, target_date] は常に origin より後になる
+
 評価指標: MAE / RMSE / MAPE / bias / n_predictions
 
 保存先:
-  - forecast_backtest_runs        (実行メタ情報)
+  - forecast_backtest_runs        (実行メタ情報、config.series_type で識別)
   - forecast_backtest_metrics     (モデル/ホライズン別集計)
   - forecast_backtest_predictions (個別予測点)
 
 実行:
-  python ml-pipeline/backtest.py
+  python ml-pipeline/backtest.py                     # 単日評価 (デフォルト)
+  python ml-pipeline/backtest.py --series-type sma7  # 7日平均評価
 """
 
+import argparse
 import logging
 import math
 import os
@@ -53,6 +64,13 @@ ORIGIN_STEP_DAYS = 7          # 起点を何日おきにサンプリングする
 # NeuralProphet の設定 (backtest 用に epoch 数を抑える)
 NP_EPOCHS_BACKTEST = 100      # 本番は 500。バックテストでは速度優先
 MODEL_VERSION = "neuralprophet-v1"
+
+# 評価軸
+SERIES_DAILY = "daily"
+SERIES_SMA7 = "sma7"
+
+# SMA7 評価時に有効とみなすウィンドウ内の最低データ数 (7日中 N 日以上)
+SMA7_MIN_PERIODS = 4
 
 
 # ── Supabase クライアント ──────────────────────────────────────────────────────
@@ -175,6 +193,44 @@ def select_origins(df: pd.DataFrame) -> list[int]:
     return sampled
 
 
+# ── SMA7 実測値計算 (リークなし) ───────────────────────────────────────────────
+
+def compute_actual_sma7(
+    df: pd.DataFrame,
+    target_date: date,
+    origin_date: date,
+    min_periods: int = SMA7_MIN_PERIODS,
+) -> Optional[float]:
+    """target_date 終端の 7 日間移動平均実測体重を返す。
+
+    [リークなし保証]
+    ウィンドウ = [target_date - 6, target_date]
+    ただし origin_date 以前のデータは使用しない (防御的チェック)。
+
+    horizon >= 7 であれば target_date の最小日付 = target_date - 6 >= origin_date + 1
+    となるため訓練データとの重複は発生しない。
+
+    有効なデータ点が min_periods 未満の場合は None を返す (計測欠損日が多い場合)。
+
+    引数:
+      df          : 全体重系列 (log_date, weight)
+      target_date : ホライズン先の目標日
+      origin_date : walk-forward 起点日 (訓練終端)
+      min_periods : 7日ウィンドウ内で有効とみなす最低データ数
+    """
+    window_start = target_date - timedelta(days=6)
+    # origin_date 以前を除外 (防御的)
+    effective_start = max(window_start, origin_date + timedelta(days=1))
+    mask = (
+        (df["log_date"].dt.date >= effective_start)
+        & (df["log_date"].dt.date <= target_date)
+    )
+    vals = df[mask]["weight"].dropna()
+    if len(vals) < min_periods:
+        return None
+    return float(vals.mean())
+
+
 # ── メトリクス計算 ─────────────────────────────────────────────────────────────
 
 def compute_metrics(errors: list[float], actuals: list[float]) -> dict:
@@ -202,14 +258,23 @@ def compute_metrics(errors: list[float], actuals: list[float]) -> dict:
 BacktestResults = dict[str, dict[int, list[tuple[float, float, float, date, date]]]]
 
 
-def run_backtest(df: pd.DataFrame) -> BacktestResults:
-    """walk-forward バックテストを実行する。"""
+def run_backtest(df: pd.DataFrame, series_type: str = SERIES_DAILY) -> BacktestResults:
+    """walk-forward バックテストを実行する。
+
+    series_type:
+      SERIES_DAILY: 各予測を target_date の単日実測体重と比較 (デフォルト)
+      SERIES_SMA7:  各予測を target_date 終端の 7 日間移動平均実測体重と比較
+                    ノイズに強い評価軸。horizon >= 7 のためリークは発生しない。
+    """
     origins = select_origins(df)
     if not origins:
         log.warning("有効な起点がありません。データ不足の可能性があります。")
         return {m: {h: [] for h in HORIZONS} for m in MODELS}
 
-    log.info("バックテスト開始: 起点数=%d, horizons=%s", len(origins), HORIZONS)
+    log.info(
+        "バックテスト開始: series_type=%s, 起点数=%d, horizons=%s",
+        series_type, len(origins), HORIZONS,
+    )
 
     results: BacktestResults = {m: {h: [] for h in HORIZONS} for m in MODELS}
 
@@ -221,13 +286,25 @@ def run_backtest(df: pd.DataFrame) -> BacktestResults:
         for horizon in HORIZONS:
             target_date = origin_date + timedelta(days=horizon)
 
-            # target_date の実測値を探す
-            mask = df["log_date"].dt.date == target_date
-            target_rows = df[mask]
-            if target_rows.empty:
-                log.debug("    実測値なし: %s (h=%d), スキップ", target_date, horizon)
-                continue
-            actual = float(target_rows["weight"].iloc[0])
+            # ── 実測値の取得 ──
+            if series_type == SERIES_SMA7:
+                # 7日移動平均実測値 (リークなし)
+                actual_val = compute_actual_sma7(df, target_date, origin_date)
+                if actual_val is None:
+                    log.debug(
+                        "    SMA7実測値不足: %s (h=%d, min_periods=%d), スキップ",
+                        target_date, horizon, SMA7_MIN_PERIODS,
+                    )
+                    continue
+                actual = actual_val
+            else:
+                # 単日実測値 (既存ロジック)
+                mask = df["log_date"].dt.date == target_date
+                target_rows = df[mask]
+                if target_rows.empty:
+                    log.debug("    実測値なし: %s (h=%d), スキップ", target_date, horizon)
+                    continue
+                actual = float(target_rows["weight"].iloc[0])
 
             for model_name, predict_fn in MODELS.items():
                 min_rows = MIN_TRAIN_ROWS_NP if model_name == "NeuralProphet" else MIN_TRAIN_ROWS_BASELINE
@@ -248,8 +325,17 @@ def run_backtest(df: pd.DataFrame) -> BacktestResults:
 
 # ── DB 保存 ────────────────────────────────────────────────────────────────────
 
-def save_results(sb: Client, df: pd.DataFrame, results: BacktestResults) -> str:
-    """バックテスト結果を DB に保存し、run_id を返す。"""
+def save_results(
+    sb: Client,
+    df: pd.DataFrame,
+    results: BacktestResults,
+    series_type: str = SERIES_DAILY,
+) -> str:
+    """バックテスト結果を DB に保存し、run_id を返す。
+
+    series_type は config.series_type に記録する。
+    フロントエンドはこのフィールドで daily/sma7 の run を識別する。
+    """
     run_id = str(uuid.uuid4())
     origins = select_origins(df)
 
@@ -263,7 +349,8 @@ def save_results(sb: Client, df: pd.DataFrame, results: BacktestResults) -> str:
         "train_max_date": df["log_date"].max().date().isoformat(),
         "n_source_rows": len(df),
         "notes": (
-            f"Walk-forward backtest, origins={len(origins)}, "
+            f"Walk-forward backtest, series_type={series_type}, "
+            f"origins={len(origins)}, "
             f"np_epochs={NP_EPOCHS_BACKTEST}, "
             f"step={ORIGIN_STEP_DAYS}d"
         ),
@@ -274,10 +361,12 @@ def save_results(sb: Client, df: pd.DataFrame, results: BacktestResults) -> str:
             "np_epochs_backtest": NP_EPOCHS_BACKTEST,
             "min_train_rows_np": MIN_TRAIN_ROWS_NP,
             "min_train_rows_baseline": MIN_TRAIN_ROWS_BASELINE,
+            "series_type": series_type,           # ← 評価軸を記録
+            "sma7_min_periods": SMA7_MIN_PERIODS, # ← SMA7 評価の設定
         },
     }
     sb.from_("forecast_backtest_runs").insert(run_row).execute()
-    log.info("runs に挿入: run_id=%s", run_id)
+    log.info("runs に挿入: run_id=%s, series_type=%s", run_id, series_type)
 
     # 2. metrics テーブルに集計結果を挿入
     metric_rows = []
@@ -372,6 +461,22 @@ def log_summary(results: BacktestResults) -> None:
 # ── メイン ─────────────────────────────────────────────────────────────────────
 
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="体重予測モデルの walk-forward バックテスト"
+    )
+    parser.add_argument(
+        "--series-type",
+        choices=[SERIES_DAILY, SERIES_SMA7],
+        default=SERIES_DAILY,
+        dest="series_type",
+        help=(
+            "評価軸: "
+            f"{SERIES_DAILY}=単日体重 (デフォルト), "
+            f"{SERIES_SMA7}=7日移動平均体重 (ノイズに強い評価)"
+        ),
+    )
+    args = parser.parse_args()
+
     sb = get_client()
 
     log.info("体重履歴を取得中...")
@@ -386,11 +491,12 @@ def main() -> None:
         )
         return
 
-    results = run_backtest(df)
+    log.info("評価軸: %s", args.series_type)
+    results = run_backtest(df, series_type=args.series_type)
     log_summary(results)
 
-    run_id = save_results(sb, df, results)
-    log.info("バックテスト完了。run_id=%s", run_id)
+    run_id = save_results(sb, df, results, series_type=args.series_type)
+    log.info("バックテスト完了。run_id=%s, series_type=%s", run_id, args.series_type)
 
 
 if __name__ == "__main__":

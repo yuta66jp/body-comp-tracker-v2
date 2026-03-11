@@ -1,25 +1,57 @@
 import { createClient } from "@/lib/supabase/server";
 import { BacktestResults } from "@/components/charts/BacktestResults";
+import { BacktestComparison } from "@/components/charts/BacktestComparison";
 import { BarChart2 } from "lucide-react";
 import type {
   ForecastBacktestRun,
   ForecastBacktestMetric,
+  Json,
 } from "@/lib/supabase/types";
 
 export const revalidate = 3600; // 1時間キャッシュ (バッチは週1回)
 
-async function fetchLatestRun(): Promise<ForecastBacktestRun | null> {
+// ─── ヘルパー ────────────────────────────────────────────────────────────────
+
+/**
+ * config.series_type を安全に読み出す。
+ * 旧来の run (series_type なし) は "daily" として扱う。
+ */
+function getSeriesType(run: ForecastBacktestRun): string {
+  const cfg = run.config;
+  if (cfg && typeof cfg === "object" && !Array.isArray(cfg)) {
+    const st = (cfg as Record<string, Json>)["series_type"];
+    if (typeof st === "string") return st;
+  }
+  return "daily";
+}
+
+// ─── データ取得 ──────────────────────────────────────────────────────────────
+
+/**
+ * 最新 20 件の run を取得し、daily / sma7 それぞれの最新 run を返す。
+ * 旧来の run (config.series_type なし) は daily として扱う。
+ */
+async function fetchLatestRuns(): Promise<{
+  dailyRun: ForecastBacktestRun | null;
+  sma7Run: ForecastBacktestRun | null;
+}> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("forecast_backtest_runs")
     .select("*")
     .order("created_at", { ascending: false })
-    .limit(1);
+    .limit(20);
+
   if (error) {
     console.error("forecast_backtest_runs fetch error:", error.message);
-    return null;
+    return { dailyRun: null, sma7Run: null };
   }
-  return ((data as ForecastBacktestRun[]) ?? [])[0] ?? null;
+
+  const runs = (data as ForecastBacktestRun[]) ?? [];
+  const dailyRun = runs.find((r) => getSeriesType(r) === "daily") ?? null;
+  const sma7Run = runs.find((r) => getSeriesType(r) === "sma7") ?? null;
+
+  return { dailyRun, sma7Run };
 }
 
 async function fetchMetrics(runId: string): Promise<ForecastBacktestMetric[]> {
@@ -36,10 +68,13 @@ async function fetchMetrics(runId: string): Promise<ForecastBacktestMetric[]> {
   return (data as ForecastBacktestMetric[]) ?? [];
 }
 
-export default async function ForecastAccuracyPage() {
-  const run = await fetchLatestRun();
+// ─── ページ ──────────────────────────────────────────────────────────────────
 
-  if (!run) {
+export default async function ForecastAccuracyPage() {
+  const { dailyRun, sma7Run } = await fetchLatestRuns();
+
+  // 両方ともデータなし
+  if (!dailyRun && !sma7Run) {
     return (
       <main className="min-h-screen bg-gray-50 p-6">
         <div className="flex items-center gap-2 mb-6">
@@ -51,17 +86,29 @@ export default async function ForecastAccuracyPage() {
             まだバックテストが実行されていません
           </p>
           <p className="mt-2 text-xs text-slate-400">
-            GitHub Actions の <code className="bg-slate-100 px-1 rounded">ml-backtest.yml</code> を手動実行するか、毎週月曜 AM 4:00 JST の自動実行をお待ちください。
+            GitHub Actions の{" "}
+            <code className="bg-slate-100 px-1 rounded">ml-backtest.yml</code>{" "}
+            を手動実行するか、毎週月曜 AM 4:00 JST の自動実行をお待ちください。
           </p>
-          <p className="mt-1 text-xs text-slate-400">
-            ローカルでの実行: <code className="bg-slate-100 px-1 rounded">python ml-pipeline/backtest.py</code>
-          </p>
+          <p className="mt-2 text-xs text-slate-400">ローカルでの実行:</p>
+          <div className="mt-1 flex flex-col items-center gap-1 text-xs">
+            <code className="bg-slate-100 px-2 py-0.5 rounded">
+              python ml-pipeline/backtest.py
+            </code>
+            <code className="bg-slate-100 px-2 py-0.5 rounded">
+              python ml-pipeline/backtest.py --series-type sma7
+            </code>
+          </div>
         </div>
       </main>
     );
   }
 
-  const metrics = await fetchMetrics(run.id);
+  // metrics を並列取得
+  const [dailyMetrics, sma7Metrics] = await Promise.all([
+    dailyRun ? fetchMetrics(dailyRun.id) : Promise.resolve([]),
+    sma7Run ? fetchMetrics(sma7Run.id) : Promise.resolve([]),
+  ]);
 
   return (
     <main className="min-h-screen bg-gray-50 p-6">
@@ -73,18 +120,62 @@ export default async function ForecastAccuracyPage() {
         </span>
       </div>
 
-      {metrics.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center">
-          <p className="text-sm text-slate-500">
-            バックテスト実行は記録されていますが、指標データが見つかりませんでした。
-          </p>
-          <p className="mt-1 text-xs text-slate-400">
-            データが十分でない可能性があります（最低 {30 + 30} 件の体重記録が必要）。
-          </p>
-        </div>
-      ) : (
-        <BacktestResults run={run} metrics={metrics} />
-      )}
+      <div className="space-y-6">
+        {/* ── 単日 vs 7日平均 比較 (新セクション) ── */}
+        <BacktestComparison
+          dailyMetrics={dailyMetrics}
+          sma7Metrics={sma7Metrics}
+        />
+
+        {/* ── 単日評価の詳細 (既存) ── */}
+        {dailyRun && dailyMetrics.length > 0 ? (
+          <div>
+            <h2 className="mb-3 text-sm font-bold text-slate-600">
+              単日体重ベース評価
+              <span className="ml-2 text-xs font-normal text-slate-400">
+                ({dailyRun.created_at.slice(0, 10)} 実行)
+              </span>
+            </h2>
+            <BacktestResults run={dailyRun} metrics={dailyMetrics} />
+          </div>
+        ) : dailyRun ? (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+            単日評価: バックテスト実行は記録されていますが、指標データが見つかりませんでした。
+          </div>
+        ) : null}
+
+        {/* ── 7日平均評価の詳細 (新セクション) ── */}
+        {sma7Run && sma7Metrics.length > 0 ? (
+          <div>
+            <h2 className="mb-3 text-sm font-bold text-slate-600">
+              7日平均体重ベース評価
+              <span className="ml-2 text-xs font-normal text-slate-400">
+                ({sma7Run.created_at.slice(0, 10)} 実行)
+              </span>
+              <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                ノイズ除去済み
+              </span>
+            </h2>
+            <BacktestResults run={sma7Run} metrics={sma7Metrics} />
+          </div>
+        ) : sma7Run ? (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+            7日平均評価: バックテスト実行は記録されていますが、指標データが見つかりませんでした。
+          </div>
+        ) : (
+          /* sma7 未実行の場合の誘導 */
+          <div className="rounded-xl border border-dashed border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-700">
+            <p className="font-semibold">7日平均ベース評価を追加するには:</p>
+            <code className="mt-2 block rounded bg-emerald-100 px-3 py-1.5 text-xs font-mono">
+              python ml-pipeline/backtest.py --series-type sma7
+            </code>
+            <p className="mt-2 text-xs text-emerald-600">
+              単日評価より MAE が低くなるのは正常です。
+              水分変動 (±0.5〜1.5 kg) によるノイズが評価から除去されるためです。
+            </p>
+          </div>
+        )}
+      </div>
     </main>
   );
 }
