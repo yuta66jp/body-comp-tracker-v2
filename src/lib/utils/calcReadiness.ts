@@ -170,3 +170,67 @@ function shiftDate(base: string, days: number): string {
   d.setDate(d.getDate() + days);
   return toJstDateStr(d);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 目標ステータス判定
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * 目標達成ステータス。
+ * - achieved   : 残り ≤ 0.2 kg
+ * - on_track   : 実績ペース ≥ 必要ペース (比率 ≥ 1.0)
+ * - adjust     : 比率 0.5〜1.0 未満
+ * - behind     : 比率 0.5 未満 または逆方向
+ * - no_contest : contest_date 未設定または過去
+ * - unknown    : データ不足
+ */
+export type GoalStatus =
+  | "achieved"
+  | "on_track"
+  | "adjust"
+  | "behind"
+  | "no_contest"
+  | "unknown";
+
+/**
+ * ペース比率からステータスを判定する純粋関数。
+ *
+ * ratio = actualRate / requiredRate
+ *   Cut:  required < 0, actual < 0 が理想
+ *   Bulk: required > 0, actual > 0 が理想
+ *
+ * @param actualRateKgPerWeek   実績ペース (kg/週, 負=減量)
+ * @param requiredRateKgPerWeek 必要ペース (kg/週, 負=減量)
+ * @param remainingToGoalKg     基準体重 − 目標体重 (正=まだ上)
+ * @param daysToContest         残り日数 (負=過去)
+ */
+export function calcGoalStatus(
+  actualRateKgPerWeek: number | null,
+  requiredRateKgPerWeek: number | null,
+  remainingToGoalKg: number | null,
+  daysToContest: number | null
+): GoalStatus {
+  if (daysToContest === null || daysToContest < 0) return "no_contest";
+  if (remainingToGoalKg !== null && Math.abs(remainingToGoalKg) < 0.2) return "achieved";
+  if (actualRateKgPerWeek === null || requiredRateKgPerWeek === null) return "unknown";
+  if (requiredRateKgPerWeek === 0) return "on_track";
+
+  const ratio = actualRateKgPerWeek / requiredRateKgPerWeek;
+  if (ratio >= 1.0) return "on_track";
+  if (ratio >= 0.5) return "adjust";
+  return "behind";
+}
+
+/**
+ * 実績ペースを必要ペースに合わせるための 1日あたりカロリー調整量 (kcal)。
+ * 負 = 摂取量を減らす、正 = 増やす。50 kcal 単位に丸め。
+ */
+export function calcKcalCorrection(
+  actualRateKgPerWeek: number | null,
+  requiredRateKgPerWeek: number | null
+): number | null {
+  if (actualRateKgPerWeek === null || requiredRateKgPerWeek === null) return null;
+  const paceGap = requiredRateKgPerWeek - actualRateKgPerWeek;
+  const raw = (paceGap * 7200) / 7;
+  return Math.round(raw / 50) * 50;
+}

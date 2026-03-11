@@ -4,7 +4,9 @@ import { ForecastChart } from "@/components/charts/ForecastChart";
 import { LogsAndSummaryTabs } from "@/components/dashboard/LogsAndSummaryTabs";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { DataQualityBadge } from "@/components/dashboard/DataQualityBadge";
+import { GoalNavigator } from "@/components/dashboard/GoalNavigator";
 import { calcDataQuality } from "@/lib/utils/calcDataQuality";
+import { calcReadiness } from "@/lib/utils/calcReadiness";
 import type { DailyLog, Prediction, AnalyticsCache, Setting, CareerLog } from "@/lib/supabase/types";
 import type { MonthStats } from "@/components/history/SeasonSummary";
 
@@ -148,6 +150,14 @@ export default async function DashboardPage() {
 
   const qualityReport = calcDataQuality(logs);
 
+  const phase =
+    typeof settings["current_phase"] === "string" ? settings["current_phase"] : "Cut";
+
+  const readinessMetrics = calcReadiness(logs, {
+    contest_date: contestDate ?? null,
+    goal_weight: goalWeight ?? null,
+  });
+
   return (
     <DashboardLayout>
       {logs.length > 0 ? (
@@ -161,6 +171,13 @@ export default async function DashboardPage() {
             </div>
           )}
           <KpiCards logs={logs} settings={settings} avgTdee={latestTdee} />
+          <GoalNavigator
+            metrics={readinessMetrics}
+            phase={phase}
+            goalWeight={goalWeight ?? null}
+            contestDate={contestDate ?? null}
+            avgTdee={latestTdee}
+          />
           <DataQualityBadge report={qualityReport} />
           {predictions.length > 0 && (
             <ForecastChart
