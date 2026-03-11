@@ -3,6 +3,8 @@ import { KpiCards } from "@/components/dashboard/KpiCards";
 import { ForecastChart } from "@/components/charts/ForecastChart";
 import { LogsAndSummaryTabs } from "@/components/dashboard/LogsAndSummaryTabs";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { DataQualityBadge } from "@/components/dashboard/DataQualityBadge";
+import { calcDataQuality } from "@/lib/utils/calcDataQuality";
 import type { DailyLog, Prediction, AnalyticsCache, Setting, CareerLog } from "@/lib/supabase/types";
 import type { MonthStats } from "@/components/history/SeasonSummary";
 
@@ -144,6 +146,8 @@ export default async function DashboardPage() {
     season: getSeasonForMonth(s.month, seasonRanges, currentSeason),
   }));
 
+  const qualityReport = calcDataQuality(logs);
+
   return (
     <DashboardLayout>
       {logs.length > 0 ? (
@@ -157,6 +161,7 @@ export default async function DashboardPage() {
             </div>
           )}
           <KpiCards logs={logs} settings={settings} avgTdee={latestTdee} />
+          <DataQualityBadge report={qualityReport} />
           {predictions.length > 0 && (
             <ForecastChart
               logs={logs}
