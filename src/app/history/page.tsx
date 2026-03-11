@@ -1,13 +1,19 @@
 import { createClient } from "@/lib/supabase/server";
 import { DaysOutChart } from "@/components/history/DaysOutChart";
 import { SeasonLowChart } from "@/components/history/SeasonLowChart";
+import { YearOverYearSummary } from "@/components/history/YearOverYearSummary";
+import { SeasonComparisonTable } from "@/components/history/SeasonComparisonTable";
 import {
   calcSeasonMeta,
   buildDaysOutSeries,
   buildDaysOutChartData,
+  buildMilestoneRows,
 } from "@/lib/utils/calcSeason";
 import { toJstDateStr } from "@/lib/utils/date";
 import type { DailyLog, CareerLog, Setting } from "@/lib/supabase/types";
+
+/** 比較するマイルストーン (大会日からの日数) */
+const MILESTONES = [-180, -120, -90, -60, -30, -14];
 
 export const revalidate = 3600;
 
@@ -76,6 +82,18 @@ export default async function HistoryPage() {
   const daysOutData = buildDaysOutChartData(seriesMap, -300, 0);
   const allSeasons = Array.from(seriesMap.keys());
 
+  // ── 比較テーブル用データ ──
+  const milestoneRows = buildMilestoneRows(seriesMap, MILESTONES);
+
+  // 過去シーズン (今季を除く)
+  const pastSeasonMeta = allSeasonMeta.filter((m) => m.season !== currentSeasonLabel);
+  const prevSeasonMeta = pastSeasonMeta.at(-1) ?? null; // 最新の過去シーズン
+  const currentSeasonMeta = allSeasonMeta.find((m) => m.season === currentSeasonLabel) ?? null;
+
+  const isCut = typeof settings["current_phase"] === "string"
+    ? settings["current_phase"] !== "Bulk"
+    : true;
+
   return (
     <main className="min-h-screen bg-gray-50 p-6">
       <h1 className="mb-6 text-xl font-bold text-gray-800">キャリア比較</h1>
@@ -98,14 +116,37 @@ export default async function HistoryPage() {
       <div className="space-y-6">
         {allCareerLogs.length > 0 ? (
           <>
+            {/* 前回シーズン比較サマリー (判断用) */}
+            <YearOverYearSummary
+              milestoneRows={milestoneRows}
+              currentSeason={currentSeasonLabel}
+              prevSeason={prevSeasonMeta?.season ?? null}
+              currentMeta={currentSeasonMeta}
+              prevMeta={prevSeasonMeta}
+              isCut={isCut}
+            />
+
+            {/* days-out グラフ (視覚的確認用) */}
             <DaysOutChart
               data={daysOutData}
               seasons={allSeasons}
               currentSeason={currentSeasonLabel}
             />
+
+            {/* 全シーズン × マイルストーン 比較テーブル (詳細参照用) */}
+            <SeasonComparisonTable
+              milestoneRows={milestoneRows}
+              seasonMeta={allSeasonMeta}
+              seasons={allSeasons}
+              currentSeason={currentSeasonLabel}
+              isCut={isCut}
+            />
+
+            {/* 仕上がり体重推移 */}
             {allSeasonMeta.length > 0 && (
               <SeasonLowChart seasons={allSeasonMeta} currentSeason={currentSeasonLabel} />
             )}
+
             {/* 過去実績データは import_history.py で一括インポートして管理 */}
             {seasonMeta.length === 0 && (
               <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5 text-sm text-amber-700">
