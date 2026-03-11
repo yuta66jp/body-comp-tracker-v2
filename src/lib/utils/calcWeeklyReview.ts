@@ -19,6 +19,7 @@ import type { DailyLog } from "@/lib/supabase/types";
 import type { ReadinessMetrics } from "./calcReadiness";
 import type { DataQualityReport } from "./calcDataQuality";
 import { addDaysStr, dateRangeStr, toJstDateStr } from "./date";
+import { DAY_TAG_LABELS } from "./dayTags";
 
 // ─── 公開型 ─────────────────────────────────────────────────────────────────
 
@@ -78,6 +79,16 @@ export interface WeeklyTdee {
   balancePerDay: number | null;
 }
 
+/** 直近 7 日の特殊日集計 */
+export interface SpecialDaySummary {
+  cheatDays: number;
+  refeedDays: number;
+  eatingOutDays: number;
+  poorSleepDays: number;
+  /** いずれかのタグが付いた日数 */
+  totalTaggedDays: number;
+}
+
 export interface WeeklyReviewData {
   /** 集計期間ラベル。例: "2026-03-04〜2026-03-10" */
   weekLabel: string;
@@ -90,6 +101,7 @@ export interface WeeklyReviewData {
     caloriesMissingDays: number;
   };
   stagnation: StagnationResult;
+  specialDays: SpecialDaySummary;
   /** ルールベースの日本語所見 (箇条書き) */
   findings: string[];
 }
@@ -200,6 +212,7 @@ function generateFindings(
   tdee: WeeklyTdee,
   quality: { score: number; weightMissingDays: number; caloriesMissingDays: number },
   stagnation: StagnationResult,
+  specialDays: SpecialDaySummary,
   phase: string
 ): string[] {
   const findings: string[] = [];
@@ -289,7 +302,27 @@ function generateFindings(
     );
   }
 
-  // ── 5. 停滞 ──
+  // ── 5. 特殊日 ──
+  if (specialDays.totalTaggedDays > 0) {
+    const parts: string[] = [];
+    if (specialDays.cheatDays   > 0) parts.push(`${DAY_TAG_LABELS.is_cheat_day} ${specialDays.cheatDays} 日`);
+    if (specialDays.refeedDays  > 0) parts.push(`${DAY_TAG_LABELS.is_refeed_day} ${specialDays.refeedDays} 日`);
+    if (specialDays.eatingOutDays > 0) parts.push(`${DAY_TAG_LABELS.is_eating_out} ${specialDays.eatingOutDays} 日`);
+    if (specialDays.poorSleepDays > 0) parts.push(`${DAY_TAG_LABELS.is_poor_sleep} ${specialDays.poorSleepDays} 日`);
+    findings.push(`今週の特殊日: ${parts.join("、")}。体重変動の一因として参考にしてください`);
+
+    // チート/リフィードがあり停滞疑いの場合、追加注記
+    if (
+      stagnation.level === "suspected" &&
+      specialDays.cheatDays + specialDays.refeedDays > 0
+    ) {
+      findings.push(
+        `チートデイ/リフィードによる一時的な水分増加が停滞に見えている可能性があります`
+      );
+    }
+  }
+
+  // ── 6. 停滞 ──
   if (stagnation.level === "suspected") {
     const trendStr =
       stagnation.trendKgPerWeek !== null
@@ -313,7 +346,7 @@ function generateFindings(
     );
   }
 
-  // ── 6. 品質注記 (suspected/watching のとき) ──
+  // ── 7. 品質注記 (suspected/watching のとき) ──
   if (
     stagnation.qualityNote &&
     (stagnation.level === "suspected" || stagnation.level === "watching")
@@ -430,6 +463,21 @@ export function calcWeeklyReview(
     caloriesMissingDays: qualityReport.period7.caloriesMissingDays,
   };
 
+  // ── Special Days (直近 7 暦日の特殊日集計) ──
+  const cheatDays     = windowLogs.filter((l) => l.is_cheat_day).length;
+  const refeedDays    = windowLogs.filter((l) => l.is_refeed_day).length;
+  const eatingOutDays = windowLogs.filter((l) => l.is_eating_out).length;
+  const poorSleepDays = windowLogs.filter((l) => l.is_poor_sleep).length;
+  const specialDays: SpecialDaySummary = {
+    cheatDays,
+    refeedDays,
+    eatingOutDays,
+    poorSleepDays,
+    totalTaggedDays: windowLogs.filter(
+      (l) => l.is_cheat_day || l.is_refeed_day || l.is_eating_out || l.is_poor_sleep
+    ).length,
+  };
+
   // ── Stagnation ──
   const hasAnomalies = qualityReport.period7.anomalies.length > 0;
   const stagnation = calcStagnation(
@@ -447,6 +495,7 @@ export function calcWeeklyReview(
     tdee,
     quality,
     stagnation,
+    specialDays,
     phase
   );
 
@@ -457,6 +506,7 @@ export function calcWeeklyReview(
     tdee,
     quality,
     stagnation,
+    specialDays,
     findings,
   };
 }

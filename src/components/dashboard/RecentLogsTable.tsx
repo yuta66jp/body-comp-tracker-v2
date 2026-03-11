@@ -2,6 +2,7 @@
 
 import { ArrowDown, ArrowUp, Minus } from "lucide-react";
 import type { DailyLog } from "@/lib/supabase/types";
+import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayTags";
 
 interface RecentLogsTableProps {
   logs: DailyLog[];
@@ -47,14 +48,24 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
               <tr key={log.log_date} className="transition-colors hover:bg-slate-50/70">
                 <td className="py-2 pr-4">
                   <div className="font-mono text-xs font-medium text-slate-600">{log.log_date}</div>
-                  {(() => {
-                    const season = seasonMap?.get(log.log_date) ?? currentSeason;
-                    return season ? (
-                      <span className="mt-0.5 inline-block rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-blue-500">
-                        {season}
+                  <div className="mt-0.5 flex flex-wrap gap-1">
+                    {(() => {
+                      const season = seasonMap?.get(log.log_date) ?? currentSeason;
+                      return season ? (
+                        <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-blue-500">
+                          {season}
+                        </span>
+                      ) : null;
+                    })()}
+                    {DAY_TAGS.filter((tag) => log[tag]).map((tag) => (
+                      <span
+                        key={tag}
+                        className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none ${DAY_TAG_BADGE_COLORS[tag]}`}
+                      >
+                        {DAY_TAG_LABELS[tag]}
                       </span>
-                    ) : null;
-                  })()}
+                    ))}
+                  </div>
                 </td>
                 <td className="py-2 pr-4 text-right font-semibold text-slate-800">
                   {log.weight?.toFixed(1)}

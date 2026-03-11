@@ -10,6 +10,10 @@ function makeLog(log_date: string, overrides: Partial<DailyLog> = {}): DailyLog 
     fat: 50,
     carbs: 200,
     note: null,
+    is_cheat_day:  false,
+    is_refeed_day: false,
+    is_eating_out: false,
+    is_poor_sleep: false,
     ...overrides,
   };
 }

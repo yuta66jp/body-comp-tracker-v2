@@ -8,6 +8,13 @@ import { Cart, calcCartTotals } from "./Cart";
 import type { CartItem } from "./Cart";
 import type { FoodMaster } from "@/lib/supabase/types";
 import { toJstDateStr } from "@/lib/utils/date";
+import {
+  type DayTag,
+  DAY_TAGS,
+  DAY_TAG_LABELS,
+  DAY_TAG_ACTIVE_COLORS,
+  emptyTagState,
+} from "@/lib/utils/dayTags";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -24,7 +31,12 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
   const [weight, setWeight] = useState("");
   const [note, setNote] = useState("");
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [tags, setTags] = useState<Record<DayTag, boolean>>(emptyTagState);
   const [status, setStatus] = useState<SaveStatus>("idle");
+
+  function toggleTag(tag: DayTag) {
+    setTags((prev) => ({ ...prev, [tag]: !prev[tag] }));
+  }
 
   function addFood(food: FoodMaster) {
     setCartItems((prev) => {
@@ -65,6 +77,7 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
       fat: cartItems.length > 0 ? totals.fat : null,
       carbs: cartItems.length > 0 ? totals.carbs : null,
       note: note || null,
+      ...tags,
     });
 
     if (!result.ok) {
@@ -76,9 +89,16 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
       setCartItems([]);
       setNote("");
       setWeight("");
+      setTags(emptyTagState());
       setTimeout(() => setStatus("idle"), 2000);
     }
   }
+
+  const hasContent =
+    weight !== "" ||
+    cartItems.length > 0 ||
+    note !== "" ||
+    DAY_TAGS.some((t) => tags[t]);
 
   const inputCls =
     "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400";
@@ -100,6 +120,27 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">メモ</label>
           <input type="text" placeholder="任意" value={note}
             onChange={(e) => setNote(e.target.value)} className={inputCls} />
+        </div>
+      </div>
+
+      {/* 特殊日タグ */}
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">特殊日</p>
+        <div className="grid grid-cols-2 gap-2">
+          {DAY_TAGS.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => toggleTag(tag)}
+              className={`rounded-xl border px-3 py-2 text-xs font-semibold transition-colors ${
+                tags[tag]
+                  ? DAY_TAG_ACTIVE_COLORS[tag]
+                  : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:bg-slate-100"
+              }`}
+            >
+              {DAY_TAG_LABELS[tag]}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -129,7 +170,7 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
         )}
         <button
           onClick={handleSave}
-          disabled={status === "saving" || (weight === "" && cartItems.length === 0)}
+          disabled={status === "saving" || !hasContent}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md disabled:opacity-40"
         >
           {status === "saving"

@@ -23,6 +23,7 @@ import {
   Beef,
 } from "lucide-react";
 import type { WeeklyReviewData, StagnationLevel } from "@/lib/utils/calcWeeklyReview";
+import { DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayTags";
 
 interface Props {
   data: WeeklyReviewData;
@@ -265,6 +266,37 @@ export function WeeklyReviewCard({ data, phase }: Props) {
               </p>
             )}
           </div>
+
+          {/* 特殊日サマリー */}
+          {data.specialDays.totalTaggedDays > 0 && (
+            <div>
+              <p className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                今週の特殊日
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {data.specialDays.cheatDays > 0 && (
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${DAY_TAG_BADGE_COLORS.is_cheat_day}`}>
+                    {DAY_TAG_LABELS.is_cheat_day} {data.specialDays.cheatDays}日
+                  </span>
+                )}
+                {data.specialDays.refeedDays > 0 && (
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${DAY_TAG_BADGE_COLORS.is_refeed_day}`}>
+                    {DAY_TAG_LABELS.is_refeed_day} {data.specialDays.refeedDays}日
+                  </span>
+                )}
+                {data.specialDays.eatingOutDays > 0 && (
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${DAY_TAG_BADGE_COLORS.is_eating_out}`}>
+                    {DAY_TAG_LABELS.is_eating_out} {data.specialDays.eatingOutDays}日
+                  </span>
+                )}
+                {data.specialDays.poorSleepDays > 0 && (
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${DAY_TAG_BADGE_COLORS.is_poor_sleep}`}>
+                    {DAY_TAG_LABELS.is_poor_sleep} {data.specialDays.poorSleepDays}日
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── 右列: 所見 ── */}

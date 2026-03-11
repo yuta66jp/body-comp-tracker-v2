@@ -149,6 +149,10 @@ export type Database = {
           fat: number | null;
           carbs: number | null;
           note: string | null;
+          is_cheat_day: boolean;
+          is_refeed_day: boolean;
+          is_eating_out: boolean;
+          is_poor_sleep: boolean;
         };
         Insert: {
           log_date: string;
@@ -158,6 +162,10 @@ export type Database = {
           fat?: number | null;
           carbs?: number | null;
           note?: string | null;
+          is_cheat_day?: boolean;
+          is_refeed_day?: boolean;
+          is_eating_out?: boolean;
+          is_poor_sleep?: boolean;
         };
         Update: {
           log_date?: string;
@@ -167,6 +175,10 @@ export type Database = {
           fat?: number | null;
           carbs?: number | null;
           note?: string | null;
+          is_cheat_day?: boolean;
+          is_refeed_day?: boolean;
+          is_eating_out?: boolean;
+          is_poor_sleep?: boolean;
         };
         Relationships: [];
       };

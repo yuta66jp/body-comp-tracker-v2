@@ -11,6 +11,10 @@ export type SaveDailyLogInput = {
   fat: number | null;
   carbs: number | null;
   note: string | null;
+  is_cheat_day: boolean;
+  is_refeed_day: boolean;
+  is_eating_out: boolean;
+  is_poor_sleep: boolean;
 };
 
 export type SaveDailyLogResult =
@@ -48,13 +52,18 @@ export async function saveDailyLog(
   }
 
   // 保存する値が何もない場合は弾く
+  // タグのみでも「記録あり」として保存を許可する
   const hasData =
     input.weight !== null ||
     input.calories !== null ||
     input.protein !== null ||
     input.fat !== null ||
     input.carbs !== null ||
-    input.note !== null;
+    input.note !== null ||
+    input.is_cheat_day ||
+    input.is_refeed_day ||
+    input.is_eating_out ||
+    input.is_poor_sleep;
 
   if (!hasData) {
     return { ok: false, message: "保存するデータがありません" };
@@ -63,13 +72,17 @@ export async function saveDailyLog(
   // --- Supabase upsert ---
   const supabase = createClient();
   const { error } = await supabase.from("daily_logs").upsert({
-    log_date: input.log_date,
-    weight: input.weight,
-    calories: input.calories,
-    protein: input.protein,
-    fat: input.fat,
-    carbs: input.carbs,
-    note: input.note,
+    log_date:      input.log_date,
+    weight:        input.weight,
+    calories:      input.calories,
+    protein:       input.protein,
+    fat:           input.fat,
+    carbs:         input.carbs,
+    note:          input.note,
+    is_cheat_day:  input.is_cheat_day,
+    is_refeed_day: input.is_refeed_day,
+    is_eating_out: input.is_eating_out,
+    is_poor_sleep: input.is_poor_sleep,
   });
 
   if (error) {
