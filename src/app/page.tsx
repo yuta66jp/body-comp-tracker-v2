@@ -5,8 +5,10 @@ import { LogsAndSummaryTabs } from "@/components/dashboard/LogsAndSummaryTabs";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { DataQualityBadge } from "@/components/dashboard/DataQualityBadge";
 import { GoalNavigator } from "@/components/dashboard/GoalNavigator";
+import { WeeklyReviewCard } from "@/components/dashboard/WeeklyReviewCard";
 import { calcDataQuality } from "@/lib/utils/calcDataQuality";
 import { calcReadiness } from "@/lib/utils/calcReadiness";
+import { calcWeeklyReview } from "@/lib/utils/calcWeeklyReview";
 import type { DailyLog, Prediction, AnalyticsCache, Setting, CareerLog } from "@/lib/supabase/types";
 import type { MonthStats } from "@/components/history/SeasonSummary";
 
@@ -158,6 +160,19 @@ export default async function DashboardPage() {
     goal_weight: goalWeight ?? null,
   });
 
+  // enriched_logs から log_date → tdee_estimated の Map を構築
+  const enrichedTdeeMap = new Map<string, number>();
+  for (const row of enriched ?? []) {
+    if (row.tdee_estimated !== null) {
+      enrichedTdeeMap.set(row.log_date, row.tdee_estimated);
+    }
+  }
+
+  const weeklyReview = calcWeeklyReview(logs, readinessMetrics, qualityReport, {
+    enrichedTdeeMap,
+    phase,
+  });
+
   return (
     <DashboardLayout>
       {logs.length > 0 ? (
@@ -178,6 +193,7 @@ export default async function DashboardPage() {
             contestDate={contestDate ?? null}
             avgTdee={latestTdee}
           />
+          <WeeklyReviewCard data={weeklyReview} phase={phase} />
           <DataQualityBadge report={qualityReport} />
           {predictions.length > 0 && (
             <ForecastChart
