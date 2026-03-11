@@ -17,6 +17,7 @@
  *   sma7 評価の実測ウィンドウは horizon >= 7 のため訓練データと重複しない。
  */
 
+import { Fragment } from "react";
 import { TrendingDown, AlertCircle } from "lucide-react";
 import type { ForecastBacktestMetric } from "@/lib/supabase/types";
 
@@ -160,20 +161,14 @@ export function BacktestComparison({
             <tr className="border-b border-slate-200 text-[11px] font-medium text-slate-400">
               <th className="px-4 py-1.5 text-left">MAE (kg)</th>
               {HORIZONS.map((h) => (
-                <>
-                  <th
-                    key={`${h}-daily`}
-                    className="border-l border-slate-100 px-3 py-1.5 text-center text-blue-500"
-                  >
+                <Fragment key={h}>
+                  <th className="border-l border-slate-100 px-3 py-1.5 text-center text-blue-500">
                     単日
                   </th>
-                  <th
-                    key={`${h}-sma7`}
-                    className="px-3 py-1.5 text-center text-emerald-600"
-                  >
+                  <th className="px-3 py-1.5 text-center text-emerald-600">
                     7日均
                   </th>
-                </>
+                </Fragment>
               ))}
             </tr>
           </thead>
@@ -189,9 +184,8 @@ export function BacktestComparison({
                     const isDailyBest = dailyBest[h]?.model === model;
                     const isSma7Best = sma7Best[h]?.model === model;
                     return (
-                      <>
+                      <Fragment key={`${model}-${h}`}>
                         <td
-                          key={`${model}-${h}-daily`}
                           className={`border-l border-slate-100 px-3 py-2.5 text-center tabular-nums ${
                             isDailyBest && hasDailyData
                               ? "font-bold text-blue-600"
@@ -204,7 +198,6 @@ export function BacktestComparison({
                           )}
                         </td>
                         <td
-                          key={`${model}-${h}-sma7`}
                           className={`px-3 py-2.5 text-center tabular-nums ${
                             isSma7Best && hasSma7Data
                               ? "font-bold text-emerald-600"
@@ -218,7 +211,7 @@ export function BacktestComparison({
                             <span className="ml-1 text-[9px] text-emerald-400">★</span>
                           )}
                         </td>
-                      </>
+                      </Fragment>
                     );
                   })}
                 </tr>
