@@ -82,7 +82,8 @@ export default async function HistoryPage() {
   const allSeasonMeta = calcSeasonMeta(allCareerLogs);
   const seriesMap = buildDaysOutSeries(allCareerLogs);
   const daysOutData = buildDaysOutChartData(seriesMap, -300, 0);
-  const allSeasons = Array.from(seriesMap.keys());
+  // 古いシーズンから新しいシーズンへ昇順に統一 (Season Low・Today比較・比較テーブルで表示順を揃える)
+  const allSeasons = Array.from(seriesMap.keys()).sort((a, b) => a.localeCompare(b));
 
   // ── 比較テーブル用データ ──
   const milestoneRows = buildMilestoneRows(seriesMap, MILESTONES);

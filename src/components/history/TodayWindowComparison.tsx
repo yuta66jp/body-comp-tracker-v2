@@ -114,9 +114,9 @@ export function TodayWindowComparison({
 
   const finding = generateFinding(entries, currentSeason, isCut);
 
-  // 過去シーズンを新しい順にソート
+  // 過去シーズンを古い順にソート (Season Low と表示順を統一)
   const sortedPast = [...pastEntries].sort((a, b) =>
-    b.season.localeCompare(a.season)
+    a.season.localeCompare(b.season)
   );
 
   return (
