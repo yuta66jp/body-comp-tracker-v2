@@ -4,6 +4,7 @@ import { MacroStackedChart } from "@/components/macro/MacroStackedChart";
 import { MacroDailyTable } from "@/components/macro/MacroDailyTable";
 import { MacroPfcSummary } from "@/components/macro/MacroPfcSummary";
 import { FactorAnalysis, FactorAnalysisPlaceholder } from "@/components/charts/FactorAnalysis";
+import type { FactorEntry, FactorMeta } from "@/lib/utils/factorAnalysisUtils";
 import {
   calcMacroKpi,
   calcDailyMacro,
@@ -36,13 +37,8 @@ async function fetchFactorAnalysis() {
   // _meta を分離して残りを FactorEntry として渡す
   const { _meta, ...entries } = rawPayload;
   return {
-    payload: entries as Record<string, { label: string; importance: number; pct: number }>,
-    meta: (_meta ?? null) as {
-      sample_count: number;
-      date_from: string | null;
-      date_to: string | null;
-      total_rows: number;
-    } | null,
+    payload: entries as Record<string, FactorEntry>,
+    meta: (_meta ?? null) as FactorMeta | null,
     updatedAt: row.updated_at,
   };
 }

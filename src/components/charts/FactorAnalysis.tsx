@@ -1,36 +1,27 @@
 "use client";
 
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-  LabelList,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Cell, LabelList,
 } from "recharts";
 import {
-  getFeatureLabel,
+  type FactorEntry,
+  type FactorMeta,
+  type SortedFactorRow,
+  MIN_ROWS,
+  HIGH_DROP_THRESHOLD,
+  prepareFactorRows,
+  isHighDropRate,
+  calcDropPct,
+} from "@/lib/utils/factorAnalysisUtils";
+import {
   getFeatureDirection,
   getFeatureNote,
   getFeatureHint,
 } from "@/lib/utils/featureLabels";
 
-interface FactorEntry {
-  label: string;
-  importance: number;
-  pct: number;
-}
-
-interface FactorMeta {
-  sample_count: number;
-  date_from: string | null;
-  date_to: string | null;
-  total_rows: number;
-  dropped_count?: number;
-}
+// FactorMeta / FactorEntry は factorAnalysisUtils からの re-export が必要な場合に備えて公開
+export type { FactorMeta, FactorEntry };
 
 interface FactorAnalysisProps {
   data: Record<string, FactorEntry>;
@@ -41,18 +32,22 @@ interface FactorAnalysisProps {
 // 重要度が高い順に青を濃くする（色だけで判断させない、位置との整合を取る）
 const IMPORTANCE_COLORS = ["#1e40af", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd"];
 
-// 分析に必要な最低サンプル数（analyze.py の MIN_ROWS と同値）
-const MIN_ROWS = 14;
+/** サンプル数から参考度を判定する */
+function confidenceLevel(sampleCount: number): "high" | "medium" | "low" {
+  if (sampleCount >= 60) return "high";
+  if (sampleCount >= 30) return "medium";
+  return "low";
+}
 
-/**
- * エントリが描画可能な正常値かチェック。
- * NaN / Infinity / 負値 が混入していた場合は除外する。
- */
-function isValidEntry(entry: FactorEntry): boolean {
-  return (
-    typeof entry.pct === "number" && isFinite(entry.pct) && entry.pct >= 0 &&
-    typeof entry.importance === "number" && isFinite(entry.importance) && entry.importance >= 0
-  );
+const CONFIDENCE_CFG = {
+  high:   { label: "参考度: 高",   className: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+  medium: { label: "参考度: 中",   className: "text-amber-700  bg-amber-50  border-amber-200"   },
+  low:    { label: "参考度: 低め", className: "text-rose-600   bg-rose-50   border-rose-200"     },
+};
+
+function formatDateRange(from: string | null, to: string | null): string {
+  if (!from || !to) return "不明";
+  return `${from} 〜 ${to}`;
 }
 
 /**
@@ -80,24 +75,6 @@ export function FactorAnalysisPlaceholder() {
       </div>
     </div>
   );
-}
-
-/** サンプル数から参考度を判定する */
-function confidenceLevel(sampleCount: number): "high" | "medium" | "low" {
-  if (sampleCount >= 60) return "high";
-  if (sampleCount >= 30) return "medium";
-  return "low";
-}
-
-const CONFIDENCE_CFG = {
-  high:   { label: "参考度: 高",   className: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-  medium: { label: "参考度: 中",   className: "text-amber-700  bg-amber-50  border-amber-200"   },
-  low:    { label: "参考度: 低め", className: "text-rose-600   bg-rose-50   border-rose-200"     },
-};
-
-function formatDateRange(from: string | null, to: string | null): string {
-  if (!from || !to) return "不明";
-  return `${from} 〜 ${to}`;
 }
 
 /** 分析前提情報エリア（Phase 5-A） */
@@ -158,11 +135,7 @@ function AnalysisPremise({ meta }: { meta: FactorMeta | null | undefined }) {
 }
 
 /** 説明表（グラフの補助情報） */
-function FactorTable({
-  rows,
-}: {
-  rows: Array<{ key: string; label: string; pct: number; rank: number }>;
-}) {
+function FactorTable({ rows }: { rows: SortedFactorRow[] }) {
   return (
     <div className="mt-4 overflow-x-auto">
       <table className="w-full border-collapse text-xs">
@@ -179,7 +152,6 @@ function FactorTable({
           {rows.map((row) => {
             const direction = getFeatureDirection(row.key);
             const note = getFeatureNote(row.key);
-            // 重要度に応じた文字色
             const pctColor =
               row.pct >= 30 ? "text-blue-800 font-bold"
               : row.pct >= 15 ? "text-blue-600 font-semibold"
@@ -205,10 +177,7 @@ function FactorTable({
   );
 }
 
-// 欠損率が高いと判断する閾値
-const HIGH_DROP_THRESHOLD = 0.30;
-
-/** 解釈補助エリア（固定文 + 条件分岐文 + 上位特徴量ヒント） */
+/** 解釈補助エリア（固定文 + 条件分岐文 + 上位特徴量ヒント）*/
 function FactorInterpretation({
   topKey,
   topLabel,
@@ -219,17 +188,9 @@ function FactorInterpretation({
   meta: FactorMeta | null | undefined;
 }) {
   const hint = topKey ? getFeatureHint(topKey) : null;
-
   const isLowSample = meta != null && meta.sample_count < 30;
-  const isHighDrop =
-    meta != null &&
-    meta.dropped_count != null &&
-    meta.total_rows > 0 &&
-    meta.dropped_count / meta.total_rows > HIGH_DROP_THRESHOLD;
-  const dropPct =
-    isHighDrop && meta?.dropped_count != null && meta.total_rows > 0
-      ? Math.round((meta.dropped_count / meta.total_rows) * 100)
-      : null;
+  const highDrop = meta != null && isHighDropRate(meta);
+  const dropPct = meta != null ? calcDropPct(meta) : null;
 
   return (
     <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3.5 space-y-2">
@@ -252,7 +213,7 @@ function FactorInterpretation({
       )}
 
       {/* 条件②: 欠損率高い */}
-      {isHighDrop && (
+      {highDrop && (
         <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-1.5">
           全記録の約{dropPct}%が欠損除外されています。
           記録が少ない時期のデータに偏った結果になっている可能性があります。
@@ -282,15 +243,12 @@ function FactorInterpretation({
 }
 
 export function FactorAnalysis({ data, updatedAt, meta }: FactorAnalysisProps) {
-  // 無効エントリ（NaN / null / 負値）を除外してから並べる
-  const rawEntries = Object.entries(data);
-  const validEntries = rawEntries.filter(([, entry]) => isValidEntry(entry));
-  const filteredOutCount = rawEntries.length - validEntries.length;
+  const { rows: sorted, filteredOutCount } = prepareFactorRows(data);
 
   // 有効な結果がゼロ件の場合: 代替表示
-  if (validEntries.length === 0) {
+  if (sorted.length === 0) {
     const reason =
-      rawEntries.length === 0
+      Object.keys(data).length === 0
         ? "バッチの実行結果が空です。ML バッチ（analyze.py）を再実行してください。"
         : `${filteredOutCount} 件のエントリすべてに異常値（NaN・不正値）が含まれていました。ML バッチを再実行してください。`;
     return (
@@ -311,23 +269,7 @@ export function FactorAnalysis({ data, updatedAt, meta }: FactorAnalysisProps) {
     );
   }
 
-  // 有効なエントリのみで並べる（重要度降順）
-  const sorted = validEntries
-    .sort(([, a], [, b]) => b.importance - a.importance)
-    .map(([key, entry], i) => ({
-      key,
-      rank: i + 1,
-      label: getFeatureLabel(key, entry.label),
-      importance: entry.importance,
-      pct: entry.pct,
-    }));
-
-  const chartData = sorted.map((d) => ({
-    name: d.label,
-    pct: d.pct,
-  }));
-
-  // グラフの高さはデータ数に応じて調整（1行あたり 38px 確保）
+  const chartData = sorted.map((d) => ({ name: d.label, pct: d.pct }));
   const chartHeight = Math.max(160, sorted.length * 38);
 
   return (
@@ -347,11 +289,7 @@ export function FactorAnalysis({ data, updatedAt, meta }: FactorAnalysisProps) {
       {/* 中段: 横棒グラフ（重要度が高い順、上が1位） */}
       <p className="mb-2 text-xs text-gray-400">重要度（%）— 高い順</p>
       <ResponsiveContainer width="100%" height={chartHeight}>
-        <BarChart
-          data={chartData}
-          layout="vertical"
-          margin={{ top: 0, right: 50, bottom: 0, left: 0 }}
-        >
+        <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 50, bottom: 0, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
           <XAxis type="number" tick={{ fontSize: 11 }} unit="%" domain={[0, 100]} />
           <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={130} />
