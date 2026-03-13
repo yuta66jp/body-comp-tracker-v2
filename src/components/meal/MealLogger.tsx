@@ -32,10 +32,13 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
   const [note, setNote] = useState("");
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [tags, setTags] = useState<Record<DayTag, boolean>>(emptyTagState);
+  // 明示的にトグルされたタグのみ追跡する（未操作タグは undefined として送り既存値を保持）
+  const [touchedTags, setTouchedTags] = useState<Set<DayTag>>(new Set());
   const [status, setStatus] = useState<SaveStatus>("idle");
 
   function toggleTag(tag: DayTag) {
     setTags((prev) => ({ ...prev, [tag]: !prev[tag] }));
+    setTouchedTags((prev) => new Set([...prev, tag]));
   }
 
   function addFood(food: FoodMaster) {
@@ -69,15 +72,23 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
     setStatus("saving");
     const totals = calcCartTotals(cartItems);
 
+    // 明示的にトグルされたタグのみペイロードに含める
+    // 未操作タグは undefined → 既存値を保持（既存の true を false で上書きしない）
+    const tagPayload: Partial<Record<DayTag, boolean>> = {};
+    for (const tag of touchedTags) {
+      tagPayload[tag] = tags[tag];
+    }
+
     const result = await saveDailyLog({
       log_date: date,
-      weight: weight !== "" ? parseFloat(weight) : null,
-      calories: cartItems.length > 0 ? totals.calories : null,
-      protein: cartItems.length > 0 ? totals.protein : null,
-      fat: cartItems.length > 0 ? totals.fat : null,
-      carbs: cartItems.length > 0 ? totals.carbs : null,
-      note: note || null,
-      ...tags,
+      // 未入力項目は undefined → 既存値を保持（null は「明示的クリア」専用）
+      weight:   weight !== ""          ? parseFloat(weight) : undefined,
+      calories: cartItems.length > 0   ? totals.calories    : undefined,
+      protein:  cartItems.length > 0   ? totals.protein     : undefined,
+      fat:      cartItems.length > 0   ? totals.fat         : undefined,
+      carbs:    cartItems.length > 0   ? totals.carbs       : undefined,
+      note:     note !== ""            ? note               : undefined,
+      ...tagPayload,
     });
 
     if (!result.ok) {
@@ -90,6 +101,7 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
       setNote("");
       setWeight("");
       setTags(emptyTagState());
+      setTouchedTags(new Set());
       setTimeout(() => setStatus("idle"), 2000);
     }
   }
