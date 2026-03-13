@@ -30,6 +30,31 @@ function todayStr() {
   return toJstDateStr();
 }
 
+/** hasContent 判定のための純粋関数（テスト容易性のために抽出） */
+export interface HasContentInput {
+  weight: string;
+  cartItems: CartItem[];
+  note: string;
+  touchedTags: Set<DayTag>;
+  sleepHours: string;
+  hadBowelMovement: boolean | null;
+  trainingTypeTouched: boolean;
+  workModeTouched: boolean;
+}
+
+export function computeHasContent(input: HasContentInput): boolean {
+  return (
+    input.weight !== "" ||
+    input.cartItems.length > 0 ||
+    input.note !== "" ||
+    input.touchedTags.size > 0 ||
+    input.sleepHours !== "" ||
+    input.hadBowelMovement !== null ||
+    input.trainingTypeTouched ||
+    input.workModeTouched
+  );
+}
+
 interface MealLoggerProps {
   sidebar?: boolean; // サイドバーモード: 常時展開・縦レイアウト
 }
@@ -149,15 +174,10 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
     }
   }
 
-  const hasContent =
-    weight !== "" ||
-    cartItems.length > 0 ||
-    note !== "" ||
-    DAY_TAGS.some((t) => tags[t as keyof typeof tags]) ||
-    sleepHours !== "" ||
-    hadBowelMovement !== null ||
-    trainingTypeTouched ||
-    workModeTouched;
+  const hasContent = computeHasContent({
+    weight, cartItems, note, touchedTags,
+    sleepHours, hadBowelMovement, trainingTypeTouched, workModeTouched,
+  });
 
   const inputCls =
     "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400";

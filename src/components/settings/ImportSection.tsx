@@ -220,10 +220,10 @@ export function ImportSection() {
       {/* フォーマット説明 */}
       <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-400">
         <p className="font-semibold text-slate-500 mb-1">対応フォーマット（CSV ヘッダー）</p>
-        <code className="font-mono">log_date, weight, calories, protein, fat, carbs, note</code>
+        <code className="font-mono">log_date, weight, calories, protein, fat, carbs, note, is_cheat_day, ...</code>
         <p className="mt-1">・同日のデータは上書き（upsert）されます</p>
         <p>・エクスポートしたCSVをそのままインポート可能です</p>
-        <p className="mt-1 text-amber-500">・note フィールドなどのセル内改行を含む CSV は未対応です。事前に改行を削除してください</p>
+        <p className="mt-1">・note フィールドのセル内改行（改行を含むクォートフィールド）にも対応しています</p>
       </div>
     </div>
   );
