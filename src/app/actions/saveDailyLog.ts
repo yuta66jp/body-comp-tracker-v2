@@ -96,6 +96,9 @@ export async function saveDailyLog(
   // undefined フィールドを除去したペイロードを構築
   const payload = buildUpdatePayload(input);
 
+  console.log("[saveDailyLog] input:", JSON.stringify(input));
+  console.log("[saveDailyLog] payload:", JSON.stringify(payload));
+
   // 保存する値が何もない場合は弾く
   // (全フィールド undefined = プログラムバグまたは空送信)
   if (Object.keys(payload).length === 0) {
@@ -134,7 +137,7 @@ export async function saveDailyLog(
   }
 
   if (saveError) {
-    console.error("[saveDailyLog] save error:", saveError.message);
+    console.error("[saveDailyLog] save error:", saveError.message, "| payload keys:", Object.keys(payload));
     return { ok: false, message: "保存に失敗しました: " + saveError.message };
   }
 

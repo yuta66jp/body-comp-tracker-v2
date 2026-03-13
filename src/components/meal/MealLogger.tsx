@@ -44,6 +44,7 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
   // 明示的にトグルされたタグのみ追跡する（未操作タグは undefined として送り既存値を保持）
   const [touchedTags, setTouchedTags] = useState<Set<DayTag>>(new Set());
   const [status, setStatus] = useState<SaveStatus>("idle");
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   // ── Phase 2.5 新規フィールド ──
   const [sleepHours, setSleepHours] = useState("");
@@ -126,9 +127,10 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
     });
 
     if (!result.ok) {
-      console.error("save error:", result.message);
+      console.error("[MealLogger] save error:", result.message);
+      setErrorMessage(result.message);
       setStatus("error");
-      setTimeout(() => setStatus("idle"), 3000);
+      setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
     } else {
       setStatus("saved");
       // フォームをリセット
@@ -298,8 +300,9 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
       {/* 保存ボタン */}
       <div className="flex items-center justify-end gap-3">
         {status === "error" && (
-          <span className="flex items-center gap-1.5 text-xs font-medium text-rose-500">
-            <AlertCircle size={14} /> 保存に失敗しました
+          <span className="flex items-center gap-1.5 text-xs font-medium text-rose-500 max-w-xs text-right">
+            <AlertCircle size={14} className="shrink-0" />
+            {errorMessage || "保存に失敗しました"}
           </span>
         )}
         {status === "saved" && (
