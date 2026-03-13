@@ -3,6 +3,7 @@
 import { ArrowDown, ArrowUp, Minus } from "lucide-react";
 import type { DailyLog } from "@/lib/supabase/types";
 import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayTags";
+import { formatConditionSummary } from "@/lib/utils/trainingType";
 
 interface RecentLogsTableProps {
   logs: DailyLog[];
@@ -44,6 +45,11 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
           {sorted.map((log) => {
             const delta = getDelta(log);
             const DeltaIcon = delta === null ? null : delta > 0 ? ArrowUp : delta < 0 ? ArrowDown : Minus;
+            const conditionSummary = formatConditionSummary({
+              had_bowel_movement: log.had_bowel_movement as boolean | null,
+              training_type: log.training_type,
+              work_mode: log.work_mode,
+            });
             return (
               <tr key={log.log_date} className="transition-colors hover:bg-slate-50/70">
                 <td className="py-2 pr-4">
@@ -66,6 +72,11 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
                       </span>
                     ))}
                   </div>
+                  {conditionSummary && (
+                    <div className="mt-1 text-[10px] leading-snug text-slate-400">
+                      {conditionSummary}
+                    </div>
+                  )}
                 </td>
                 <td className="py-2 pr-4 text-right font-semibold text-slate-800">
                   {log.weight?.toFixed(1)}

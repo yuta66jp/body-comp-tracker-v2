@@ -2,6 +2,7 @@ import {
   deriveLegFlag,
   isValidTrainingType,
   isValidWorkMode,
+  formatConditionSummary,
   TRAINING_TYPES,
   WORK_MODES,
 } from "../trainingType";
@@ -90,5 +91,103 @@ describe("isValidWorkMode", () => {
     expect(isValidWorkMode("")).toBe(false);
     expect(isValidWorkMode("OFF")).toBe(false);
     expect(isValidWorkMode("wfh")).toBe(false);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// formatConditionSummary
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("formatConditionSummary", () => {
+  test("全項目あり (true, quads, remote) → 便通あり / 四頭 / 在宅", () => {
+    expect(
+      formatConditionSummary({ had_bowel_movement: true, training_type: "quads", work_mode: "remote" })
+    ).toBe("便通あり / 四頭 / 在宅");
+  });
+
+  test("便通 false は「便通なし」として表示される", () => {
+    expect(
+      formatConditionSummary({ had_bowel_movement: false, training_type: "back", work_mode: "office" })
+    ).toBe("便通なし / 背中 / 出社");
+  });
+
+  test("便通 null は非表示 — training_type のみ表示", () => {
+    expect(
+      formatConditionSummary({ had_bowel_movement: null, training_type: "back", work_mode: null })
+    ).toBe("背中");
+  });
+
+  test("全欠損 (null, null, null) → null", () => {
+    expect(
+      formatConditionSummary({ had_bowel_movement: null, training_type: null, work_mode: null })
+    ).toBeNull();
+  });
+
+  test("便通 undefined → null と同様に非表示", () => {
+    expect(
+      formatConditionSummary({ had_bowel_movement: undefined, training_type: null, work_mode: null })
+    ).toBeNull();
+  });
+
+  test("training_type = rest は存在しない enum なので非表示", () => {
+    // rest は TRAINING_TYPES に含まれないため isValidTrainingType が false を返す
+    expect(
+      formatConditionSummary({ had_bowel_movement: null, training_type: "rest", work_mode: null })
+    ).toBeNull();
+  });
+
+  test("training_type が未知値は非表示", () => {
+    expect(
+      formatConditionSummary({ had_bowel_movement: null, training_type: "unknown_value", work_mode: null })
+    ).toBeNull();
+  });
+
+  test("work_mode のみ有効 → work_mode だけ表示", () => {
+    expect(
+      formatConditionSummary({ had_bowel_movement: null, training_type: null, work_mode: "off" })
+    ).toBe("休日");
+  });
+
+  test("便通のみ true → 便通あり", () => {
+    expect(
+      formatConditionSummary({ had_bowel_movement: true, training_type: null, work_mode: null })
+    ).toBe("便通あり");
+  });
+
+  test("全 training_type の表示文言が正しい", () => {
+    const cases: [string, string][] = [
+      ["chest",             "胸"],
+      ["back",              "背中"],
+      ["shoulders",         "肩"],
+      ["glutes_hamstrings", "ハム・ケツ"],
+      ["quads",             "四頭"],
+    ];
+    for (const [type, label] of cases) {
+      const result = formatConditionSummary({ had_bowel_movement: null, training_type: type, work_mode: null });
+      expect(result).toBe(label);
+    }
+  });
+
+  test("全 work_mode の表示文言が正しい", () => {
+    const cases: [string, string][] = [
+      ["off",    "休日"],
+      ["office", "出社"],
+      ["remote", "在宅"],
+      ["active", "活動"],
+      ["travel", "遠征"],
+      ["other",  "その他"],
+    ];
+    for (const [mode, label] of cases) {
+      const result = formatConditionSummary({ had_bowel_movement: null, training_type: null, work_mode: mode });
+      expect(result).toBe(label);
+    }
+  });
+
+  test("便通 false と null は異なる — false = 便通なし、null = 非表示", () => {
+    const withFalse = formatConditionSummary({ had_bowel_movement: false, training_type: null, work_mode: null });
+    const withNull  = formatConditionSummary({ had_bowel_movement: null,  training_type: null, work_mode: null });
+    expect(withFalse).toBe("便通なし");
+    expect(withNull).toBeNull();
+    expect(withFalse).not.toBe(withNull);
   });
 });

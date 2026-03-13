@@ -71,6 +71,44 @@ export function deriveLegFlag(trainingType: TrainingType | string | null | undef
   return trainingType === "quads" || trainingType === "glutes_hamstrings";
 }
 
+// ── 補助情報整形 ──────────────────────────────────────────────────────────────
+
+/**
+ * 日次ログの補助情報（便通・トレーニング種別・仕事モード）を
+ * 表示用の1行テキストに整形する。
+ *
+ * - had_bowel_movement: null/undefined は非表示。false は「便通なし」として表示する
+ * - training_type / work_mode: 未知値・null は非表示
+ * - 表示項目を " / " で結合して返す
+ * - 表示項目が1つもなければ null を返す
+ *
+ * 例: "便通あり / 四頭 / 在宅"、"便通なし / 出社"、null
+ */
+export function formatConditionSummary(params: {
+  had_bowel_movement: boolean | null | undefined;
+  training_type: string | null | undefined;
+  work_mode: string | null | undefined;
+}): string | null {
+  const parts: string[] = [];
+
+  // 便通: false は「便通なし」として表示 (null/undefined のみ除外)
+  if (params.had_bowel_movement !== null && params.had_bowel_movement !== undefined) {
+    parts.push(params.had_bowel_movement ? "便通あり" : "便通なし");
+  }
+
+  // training_type: 有効な enum 値のみ日本語化して表示
+  if (params.training_type != null && isValidTrainingType(params.training_type)) {
+    parts.push(TRAINING_TYPE_LABELS[params.training_type]);
+  }
+
+  // work_mode: 有効な enum 値のみ日本語化して表示
+  if (params.work_mode != null && isValidWorkMode(params.work_mode)) {
+    parts.push(WORK_MODE_LABELS[params.work_mode]);
+  }
+
+  return parts.length > 0 ? parts.join(" / ") : null;
+}
+
 /** training_type 文字列が有効値かどうかを検証する */
 export function isValidTrainingType(v: string): v is TrainingType {
   return (TRAINING_TYPES as readonly string[]).includes(v);

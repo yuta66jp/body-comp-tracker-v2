@@ -228,9 +228,9 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
               className={inputCls}
             />
           </div>
-          {/* 排便 */}
+          {/* 便通 */}
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-500">排便</label>
+            <label className="mb-1.5 block text-xs font-medium text-slate-500">便通</label>
             <div className="flex gap-2">
               <button
                 type="button"

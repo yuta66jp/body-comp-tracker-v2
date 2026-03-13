@@ -28,7 +28,7 @@ export const FEATURE_LABEL_MAP: Readonly<Record<string, string>> = {
   sleep_hours: "睡眠時間（h）",
 
   // boolean / flag
-  had_bowel_movement: "排便あり",
+  had_bowel_movement: "便通あり",
   is_cheat_day:       "チートデイ",
   is_refeed_day:      "リフィードデイ",
   is_eating_out:      "外食日",
@@ -131,7 +131,7 @@ export const FEATURE_HINT_MAP: Readonly<Record<string, string>> = {
   sleep_hours:
     "睡眠時間と翌日体重の関係は回復・代謝・食欲調節を通じた間接的な経路が考えられます。睡眠の質や記録精度も確認してみてください。",
   had_bowel_movement:
-    "排便は腸内容物による一時的な体重変動と関連する可能性があります。体脂肪の変化とは別の経路であることを考慮してみてください。",
+    "便通は腸内容物による一時的な体重変動と関連する可能性があります。体脂肪の変化とは別の経路であることを考慮してみてください。",
   leg_flag:
     "脚トレ翌日は筋グリコーゲン回復・DOMS（筋肉痛）による水分移動で体重が増えやすい傾向があります。",
   is_cheat_day:
