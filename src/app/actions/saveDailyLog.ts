@@ -96,8 +96,10 @@ export async function saveDailyLog(
   // undefined フィールドを除去したペイロードを構築
   const payload = buildUpdatePayload(input);
 
-  console.log("[saveDailyLog] input:", JSON.stringify(input));
-  console.log("[saveDailyLog] payload:", JSON.stringify(payload));
+  // 開発時のみ: 更新対象フィールド名を出力（生データは含まない）
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[saveDailyLog]", input.log_date, "fields:", Object.keys(payload).join(", "));
+  }
 
   // 保存する値が何もない場合は弾く
   // (全フィールド undefined = プログラムバグまたは空送信)
