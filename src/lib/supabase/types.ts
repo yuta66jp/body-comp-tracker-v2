@@ -152,7 +152,17 @@ export type Database = {
           is_cheat_day: boolean;
           is_refeed_day: boolean;
           is_eating_out: boolean;
+          /** @deprecated UIからの入力を廃止。既存データ互換のため型は残す。sleep_hours を使用すること。 */
           is_poor_sleep: boolean;
+          // ── Phase 2.5 追加カラム ──
+          sleep_hours: number | null;
+          had_bowel_movement: boolean;
+          /** 値: 'chest' | 'back' | 'shoulders' | 'glutes_hamstrings' | 'quads' */
+          training_type: string | null;
+          /** 値: 'off' | 'office' | 'remote' | 'active' | 'travel' | 'other' */
+          work_mode: string | null;
+          /** training_type から導出 (quads/glutes_hamstrings → true, それ以外 → false, 未入力 → null) */
+          leg_flag: boolean | null;
         };
         Insert: {
           log_date: string;
@@ -166,6 +176,11 @@ export type Database = {
           is_refeed_day?: boolean;
           is_eating_out?: boolean;
           is_poor_sleep?: boolean;
+          sleep_hours?: number | null;
+          had_bowel_movement?: boolean;
+          training_type?: string | null;
+          work_mode?: string | null;
+          leg_flag?: boolean | null;
         };
         Update: {
           log_date?: string;
@@ -179,6 +194,11 @@ export type Database = {
           is_refeed_day?: boolean;
           is_eating_out?: boolean;
           is_poor_sleep?: boolean;
+          sleep_hours?: number | null;
+          had_bowel_movement?: boolean;
+          training_type?: string | null;
+          work_mode?: string | null;
+          leg_flag?: boolean | null;
         };
         Relationships: [];
       };

@@ -9,19 +9,29 @@
  *   is_high_sodium — 判定基準が主観的で入力一貫性を保ちにくいため除外
  */
 
-/** 特殊日タグ名のユニオン型 */
+/**
+ * ユーザー入力可能な特殊日タグ名のユニオン型。
+ *
+ * is_poor_sleep は Phase 2.5 で UI 入力を廃止し sleep_hours に置き換えた。
+ * DB カラムとしては残存するため型には含めるが、DAY_TAGS 配列には含まない
+ * (入力UIに表示しない)。
+ * 既存データの表示互換 (WeeklyReviewCard / calcWeeklyReview) のため型には残す。
+ */
 export type DayTag =
   | "is_cheat_day"
   | "is_refeed_day"
   | "is_eating_out"
-  | "is_poor_sleep";
+  | "is_poor_sleep"; // @deprecated 入力UI廃止。表示互換のため型に残す。
 
-/** タグの定義順 (UI 表示順と一致させる) */
+/**
+ * 入力 UI に表示するタグ一覧。
+ * is_poor_sleep は除外済み (sleep_hours に移行)。
+ */
 export const DAY_TAGS: DayTag[] = [
   "is_cheat_day",
   "is_refeed_day",
   "is_eating_out",
-  "is_poor_sleep",
+  // is_poor_sleep は UI 入力廃止のためここには含めない
 ];
 
 /** 日本語ラベル */
@@ -48,12 +58,14 @@ export const DAY_TAG_ACTIVE_COLORS: Record<DayTag, string> = {
   is_poor_sleep: "bg-purple-500 text-white border-purple-500",
 };
 
-/** 全タグを false で初期化したオブジェクトを返す */
-export function emptyTagState(): Record<DayTag, boolean> {
+/**
+ * 入力 UI に表示するタグを false で初期化したオブジェクトを返す。
+ * is_poor_sleep は入力 UI から廃止されたため含まない。
+ */
+export function emptyTagState(): Pick<Record<DayTag, boolean>, "is_cheat_day" | "is_refeed_day" | "is_eating_out"> {
   return {
     is_cheat_day:  false,
     is_refeed_day: false,
     is_eating_out: false,
-    is_poor_sleep: false,
   };
 }

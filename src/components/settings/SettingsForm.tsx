@@ -29,7 +29,6 @@ const FIELDS: Record<string, FieldMeta> = {
   activity_factor:   { label: "活動係数", unit: "1.2〜1.9", type: "number", placeholder: "1.55" },
   height_cm:         { label: "身長", unit: "cm", type: "number", placeholder: "170" },
   age:               { label: "年齢", unit: "歳", type: "number", placeholder: "30" },
-  protein_target_g:  { label: "タンパク質目標", unit: "g/日", type: "number", placeholder: "180" },
 };
 
 const FIELD_KEYS = Object.keys(FIELDS);
@@ -75,7 +74,6 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
     checkRange("height_cm", 100, 250, "身長");
     checkRange("age", 1, 120, "年齢");
     checkRange("activity_factor", 1.2, 2.5, "活動係数");
-    checkRange("protein_target_g", 0, 500, "タンパク質目標");
     checkRange("goal_weight", 20, 200, "目標体重");
     checkRange("monthly_target", 20, 200, "月次目標体重");
 

@@ -15,7 +15,8 @@
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
 jest.mock("@/lib/supabase/server", () => ({ createClient: jest.fn() }));
 
-import { buildUpdatePayload, saveDailyLog } from "../saveDailyLog";
+import { buildUpdatePayload } from "../buildUpdatePayload";
+import { saveDailyLog } from "../saveDailyLog";
 import { createClient } from "@/lib/supabase/server";
 
 const mockCreateClient = createClient as jest.MockedFunction<typeof createClient>;
@@ -128,6 +129,96 @@ describe("buildUpdatePayload — undefined/null/値の区別", () => {
     const payload = buildUpdatePayload(input);
     expect(Object.keys(payload)).toHaveLength(10);
     expect(payload).toEqual(input);
+  });
+});
+
+describe("buildUpdatePayload — Phase 2.5 新規フィールド", () => {
+  test("sleep_hours を指定するとペイロードに含まれる", () => {
+    const payload = buildUpdatePayload({ sleep_hours: 7.5 });
+    expect(payload.sleep_hours).toBe(7.5);
+    expect("weight" in payload).toBe(false);
+  });
+
+  test("sleep_hours: null → 明示的クリア", () => {
+    const payload = buildUpdatePayload({ sleep_hours: null });
+    expect("sleep_hours" in payload).toBe(true);
+    expect(payload.sleep_hours).toBeNull();
+  });
+
+  test("sleep_hours: undefined → ペイロードに含まれない", () => {
+    const payload = buildUpdatePayload({});
+    expect("sleep_hours" in payload).toBe(false);
+  });
+
+  test("had_bowel_movement: true → ペイロードに含まれる", () => {
+    const payload = buildUpdatePayload({ had_bowel_movement: true });
+    expect(payload.had_bowel_movement).toBe(true);
+  });
+
+  test("had_bowel_movement: false → ペイロードに含まれる", () => {
+    const payload = buildUpdatePayload({ had_bowel_movement: false });
+    expect(payload.had_bowel_movement).toBe(false);
+    expect("had_bowel_movement" in payload).toBe(true);
+  });
+
+  test("training_type: 'chest' → leg_flag: false が同時に設定される", () => {
+    const payload = buildUpdatePayload({ training_type: "chest" });
+    expect(payload.training_type).toBe("chest");
+    expect(payload.leg_flag).toBe(false);
+  });
+
+  test("training_type: 'quads' → leg_flag: true が同時に設定される", () => {
+    const payload = buildUpdatePayload({ training_type: "quads" });
+    expect(payload.training_type).toBe("quads");
+    expect(payload.leg_flag).toBe(true);
+  });
+
+  test("training_type: 'glutes_hamstrings' → leg_flag: true", () => {
+    const payload = buildUpdatePayload({ training_type: "glutes_hamstrings" });
+    expect(payload.training_type).toBe("glutes_hamstrings");
+    expect(payload.leg_flag).toBe(true);
+  });
+
+  test("training_type: null → leg_flag: null (明示的クリア時も同時にクリア)", () => {
+    const payload = buildUpdatePayload({ training_type: null });
+    expect(payload.training_type).toBeNull();
+    expect(payload.leg_flag).toBeNull();
+  });
+
+  test("training_type: undefined → leg_flag もペイロードに含まれない", () => {
+    const payload = buildUpdatePayload({});
+    expect("training_type" in payload).toBe(false);
+    expect("leg_flag" in payload).toBe(false);
+  });
+
+  test("work_mode: 'office' → ペイロードに含まれる", () => {
+    const payload = buildUpdatePayload({ work_mode: "office" });
+    expect(payload.work_mode).toBe("office");
+  });
+
+  test("work_mode: null → 明示的クリア", () => {
+    const payload = buildUpdatePayload({ work_mode: null });
+    expect("work_mode" in payload).toBe(true);
+    expect(payload.work_mode).toBeNull();
+  });
+
+  test("work_mode: undefined → ペイロードに含まれない", () => {
+    const payload = buildUpdatePayload({});
+    expect("work_mode" in payload).toBe(false);
+  });
+
+  test("Phase 2.5 全フィールドを同時指定", () => {
+    const payload = buildUpdatePayload({
+      sleep_hours: 6.5,
+      had_bowel_movement: true,
+      training_type: "back",
+      work_mode: "remote",
+    });
+    expect(payload.sleep_hours).toBe(6.5);
+    expect(payload.had_bowel_movement).toBe(true);
+    expect(payload.training_type).toBe("back");
+    expect(payload.leg_flag).toBe(false);
+    expect(payload.work_mode).toBe("remote");
   });
 });
 
@@ -326,5 +417,67 @@ describe("saveDailyLog — 連続保存シナリオ（体重→macro）", () => 
     expect("weight"      in (captured.update as object)).toBe(false);
     expect("calories"    in (captured.update as object)).toBe(false);
     expect("is_cheat_day" in (captured.update as object)).toBe(false);
+  });
+
+  test("training_type 保存時に leg_flag が同時に insert される", async () => {
+    const captured = makeClientMock(null);
+    const result = await saveDailyLog({
+      log_date: "2026-03-13",
+      training_type: "quads",
+    });
+
+    expect(result.ok).toBe(true);
+    const inserted = captured.insert as Record<string, unknown>;
+    expect(inserted.training_type).toBe("quads");
+    expect(inserted.leg_flag).toBe(true);
+  });
+
+  test("sleep_hours・had_bowel_movement・work_mode の単体保存", async () => {
+    const captured = makeClientMock({ log_date: "2026-03-13" });
+    const result = await saveDailyLog({
+      log_date: "2026-03-13",
+      sleep_hours: 7.0,
+      had_bowel_movement: true,
+      work_mode: "office",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(captured.update).toEqual({
+      sleep_hours: 7.0,
+      had_bowel_movement: true,
+      work_mode: "office",
+    });
+    expect("weight" in (captured.update as object)).toBe(false);
+    expect("training_type" in (captured.update as object)).toBe(false);
+    expect("leg_flag" in (captured.update as object)).toBe(false);
+  });
+});
+
+describe("saveDailyLog — Phase 2.5 バリデーション", () => {
+  test("sleep_hours が 25 → ok: false", async () => {
+    const result = await saveDailyLog({ log_date: "2026-03-13", sleep_hours: 25 });
+    expect(result.ok).toBe(false);
+  });
+
+  test("sleep_hours が -1 → ok: false", async () => {
+    const result = await saveDailyLog({ log_date: "2026-03-13", sleep_hours: -1 });
+    expect(result.ok).toBe(false);
+  });
+
+  test("sleep_hours が 0 → ok: true (境界値)", async () => {
+    const captured = makeClientMock(null);
+    const result = await saveDailyLog({ log_date: "2026-03-13", sleep_hours: 0 });
+    expect(result.ok).toBe(true);
+    expect((captured.insert as Record<string, unknown>).sleep_hours).toBe(0);
+  });
+
+  test("training_type が不正な値 → ok: false", async () => {
+    const result = await saveDailyLog({ log_date: "2026-03-13", training_type: "legs" });
+    expect(result.ok).toBe(false);
+  });
+
+  test("work_mode が不正な値 → ok: false", async () => {
+    const result = await saveDailyLog({ log_date: "2026-03-13", work_mode: "home" });
+    expect(result.ok).toBe(false);
   });
 });

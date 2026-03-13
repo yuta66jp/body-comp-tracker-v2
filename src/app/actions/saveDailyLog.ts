@@ -2,12 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { isValidTrainingType, isValidWorkMode } from "@/lib/utils/trainingType";
+import { buildUpdatePayload } from "./buildUpdatePayload";
 
 /**
  * フィールドの意味:
  *   undefined  — 今回更新しない（ペイロードに含めない）
  *   null       — 明示的に値を空にする
  *   値あり      — その値に更新する
+ *
+ * leg_flag はユーザー入力不可。training_type から buildUpdatePayload 内で導出される。
  */
 export type SaveDailyLogInput = {
   log_date: string;
@@ -20,11 +24,22 @@ export type SaveDailyLogInput = {
   is_cheat_day?: boolean;
   is_refeed_day?: boolean;
   is_eating_out?: boolean;
+  /** @deprecated UIからの入力廃止。既存データとの互換のため型には残す。 */
   is_poor_sleep?: boolean;
+  // ── Phase 2.5 追加 ──
+  sleep_hours?: number | null;
+  had_bowel_movement?: boolean;
+  /** 'chest' | 'back' | 'shoulders' | 'glutes_hamstrings' | 'quads' */
+  training_type?: string | null;
+  /** 'off' | 'office' | 'remote' | 'active' | 'travel' | 'other' */
+  work_mode?: string | null;
+  // leg_flag はユーザーから受け取らない。training_type から導出する。
 };
 
 /** DB に渡す更新ペイロード（undefined フィールドを除去したもの）*/
-export type DailyLogPayload = Omit<SaveDailyLogInput, "log_date">;
+export type DailyLogPayload = Omit<SaveDailyLogInput, "log_date"> & {
+  leg_flag?: boolean | null;
+};
 
 export type SaveDailyLogResult =
   | { ok: true }
@@ -33,31 +48,6 @@ export type SaveDailyLogResult =
 /** ISO 8601 日付文字列 (YYYY-MM-DD) かどうか */
 function isValidDate(s: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s));
-}
-
-/**
- * input から undefined フィールドを除去した DB 更新ペイロードを構築する。
- *
- * ルール:
- *   - undefined → ペイロードに含めない（既存値を保持）
- *   - null      → ペイロードに含める（明示的クリア）
- *   - 値あり    → ペイロードに含める（上書き）
- */
-export function buildUpdatePayload(
-  input: Omit<SaveDailyLogInput, "log_date">
-): DailyLogPayload {
-  const payload: DailyLogPayload = {};
-  if (input.weight !== undefined)        payload.weight        = input.weight;
-  if (input.calories !== undefined)      payload.calories      = input.calories;
-  if (input.protein !== undefined)       payload.protein       = input.protein;
-  if (input.fat !== undefined)           payload.fat           = input.fat;
-  if (input.carbs !== undefined)         payload.carbs         = input.carbs;
-  if (input.note !== undefined)          payload.note          = input.note;
-  if (input.is_cheat_day !== undefined)  payload.is_cheat_day  = input.is_cheat_day;
-  if (input.is_refeed_day !== undefined) payload.is_refeed_day = input.is_refeed_day;
-  if (input.is_eating_out !== undefined) payload.is_eating_out = input.is_eating_out;
-  if (input.is_poor_sleep !== undefined) payload.is_poor_sleep = input.is_poor_sleep;
-  return payload;
 }
 
 export async function saveDailyLog(
@@ -85,10 +75,29 @@ export async function saveDailyLog(
     return { ok: false, message: "メモは 500 文字以内で入力してください" };
   }
 
+  if (input.sleep_hours !== undefined && input.sleep_hours !== null) {
+    if (!isFinite(input.sleep_hours) || input.sleep_hours < 0 || input.sleep_hours > 24) {
+      return { ok: false, message: "睡眠時間は 0〜24 時間の範囲で入力してください" };
+    }
+  }
+
+  if (input.training_type !== undefined && input.training_type !== null) {
+    if (!isValidTrainingType(input.training_type)) {
+      return { ok: false, message: "training_type の値が不正です" };
+    }
+  }
+
+  if (input.work_mode !== undefined && input.work_mode !== null) {
+    if (!isValidWorkMode(input.work_mode)) {
+      return { ok: false, message: "work_mode の値が不正です" };
+    }
+  }
+
   // undefined フィールドを除去したペイロードを構築
   const payload = buildUpdatePayload(input);
 
   // 保存する値が何もない場合は弾く
+  // (全フィールド undefined = プログラムバグまたは空送信)
   if (Object.keys(payload).length === 0) {
     return { ok: false, message: "保存するデータがありません" };
   }
