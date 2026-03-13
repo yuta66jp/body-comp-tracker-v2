@@ -18,11 +18,25 @@ ALTER TABLE daily_logs
   ADD COLUMN IF NOT EXISTS leg_flag           BOOLEAN;
 
 -- CHECK 制約 (DB レベルでの整合性保証)
-ALTER TABLE daily_logs
-  ADD CONSTRAINT IF NOT EXISTS daily_logs_training_type_check
-    CHECK (training_type IN ('chest', 'back', 'shoulders', 'glutes_hamstrings', 'quads')),
-  ADD CONSTRAINT IF NOT EXISTS daily_logs_work_mode_check
-    CHECK (work_mode IN ('off', 'office', 'remote', 'active', 'travel', 'other'));
+-- PostgreSQL は ADD CONSTRAINT IF NOT EXISTS 非サポートのため DO ブロックで冪等化
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'daily_logs_training_type_check'
+  ) THEN
+    ALTER TABLE daily_logs
+      ADD CONSTRAINT daily_logs_training_type_check
+        CHECK (training_type IN ('chest', 'back', 'shoulders', 'glutes_hamstrings', 'quads'));
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'daily_logs_work_mode_check'
+  ) THEN
+    ALTER TABLE daily_logs
+      ADD CONSTRAINT daily_logs_work_mode_check
+        CHECK (work_mode IN ('off', 'office', 'remote', 'active', 'travel', 'other'));
+  END IF;
+END $$;
 
 COMMENT ON COLUMN daily_logs.sleep_hours        IS '睡眠時間 (時間, 小数1桁)';
 COMMENT ON COLUMN daily_logs.had_bowel_movement IS '排便あり';
