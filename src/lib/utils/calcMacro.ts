@@ -1,5 +1,77 @@
 import type { DailyLog } from "@/lib/supabase/types";
 
+/** Macro 画面用の目標値（settings から取得）*/
+export interface MacroTargets {
+  calories: number | null;
+  protein:  number | null;
+  fat:      number | null;
+  carbs:    number | null;
+}
+
+/** 差分 = 実績 - 目標 */
+export interface MacroDiff {
+  calories: number | null;
+  protein:  number | null;
+  fat:      number | null;
+  carbs:    number | null;
+}
+
+/** 今週の PFC kcal 比率 */
+export interface PfcKcalRatio {
+  proteinKcal: number;
+  fatKcal:     number;
+  carbsKcal:   number;
+  totalKcal:   number;
+  proteinPct:  number;
+  fatPct:      number;
+  carbsPct:    number;
+}
+
+/**
+ * 実績 - 目標 の差分を返す。どちらかが null なら null。
+ * calories: kcal (整数), protein/fat/carbs: g (整数)
+ */
+export function calcMacroDiff(
+  actual: MacroPeriodStats,
+  targets: MacroTargets
+): MacroDiff {
+  const d = (a: number | null, t: number | null) =>
+    a !== null && t !== null ? Math.round(a) - t : null;
+  return {
+    calories: d(actual.avgCalories, targets.calories),
+    protein:  d(actual.avgProtein,  targets.protein),
+    fat:      d(actual.avgFat,      targets.fat),
+    carbs:    d(actual.avgCarbs,    targets.carbs),
+  };
+}
+
+/**
+ * 今週の P/F/C 平均グラム値から kcal 換算比率を返す。
+ * P×4 + C×4 + F×9 を 100% とする。
+ * P/F/C いずれかが null、または合計 0 の場合は null。
+ */
+export function calcPfcKcalRatio(stats: MacroPeriodStats): PfcKcalRatio | null {
+  const { avgProtein: p, avgFat: f, avgCarbs: c } = stats;
+  if (p === null || f === null || c === null) return null;
+  const pKcal = p * 4;
+  const fKcal = f * 9;
+  const cKcal = c * 4;
+  const total = pKcal + fKcal + cKcal;
+  if (total <= 0) return null;
+  const proteinPct = Math.round((pKcal / total) * 100);
+  const fatPct     = Math.round((fKcal / total) * 100);
+  const carbsPct   = 100 - proteinPct - fatPct;
+  return {
+    proteinKcal: Math.round(pKcal),
+    fatKcal:     Math.round(fKcal),
+    carbsKcal:   Math.round(cKcal),
+    totalKcal:   Math.round(total),
+    proteinPct,
+    fatPct,
+    carbsPct,
+  };
+}
+
 export interface MacroPeriodStats {
   avgCalories: number | null;
   avgProtein: number | null;

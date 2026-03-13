@@ -1,4 +1,5 @@
-import { calcMacroKpi, calcDailyMacro } from "./calcMacro";
+import { calcMacroKpi, calcDailyMacro, calcMacroDiff, calcPfcKcalRatio } from "./calcMacro";
+import type { MacroPeriodStats, MacroTargets } from "./calcMacro";
 import type { DailyLog } from "@/lib/supabase/types";
 
 function makeLog(log_date: string, overrides: Partial<DailyLog> = {}): DailyLog {
@@ -100,5 +101,99 @@ describe("calcDailyMacro", () => {
     const result = calcDailyMacro(logs);
     expect(result[0].calories).toBe(0);
     expect(result[0].protein).toBe(0);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// calcMacroDiff
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("calcMacroDiff", () => {
+  const actual: MacroPeriodStats = {
+    avgCalories: 1850,
+    avgProtein:  145,
+    avgFat:      55,
+    avgCarbs:    210,
+    days: 7,
+  };
+
+  it("差分 = 実績 - 目標 (kcal)", () => {
+    const targets: MacroTargets = { calories: 2000, protein: null, fat: null, carbs: null };
+    const diff = calcMacroDiff(actual, targets);
+    expect(diff.calories).toBe(-150); // 1850 - 2000
+  });
+
+  it("差分 = 実績 - 目標 (g)", () => {
+    const targets: MacroTargets = { calories: null, protein: 150, fat: 50, carbs: 200 };
+    const diff = calcMacroDiff(actual, targets);
+    expect(diff.protein).toBe(-5);   // 145 - 150
+    expect(diff.fat).toBe(5);        // 55 - 50
+    expect(diff.carbs).toBe(10);     // 210 - 200
+  });
+
+  it("目標が null なら差分も null", () => {
+    const targets: MacroTargets = { calories: null, protein: null, fat: null, carbs: null };
+    const diff = calcMacroDiff(actual, targets);
+    expect(diff.calories).toBeNull();
+    expect(diff.protein).toBeNull();
+  });
+
+  it("実績が null なら差分も null", () => {
+    const noData: MacroPeriodStats = { avgCalories: null, avgProtein: null, avgFat: null, avgCarbs: null, days: 0 };
+    const targets: MacroTargets = { calories: 2000, protein: 150, fat: 50, carbs: 200 };
+    const diff = calcMacroDiff(noData, targets);
+    expect(diff.calories).toBeNull();
+    expect(diff.protein).toBeNull();
+  });
+
+  it("差分はゼロになりうる", () => {
+    const targets: MacroTargets = { calories: 1850, protein: 145, fat: 55, carbs: 210 };
+    const diff = calcMacroDiff(actual, targets);
+    expect(diff.calories).toBe(0);
+    expect(diff.protein).toBe(0);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// calcPfcKcalRatio
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("calcPfcKcalRatio", () => {
+  it("P=150g F=50g C=200g → 正しい kcal と比率を返す", () => {
+    const stats: MacroPeriodStats = {
+      avgCalories: 2000, avgProtein: 150, avgFat: 50, avgCarbs: 200, days: 7,
+    };
+    const ratio = calcPfcKcalRatio(stats);
+    expect(ratio).not.toBeNull();
+    // P: 150*4=600, F: 50*9=450, C: 200*4=800, total=1850
+    expect(ratio!.proteinKcal).toBe(600);
+    expect(ratio!.fatKcal).toBe(450);
+    expect(ratio!.carbsKcal).toBe(800);
+    expect(ratio!.totalKcal).toBe(1850);
+    expect(ratio!.proteinPct + ratio!.fatPct + ratio!.carbsPct).toBe(100);
+  });
+
+  it("P/F/C のいずれかが null → null を返す", () => {
+    const stats: MacroPeriodStats = {
+      avgCalories: 2000, avgProtein: null, avgFat: 50, avgCarbs: 200, days: 7,
+    };
+    expect(calcPfcKcalRatio(stats)).toBeNull();
+  });
+
+  it("合計 kcal が 0 → null を返す", () => {
+    const stats: MacroPeriodStats = {
+      avgCalories: 0, avgProtein: 0, avgFat: 0, avgCarbs: 0, days: 7,
+    };
+    expect(calcPfcKcalRatio(stats)).toBeNull();
+  });
+
+  it("P/F/C 比率の合計は必ず 100%", () => {
+    // 丸め誤差が出やすい値
+    const stats: MacroPeriodStats = {
+      avgCalories: 2100, avgProtein: 133, avgFat: 67, avgCarbs: 250, days: 7,
+    };
+    const ratio = calcPfcKcalRatio(stats);
+    expect(ratio).not.toBeNull();
+    expect(ratio!.proteinPct + ratio!.fatPct + ratio!.carbsPct).toBe(100);
   });
 });

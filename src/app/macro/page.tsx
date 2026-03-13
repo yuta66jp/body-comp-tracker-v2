@@ -2,8 +2,15 @@ import { createClient } from "@/lib/supabase/server";
 import { MacroKpiCards } from "@/components/macro/MacroKpiCards";
 import { MacroStackedChart } from "@/components/macro/MacroStackedChart";
 import { MacroDailyTable } from "@/components/macro/MacroDailyTable";
+import { MacroPfcSummary } from "@/components/macro/MacroPfcSummary";
 import { FactorAnalysis } from "@/components/charts/FactorAnalysis";
-import { calcMacroKpi, calcDailyMacro } from "@/lib/utils/calcMacro";
+import {
+  calcMacroKpi,
+  calcDailyMacro,
+  calcMacroDiff,
+  calcPfcKcalRatio,
+} from "@/lib/utils/calcMacro";
+import type { MacroTargets } from "@/lib/utils/calcMacro";
 import type { DailyLog, AnalyticsCache } from "@/lib/supabase/types";
 
 export const revalidate = 3600;
@@ -28,18 +35,32 @@ async function fetchFactorAnalysis() {
   return { payload: row.payload as Record<string, { label: string; importance: number; pct: number }>, updatedAt: row.updated_at };
 }
 
-async function fetchCalTarget(): Promise<number> {
+async function fetchMacroTargets(): Promise<MacroTargets & { calTarget: number }> {
   const supabase = createClient();
+  const keys = ["target_calories_kcal", "target_protein_g", "target_fat_g", "target_carbs_g", "goal_calories"];
   const { data } = await supabase
-    .from("settings").select("value_num").eq("key", "goal_calories").single();
-  return (data as { value_num: number | null } | null)?.value_num ?? 2000;
+    .from("settings")
+    .select("key, value_num")
+    .in("key", keys);
+  const map: Record<string, number | null> = {};
+  for (const row of (data as { key: string; value_num: number | null }[]) ?? []) {
+    map[row.key] = row.value_num;
+  }
+  return {
+    calories: map["target_calories_kcal"] ?? null,
+    protein:  map["target_protein_g"]     ?? null,
+    fat:      map["target_fat_g"]         ?? null,
+    carbs:    map["target_carbs_g"]       ?? null,
+    // 後方互換: MacroDailyTable 用 (旧 goal_calories → target_calories_kcal にフォールバック)
+    calTarget: map["target_calories_kcal"] ?? map["goal_calories"] ?? 2000,
+  };
 }
 
 export default async function MacroPage() {
-  const [logs, factorResult, calTarget] = await Promise.all([
+  const [logs, factorResult, targetsResult] = await Promise.all([
     fetchLogs(),
     fetchFactorAnalysis(),
-    fetchCalTarget(),
+    fetchMacroTargets(),
   ]);
 
   if (logs.length === 0) {
@@ -50,16 +71,28 @@ export default async function MacroPage() {
     );
   }
 
+  const { calTarget, ...targets } = targetsResult;
   const kpi = calcMacroKpi(logs);
   const dailyData = calcDailyMacro(logs, 60);
+  const diff = calcMacroDiff(kpi.weekly, targets);
+  const pfcRatio = calcPfcKcalRatio(kpi.weekly);
 
   return (
     <main className="min-h-screen bg-gray-50 p-6">
       <h1 className="mb-6 text-xl font-bold text-gray-800">栄養分析</h1>
       <div className="space-y-6">
-        <MacroKpiCards kpi={kpi} />
+        {/* 上段: kcal / PFC 目標差分・前週比サマリー */}
+        <MacroKpiCards kpi={kpi} targets={targets} diff={diff} />
+
+        {/* 中段: 今週の PFC kcal 比率 */}
+        <MacroPfcSummary ratio={pfcRatio} />
+
+        {/* 既存: PFC 構成比推移（直近60日） */}
         <MacroStackedChart data={dailyData} />
+
+        {/* 既存: 日次栄養内訳テーブル */}
         <MacroDailyTable data={dailyData} calTarget={calTarget} />
+
         {factorResult && (
           <FactorAnalysis data={factorResult.payload} updatedAt={factorResult.updatedAt} />
         )}
