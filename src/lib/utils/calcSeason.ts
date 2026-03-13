@@ -1,5 +1,5 @@
 import type { CareerLog } from "@/lib/supabase/types";
-import { parseLocalDateStr } from "./date";
+import { daysBetween } from "./date";
 
 export interface SeasonMeta {
   season: string;
@@ -64,12 +64,9 @@ export function buildDaysOutSeries(
     const sorted = [...entries].sort((a, b) => a.log_date.localeCompare(b.log_date));
 
     const points: DaysOutPoint[] = sorted.map((entry, i) => {
-      // parseLocalDateStr を使い new Date("YYYY-MM-DD") の UTC 解釈を回避する
-      const logD    = parseLocalDateStr(entry.log_date);
-      const targetD = parseLocalDateStr(entry.target_date);
-      const daysOut = logD && targetD
-        ? Math.round((logD.getTime() - targetD.getTime()) / 86_400_000)
-        : 0;
+      // daysBetween で date-only を安全に解釈する (new Date("YYYY-MM-DD") の UTC 解釈を回避)
+      // daysOut = (log_date - target_date): 大会前は負値、大会当日は 0
+      const daysOut = daysBetween(entry.target_date, entry.log_date) ?? 0;
 
       // 7日移動平均
       const window = sorted.slice(Math.max(0, i - 6), i + 1).map((e) => e.weight);
@@ -158,10 +155,8 @@ export interface TodayWindowEntry {
  * 入力が不正な場合は null を返す。
  */
 export function calcTodayDaysOut(todayStr: string, contestDateStr: string): number | null {
-  const today = parseLocalDateStr(todayStr);
-  const contest = parseLocalDateStr(contestDateStr);
-  if (!today || !contest) return null;
-  return Math.round((today.getTime() - contest.getTime()) / 86_400_000);
+  // daysBetween(from=contest, to=today) = (today - contest): 大会前は負値
+  return daysBetween(contestDateStr, todayStr);
 }
 
 /**

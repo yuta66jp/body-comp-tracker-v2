@@ -9,12 +9,144 @@
  */
 
 import {
+  daysBetween,
   calcDaysLeft,
   toJstDateStr,
   parseLocalDateStr,
   addDaysStr,
   dateRangeStr,
 } from "../date";
+
+// ════════════════════════════════════════════════════════════════════════════
+// daysBetween — 全差分計算の基盤関数
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("daysBetween — 正常系", () => {
+  test("同日: 0", () => {
+    expect(daysBetween("2025-11-01", "2025-11-01")).toBe(0);
+  });
+
+  test("to が from の翌日: 1", () => {
+    expect(daysBetween("2025-10-31", "2025-11-01")).toBe(1);
+  });
+
+  test("to が from の前日: -1", () => {
+    expect(daysBetween("2025-11-01", "2025-10-31")).toBe(-1);
+  });
+
+  test("大会 30 日前: daysBetween(contest, today) = -30", () => {
+    // daysOut 用の呼び出しパターン: daysBetween(targetDate, logDate)
+    expect(daysBetween("2025-11-01", "2025-10-02")).toBe(-30);
+  });
+
+  test("大会後 5 日: daysBetween(contest, today) = 5", () => {
+    expect(daysBetween("2025-11-01", "2025-11-06")).toBe(5);
+  });
+
+  test("月跨ぎ: 9月30日 → 10月1日 = 1", () => {
+    expect(daysBetween("2025-09-30", "2025-10-01")).toBe(1);
+  });
+
+  test("月跨ぎ逆: 10月1日 → 9月30日 = -1", () => {
+    expect(daysBetween("2025-10-01", "2025-09-30")).toBe(-1);
+  });
+
+  test("年跨ぎ: 12月31日 → 1月1日 = 1", () => {
+    expect(daysBetween("2025-12-31", "2026-01-01")).toBe(1);
+  });
+
+  test("年跨ぎ逆: 1月1日 → 前日 12月31日 = -1", () => {
+    expect(daysBetween("2026-01-01", "2025-12-31")).toBe(-1);
+  });
+
+  test("1年分逆: 2026-01-01 → 2025-01-01 = -365", () => {
+    expect(daysBetween("2026-01-01", "2025-01-01")).toBe(-365);
+  });
+
+  test("うるう年: 2024-02-28 → 2024-03-01 = 2 (2/29 が存在)", () => {
+    expect(daysBetween("2024-02-28", "2024-03-01")).toBe(2);
+  });
+
+  test("平年: 2025-02-28 → 2025-03-01 = 1 (2/29 は存在しない)", () => {
+    expect(daysBetween("2025-02-28", "2025-03-01")).toBe(1);
+  });
+
+  test("30日間", () => {
+    expect(daysBetween("2025-10-02", "2025-11-01")).toBe(30);
+  });
+
+  test("90日間", () => {
+    expect(daysBetween("2025-08-03", "2025-11-01")).toBe(90);
+  });
+
+  test("365日間", () => {
+    expect(daysBetween("2024-11-01", "2025-11-01")).toBe(365);
+  });
+});
+
+describe("daysBetween — 例外・null ケース", () => {
+  test("from が不正フォーマット → null", () => {
+    expect(daysBetween("invalid", "2025-11-01")).toBeNull();
+    expect(daysBetween("2025/11/01", "2025-11-01")).toBeNull();
+  });
+
+  test("to が不正フォーマット → null", () => {
+    expect(daysBetween("2025-11-01", "invalid")).toBeNull();
+  });
+
+  test("両方空文字 → null", () => {
+    expect(daysBetween("", "")).toBeNull();
+  });
+
+  test("存在しない日付 → null", () => {
+    expect(daysBetween("2025-02-30", "2025-11-01")).toBeNull();
+    expect(daysBetween("2025-11-01", "2025-13-01")).toBeNull();
+  });
+});
+
+describe("daysBetween — JST 境界安定性", () => {
+  test("date-only 文字列は実行時刻に依存しない純粋関数", () => {
+    // 複数回呼んでも同じ結果
+    expect(daysBetween("2025-10-02", "2025-11-01")).toBe(30);
+    expect(daysBetween("2025-10-02", "2025-11-01")).toBe(30);
+  });
+
+  test("new Date('YYYY-MM-DD') の UTC 解釈ズレが発生しない", () => {
+    // new Date("2025-11-01") は UTC midnight = JST 9:00 として解釈される
+    // parseLocalDateStr を使うことで同一の「ローカル午前0時」になり差分が安定する
+    expect(daysBetween("2025-11-01", "2025-11-01")).toBe(0);
+    expect(daysBetween("2025-10-31", "2025-11-01")).toBe(1);
+  });
+});
+
+describe("daysBetween vs calcDaysLeft — 整合性確認", () => {
+  test("calcDaysLeft(a, b) = daysBetween(a, b) (今日→目標方向)", () => {
+    // calcDaysLeft は daysBetween のラッパーなので等価
+    expect(calcDaysLeft("2026-03-01", "2026-03-31")).toBe(daysBetween("2026-03-01", "2026-03-31"));
+    expect(calcDaysLeft("2026-03-31", "2026-03-31")).toBe(daysBetween("2026-03-31", "2026-03-31"));
+    expect(calcDaysLeft("2026-04-01", "2026-03-31")).toBe(daysBetween("2026-04-01", "2026-03-31"));
+  });
+
+  test("daysOut 用パターン: daysBetween(contestDate, logDate) は calcDaysLeft の逆方向", () => {
+    const contestDate = "2025-11-01";
+    const logDate = "2025-10-02"; // 大会 30 日前
+    // daysOut = (log - contest) = -30
+    expect(daysBetween(contestDate, logDate)).toBe(-30);
+    // calcDaysLeft は (target - today) なので calcDaysLeft(log, contest) = +30
+    expect(calcDaysLeft(logDate, contestDate)).toBe(30);
+    // 符号が逆であることを確認
+    expect(daysBetween(contestDate, logDate)).toBe(-calcDaysLeft(logDate, contestDate)!);
+  });
+
+  test("calcTodayDaysOut パターン: daysBetween(contest, today) = -calcDaysLeft(today, contest)", () => {
+    const today = "2025-10-02";
+    const contest = "2025-11-01";
+    // todayDaysOut = (today - contest) = -30
+    expect(daysBetween(contest, today)).toBe(-30);
+    // calcDaysLeft(today, contest) = +30
+    expect(calcDaysLeft(today, contest)).toBe(30);
+  });
+});
 
 // ════════════════════════════════════════════════════════════════════════════
 // calcDaysLeft — 基本ケース

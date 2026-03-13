@@ -15,7 +15,7 @@
  */
 
 import type { DailyLog } from "@/lib/supabase/types";
-import { toJstDateStr, dateRangeStr } from "./date";
+import { toJstDateStr, addDaysStr, dateRangeStr } from "./date";
 
 // ---- 閾値定数 ----
 /** 前日比でこれを超えたら体重異常値 (kg) */
@@ -174,8 +174,9 @@ export function calcDataQuality(
     .map((l) => ({ date: l.log_date, weight: l.weight! }));
 
   // ---- 7日・14日ウィンドウの暦日リスト ----
-  const d7Start = shiftDate(todayStr, -6);   // 7日間
-  const d14Start = shiftDate(todayStr, -13); // 14日間
+  // addDaysStr は parseLocalDateStr 経由で date-only を安全に解釈する
+  const d7Start = addDaysStr(todayStr, -6) ?? todayStr;   // 7日間
+  const d14Start = addDaysStr(todayStr, -13) ?? todayStr; // 14日間
 
   const dates7 = dateRangeStr(d7Start, todayStr);
   const dates14 = dateRangeStr(d14Start, todayStr);
@@ -186,9 +187,3 @@ export function calcDataQuality(
   return { period7, period14, duplicateDates };
 }
 
-/** YYYY-MM-DD を n 日ずらす */
-function shiftDate(base: string, days: number): string {
-  const d = new Date(`${base}T00:00:00+09:00`);
-  d.setDate(d.getDate() + days);
-  return toJstDateStr(d);
-}

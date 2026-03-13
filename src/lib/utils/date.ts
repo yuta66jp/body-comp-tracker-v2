@@ -19,7 +19,8 @@
  * 責務の分離:
  *   - toJstDateStr()     : Date → YYYY-MM-DD 文字列（JST 固定）
  *   - parseLocalDateStr(): YYYY-MM-DD 文字列 → Date（入力検証付き）
- *   - calcDaysLeft()    : 2つの YYYY-MM-DD 間のカレンダー日数差（単一定義源）
+ *   - daysBetween()     : date-only 同士の差分日数 (to - from). 全差分計算の基盤
+ *   - calcDaysLeft()    : daysBetween のラッパー（today→target、正=未来）
  *   - addDaysStr()      : YYYY-MM-DD + N日 → YYYY-MM-DD
  *   - dateRangeStr()    : from 〜 to の YYYY-MM-DD 配列
  */
@@ -79,6 +80,37 @@ export function parseLocalDateStr(s: string): Date | null {
 }
 
 /**
+ * 2つの YYYY-MM-DD 文字列間のカレンダー日数差を返す（低レベル基盤関数）。
+ *
+ * 戻り値: (to - from) の日数。
+ *   正  = to が from より未来
+ *   0   = 同日
+ *   負  = to が from より過去
+ *   null = どちらかの日付が不正
+ *
+ * date-only 文字列を parseLocalDateStr で「ローカル午前0時の Date」に変換して
+ * 差分を取るため、UTC サーバー / JST ブラウザどちらでも結果が一致する。
+ * `new Date("YYYY-MM-DD")` が UTC 午前0時として解釈されるズレを回避している。
+ *
+ * アプリ内の全 daysOut / 差分日数計算はこの関数を経由すること。
+ * - calcDaysLeft(today, target)   → daysBetween(today, target)
+ * - daysOut (大会基準)             → daysBetween(targetDate, logDate)
+ * - calcTodayDaysOut              → daysBetween(contestDate, todayStr)
+ *
+ * @param from  起点日 (YYYY-MM-DD)
+ * @param to    終点日 (YYYY-MM-DD)
+ * @returns 差分日数 (整数)。どちらかの日付が不正なら null。
+ */
+export function daysBetween(from: string, to: string): number | null {
+  const f = parseLocalDateStr(from);
+  const t = parseLocalDateStr(to);
+  if (f === null || t === null) return null;
+  // parseLocalDateStr は同一環境での「ローカル午前0時」を返すため
+  // 差分は必ず整数日数になる (Math.round は念のため)
+  return Math.round((t.getTime() - f.getTime()) / 86_400_000);
+}
+
+/**
  * 2つの YYYY-MM-DD 文字列間のカレンダー日数差を返す。
  *
  * 戻り値の意味:
@@ -87,24 +119,17 @@ export function parseLocalDateStr(s: string): Date | null {
  *   負  = target が today より過去
  *   null = どちらかの日付が不正
  *
- * 日付はいずれも parseLocalDateStr で「ローカル午前0時の Date」として解釈するため、
- * UTC サーバー / JST ブラウザのどちらで実行しても差分が環境に依存しない。
- * `new Date("YYYY-MM-DD")` が UTC 午前0時として解釈される罠を回避している。
- *
  * KpiCards / GoalNavigator / calcReadiness はすべてこの関数を参照することで
  * 残り日数の定義を一箇所に統一する。
+ *
+ * 内部実装: daysBetween(today, target)
  *
  * @param today  基準日 (YYYY-MM-DD). 通常は toJstDateStr() の戻り値を渡す。
  * @param target 目標日 (YYYY-MM-DD). コンテスト日など。
  * @returns カレンダー日数差 (整数)。どちらかの日付が不正なら null。
  */
 export function calcDaysLeft(today: string, target: string): number | null {
-  const t = parseLocalDateStr(today);
-  const g = parseLocalDateStr(target);
-  if (t === null || g === null) return null;
-  // parseLocalDateStr は同一環境での「ローカル午前0時」を返すため
-  // 差分は必ず整数日数になる (Math.round は念のため)
-  return Math.round((g.getTime() - t.getTime()) / 86_400_000);
+  return daysBetween(today, target);
 }
 
 /**
