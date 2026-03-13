@@ -1,4 +1,8 @@
-import { getFeatureLabel, FEATURE_LABEL_MAP } from "./featureLabels";
+import {
+  getFeatureLabel, FEATURE_LABEL_MAP,
+  getFeatureDirection, FEATURE_DIRECTION_MAP,
+  getFeatureNote, FEATURE_NOTE_MAP,
+} from "./featureLabels";
 
 describe("FEATURE_LABEL_MAP", () => {
   it("現在の XGBoost 特徴量がすべて登録されている", () => {
@@ -54,5 +58,47 @@ describe("getFeatureLabel", () => {
     expect(getFeatureLabel("f_lag1")).toContain("g");
     expect(getFeatureLabel("c_lag1")).toContain("g");
     expect(getFeatureLabel("sleep_hours")).toContain("h");
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// getFeatureDirection / getFeatureNote
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("FEATURE_DIRECTION_MAP", () => {
+  it("現在の XGBoost 特徴量がすべて登録されている", () => {
+    const currentFeatures = ["cal_lag1", "rolling_cal_7", "p_lag1", "f_lag1", "c_lag1"];
+    for (const key of currentFeatures) {
+      expect(FEATURE_DIRECTION_MAP[key]).toBeDefined();
+    }
+  });
+});
+
+describe("getFeatureDirection", () => {
+  it("登録済みキーは文字列を返す", () => {
+    expect(typeof getFeatureDirection("cal_lag1")).toBe("string");
+  });
+
+  it("未登録キーは null を返す", () => {
+    expect(getFeatureDirection("unknown_xyz")).toBeNull();
+  });
+});
+
+describe("FEATURE_NOTE_MAP", () => {
+  it("現在の XGBoost 特徴量がすべて登録されている", () => {
+    const currentFeatures = ["cal_lag1", "rolling_cal_7", "p_lag1", "f_lag1", "c_lag1"];
+    for (const key of currentFeatures) {
+      expect(FEATURE_NOTE_MAP[key]).toBeDefined();
+    }
+  });
+});
+
+describe("getFeatureNote", () => {
+  it("登録済みキーは文字列を返す", () => {
+    expect(typeof getFeatureNote("cal_lag1")).toBe("string");
+  });
+
+  it("未登録キーは null を返す", () => {
+    expect(getFeatureNote("unknown_xyz")).toBeNull();
   });
 });
