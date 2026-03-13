@@ -88,8 +88,18 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
     if (editing.items.length === 0) return setSaveError("1品以上追加してください");
 
     const supabase = createClient();
-    const payload = { name: editing.name.trim(), recipe: editing.items };
-    const { error } = await supabase.from("menu_master").upsert(payload as never);
+    const nextName = editing.name.trim();
+    const payload = { name: nextName, recipe: editing.items };
+
+    let error;
+    if (editing.originalName === null) {
+      ({ error } = await supabase.from("menu_master").insert(payload as never));
+    } else {
+      ({ error } = await supabase
+        .from("menu_master")
+        .update(payload as never)
+        .eq("name", editing.originalName as never));
+    }
     if (error) return setSaveError(error.message);
 
     setMenus((prev) => {
