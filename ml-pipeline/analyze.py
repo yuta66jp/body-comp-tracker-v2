@@ -120,12 +120,25 @@ def main() -> None:
 
     logger.info("Importance: %s", importance)
 
+    # 分析前提情報を計算（run_importance と同じフィルタを適用）
+    df_meta = df.dropna(subset=["weight", "calories", "protein", "fat", "carbs"])
+    df_meta = df_meta.sort_values("log_date").reset_index(drop=True)
+    df_meta = df_meta.assign(target=df_meta["weight"].shift(-1))
+    df_meta = df_meta.dropna(subset=FEATURE_COLS + ["target"])
+    meta: dict[str, object] = {
+        "sample_count": int(len(df_meta)),
+        "date_from": str(df_meta["log_date"].iloc[0]) if len(df_meta) > 0 else None,
+        "date_to":   str(df_meta["log_date"].iloc[-1]) if len(df_meta) > 0 else None,
+        "total_rows": int(len(df)),
+    }
+    payload = {"_meta": meta, **importance}
+
     logger.info("Saving xgboost_importance to 'analytics_cache'...")
     try:
         client.table("analytics_cache").upsert(
             {
                 "metric_type": "xgboost_importance",
-                "payload": importance,
+                "payload": payload,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }
         ).execute()
