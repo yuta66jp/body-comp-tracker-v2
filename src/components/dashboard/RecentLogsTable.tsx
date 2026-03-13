@@ -73,7 +73,7 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
                     ))}
                   </div>
                   {conditionSummary && (
-                    <div className="mt-1 text-[10px] leading-snug text-slate-400">
+                    <div className="mt-1 text-xs leading-snug text-slate-500">
                       {conditionSummary}
                     </div>
                   )}
