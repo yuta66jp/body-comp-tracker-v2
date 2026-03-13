@@ -11,7 +11,12 @@ import {
   Cell,
   LabelList,
 } from "recharts";
-import { getFeatureLabel, getFeatureDirection, getFeatureNote } from "@/lib/utils/featureLabels";
+import {
+  getFeatureLabel,
+  getFeatureDirection,
+  getFeatureNote,
+  getFeatureHint,
+} from "@/lib/utils/featureLabels";
 
 interface FactorEntry {
   label: string;
@@ -159,6 +164,82 @@ function FactorTable({
   );
 }
 
+// 欠損率が高いと判断する閾値
+const HIGH_DROP_THRESHOLD = 0.30;
+
+/** 解釈補助エリア（固定文 + 条件分岐文 + 上位特徴量ヒント） */
+function FactorInterpretation({
+  topKey,
+  topLabel,
+  meta,
+}: {
+  topKey: string | null;
+  topLabel: string | null;
+  meta: FactorMeta | null | undefined;
+}) {
+  const hint = topKey ? getFeatureHint(topKey) : null;
+
+  const isLowSample = meta != null && meta.sample_count < 30;
+  const isHighDrop =
+    meta != null &&
+    meta.dropped_count != null &&
+    meta.total_rows > 0 &&
+    meta.dropped_count / meta.total_rows > HIGH_DROP_THRESHOLD;
+  const dropPct =
+    isHighDrop && meta?.dropped_count != null && meta.total_rows > 0
+      ? Math.round((meta.dropped_count / meta.total_rows) * 100)
+      : null;
+
+  return (
+    <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3.5 space-y-2">
+      <p className="text-xs font-semibold text-gray-500">分析結果の読み方</p>
+
+      {/* 固定: 因果誤認防止 */}
+      <p className="text-xs text-gray-600">
+        この結果は記録データ上の統計的な関連の強さを示す<span className="font-medium">参考表示</span>です。
+        重要度が高い特徴量が体重増減の「原因」であるとは限りません。
+        因果関係の確認には、より多くのデータと条件の統制が必要です。
+      </p>
+
+      {/* 条件①: サンプル不足 */}
+      {isLowSample && (
+        <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-1.5">
+          現在のサンプル数（{meta!.sample_count}日分）は少なめです。
+          偶然性の影響を受けやすく、週をまたいで順位が変わる可能性があります。
+          継続記録により結果が安定してきます。
+        </p>
+      )}
+
+      {/* 条件②: 欠損率高い */}
+      {isHighDrop && (
+        <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-1.5">
+          全記録の約{dropPct}%が欠損除外されています。
+          記録が少ない時期のデータに偏った結果になっている可能性があります。
+          記録の継続で偏りが軽減されます。
+        </p>
+      )}
+
+      {/* 動的: 1位特徴量の読み方ヒント */}
+      {topLabel && hint && (
+        <p className="text-xs text-gray-600">
+          <span className="font-medium">1位「{topLabel}」</span>について：{hint}
+        </p>
+      )}
+      {topLabel && !hint && (
+        <p className="text-xs text-gray-500">
+          <span className="font-medium">1位「{topLabel}」</span>が最も強い関連を示しています。
+          この特徴量が高い日・低い日の翌日体重を比較してみてください。
+        </p>
+      )}
+
+      {/* 固定: 次に確認すべき観点 */}
+      <p className="text-xs text-gray-400">
+        仮説の確認方法：記録を続けて「順位が変わるか」「特定の時期に絞ると結果が変わるか」を見ると、より深い示唆が得られます。
+      </p>
+    </div>
+  );
+}
+
 export function FactorAnalysis({ data, updatedAt, meta }: FactorAnalysisProps) {
   // 重要度の高い順に並べ、キーを保持しつつラベルを解決する
   const sorted = Object.entries(data)
@@ -214,13 +295,19 @@ export function FactorAnalysis({ data, updatedAt, meta }: FactorAnalysisProps) {
         </BarChart>
       </ResponsiveContainer>
 
-      {/* 下段: 説明表 */}
+      {/* 下段①: 説明表 */}
       <FactorTable rows={sorted} />
 
-      {/* 注意書き */}
-      <p className="mt-4 text-xs text-gray-400">
-        ※ 重要度は XGBoost の特徴量ゲインに基づく相対値（合計 100%）。
-        傾向は栄養学的ドメイン知識による目安であり、統計的因果を意味しません。
+      {/* 下段②: 解釈補助エリア */}
+      <FactorInterpretation
+        topKey={sorted[0]?.key ?? null}
+        topLabel={sorted[0]?.label ?? null}
+        meta={meta}
+      />
+
+      {/* フッター: 技術的注記 */}
+      <p className="mt-3 text-[11px] text-gray-300">
+        ※ 重要度は XGBoost 特徴量ゲインの相対値（合計 100%）。傾向はドメイン知識に基づく目安。
       </p>
     </div>
   );

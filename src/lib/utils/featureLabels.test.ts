@@ -2,6 +2,7 @@ import {
   getFeatureLabel, FEATURE_LABEL_MAP,
   getFeatureDirection, FEATURE_DIRECTION_MAP,
   getFeatureNote, FEATURE_NOTE_MAP,
+  getFeatureHint, FEATURE_HINT_MAP,
 } from "./featureLabels";
 
 describe("FEATURE_LABEL_MAP", () => {
@@ -100,5 +101,31 @@ describe("getFeatureNote", () => {
 
   it("未登録キーは null を返す", () => {
     expect(getFeatureNote("unknown_xyz")).toBeNull();
+  });
+});
+
+describe("FEATURE_HINT_MAP", () => {
+  it("現在の XGBoost 特徴量がすべて登録されている", () => {
+    const currentFeatures = ["cal_lag1", "rolling_cal_7", "p_lag1", "f_lag1", "c_lag1"];
+    for (const key of currentFeatures) {
+      expect(FEATURE_HINT_MAP[key]).toBeDefined();
+    }
+  });
+
+  it("ヒント文は断定表現（〜です。〜ます。のみ）ではなく可能性・示唆を含む", () => {
+    const hedgePattern = /かもしれ|可能性|示唆|傾向|場合があ|ことがあ|てみてください|考えられ/;
+    for (const hint of Object.values(FEATURE_HINT_MAP)) {
+      expect(hint).toMatch(hedgePattern);
+    }
+  });
+});
+
+describe("getFeatureHint", () => {
+  it("登録済みキーは文字列を返す", () => {
+    expect(typeof getFeatureHint("cal_lag1")).toBe("string");
+  });
+
+  it("未登録キーは null を返す", () => {
+    expect(getFeatureHint("unknown_xyz")).toBeNull();
   });
 });
