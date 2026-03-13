@@ -3,6 +3,10 @@ import {
   calcMetabolicSim,
   calcBmr,
   calcTheoreticalTdee,
+  calcEnergyBalance,
+  calcTheoreticalWeightChangePerWeek,
+  calcTdeeConfidence,
+  buildTdeeInterpretation,
   KCAL_PER_KG_FAT,
 } from "./calcTdee";
 
@@ -103,5 +107,141 @@ describe("calcTheoreticalTdee", () => {
       weightKg: 70, heightCm: 170, ageYears: 30, isMale: true, activityFactor: 1.55,
     });
     expect(tdee).toBeCloseTo(bmr * 1.55, 1);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// calcEnergyBalance
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("calcEnergyBalance", () => {
+  it("摂取 > TDEE → プラス収支", () => {
+    expect(calcEnergyBalance(2500, 2200)).toBe(300);
+  });
+
+  it("摂取 < TDEE → マイナス収支（減量方向）", () => {
+    expect(calcEnergyBalance(1800, 2200)).toBe(-400);
+  });
+
+  it("どちらか null → null を返す", () => {
+    expect(calcEnergyBalance(null, 2200)).toBeNull();
+    expect(calcEnergyBalance(1800, null)).toBeNull();
+    expect(calcEnergyBalance(null, null)).toBeNull();
+  });
+
+  it("結果が整数に丸められる", () => {
+    const result = calcEnergyBalance(2100.7, 1800.2);
+    expect(Number.isInteger(result)).toBe(true);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// calcTheoreticalWeightChangePerWeek
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("calcTheoreticalWeightChangePerWeek", () => {
+  it("-500 kcal/日 → 約 -0.49 kg/週", () => {
+    // -500 * 7 / 7200 = -0.4861... → round to -0.49
+    const result = calcTheoreticalWeightChangePerWeek(-500);
+    expect(result).toBeCloseTo(-0.49, 2);
+  });
+
+  it("0 kcal/日 → 0 kg/週", () => {
+    expect(calcTheoreticalWeightChangePerWeek(0)).toBe(0);
+  });
+
+  it("null → null を返す", () => {
+    expect(calcTheoreticalWeightChangePerWeek(null)).toBeNull();
+  });
+
+  it("小数点2桁に丸められる", () => {
+    const result = calcTheoreticalWeightChangePerWeek(300);
+    expect(result).not.toBeNull();
+    const str = result!.toString();
+    const decimals = str.includes(".") ? str.split(".")[1].length : 0;
+    expect(decimals).toBeLessThanOrEqual(2);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// calcTdeeConfidence
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("calcTdeeConfidence", () => {
+  it("TDEE推定なし → low", () => {
+    const r = calcTdeeConfidence({ calDays: 7, weightDays: 7, hasTdeeEstimate: false });
+    expect(r.level).toBe("low");
+  });
+
+  it("最小日数 < 4 → low", () => {
+    const r = calcTdeeConfidence({ calDays: 3, weightDays: 7, hasTdeeEstimate: true });
+    expect(r.level).toBe("low");
+  });
+
+  it("最小日数 4〜5 → medium", () => {
+    const r = calcTdeeConfidence({ calDays: 5, weightDays: 7, hasTdeeEstimate: true });
+    expect(r.level).toBe("medium");
+  });
+
+  it("体重標準偏差 > 1.5 kg → medium", () => {
+    const r = calcTdeeConfidence({ calDays: 7, weightDays: 7, hasTdeeEstimate: true, weightStdDev: 2.0 });
+    expect(r.level).toBe("medium");
+  });
+
+  it("最小日数 ≥ 6 かつ σ ≤ 1.5 → high", () => {
+    const r = calcTdeeConfidence({ calDays: 7, weightDays: 6, hasTdeeEstimate: true, weightStdDev: 1.0 });
+    expect(r.level).toBe("high");
+  });
+
+  it("reason が空文字でない", () => {
+    const r = calcTdeeConfidence({ calDays: 7, weightDays: 7, hasTdeeEstimate: true });
+    expect(r.reason.length).toBeGreaterThan(0);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// buildTdeeInterpretation
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("buildTdeeInterpretation", () => {
+  it("balance null → データ不足メッセージ", () => {
+    const r = buildTdeeInterpretation(null, null, null);
+    expect(r).toContain("データ不足");
+  });
+
+  it("balance < -100 → 減量方向テキスト", () => {
+    const r = buildTdeeInterpretation(-300, -0.29, -0.30);
+    expect(r).toContain("減量方向");
+  });
+
+  it("balance > 100 → 増量方向テキスト", () => {
+    const r = buildTdeeInterpretation(300, 0.29, 0.30);
+    expect(r).toContain("増量方向");
+  });
+
+  it("balance ≈ 0 → 均衡テキスト", () => {
+    const r = buildTdeeInterpretation(30, 0.03, 0.02);
+    expect(r).toContain("均衡");
+  });
+
+  it("theoretical null → 方向テキストのみ", () => {
+    const r = buildTdeeInterpretation(-200, null, null);
+    expect(r).toContain("減量方向");
+  });
+
+  it("measured null → 体重データ不足テキスト", () => {
+    const r = buildTdeeInterpretation(-200, -0.19, null);
+    expect(r).toContain("体重データ不足");
+  });
+
+  it("gap ≤ 0.15 → 実測は理論に概ね沿っている", () => {
+    const r = buildTdeeInterpretation(-300, -0.29, -0.32);
+    expect(r).toContain("概ね沿っています");
+  });
+
+  it("gap > 0.5 → 乖離が大きいテキスト", () => {
+    // balance=400(増量方向), theoretical=0.39, measured=-0.20 → gap=-0.59, gapAbs=0.59
+    const r = buildTdeeInterpretation(400, 0.39, -0.20);
+    expect(r).toContain("乖離が大きく");
   });
 });

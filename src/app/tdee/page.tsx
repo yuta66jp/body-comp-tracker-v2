@@ -2,7 +2,13 @@ import { createClient } from "@/lib/supabase/server";
 import { TdeeKpiCard } from "@/components/tdee/TdeeKpiCard";
 import { TdeeDetailChart } from "@/components/tdee/TdeeDetailChart";
 import { TdeeDailyTable } from "@/components/tdee/TdeeDailyTable";
-import { calcTheoreticalTdee } from "@/lib/utils/calcTdee";
+import {
+  calcTheoreticalTdee,
+  calcEnergyBalance,
+  calcTheoreticalWeightChangePerWeek,
+  calcTdeeConfidence,
+  buildTdeeInterpretation,
+} from "@/lib/utils/calcTdee";
 import type { DailyLog, AnalyticsCache, Setting } from "@/lib/supabase/types";
 
 export const revalidate = 3600;
@@ -80,8 +86,34 @@ export default async function TdeePage() {
     ? tdeeValues.slice(-7).reduce((a, b) => a + b, 0) / Math.min(7, tdeeValues.length)
     : null;
 
-  const avgCalories7 = sortedRaw.slice(-7).filter((d) => d.calories !== null)
-    .reduce((s, d) => s + d.calories!, 0) / (sortedRaw.slice(-7).filter((d) => d.calories !== null).length || 1) || null;
+  const last7 = sortedRaw.slice(-7);
+  const calLogs7 = last7.filter((d) => d.calories !== null);
+  const avgCalories7 = calLogs7.length > 0
+    ? calLogs7.reduce((s, d) => s + d.calories!, 0) / calLogs7.length
+    : null;
+
+  // 実測変化: 直近7日 vs 前7日 の平均体重差
+  const prev7 = sortedRaw.slice(-14, -7);
+  const weights7 = last7.filter((d) => d.weight !== null).map((d) => d.weight!);
+  const weightsPrev7 = prev7.filter((d) => d.weight !== null).map((d) => d.weight!);
+  const avgW7 = weights7.length > 0 ? weights7.reduce((a, b) => a + b, 0) / weights7.length : null;
+  const avgWPrev7 = weightsPrev7.length > 0 ? weightsPrev7.reduce((a, b) => a + b, 0) / weightsPrev7.length : null;
+  const measuredWeightChange = avgW7 !== null && avgWPrev7 !== null
+    ? Math.round((avgW7 - avgWPrev7) * 100) / 100
+    : null;
+
+  // 信頼度算出
+  const calDays = calLogs7.length;
+  const weightDays = weights7.length;
+  const weightStdDev = weights7.length > 1 && avgW7 !== null
+    ? Math.sqrt(weights7.map((w) => (w - avgW7) ** 2).reduce((a, b) => a + b, 0) / weights7.length)
+    : undefined;
+
+  // 収支・理論変化・解釈
+  const balance = calcEnergyBalance(avgCalories7, avgTdee);
+  const theoreticalWeightChange = calcTheoreticalWeightChangePerWeek(balance);
+  const confidence = calcTdeeConfidence({ calDays, weightDays, hasTdeeEstimate: avgTdee !== null, weightStdDev });
+  const interpretation = buildTdeeInterpretation(balance, theoreticalWeightChange, measuredWeightChange);
 
   // rawLogs を主軸にして直近14日を表示（enriched にない新規エントリも反映）
   const enrichedTdeeMap = new Map(
@@ -106,6 +138,11 @@ export default async function TdeePage() {
             avgTdee={avgTdee}
             theoreticalTdee={theoreticalTdee}
             avgCalories={avgCalories7}
+            balance={balance}
+            theoreticalWeightChange={theoreticalWeightChange}
+            measuredWeightChange={measuredWeightChange}
+            confidence={confidence}
+            interpretation={interpretation}
           />
           <TdeeDetailChart data={chartData} avgTdee={avgTdee} />
           <TdeeDailyTable data={tableData} />

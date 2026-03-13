@@ -110,3 +110,105 @@ export function calcTheoreticalTdee(params: {
 }): number {
   return calcBmr(params) * params.activityFactor;
 }
+
+// ── Phase 3-B 追加 ──────────────────────────────────────────────────────────
+
+/**
+ * 収支差分 = 平均摂取 kcal - 平均実測 TDEE (kcal/日)
+ *   マイナス = 消費が上回る = 減量方向
+ *   プラス   = 摂取が上回る = 増量方向
+ */
+export function calcEnergyBalance(
+  avgIntake: number | null,
+  avgTdee: number | null
+): number | null {
+  if (avgIntake === null || avgTdee === null) return null;
+  return Math.round(avgIntake - avgTdee);
+}
+
+/**
+ * 収支差分 (kcal/日) から理論体重変化 kg/週 を算出する。
+ * 係数: KCAL_PER_KG_FAT = 7,200 kcal/kg (calcTdeeFromChange と同一定義)
+ */
+export function calcTheoreticalWeightChangePerWeek(
+  balanceKcalPerDay: number | null
+): number | null {
+  if (balanceKcalPerDay === null) return null;
+  return Math.round((balanceKcalPerDay * 7 / KCAL_PER_KG_FAT) * 100) / 100;
+}
+
+export type ConfidenceLevel = "high" | "medium" | "low";
+
+export interface TdeeConfidence {
+  level: ConfidenceLevel;
+  reason: string;
+}
+
+/**
+ * TDEE 推定の信頼度を判定する。
+ *
+ * 判定基準:
+ *   high   : calories + weight ともに直近7エントリ中 6日以上記録 かつ 体重標準偏差 ≤ 1.5 kg
+ *   medium : calories + weight ともに 4日以上
+ *   low    : いずれかが 3日以下、または実測TDEE推定値なし
+ */
+export function calcTdeeConfidence(params: {
+  calDays: number;
+  weightDays: number;
+  hasTdeeEstimate: boolean;
+  weightStdDev?: number;
+}): TdeeConfidence {
+  const { calDays, weightDays, hasTdeeEstimate, weightStdDev } = params;
+  const minDays = Math.min(calDays, weightDays);
+
+  if (!hasTdeeEstimate) {
+    return { level: "low", reason: "実測TDEE推定値がありません (ML バッチ未実行)" };
+  }
+  if (minDays < 4) {
+    return { level: "low", reason: `直近7日のうちカロリー/体重の両方が揃う日が ${minDays} 日のみです` };
+  }
+  if (weightStdDev !== undefined && weightStdDev > 1.5) {
+    return { level: "medium", reason: `体重変動が大きく推定が不安定です (σ ≈ ${weightStdDev.toFixed(1)} kg)` };
+  }
+  if (minDays < 6) {
+    return { level: "medium", reason: `直近7日のうち ${minDays} 日分のデータで推定しています` };
+  }
+  return { level: "high", reason: "直近7日のデータが十分に揃っています" };
+}
+
+/**
+ * 理論変化 kg/週 と実測変化 kg/週 を比較して解釈補助文を返す。
+ */
+export function buildTdeeInterpretation(
+  balance: number | null,
+  theoretical: number | null,
+  measured: number | null
+): string {
+  if (balance === null) return "データ不足のため収支を算出できません。";
+
+  const direction =
+    balance < -100 ? "摂取は消費を下回っており、減量方向の収支です。" :
+    balance >  100 ? "摂取が消費を上回っており、増量方向の収支です。" :
+                     "収支は概ね均衡しています。";
+
+  if (theoretical === null) return direction;
+  if (measured === null) return `${direction} 体重データ不足のため実測変化と比較できません。`;
+
+  const gap = measured - theoretical; // 正 = 実測の減り幅が小さい / 増え幅が大きい
+  const gapAbs = Math.abs(gap);
+  let comparison: string;
+
+  if (gapAbs <= 0.15) {
+    comparison = "実測は理論に概ね沿っています。";
+  } else if (theoretical < -0.05 && measured > -0.05) {
+    comparison = "収支上は減量方向ですが、直近の体重は横ばいです。水分変動または記録誤差の可能性があります。";
+  } else if (gapAbs > 0.5) {
+    comparison = "理論と実測の乖離が大きく、水分変動または記録誤差の可能性があります。";
+  } else if (gap > 0) {
+    comparison = "実測の減少は理論より小さい傾向です。";
+  } else {
+    comparison = "実測は理論より速いペースで推移しています。";
+  }
+
+  return `${direction} ${comparison}`;
+}
