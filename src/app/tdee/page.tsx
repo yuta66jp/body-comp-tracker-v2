@@ -74,12 +74,20 @@ export default async function TdeePage() {
     }
   }
 
-  const chartData = (enriched ?? []).map((row) => ({
-    date: row.log_date.slice(5),
-    tdee: row.tdee_estimated,
-    intake: calMaMap.get(row.log_date) ?? null,
-    theoretical: theoreticalTdee,
-  }));
+  // enriched がある場合はその日付軸を使う。ない場合は rawLogs を軸に tdee=null で描画
+  const chartData = enriched
+    ? enriched.map((row) => ({
+        date: row.log_date.slice(5),
+        tdee: row.tdee_estimated,
+        intake: calMaMap.get(row.log_date) ?? null,
+        theoretical: theoreticalTdee,
+      }))
+    : sortedRaw.map((row) => ({
+        date: row.log_date.slice(5),
+        tdee: null,
+        intake: calMaMap.get(row.log_date) ?? null,
+        theoretical: theoreticalTdee,
+      }));
 
   const tdeeValues = (enriched ?? []).map((r) => r.tdee_estimated).filter((v): v is number => v !== null);
   const avgTdee = tdeeValues.length > 0
@@ -128,31 +136,34 @@ export default async function TdeePage() {
   return (
     <main className="min-h-screen bg-gray-50 p-6">
       <h1 className="mb-6 text-xl font-bold text-gray-800">TDEE・代謝分析</h1>
-      {!enriched ? (
-        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-6 text-sm text-amber-700">
-          enriched_logs がありません。GitHub Actions の ML バッチ（enrich.py）を実行してください。
-        </div>
-      ) : (
-        <div className="space-y-6">
-          <TdeeKpiCard
-            avgTdee={avgTdee}
-            theoreticalTdee={theoreticalTdee}
-            avgCalories={avgCalories7}
-            balance={balance}
-            theoreticalWeightChange={theoreticalWeightChange}
-            measuredWeightChange={measuredWeightChange}
-            confidence={confidence}
-            interpretation={interpretation}
-          />
-          <TdeeDetailChart data={chartData} avgTdee={avgTdee} />
-          <TdeeDailyTable data={tableData} />
-          {!theoreticalTdee && (
-            <p className="text-center text-xs text-gray-400">
-              ※ 理論 TDEE を表示するには「設定」で身長・年齢・活動係数を入力してください。
-            </p>
-          )}
+
+      {/* ML バッチ未実行の補助案内（コンテンツはブロックしない） */}
+      {!enriched && (
+        <div className="mb-5 rounded-2xl border border-amber-100 bg-amber-50 px-5 py-3 text-sm text-amber-700">
+          実測 TDEE は ML バッチ（enrich.py）未実行のため表示できません。
+          理論 TDEE・平均摂取カロリー・体重推移は引き続き表示しています。
         </div>
       )}
+
+      <div className="space-y-6">
+        <TdeeKpiCard
+          avgTdee={avgTdee}
+          theoreticalTdee={theoreticalTdee}
+          avgCalories={avgCalories7}
+          balance={balance}
+          theoreticalWeightChange={theoreticalWeightChange}
+          measuredWeightChange={measuredWeightChange}
+          confidence={confidence}
+          interpretation={interpretation}
+        />
+        <TdeeDetailChart data={chartData} avgTdee={avgTdee} />
+        <TdeeDailyTable data={tableData} />
+        {!theoreticalTdee && (
+          <p className="text-center text-xs text-gray-400">
+            ※ 理論 TDEE を表示するには「設定」で身長・年齢・活動係数を入力してください。
+          </p>
+        )}
+      </div>
     </main>
   );
 }
