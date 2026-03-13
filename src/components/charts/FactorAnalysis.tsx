@@ -22,6 +22,7 @@ interface FactorMeta {
   date_from: string | null;
   date_to: string | null;
   total_rows: number;
+  dropped_count?: number;  // 旧キャッシュとの後方互換で省略可
 }
 
 interface FactorAnalysisProps {
@@ -68,7 +69,7 @@ function AnalysisPremise({ meta }: { meta: FactorMeta | null | undefined }) {
 
   const level = confidenceLevel(meta.sample_count);
   const cfg = CONFIDENCE_CFG[level];
-  const dropped = meta.total_rows - meta.sample_count - 1; // shift(-1) で最終行が除外される分 -1
+  const dropped = meta.dropped_count ?? null;
 
   return (
     <div className="mb-5 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3.5">
@@ -96,7 +97,7 @@ function AnalysisPremise({ meta }: { meta: FactorMeta | null | undefined }) {
           <dt className="text-gray-400">特徴量・除外条件</dt>
           <dd className="font-medium text-gray-700">
             カロリー・P/F/C（体重・栄養素のいずれかが未記録の日を除外
-            {dropped > 0 ? `、${dropped}日除外` : ""}）
+            {dropped !== null && dropped > 0 ? `、${dropped}日除外` : ""}）
           </dd>
         </div>
       </dl>

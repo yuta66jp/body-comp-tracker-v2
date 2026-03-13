@@ -125,11 +125,14 @@ def main() -> None:
     df_meta = df_meta.sort_values("log_date").reset_index(drop=True)
     df_meta = df_meta.assign(target=df_meta["weight"].shift(-1))
     df_meta = df_meta.dropna(subset=FEATURE_COLS + ["target"])
+    sample_count = int(len(df_meta))
+    total_rows   = int(len(df))
     meta: dict[str, object] = {
-        "sample_count": int(len(df_meta)),
-        "date_from": str(df_meta["log_date"].iloc[0]) if len(df_meta) > 0 else None,
-        "date_to":   str(df_meta["log_date"].iloc[-1]) if len(df_meta) > 0 else None,
-        "total_rows": int(len(df)),
+        "sample_count":  sample_count,
+        "date_from":     str(df_meta["log_date"].iloc[0]) if sample_count > 0 else None,
+        "date_to":       str(df_meta["log_date"].iloc[-1]) if sample_count > 0 else None,
+        "total_rows":    total_rows,
+        "dropped_count": total_rows - sample_count,  # 欠損除外 + shift(-1) による末尾除外の合計
     }
     payload = {"_meta": meta, **importance}
 
