@@ -41,6 +41,47 @@ interface FactorAnalysisProps {
 // 重要度が高い順に青を濃くする（色だけで判断させない、位置との整合を取る）
 const IMPORTANCE_COLORS = ["#1e40af", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd"];
 
+// 分析に必要な最低サンプル数（analyze.py の MIN_ROWS と同値）
+const MIN_ROWS = 14;
+
+/**
+ * エントリが描画可能な正常値かチェック。
+ * NaN / Infinity / 負値 が混入していた場合は除外する。
+ */
+function isValidEntry(entry: FactorEntry): boolean {
+  return (
+    typeof entry.pct === "number" && isFinite(entry.pct) && entry.pct >= 0 &&
+    typeof entry.importance === "number" && isFinite(entry.importance) && entry.importance >= 0
+  );
+}
+
+/**
+ * バッチ未実行・キャッシュなし時のプレースホルダー。
+ * macro/page.tsx から factorResult が null のときに表示する。
+ */
+export function FactorAnalysisPlaceholder() {
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold text-gray-700">AI 因子分析（XGBoost）</h2>
+        <p className="mt-0.5 text-xs text-gray-400">翌日体重に最も影響を与えている栄養素</p>
+      </div>
+      <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-4">
+        <p className="text-sm font-medium text-amber-800">分析結果がまだありません</p>
+        <p className="mt-1.5 text-xs text-amber-700">
+          ML バッチ（analyze.py）が実行されると結果が表示されます。
+          GitHub Actions の日次 cron（毎日 AM 3:00 JST）で自動実行されます。
+        </p>
+        <p className="mt-3 text-xs font-medium text-amber-700">分析に必要な条件:</p>
+        <ul className="mt-1 list-disc list-inside space-y-0.5 text-xs text-amber-600">
+          <li>体重・カロリー・タンパク質・脂質・炭水化物の記録が {MIN_ROWS} 日分以上</li>
+          <li>欠損なしで揃っている日が {MIN_ROWS} 日以上あること</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 /** サンプル数から参考度を判定する */
 function confidenceLevel(sampleCount: number): "high" | "medium" | "low" {
   if (sampleCount >= 60) return "high";
@@ -241,8 +282,37 @@ function FactorInterpretation({
 }
 
 export function FactorAnalysis({ data, updatedAt, meta }: FactorAnalysisProps) {
-  // 重要度の高い順に並べ、キーを保持しつつラベルを解決する
-  const sorted = Object.entries(data)
+  // 無効エントリ（NaN / null / 負値）を除外してから並べる
+  const rawEntries = Object.entries(data);
+  const validEntries = rawEntries.filter(([, entry]) => isValidEntry(entry));
+  const filteredOutCount = rawEntries.length - validEntries.length;
+
+  // 有効な結果がゼロ件の場合: 代替表示
+  if (validEntries.length === 0) {
+    const reason =
+      rawEntries.length === 0
+        ? "バッチの実行結果が空です。ML バッチ（analyze.py）を再実行してください。"
+        : `${filteredOutCount} 件のエントリすべてに異常値（NaN・不正値）が含まれていました。ML バッチを再実行してください。`;
+    return (
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-gray-700">AI 因子分析（XGBoost）</h2>
+            <p className="mt-0.5 text-xs text-gray-400">翌日体重に最も影響を与えている栄養素</p>
+          </div>
+          <p className="text-xs text-gray-300">{updatedAt.slice(0, 10)} 更新</p>
+        </div>
+        <AnalysisPremise meta={meta} />
+        <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-4">
+          <p className="text-sm font-medium text-rose-700">有効な分析結果がありません</p>
+          <p className="mt-1.5 text-xs text-rose-600">{reason}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 有効なエントリのみで並べる（重要度降順）
+  const sorted = validEntries
     .sort(([, a], [, b]) => b.importance - a.importance)
     .map(([key, entry], i) => ({
       key,
@@ -294,6 +364,13 @@ export function FactorAnalysis({ data, updatedAt, meta }: FactorAnalysisProps) {
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+
+      {/* 一部エントリ除外時の注記 */}
+      {filteredOutCount > 0 && (
+        <p className="mb-2 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-1.5">
+          {filteredOutCount} 件のエントリに異常値が含まれており除外しました。残り {sorted.length} 件を表示しています。
+        </p>
+      )}
 
       {/* 下段①: 説明表 */}
       <FactorTable rows={sorted} />

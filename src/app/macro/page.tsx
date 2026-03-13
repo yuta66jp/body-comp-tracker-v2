@@ -3,7 +3,7 @@ import { MacroKpiCards } from "@/components/macro/MacroKpiCards";
 import { MacroStackedChart } from "@/components/macro/MacroStackedChart";
 import { MacroDailyTable } from "@/components/macro/MacroDailyTable";
 import { MacroPfcSummary } from "@/components/macro/MacroPfcSummary";
-import { FactorAnalysis } from "@/components/charts/FactorAnalysis";
+import { FactorAnalysis, FactorAnalysisPlaceholder } from "@/components/charts/FactorAnalysis";
 import {
   calcMacroKpi,
   calcDailyMacro,
@@ -105,12 +105,14 @@ export default async function MacroPage() {
         {/* 既存: 日次栄養内訳テーブル */}
         <MacroDailyTable data={dailyData} calTarget={calTarget} />
 
-        {factorResult && (
+        {factorResult ? (
           <FactorAnalysis
             data={factorResult.payload}
             meta={factorResult.meta}
             updatedAt={factorResult.updatedAt}
           />
+        ) : (
+          <FactorAnalysisPlaceholder />
         )}
       </div>
     </main>
