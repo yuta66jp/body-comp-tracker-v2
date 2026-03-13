@@ -16,6 +16,8 @@ interface DaysOutChartProps {
   data: Array<Record<string, number | null>>;
   seasons: string[];
   currentSeason?: string;
+  /** 今日の daysOut (大会前は負値). 指定すると「今日」基準線を描画する */
+  todayDaysOut?: number | null;
 }
 
 // 過去シーズン: 古→新 でグレー系（薄→濃）
@@ -35,7 +37,7 @@ function lastNonNullDaysOut(
   return last;
 }
 
-export function DaysOutChart({ data, seasons, currentSeason }: DaysOutChartProps) {
+export function DaysOutChart({ data, seasons, currentSeason, todayDaysOut }: DaysOutChartProps) {
   const sortedSeasons = [...seasons].sort((a, b) => {
     if (a === currentSeason) return 1;
     if (b === currentSeason) return -1;
@@ -82,6 +84,14 @@ export function DaysOutChart({ data, seasons, currentSeason }: DaysOutChartProps
           />
           <Legend />
           <ReferenceLine x={0} stroke="#ef4444" strokeDasharray="4 4" label={{ value: "大会日", fontSize: 10 }} />
+          {todayDaysOut != null && (
+            <ReferenceLine
+              x={todayDaysOut}
+              stroke="#3b82f6"
+              strokeDasharray="4 4"
+              label={{ value: "今日", position: "top", fontSize: 10, fill: "#3b82f6" }}
+            />
+          )}
 
           {/* 過去シーズン（グレー系・末端ドット付き） */}
           {pastSeasons.map((season, i) => {

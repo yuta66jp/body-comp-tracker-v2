@@ -1,13 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { DaysOutChart } from "@/components/history/DaysOutChart";
 import { SeasonLowChart } from "@/components/history/SeasonLowChart";
-import { YearOverYearSummary } from "@/components/history/YearOverYearSummary";
 import { SeasonComparisonTable } from "@/components/history/SeasonComparisonTable";
+import { TodayWindowComparison } from "@/components/history/TodayWindowComparison";
 import {
   calcSeasonMeta,
   buildDaysOutSeries,
   buildDaysOutChartData,
   buildMilestoneRows,
+  buildTodayWindowEntries,
+  calcTodayDaysOut,
 } from "@/lib/utils/calcSeason";
 import { toJstDateStr } from "@/lib/utils/date";
 import type { DailyLog, CareerLog, Setting } from "@/lib/supabase/types";
@@ -85,10 +87,13 @@ export default async function HistoryPage() {
   // ── 比較テーブル用データ ──
   const milestoneRows = buildMilestoneRows(seriesMap, MILESTONES);
 
-  // 過去シーズン (今季を除く)
-  const pastSeasonMeta = allSeasonMeta.filter((m) => m.season !== currentSeasonLabel);
-  const prevSeasonMeta = pastSeasonMeta.at(-1) ?? null; // 最新の過去シーズン
-  const currentSeasonMeta = allSeasonMeta.find((m) => m.season === currentSeasonLabel) ?? null;
+  // 今日の daysOut と 今日基準近傍比較データ
+  const todayStr = toJstDateStr();
+  const todayDaysOut = calcTodayDaysOut(todayStr, contestDate);
+  const todayWindowEntries =
+    todayDaysOut !== null
+      ? buildTodayWindowEntries(seriesMap, todayDaysOut, 7)
+      : [];
 
   const isCut = typeof settings["current_phase"] === "string"
     ? settings["current_phase"] !== "Bulk"
@@ -116,21 +121,23 @@ export default async function HistoryPage() {
       <div className="space-y-6">
         {allCareerLogs.length > 0 ? (
           <>
-            {/* 前回シーズン比較サマリー (判断用) */}
-            <YearOverYearSummary
-              milestoneRows={milestoneRows}
-              currentSeason={currentSeasonLabel}
-              prevSeason={prevSeasonMeta?.season ?? null}
-              currentMeta={currentSeasonMeta}
-              prevMeta={prevSeasonMeta}
-              isCut={isCut}
-            />
+            {/* 今日基準近傍比較 (メイン判断用) */}
+            {todayDaysOut !== null && (
+              <TodayWindowComparison
+                entries={todayWindowEntries}
+                currentSeason={currentSeasonLabel}
+                todayDaysOut={todayDaysOut}
+                windowDays={7}
+                isCut={isCut}
+              />
+            )}
 
             {/* days-out グラフ (視覚的確認用) */}
             <DaysOutChart
               data={daysOutData}
               seasons={allSeasons}
               currentSeason={currentSeasonLabel}
+              todayDaysOut={todayDaysOut}
             />
 
             {/* 全シーズン × マイルストーン 比較テーブル (詳細参照用) */}

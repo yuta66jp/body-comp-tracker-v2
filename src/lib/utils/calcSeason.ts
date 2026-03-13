@@ -137,6 +137,68 @@ export function buildMilestoneRows(
   });
 }
 
+// ─── 今日基準近傍比較 ──────────────────────────────────────────────────────────
+
+/**
+ * 今日基準近傍ウィンドウの各シーズン集計結果。
+ * buildTodayWindowEntries() の戻り値の要素型。
+ */
+export interface TodayWindowEntry {
+  season: string;
+  /** ウィンドウ内のデータ点数 (0 = データなし) */
+  count: number;
+  /** ウィンドウ内の体重平均 (sma7 優先). データなしは null */
+  avgWeight: number | null;
+  /** ウィンドウ内データの daysOut 中心値 (参考表示用). データなしは null */
+  centerDaysOut: number | null;
+}
+
+/**
+ * 今日の daysOut を計算する (大会日からの相対日数; 大会前は負値)。
+ * 入力が不正な場合は null を返す。
+ */
+export function calcTodayDaysOut(todayStr: string, contestDateStr: string): number | null {
+  const today = parseLocalDateStr(todayStr);
+  const contest = parseLocalDateStr(contestDateStr);
+  if (!today || !contest) return null;
+  return Math.round((today.getTime() - contest.getTime()) / 86_400_000);
+}
+
+/**
+ * 今日の daysOut を基準に ±windowDays の範囲で各シーズンの体重を集計する。
+ *
+ * - sma7 が利用可能なデータポイントを優先して平均を算出する
+ * - ウィンドウ内にデータがないシーズンは count=0, avgWeight=null を返す
+ *
+ * @param seriesMap  buildDaysOutSeries の戻り値
+ * @param todayDaysOut  現在シーズンの今日の daysOut (通常は負値)
+ * @param windowDays    ウィンドウ半径 (デフォルト 7)
+ */
+export function buildTodayWindowEntries(
+  seriesMap: Map<string, DaysOutPoint[]>,
+  todayDaysOut: number,
+  windowDays = 7
+): TodayWindowEntry[] {
+  return Array.from(seriesMap.entries()).map(([season, points]) => {
+    const inWindow = points.filter(
+      (p) =>
+        p.daysOut >= todayDaysOut - windowDays &&
+        p.daysOut <= todayDaysOut + windowDays
+    );
+
+    if (inWindow.length === 0) {
+      return { season, count: 0, avgWeight: null, centerDaysOut: null };
+    }
+
+    const weightSum = inWindow.reduce((sum, p) => sum + (p.sma7 ?? p.weight), 0);
+    const avgWeight = Math.round((weightSum / inWindow.length) * 10) / 10;
+    const daysOutSum = inWindow.reduce((sum, p) => sum + p.daysOut, 0);
+    const centerDaysOut = Math.round(daysOutSum / inWindow.length);
+
+    return { season, count: inWindow.length, avgWeight, centerDaysOut };
+  });
+}
+
 /** days_out 軸の全シーズン統合テーブル（Recharts 用） */
 export function buildDaysOutChartData(
   seriesMap: Map<string, DaysOutPoint[]>,
