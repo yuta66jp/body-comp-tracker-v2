@@ -12,7 +12,7 @@
 
 import type { DailyLog } from "@/lib/supabase/types";
 import { calcWeightTrend } from "./calcTrend";
-import { toJstDateStr, dateRangeStr } from "./date";
+import { toJstDateStr, dateRangeStr, calcDaysLeft, addDaysStr } from "./date";
 
 export interface ReadinessMetrics {
   /** 最新の体重エントリ (kg) */
@@ -84,10 +84,10 @@ export function calcReadiness(
   }
 
   // --- 期間ごとの暦日リストを生成 ---
-  const d7Start = shiftDate(todayStr, -6);   // today-6 〜 today (7日間)
-  const d14Start = shiftDate(todayStr, -13); // today-13 〜 today (14日間)
-  const prev7Start = shiftDate(todayStr, -13);
-  const prev7End = shiftDate(todayStr, -7);  // today-13 〜 today-7 (前の7日間)
+  const d7Start = addDaysStr(todayStr, -6) ?? todayStr;    // today-6 〜 today (7日間)
+  const d14Start = addDaysStr(todayStr, -13) ?? todayStr;  // today-13 〜 today (14日間)
+  const prev7Start = addDaysStr(todayStr, -13) ?? todayStr;
+  const prev7End = addDaysStr(todayStr, -7) ?? todayStr;   // today-13 〜 today-7 (前の7日間)
 
   const last7Dates = dateRangeStr(d7Start, todayStr);
   const last14Dates = dateRangeStr(d14Start, todayStr);
@@ -123,15 +123,9 @@ export function calcReadiness(
     trendData.length >= 2 ? calcWeightTrend(trendData).slope * 7 : null;
 
   // --- コンテストまでの残り日数 ---
+  // calcDaysLeft を使い KpiCards / GoalNavigator / calcReadiness で定義を統一する
   const contestDate = settings.contest_date ?? null;
-  let days_to_contest: number | null = null;
-  if (contestDate) {
-    const msPerDay = 86_400_000;
-    // today 0:00 JST から計算
-    const todayMs = new Date(`${todayStr}T00:00:00+09:00`).getTime();
-    const contestMs = new Date(`${contestDate}T00:00:00+09:00`).getTime();
-    days_to_contest = Math.round((contestMs - todayMs) / msPerDay);
-  }
+  const days_to_contest = contestDate ? calcDaysLeft(todayStr, contestDate) : null;
 
   // --- 目標体重との距離 ---
   const goalWeight = settings.goal_weight ?? null;
@@ -162,13 +156,6 @@ export function calcReadiness(
     remaining_to_goal_kg,
     required_rate_kg_per_week,
   };
-}
-
-/** YYYY-MM-DD から n 日ずらした YYYY-MM-DD を返す */
-function shiftDate(base: string, days: number): string {
-  const d = new Date(`${base}T00:00:00+09:00`);
-  d.setDate(d.getDate() + days);
-  return toJstDateStr(d);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

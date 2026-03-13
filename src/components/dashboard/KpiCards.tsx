@@ -3,7 +3,7 @@
 import { TrendingDown, TrendingUp, Minus, Weight, Flame, CalendarClock, Zap, Target } from "lucide-react";
 import type { DailyLog } from "@/lib/supabase/types";
 import { calcWeightTrend } from "@/lib/utils/calcTrend";
-import { toJstDateStr } from "@/lib/utils/date";
+import { toJstDateStr, calcDaysLeft, addDaysStr } from "@/lib/utils/date";
 
 const KCAL_PER_KG = 7200;
 
@@ -77,10 +77,12 @@ export function KpiCards({ logs, settings, avgTdee }: KpiCardsProps) {
     : null;
 
   // --- 残り日数 ---
+  // calcDaysLeft を使い GoalNavigator / calcReadiness と定義を統一する。
+  // (旧実装: new Date(contestDate).getTime() - Date.now() は UTC 解釈のため
+  //  JST 00:00〜08:59 に大会当日を "1日前" と誤表示するバグがあった)
   const contestDate = typeof settings["contest_date"] === "string" ? settings["contest_date"] : null;
-  const daysLeft = contestDate
-    ? Math.max(1, Math.round((new Date(contestDate).getTime() - Date.now()) / 86_400_000))
-    : null;
+  const todayStr = toJstDateStr();
+  const daysLeft = contestDate ? calcDaysLeft(todayStr, contestDate) : null;
 
   // --- 目標到達予定日（線形トレンドから算出）---
   const goalWeight = typeof settings["goal_weight"] === "number" ? settings["goal_weight"] : null;
@@ -99,10 +101,8 @@ export function KpiCards({ logs, settings, avgTdee }: KpiCardsProps) {
     } else {
       const daysNeeded = gap0 / (-slopePerDay);
       if (daysNeeded > 0 && daysNeeded < 730) {
-        const d = new Date();
-        d.setDate(d.getDate() + Math.round(daysNeeded));
-        goalReachDate = toJstDateStr(d);
-        goalReachLabel = goalReachDate.slice(5); // MM-DD
+        goalReachDate = addDaysStr(todayStr, Math.round(daysNeeded));
+        goalReachLabel = goalReachDate ? goalReachDate.slice(5) : "停滞中"; // MM-DD
       } else {
         goalReachLabel = "停滞中";
       }

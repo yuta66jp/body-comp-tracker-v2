@@ -17,10 +17,11 @@
  *     JST で統一される。
  *
  * 責務の分離:
- *   - toJstDateStr()   : Date → YYYY-MM-DD 文字列（JST 固定）
+ *   - toJstDateStr()     : Date → YYYY-MM-DD 文字列（JST 固定）
  *   - parseLocalDateStr(): YYYY-MM-DD 文字列 → Date（入力検証付き）
- *   - addDaysStr()     : YYYY-MM-DD + N日 → YYYY-MM-DD
- *   - dateRangeStr()   : from 〜 to の YYYY-MM-DD 配列
+ *   - calcDaysLeft()    : 2つの YYYY-MM-DD 間のカレンダー日数差（単一定義源）
+ *   - addDaysStr()      : YYYY-MM-DD + N日 → YYYY-MM-DD
+ *   - dateRangeStr()    : from 〜 to の YYYY-MM-DD 配列
  */
 
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000; // UTC+9
@@ -75,6 +76,35 @@ export function parseLocalDateStr(s: string): Date | null {
     return null;
   }
   return date;
+}
+
+/**
+ * 2つの YYYY-MM-DD 文字列間のカレンダー日数差を返す。
+ *
+ * 戻り値の意味:
+ *   正  = target が today より未来（残り日数）
+ *   0   = target が today と同じ日（その日が大会日など）
+ *   負  = target が today より過去
+ *   null = どちらかの日付が不正
+ *
+ * 日付はいずれも parseLocalDateStr で「ローカル午前0時の Date」として解釈するため、
+ * UTC サーバー / JST ブラウザのどちらで実行しても差分が環境に依存しない。
+ * `new Date("YYYY-MM-DD")` が UTC 午前0時として解釈される罠を回避している。
+ *
+ * KpiCards / GoalNavigator / calcReadiness はすべてこの関数を参照することで
+ * 残り日数の定義を一箇所に統一する。
+ *
+ * @param today  基準日 (YYYY-MM-DD). 通常は toJstDateStr() の戻り値を渡す。
+ * @param target 目標日 (YYYY-MM-DD). コンテスト日など。
+ * @returns カレンダー日数差 (整数)。どちらかの日付が不正なら null。
+ */
+export function calcDaysLeft(today: string, target: string): number | null {
+  const t = parseLocalDateStr(today);
+  const g = parseLocalDateStr(target);
+  if (t === null || g === null) return null;
+  // parseLocalDateStr は同一環境での「ローカル午前0時」を返すため
+  // 差分は必ず整数日数になる (Math.round は念のため)
+  return Math.round((g.getTime() - t.getTime()) / 86_400_000);
 }
 
 /**

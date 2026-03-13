@@ -1,4 +1,5 @@
 import type { CareerLog } from "@/lib/supabase/types";
+import { parseLocalDateStr } from "./date";
 
 export interface SeasonMeta {
   season: string;
@@ -63,9 +64,12 @@ export function buildDaysOutSeries(
     const sorted = [...entries].sort((a, b) => a.log_date.localeCompare(b.log_date));
 
     const points: DaysOutPoint[] = sorted.map((entry, i) => {
-      const logMs = new Date(entry.log_date).getTime();
-      const targetMs = new Date(entry.target_date).getTime();
-      const daysOut = Math.round((logMs - targetMs) / 86_400_000);
+      // parseLocalDateStr を使い new Date("YYYY-MM-DD") の UTC 解釈を回避する
+      const logD    = parseLocalDateStr(entry.log_date);
+      const targetD = parseLocalDateStr(entry.target_date);
+      const daysOut = logD && targetD
+        ? Math.round((logD.getTime() - targetD.getTime()) / 86_400_000)
+        : 0;
 
       // 7日移動平均
       const window = sorted.slice(Math.max(0, i - 6), i + 1).map((e) => e.weight);
