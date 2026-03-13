@@ -23,11 +23,12 @@ logger = logging.getLogger(__name__)
 # 旧版と同じ 5 特徴 (current_weight はリーケージのため除外)
 FEATURE_COLS = ["cal_lag1", "rolling_cal_7", "p_lag1", "f_lag1", "c_lag1"]
 FEATURE_LABELS = {
-    "cal_lag1": "カロリー（当日）",
-    "rolling_cal_7": "カロリー（週平均）",
-    "p_lag1": "タンパク質",
-    "f_lag1": "脂質",
-    "c_lag1": "炭水化物",
+    # フロントエンド featureLabels.ts の FEATURE_LABEL_MAP と同期すること
+    "cal_lag1":      "摂取 kcal（当日）",
+    "rolling_cal_7": "摂取 kcal（週平均）",
+    "p_lag1":        "タンパク質（g）",
+    "f_lag1":        "脂質（g）",
+    "c_lag1":        "炭水化物（g）",
 }
 MIN_ROWS = 14
 

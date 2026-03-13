@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
+import { getFeatureLabel } from "@/lib/utils/featureLabels";
 
 interface FactorEntry {
   label: string;
@@ -112,7 +113,14 @@ function AnalysisPremise({ meta }: { meta: FactorMeta | null | undefined }) {
 }
 
 export function FactorAnalysis({ data, updatedAt, meta }: FactorAnalysisProps) {
-  const sorted = Object.values(data).sort((a, b) => b.importance - a.importance);
+  // キーを保持しつつ getFeatureLabel でラベルを解決する
+  // 優先: FEATURE_LABEL_MAP → payload に保存されたラベル → raw key (表示崩れ防止)
+  const sorted = Object.entries(data)
+    .sort(([, a], [, b]) => b.importance - a.importance)
+    .map(([key, entry]) => ({
+      ...entry,
+      label: getFeatureLabel(key, entry.label),
+    }));
 
   const chartData = sorted.map((d) => ({
     name: d.label,
