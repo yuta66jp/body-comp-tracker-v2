@@ -114,10 +114,8 @@ export function TodayWindowComparison({
 
   const finding = generateFinding(entries, currentSeason, isCut);
 
-  // 過去シーズンを古い順にソート (Season Low と表示順を統一)
-  const sortedPast = [...pastEntries].sort((a, b) =>
-    a.season.localeCompare(b.season)
-  );
+  // 全シーズンを古い順にソート (Season Low と表示順を統一、今季は末尾に自然に含まれる)
+  const sortedEntries = [...entries].sort((a, b) => a.season.localeCompare(b.season));
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
@@ -147,66 +145,53 @@ export function TodayWindowComparison({
           </thead>
           <tbody className="divide-y divide-slate-50">
             {/* 今季の行 */}
-            {currentEntry && (
-              <tr className="bg-red-50/30 font-semibold">
-                <td className="px-4 py-2.5">
-                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-600">
-                    {currentSeason}
-                  </span>
-                  <span className="ml-2 text-[10px] font-normal text-slate-400">今季</span>
-                </td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">
-                  {currentEntry.count > 0 ? currentEntry.count : "—"}
-                </td>
-                <td className="px-4 py-2.5 text-right tabular-nums">
-                  {currentEntry.avgWeight !== null ? (
-                    <span className="font-semibold text-red-500">
-                      {fmt1(currentEntry.avgWeight)}
-                      <span className="ml-0.5 text-xs font-normal text-slate-300">kg</span>
-                    </span>
-                  ) : (
-                    <span className="text-slate-300">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-2.5 text-right text-slate-300">—</td>
-              </tr>
-            )}
-
-            {/* 過去シーズンの行 (新しい順) */}
-            {sortedPast.map((entry) => {
-              const ahead = isAhead(
-                currentEntry?.avgWeight ?? null,
-                entry.avgWeight,
-                isCut
-              );
+            {sortedEntries.map((entry) => {
+              const isCurrent = entry.season === currentSeason;
+              const ahead = isCurrent
+                ? null
+                : isAhead(currentEntry?.avgWeight ?? null, entry.avgWeight, isCut);
               return (
                 <tr
                   key={entry.season}
-                  className="transition-colors hover:bg-slate-50/70"
+                  className={`transition-colors hover:bg-slate-50/70 ${isCurrent ? "bg-red-50/30 font-semibold" : ""}`}
                 >
-                  <td className="px-4 py-2.5 text-slate-600">{entry.season}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-400">
-                    {entry.count > 0 ? (
-                      entry.count
+                  <td className="px-4 py-2.5">
+                    {isCurrent ? (
+                      <>
+                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-600">
+                          {entry.season}
+                        </span>
+                        <span className="ml-2 text-[10px] font-normal text-slate-400">今季</span>
+                      </>
                     ) : (
-                      <span className="text-slate-200">—</span>
+                      <span className="text-slate-600">{entry.season}</span>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">
+                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-400">
+                    {entry.count > 0 ? entry.count : <span className="text-slate-200">—</span>}
+                  </td>
+                  <td className="px-4 py-2.5 text-right tabular-nums">
                     {entry.avgWeight !== null ? (
-                      <>
-                        {fmt1(entry.avgWeight)}
-                        <span className="ml-0.5 text-xs text-slate-300">kg</span>
-                      </>
+                      isCurrent ? (
+                        <span className="font-semibold text-red-500">
+                          {fmt1(entry.avgWeight)}
+                          <span className="ml-0.5 text-xs font-normal text-slate-300">kg</span>
+                        </span>
+                      ) : (
+                        <span className="text-slate-600">
+                          {fmt1(entry.avgWeight)}
+                          <span className="ml-0.5 text-xs text-slate-300">kg</span>
+                        </span>
+                      )
                     ) : (
                       <span className="text-slate-200">—</span>
                     )}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums">
-                    {currentEntry?.avgWeight !== null && entry.avgWeight !== null ? (
-                      <span
-                        className={`flex items-center justify-end gap-1 ${diffColorClass(ahead)}`}
-                      >
+                    {isCurrent ? (
+                      <span className="text-slate-300">—</span>
+                    ) : currentEntry?.avgWeight !== null && entry.avgWeight !== null ? (
+                      <span className={`flex items-center justify-end gap-1 ${diffColorClass(ahead)}`}>
                         <DiffIcon ahead={ahead} />
                         {diffLabel(currentEntry!.avgWeight, entry.avgWeight)}
                       </span>
