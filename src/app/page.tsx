@@ -11,7 +11,7 @@ import { calcReadiness } from "@/lib/utils/calcReadiness";
 import { calcWeeklyReview } from "@/lib/utils/calcWeeklyReview";
 import { getEnrichedLogsAvailability, errorAvailability } from "@/lib/analytics/status";
 import type { AnalyticsAvailability } from "@/lib/analytics/status";
-import type { DailyLog, Prediction, AnalyticsCache, Setting, CareerLog } from "@/lib/supabase/types";
+import type { DailyLog, Prediction, AnalyticsCache, Setting, CareerLog, EnrichedLogPayloadRow } from "@/lib/supabase/types";
 import type { MonthStats } from "@/components/history/SeasonSummary";
 
 async function fetchLogs(): Promise<DailyLog[]> {
@@ -30,9 +30,8 @@ async function fetchPredictions(): Promise<Prediction[]> {
   return (data as Prediction[]) ?? [];
 }
 
-type EnrichedLogsRow = { log_date: string; weight_sma7: number | null; tdee_estimated: number | null };
 type EnrichedLogsFetch =
-  | { kind: "ok"; rows: EnrichedLogsRow[]; updatedAt: string }
+  | { kind: "ok"; rows: EnrichedLogPayloadRow[]; updatedAt: string }
   | { kind: "not_found" }
   | { kind: "error" };
 
@@ -50,7 +49,7 @@ async function fetchEnrichedLogs(): Promise<EnrichedLogsFetch> {
   const row = data as Pick<AnalyticsCache, "payload" | "updated_at">;
   return {
     kind: "ok",
-    rows: row.payload as EnrichedLogsRow[],
+    rows: row.payload as unknown as EnrichedLogPayloadRow[],
     updatedAt: row.updated_at,
   };
 }

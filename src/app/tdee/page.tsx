@@ -1,3 +1,11 @@
+// TDEE は enrich.py (batch) を canonical source とする。
+// このページは canonical 値の表示・fallback・整形のみを担う。
+// TDEE の再計算・再集約・再平滑化はここでは行わない。
+//
+// 平滑化仕様: enrich.py の tdee_estimated は weight_sma7.diff() + rolling median (window=7, min_periods=3)
+// 係数: KCAL_PER_KG_FAT = 7200 kcal/kg (Hall et al., 2012)
+// 7日平均 TDEE: enrichedRows の avg_tdee_7d (enrich.py で事前計算済み)
+// 7日平均カロリー: enrichedRows の avg_calories_7d (enrich.py で事前計算済み)
 import { createClient } from "@/lib/supabase/server";
 import { TdeeKpiCard } from "@/components/tdee/TdeeKpiCard";
 import { TdeeDetailChart } from "@/components/tdee/TdeeDetailChart";
@@ -8,17 +16,15 @@ import {
   calcTheoreticalWeightChangePerWeek,
   calcTdeeConfidence,
   buildTdeeInterpretation,
-  smoothTdeeSeries,
 } from "@/lib/utils/calcTdee";
 import { getEnrichedLogsAvailability, errorAvailability } from "@/lib/analytics/status";
-import type { DailyLog, AnalyticsCache, Setting } from "@/lib/supabase/types";
+import type { DailyLog, AnalyticsCache, Setting, EnrichedLogPayloadRow } from "@/lib/supabase/types";
 import type { CurrentPhase } from "@/lib/utils/energyBalance";
 
 export const revalidate = 3600;
 
-type EnrichedLogsRow = { log_date: string; weight_sma7: number | null; tdee_estimated: number | null };
 type EnrichedLogsFetch =
-  | { kind: "ok"; rows: EnrichedLogsRow[]; updatedAt: string }
+  | { kind: "ok"; rows: EnrichedLogPayloadRow[]; updatedAt: string }
   | { kind: "not_found" }
   | { kind: "error" };
 
@@ -36,7 +42,7 @@ async function fetchEnrichedLogs(): Promise<EnrichedLogsFetch> {
   const row = data as Pick<AnalyticsCache, "payload" | "updated_at">;
   return {
     kind: "ok",
-    rows: row.payload as EnrichedLogsRow[],
+    rows: row.payload as unknown as EnrichedLogPayloadRow[],
     updatedAt: row.updated_at,
   };
 }
@@ -92,15 +98,7 @@ export default async function TdeePage() {
         })
       : null;
 
-  // 10日移動平均カロリー（グラフ用）
   const sortedRaw = [...rawLogs].sort((a, b) => a.log_date.localeCompare(b.log_date));
-  const calMaMap = new Map<string, number>();
-  for (let i = 0; i < sortedRaw.length; i++) {
-    const window = sortedRaw.slice(Math.max(0, i - 9), i + 1).filter((d) => d.calories !== null);
-    if (window.length > 0) {
-      calMaMap.set(sortedRaw[i].log_date, window.reduce((s, d) => s + d.calories!, 0) / window.length);
-    }
-  }
 
   // enriched_logs の新鮮さを判定
   const latestRawLogDate = sortedRaw[sortedRaw.length - 1]?.log_date ?? null;
@@ -112,38 +110,57 @@ export default async function TdeePage() {
           latestRawLogDate
         );
 
-  // enriched TDEE 系列を平滑化（水分・塩分・便通由来の単日ノイズを除去）
-  // enrich.py 側でも SMA7 差分 + rolling median 済みだが、フロントで一層かけることで
-  // バッチ未更新日や直近エントリのノイズも吸収する
-  const allTdeeRaw: (number | null)[] = enrichedRows.map((r) => r.tdee_estimated);
-  const smoothedTdeeValues = smoothTdeeSeries(allTdeeRaw);
-  const smoothedTdeeMap = new Map(
-    enrichedRows.map((r, i) => [r.log_date, smoothedTdeeValues[i]])
+  // グラフ用データ: enriched がある場合はその日付軸を使う。ない場合は rawLogs を軸に tdee=null で描画。
+  // tdee は canonical 値 (tdee_estimated) をそのまま使う。再平滑化しない。
+  // intake は batch の avg_calories_7d を使う（ない場合は calories の raw 値で fallback）。
+  const rawCaloriesMap = new Map<string, number | null>(
+    sortedRaw.map((r) => [r.log_date, r.calories])
   );
-
-  // enriched がある場合はその日付軸を使う。ない場合は rawLogs を軸に tdee=null で描画
   const chartData = enrichedFetch.kind === "ok"
     ? enrichedRows.map((row) => ({
         date: row.log_date.slice(5),
-        tdee: smoothedTdeeMap.get(row.log_date) ?? null,
-        intake: calMaMap.get(row.log_date) ?? null,
+        tdee: row.tdee_estimated,
+        // avg_calories_7d が新フィールドのため古いバッチ結果では undefined になる場合がある
+        intake: row.avg_calories_7d ?? rawCaloriesMap.get(row.log_date) ?? null,
         theoretical: theoreticalTdee,
       }))
     : sortedRaw.map((row) => ({
         date: row.log_date.slice(5),
         tdee: null,
-        intake: calMaMap.get(row.log_date) ?? null,
+        intake: row.calories,
         theoretical: theoreticalTdee,
       }));
 
-  // 直近7日の平滑化済み TDEE から平均値を算出
-  const tdeeValues7 = smoothedTdeeValues.slice(-7).filter((v): v is number => v !== null);
-  const avgTdee =
-    tdeeValues7.length > 0
-      ? tdeeValues7.reduce((a, b) => a + b, 0) / tdeeValues7.length
-      : null;
+  // 直近7日の平均 TDEE: バッチの avg_tdee_7d 最終値を使う（canonical）
+  // avg_tdee_7d が新フィールドのため古いバッチ結果では undefined になる場合がある。
+  // その場合は enrichedRows 末尾 7 件の tdee_estimated を平均して fallback する。
+  const lastEnrichedRow = enrichedRows.at(-1);
+  const avgTdee: number | null = (() => {
+    if (lastEnrichedRow?.avg_tdee_7d !== undefined && lastEnrichedRow.avg_tdee_7d !== null) {
+      return lastEnrichedRow.avg_tdee_7d;
+    }
+    // fallback: 末尾 7 件の tdee_estimated の平均
+    const vals = enrichedRows.slice(-7)
+      .map((r) => r.tdee_estimated)
+      .filter((v): v is number => v !== null);
+    return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  })();
+
+  // 直近7日の平均カロリー: バッチの avg_calories_7d 最終値を使う（canonical）
+  // fallback: rawLogs 末尾 7 件の calories 平均
+  const avgCalories7: number | null = (() => {
+    if (lastEnrichedRow?.avg_calories_7d !== undefined && lastEnrichedRow.avg_calories_7d !== null) {
+      return lastEnrichedRow.avg_calories_7d;
+    }
+    const last7 = sortedRaw.slice(-7).filter((d) => d.calories !== null);
+    return last7.length > 0 ? last7.reduce((s, d) => s + d.calories!, 0) / last7.length : null;
+  })();
 
   // TDEE 推定値の標準偏差 (信頼度判定に使用)
+  // 直近7件の tdee_estimated から算出する
+  const tdeeValues7 = enrichedRows.slice(-7)
+    .map((r) => r.tdee_estimated)
+    .filter((v): v is number => v !== null);
   const tdeeStdDev =
     tdeeValues7.length > 1
       ? (() => {
@@ -155,13 +172,8 @@ export default async function TdeePage() {
         })()
       : undefined;
 
-  const last7 = sortedRaw.slice(-7);
-  const calLogs7 = last7.filter((d) => d.calories !== null);
-  const avgCalories7 = calLogs7.length > 0
-    ? calLogs7.reduce((s, d) => s + d.calories!, 0) / calLogs7.length
-    : null;
-
   // 実測変化: 直近7日 vs 前7日 の平均体重差
+  const last7 = sortedRaw.slice(-7);
   const prev7 = sortedRaw.slice(-14, -7);
   const weights7 = last7.filter((d) => d.weight !== null).map((d) => d.weight!);
   const weightsPrev7 = prev7.filter((d) => d.weight !== null).map((d) => d.weight!);
@@ -172,7 +184,7 @@ export default async function TdeePage() {
     : null;
 
   // 信頼度算出
-  const calDays = calLogs7.length;
+  const calDays = last7.filter((d) => d.calories !== null).length;
   const weightDays = weights7.length;
   const weightStdDev =
     weights7.length > 1 && avgW7 !== null
@@ -193,12 +205,15 @@ export default async function TdeePage() {
   });
   const interpretation = buildTdeeInterpretation(balance, theoreticalWeightChange, measuredWeightChange);
 
-  // rawLogs を主軸にして直近14日を表示（enriched にない新規エントリも反映）
-  // smoothedTdeeMap を使うことで TDEE 列も平滑化済みの値を表示
+  // テーブル用: rawLogs を主軸にして直近14日を表示（enriched にない新規エントリも反映）
+  // TDEE 列は canonical の tdee_estimated をそのまま使う
+  const enrichedTdeeMap = new Map<string, number | null>(
+    enrichedRows.map((r) => [r.log_date, r.tdee_estimated])
+  );
   const tableData = sortedRaw.slice(-14).map((row) => ({
     date: row.log_date,
     calories: row.calories,
-    tdee: smoothedTdeeMap.get(row.log_date) ?? null,
+    tdee: enrichedTdeeMap.get(row.log_date) ?? null,
   }));
 
   return (
