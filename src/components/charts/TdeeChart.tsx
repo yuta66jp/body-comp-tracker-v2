@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import type { DailyLog } from "@/lib/supabase/types";
 import { calcTdeeFromChange } from "@/lib/utils/calcTdee";
+import { lastNEntries } from "@/lib/utils/timeWindow";
 
 interface TdeeChartProps {
   logs: DailyLog[];
@@ -20,10 +21,14 @@ interface TdeeChartProps {
 }
 
 export function TdeeChart({ logs, days = 60 }: TdeeChartProps) {
-  const sorted = [...logs]
-    .sort((a, b) => a.log_date.localeCompare(b.log_date))
-    .filter((d) => d.weight !== null && d.calories !== null)
-    .slice(-days);
+  // 記録日ベース: グラフ表示目的なので直近 N 件の有効記録を使う。
+  // TDEE 計算には weight と calories が両方必要なため null フィルタ後に N 件取得する。
+  const sorted = lastNEntries(
+    [...logs]
+      .sort((a, b) => a.log_date.localeCompare(b.log_date))
+      .filter((d) => d.weight !== null && d.calories !== null),
+    days
+  );
 
   const data = sorted.slice(1).map((d, i) => {
     const prev = sorted[i];
