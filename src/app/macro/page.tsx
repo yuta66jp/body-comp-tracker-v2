@@ -4,7 +4,8 @@ import { MacroStackedChart } from "@/components/macro/MacroStackedChart";
 import { MacroDailyTable } from "@/components/macro/MacroDailyTable";
 import { MacroPfcSummary } from "@/components/macro/MacroPfcSummary";
 import { FactorAnalysis, FactorAnalysisPlaceholder } from "@/components/charts/FactorAnalysis";
-import type { FactorEntry, FactorMeta } from "@/lib/utils/factorAnalysisUtils";
+import type { FactorEntry, FactorMeta, StabilityEntry } from "@/lib/utils/factorAnalysisUtils";
+import { mergeStability } from "@/lib/utils/factorAnalysisUtils";
 import {
   calcMacroKpi,
   calcDailyMacro,
@@ -43,11 +44,13 @@ async function fetchFactorAnalysis(): Promise<FactorFetchResult> {
   if (!data) return { kind: "not_found" };
   const row = data as Pick<AnalyticsCache, "payload" | "updated_at">;
   const rawPayload = row.payload as Record<string, unknown>;
-  // _meta を分離して残りを FactorEntry として渡す
-  const { _meta, ...entries } = rawPayload;
+  // _meta / _stability を分離して残りを FactorEntry として渡す
+  const { _meta, _stability, ...entries } = rawPayload;
+  const stabilityMap = (_stability ?? null) as Record<string, StabilityEntry> | null;
+  const mergedEntries = mergeStability(entries as Record<string, FactorEntry>, stabilityMap);
   return {
     kind: "ok",
-    payload: entries as Record<string, FactorEntry>,
+    payload: mergedEntries,
     meta: (_meta ?? null) as FactorMeta | null,
     updatedAt: row.updated_at,
   };

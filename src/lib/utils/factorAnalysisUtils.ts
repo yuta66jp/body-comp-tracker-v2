@@ -14,13 +14,36 @@ import { getFeatureLabel } from "./featureLabels";
 // ── 型定義 ───────────────────────────────────────────────────────────────────
 
 /**
+ * feature importance の安定性ラベル。
+ * analyze.py の compute_stability() が返す値と対応する。
+ *
+ * - "high"        : CV < 0.3。再現性が高い。
+ * - "medium"      : CV < 0.6。中程度のばらつき。
+ * - "low"         : CV >= 0.6。ばらつきが大きく解釈に注意。
+ * - "unavailable" : データ不足・bootstrap 失敗など、算出不能。
+ */
+export type StabilityLabel = "high" | "medium" | "low" | "unavailable";
+
+/**
  * analytics_cache.payload の各特徴量エントリ。
  * analyze.py の run_importance() が返す形式に対応する。
+ * stability / cv は _stability からマージして付与されるオプションフィールド。
  */
 export interface FactorEntry {
   label: string;
   importance: number;
   pct: number;
+  stability?: StabilityLabel;
+  cv?: number | null;
+}
+
+/**
+ * analytics_cache.payload._stability の各特徴量エントリ。
+ * analyze.py の compute_stability() が返す形式に対応する。
+ */
+export interface StabilityEntry {
+  stability: StabilityLabel;
+  cv: number | null;
 }
 
 /**
@@ -45,6 +68,8 @@ export interface SortedFactorRow {
   label: string;      // getFeatureLabel() 解決済みの表示ラベル
   importance: number; // XGBoost の feature_importances_ 値（0〜1）
   pct: number;        // 相対的重要度（%、合計 100%）
+  stability: StabilityLabel; // bootstrap 安定性ラベル（_stability からマージ）
+  cv: number | null;  // 変動係数。"unavailable" の場合は null
 }
 
 // ── 定数 ─────────────────────────────────────────────────────────────────────
@@ -56,6 +81,31 @@ export const MIN_ROWS = 14;
 export const HIGH_DROP_THRESHOLD = 0.30;
 
 // ── 変換関数 ─────────────────────────────────────────────────────────────────
+
+/**
+ * payload._stability を各 FactorEntry にマージする。
+ *
+ * - _stability が存在する場合: 各特徴量の stability / cv を FactorEntry に付与する。
+ * - _stability が存在しない場合（旧バッチ結果）: 全エントリの stability を "unavailable" にする。
+ * - _stability に対応するキーが存在しない特徴量: stability を "unavailable" にする。
+ *
+ * importance の値・意味は変更しない。
+ */
+export function mergeStability(
+  entries: Record<string, FactorEntry>,
+  stabilityMap: Record<string, StabilityEntry> | null | undefined
+): Record<string, FactorEntry> {
+  const result: Record<string, FactorEntry> = {};
+  for (const [key, entry] of Object.entries(entries)) {
+    const s = stabilityMap?.[key];
+    result[key] = {
+      ...entry,
+      stability: s?.stability ?? "unavailable",
+      cv: s?.cv ?? null,
+    };
+  }
+  return result;
+}
 
 /**
  * エントリが描画可能な有効値かどうかを判定する。
@@ -97,6 +147,8 @@ export function prepareFactorRows(
       label: getFeatureLabel(key, entry.label),
       importance: entry.importance,
       pct: entry.pct,
+      stability: entry.stability ?? "unavailable" as StabilityLabel,
+      cv: entry.cv ?? null,
     }));
 
   return { rows, filteredOutCount };
