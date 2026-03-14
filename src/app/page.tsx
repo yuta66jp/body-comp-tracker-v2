@@ -140,7 +140,6 @@ export default async function DashboardPage() {
   const monthlyTarget = typeof settings["monthly_target"] === "number" ? settings["monthly_target"] : undefined;
   const contestDate = typeof settings["contest_date"] === "string" ? settings["contest_date"] : undefined;
   const currentSeason = typeof settings["current_season"] === "string" ? settings["current_season"] : null;
-  const targetCalories = typeof settings["target_calories_kcal"] === "number" ? settings["target_calories_kcal"] : null;
 
   // シーズン関連データ
   const seasonMap = buildSeasonMap(careerLogs);
@@ -206,7 +205,7 @@ export default async function DashboardPage() {
               contestDate={contestDate}
             />
           )}
-          <LogsAndSummaryTabs logs={logs} monthStats={monthStats} seasonMap={seasonMap} currentSeason={currentSeason} targetCalories={targetCalories} />
+          <LogsAndSummaryTabs logs={logs} monthStats={monthStats} seasonMap={seasonMap} currentSeason={currentSeason} />
         </>
       ) : (
         <p className="rounded-2xl border border-slate-100 bg-white p-8 text-center text-sm text-slate-400 shadow-sm">

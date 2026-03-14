@@ -11,12 +11,11 @@ interface LogsAndSummaryTabsProps {
   monthStats: MonthStats[];
   seasonMap?: Map<string, string>;
   currentSeason?: string | null;
-  targetCalories?: number | null;
 }
 
 type Tab = "logs" | "monthly";
 
-export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason, targetCalories }: LogsAndSummaryTabsProps) {
+export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason }: LogsAndSummaryTabsProps) {
   const [tab, setTab] = useState<Tab>("logs");
 
   return (
@@ -39,7 +38,7 @@ export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason,
 
       <div className="p-5">
         {tab === "logs" ? (
-          <RecentLogsTable logs={logs} embedded seasonMap={seasonMap} currentSeason={currentSeason} targetCalories={targetCalories} />
+          <RecentLogsTable logs={logs} embedded seasonMap={seasonMap} currentSeason={currentSeason} />
         ) : (
           monthStats.length > 0
             ? <SeasonSummary stats={monthStats} />
