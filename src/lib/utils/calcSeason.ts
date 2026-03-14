@@ -16,6 +16,7 @@ export interface DaysOutPoint {
   weight: number;
   sma7: number | null;  // 7日移動平均
   season: string;
+  log_date: string;     // 実際の日付文字列 (YYYY-MM-DD)
 }
 
 /** シーズン別メタ情報を集計する */
@@ -72,7 +73,7 @@ export function buildDaysOutSeries(
       const window = sorted.slice(Math.max(0, i - 6), i + 1).map((e) => e.weight);
       const sma7 = window.reduce((a, b) => a + b, 0) / window.length;
 
-      return { daysOut, weight: entry.weight, sma7, season };
+      return { daysOut, weight: entry.weight, sma7, season, log_date: entry.log_date };
     });
 
     result.set(season, points);
@@ -148,6 +149,10 @@ export interface TodayWindowEntry {
   avgWeight: number | null;
   /** ウィンドウ内データの daysOut 中心値 (参考表示用). データなしは null */
   centerDaysOut: number | null;
+  /** ウィンドウ内データの最古日付 (YYYY-MM-DD). データなしは null */
+  dateFrom: string | null;
+  /** ウィンドウ内データの最新日付 (YYYY-MM-DD). データなしは null */
+  dateTo: string | null;
 }
 
 /**
@@ -182,7 +187,7 @@ export function buildTodayWindowEntries(
     );
 
     if (inWindow.length === 0) {
-      return { season, count: 0, avgWeight: null, centerDaysOut: null };
+      return { season, count: 0, avgWeight: null, centerDaysOut: null, dateFrom: null, dateTo: null };
     }
 
     const weightSum = inWindow.reduce((sum, p) => sum + (p.sma7 ?? p.weight), 0);
@@ -190,7 +195,12 @@ export function buildTodayWindowEntries(
     const daysOutSum = inWindow.reduce((sum, p) => sum + p.daysOut, 0);
     const centerDaysOut = Math.round(daysOutSum / inWindow.length);
 
-    return { season, count: inWindow.length, avgWeight, centerDaysOut };
+    // inWindow は buildDaysOutSeries で log_date 昇順にソート済みのため、
+    // 先頭が最古・末尾が最新の日付になる
+    const dateFrom = inWindow[0].log_date;
+    const dateTo = inWindow[inWindow.length - 1].log_date;
+
+    return { season, count: inWindow.length, avgWeight, centerDaysOut, dateFrom, dateTo };
   });
 }
 

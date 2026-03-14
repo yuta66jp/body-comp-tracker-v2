@@ -29,6 +29,23 @@ function fmt1(v: number | null): string {
   return v !== null ? v.toFixed(1) : "—";
 }
 
+/**
+ * 日付レンジを補助テキスト用にフォーマットする。
+ * - 同日: "2024/06/03"
+ * - 同年: "2024/06/03–06/09"
+ * - 異年: "2024/06/03–2025/01/09"
+ * - null: "" (表示なし)
+ */
+function fmtDateRange(from: string | null, to: string | null): string {
+  if (!from || !to) return "";
+  const fmtDate = (s: string) => s.replace(/-/g, "/");
+  if (from === to) return fmtDate(from);
+  const [fy] = from.split("-");
+  const [ty] = to.split("-");
+  const toStr = fy === ty ? to.slice(5).replace("-", "/") : fmtDate(to);
+  return `${fmtDate(from)}–${toStr}`;
+}
+
 function diffLabel(current: number | null, past: number | null): string {
   if (current === null || past === null) return "—";
   const d = current - past;
@@ -172,17 +189,24 @@ export function TodayWindowComparison({
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums">
                     {entry.avgWeight !== null ? (
-                      isCurrent ? (
-                        <span className="font-semibold text-red-500">
-                          {fmt1(entry.avgWeight)}
-                          <span className="ml-0.5 text-xs font-normal text-slate-300">kg</span>
-                        </span>
-                      ) : (
-                        <span className="text-slate-600">
-                          {fmt1(entry.avgWeight)}
-                          <span className="ml-0.5 text-xs text-slate-300">kg</span>
-                        </span>
-                      )
+                      <div>
+                        {isCurrent ? (
+                          <span className="font-semibold text-red-500">
+                            {fmt1(entry.avgWeight)}
+                            <span className="ml-0.5 text-xs font-normal text-slate-300">kg</span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-600">
+                            {fmt1(entry.avgWeight)}
+                            <span className="ml-0.5 text-xs text-slate-300">kg</span>
+                          </span>
+                        )}
+                        {fmtDateRange(entry.dateFrom, entry.dateTo) && (
+                          <div className="mt-0.5 text-[10px] text-slate-300">
+                            {fmtDateRange(entry.dateFrom, entry.dateTo)}
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-slate-200">—</span>
                     )}
