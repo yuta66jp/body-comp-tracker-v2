@@ -27,12 +27,10 @@ export default async function HistoryPage() {
     fetchSettings(),
   ]);
 
-  const contestDate = typeof settings["contest_date"] === "string"
-    ? settings["contest_date"]
-    : toJstDateStr();
+  const contestDate = settings.contestDate ?? toJstDateStr();
 
-  const currentSeasonLabel = typeof settings["current_season"] === "string" && settings["current_season"]
-    ? settings["current_season"]
+  const currentSeasonLabel = settings.currentSeason
+    ? settings.currentSeason
     : `${currentLogs.at(-1)?.log_date.slice(0, 4) ?? new Date().getFullYear()}_Current`;
 
   const seasonMeta = calcSeasonMeta(careerLogs);
@@ -67,9 +65,7 @@ export default async function HistoryPage() {
       ? buildTodayWindowEntries(seriesMap, todayDaysOut, 7)
       : [];
 
-  const isCut = typeof settings["current_phase"] === "string"
-    ? settings["current_phase"] !== "Bulk"
-    : true;
+  const isCut = settings.currentPhase !== "Bulk";
 
   return (
     <main className="min-h-screen bg-gray-50 p-6">
