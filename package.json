@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "jest",
+    "test": "jest --config jest.config.cjs",
     "test:watch": "jest --watch"
   },
   "dependencies": {
