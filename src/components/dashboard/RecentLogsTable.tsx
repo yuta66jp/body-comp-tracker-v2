@@ -5,6 +5,7 @@ import type { DailyLog } from "@/lib/supabase/types";
 import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayTags";
 import { formatConditionSummary } from "@/lib/utils/trainingType";
 import { getNormalizedDiffWidth } from "@/lib/utils/calorieDiff";
+import { DivergingBar } from "@/components/ui/DivergingBar";
 
 interface RecentLogsTableProps {
   logs: DailyLog[];
@@ -15,33 +16,6 @@ interface RecentLogsTableProps {
   targetCalories?: number | null;
 }
 
-interface CalorieDiffBarProps {
-  diff: number;
-  ratio: number; // 0–1
-}
-
-/** 中央0基準の diverging bar（左=超過赤、右=不足青は反転、ここでは正=超過→右青、負=不足→左赤） */
-function CalorieDiffBar({ diff, ratio }: CalorieDiffBarProps) {
-  const pct = `${(ratio * 100).toFixed(1)}%`;
-  return (
-    <div className="mt-1 flex h-1.5 items-center" aria-hidden="true">
-      {/* 左半分: 負（摂取不足）→ 赤バーが右端から左へ伸びる */}
-      <div className="flex h-full flex-1 items-center justify-end overflow-hidden">
-        {diff < 0 && (
-          <div className="h-full rounded-l-sm bg-rose-400" style={{ width: pct }} />
-        )}
-      </div>
-      {/* 中央線 */}
-      <div className="h-3 w-px shrink-0 bg-slate-200" />
-      {/* 右半分: 正（摂取過多）→ 青バーが左端から右へ伸びる */}
-      <div className="flex h-full flex-1 items-center overflow-hidden">
-        {diff > 0 && (
-          <div className="h-full rounded-r-sm bg-blue-400" style={{ width: pct }} />
-        )}
-      </div>
-    </div>
-  );
-}
 
 export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeason, targetCalories }: RecentLogsTableProps) {
   const sorted = [...logs]
@@ -162,7 +136,11 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
                           </span>
                         )}
                       </div>
-                      {calDiff !== null && <CalorieDiffBar diff={calDiff} ratio={calRatio} />}
+                      {calDiff !== null && (
+                        <div className="mt-1">
+                          <DivergingBar diff={calDiff} ratio={calRatio} leftColor="bg-rose-400" rightColor="bg-blue-400" />
+                        </div>
+                      )}
                     </>
                   ) : (
                     <div className="text-right text-xs text-slate-300">—</div>

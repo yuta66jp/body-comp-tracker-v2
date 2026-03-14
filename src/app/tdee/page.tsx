@@ -10,6 +10,7 @@ import {
   buildTdeeInterpretation,
 } from "@/lib/utils/calcTdee";
 import type { DailyLog, AnalyticsCache, Setting } from "@/lib/supabase/types";
+import type { CurrentPhase } from "@/lib/utils/energyBalance";
 
 export const revalidate = 3600;
 
@@ -33,11 +34,13 @@ async function fetchRawLogs(): Promise<DailyLog[]> {
   return (data as DailyLog[]) ?? [];
 }
 
-async function fetchSettings(): Promise<Record<string, number | null>> {
+async function fetchSettings(): Promise<Record<string, number | string | null>> {
   const supabase = createClient();
-  const { data } = await supabase.from("settings").select("key, value_num");
+  const { data } = await supabase.from("settings").select("key, value_num, value_str");
   const rows = (data as Setting[] | null) ?? [];
-  return Object.fromEntries(rows.map((r) => [r.key, r.value_num]));
+  return Object.fromEntries(
+    rows.map((r) => [r.key, r.value_num !== null ? r.value_num : r.value_str])
+  );
 }
 
 export default async function TdeePage() {
@@ -47,10 +50,15 @@ export default async function TdeePage() {
     fetchSettings(),
   ]);
 
+  // current_phase — "Cut" / "Bulk" のみ有効（それ以外は null に落とす）
+  const rawPhase = settings["current_phase"];
+  const currentPhase: CurrentPhase | null =
+    rawPhase === "Cut" || rawPhase === "Bulk" ? rawPhase : null;
+
   // 理論 TDEE（settings から）
-  const heightCm = settings["height_cm"] ?? null;
-  const ageYears = settings["age"] ?? null;
-  const activityFactor = settings["activity_factor"] ?? 1.55;
+  const heightCm = typeof settings["height_cm"] === "number" ? settings["height_cm"] : null;
+  const ageYears = typeof settings["age"] === "number" ? settings["age"] : null;
+  const activityFactor = typeof settings["activity_factor"] === "number" ? settings["activity_factor"] : 1.55;
   const latestWeight = rawLogs.filter((d) => d.weight !== null).at(-1)?.weight ?? null;
 
   const theoreticalTdee =
@@ -157,7 +165,7 @@ export default async function TdeePage() {
           interpretation={interpretation}
         />
         <TdeeDetailChart data={chartData} avgTdee={avgTdee} />
-        <TdeeDailyTable data={tableData} />
+        <TdeeDailyTable data={tableData} phase={currentPhase} />
         {!theoreticalTdee && (
           <p className="text-center text-xs text-gray-400">
             ※ 理論 TDEE を表示するには「設定」で身長・年齢・活動係数を入力してください。
