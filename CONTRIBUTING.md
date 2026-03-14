@@ -22,7 +22,7 @@ CI runs these automatically on every push and pull request.
 ## GitHub Actions
 
 - Every workflow file must include an explicit `permissions` block.
-- Use the minimum permissions required. `contents: read` is sufficient for most workflows that only checkout code and run scripts.
+- Start with the minimum permission set. `contents: read` is sufficient for most workflows that only checkout code and run scripts.
 - Do not rely on default (implicit) token permissions.
 
 Example:
@@ -32,10 +32,25 @@ permissions:
   contents: read
 ```
 
-If a workflow needs additional permissions (e.g. `security-events: write` for code scanning upload), document the reason in a comment next to the permission.
+Only add broader permissions when the workflow actually needs them. If you do, leave a short comment explaining why:
+
+```yaml
+permissions:
+  contents: read
+  security-events: write  # required to upload SARIF results to Code Scanning
+```
 
 ## Security Notes
 
 - Do not include secrets, credentials, or sensitive data in public issues, PR descriptions, or commit messages.
-- Code Scanning alerts at **High** or **Critical** severity should be addressed as a rule. If dismissing, leave a reason in the dismissal comment.
 - For vulnerability reports, follow the process in [SECURITY.md](SECURITY.md). Do not open a public issue with vulnerability details.
+
+### Code Scanning
+
+| Severity | Expected action |
+|---|---|
+| **Critical / High** | Address as a rule. If a fix is not immediately possible, leave a comment explaining the blocker. |
+| **Medium** | Evaluate based on exploitability and actual project impact. Fix or dismiss with a recorded reason. |
+| **Low** | Address opportunistically; dismissal is acceptable with a brief note. |
+
+When dismissing any alert, always leave a reason in the dismissal comment. If the alert is a false positive, record it explicitly as such (e.g. "False positive — this code path is never reached with untrusted input").
