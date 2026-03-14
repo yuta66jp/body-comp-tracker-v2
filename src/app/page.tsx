@@ -1,4 +1,3 @@
-import { createClient } from "@/lib/supabase/server";
 import { KpiCards } from "@/components/dashboard/KpiCards";
 import { ForecastChart } from "@/components/charts/ForecastChart";
 import { LogsAndSummaryTabs } from "@/components/dashboard/LogsAndSummaryTabs";
@@ -9,70 +8,14 @@ import { WeeklyReviewCard } from "@/components/dashboard/WeeklyReviewCard";
 import { calcDataQuality } from "@/lib/utils/calcDataQuality";
 import { calcReadiness } from "@/lib/utils/calcReadiness";
 import { calcWeeklyReview } from "@/lib/utils/calcWeeklyReview";
-import { getEnrichedLogsAvailability, errorAvailability } from "@/lib/analytics/status";
-import type { AnalyticsAvailability } from "@/lib/analytics/status";
-import type { DailyLog, Prediction, AnalyticsCache, Setting, CareerLog, EnrichedLogPayloadRow } from "@/lib/supabase/types";
+import { fetchDailyLogs, fetchPredictions, fetchCareerLogsForDashboard } from "@/lib/queries/dailyLogs";
+import { fetchSettings } from "@/lib/queries/settings";
+import { fetchEnrichedLogs } from "@/lib/queries/analytics";
+import type { DailyLog, CareerLog } from "@/lib/supabase/types";
 import type { MonthStats } from "@/components/history/SeasonSummary";
 
-async function fetchLogs(): Promise<DailyLog[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("daily_logs").select("*").order("log_date", { ascending: true });
-  if (error) { console.error(error.message); return []; }
-  return (data as DailyLog[]) ?? [];
-}
-
-async function fetchPredictions(): Promise<Prediction[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("predictions").select("*").order("ds", { ascending: true });
-  if (error) { console.error(error.message); return []; }
-  return (data as Prediction[]) ?? [];
-}
-
-type EnrichedLogsFetch =
-  | { kind: "ok"; rows: EnrichedLogPayloadRow[]; updatedAt: string }
-  | { kind: "not_found" }
-  | { kind: "error" };
-
-async function fetchEnrichedLogs(): Promise<EnrichedLogsFetch> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("analytics_cache")
-    .select("payload, updated_at")
-    .eq("metric_type", "enriched_logs")
-    .single();
-  if (error) {
-    return error.code === "PGRST116" ? { kind: "not_found" } : { kind: "error" };
-  }
-  if (!data) return { kind: "not_found" };
-  const row = data as Pick<AnalyticsCache, "payload" | "updated_at">;
-  return {
-    kind: "ok",
-    rows: row.payload as unknown as EnrichedLogPayloadRow[],
-    updatedAt: row.updated_at,
-  };
-}
-
-async function fetchSettings(): Promise<Record<string, number | string | null>> {
-  const supabase = createClient();
-  const { data } = await supabase.from("settings").select("key, value_num, value_str");
-  const rows = (data as Setting[] | null) ?? [];
-  return Object.fromEntries(
-    rows.map((r) => [r.key, r.value_num !== null ? r.value_num : r.value_str])
-  );
-}
-
-async function fetchCareerLogs(): Promise<CareerLog[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("career_logs").select("log_date, season, target_date").order("log_date");
-  if (error) return [];
-  return (data as CareerLog[]) ?? [];
-}
-
 /** career_logs から日付→シーズン名のマップを構築 */
-function buildSeasonMap(careerLogs: CareerLog[]): Map<string, string> {
+function buildSeasonMap(careerLogs: Pick<CareerLog, "log_date" | "season" | "target_date">[]): Map<string, string> {
   const map = new Map<string, string>();
   for (const log of careerLogs) {
     map.set(log.log_date, log.season);
@@ -81,7 +24,7 @@ function buildSeasonMap(careerLogs: CareerLog[]): Map<string, string> {
 }
 
 /** career_logs の各シーズンの日付範囲を算出 */
-function buildSeasonRanges(careerLogs: CareerLog[]): Array<{ season: string; start: string; end: string }> {
+function buildSeasonRanges(careerLogs: Pick<CareerLog, "log_date" | "season" | "target_date">[]): Array<{ season: string; start: string; end: string }> {
   const map = new Map<string, { start: string; end: string }>();
   for (const log of careerLogs) {
     const cur = map.get(log.season);
@@ -134,24 +77,19 @@ function buildMonthStats(logs: DailyLog[], months = 3): MonthStats[] {
 }
 
 export default async function DashboardPage() {
-  const [logs, predictions, enriched, settings, careerLogs] = await Promise.all([
-    fetchLogs(),
+  const [logs, predictions, settings, careerLogs] = await Promise.all([
+    fetchDailyLogs(),
     fetchPredictions(),
-    fetchEnrichedLogs(),
     fetchSettings(),
-    fetchCareerLogs(),
+    fetchCareerLogsForDashboard(),
   ]);
 
-  // enriched_logs の新鮮さを判定
+  // enriched_logs は rawLogs の最新日を渡して新鮮さを判定する
   const latestRawLogDate = logs[logs.length - 1]?.log_date ?? null;
-  const enrichedRows = enriched.kind === "ok" ? enriched.rows : [];
-  const enrichedAvailability: AnalyticsAvailability =
-    enriched.kind === "error"
-      ? errorAvailability()
-      : getEnrichedLogsAvailability(
-          enriched.kind === "ok" ? enriched.updatedAt : null,
-          latestRawLogDate
-        );
+  const enrichedResult = await fetchEnrichedLogs(latestRawLogDate);
+
+  const enrichedRows = enrichedResult.rows;
+  const enrichedAvailability = enrichedResult.availability;
 
   const sma7 = enrichedRows
     .filter((r) => r.weight_sma7 !== null)

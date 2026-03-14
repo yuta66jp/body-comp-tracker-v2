@@ -6,7 +6,6 @@
 // 係数: KCAL_PER_KG_FAT = 7200 kcal/kg (Hall et al., 2012)
 // 7日平均 TDEE: enrichedRows の avg_tdee_7d (enrich.py で事前計算済み)
 // 7日平均カロリー: enrichedRows の avg_calories_7d (enrich.py で事前計算済み)
-import { createClient } from "@/lib/supabase/server";
 import { TdeeKpiCard } from "@/components/tdee/TdeeKpiCard";
 import { TdeeDetailChart } from "@/components/tdee/TdeeDetailChart";
 import { TdeeDailyTable } from "@/components/tdee/TdeeDailyTable";
@@ -17,60 +16,26 @@ import {
   calcTdeeConfidence,
   buildTdeeInterpretation,
 } from "@/lib/utils/calcTdee";
-import { getEnrichedLogsAvailability, errorAvailability } from "@/lib/analytics/status";
-import type { DailyLog, AnalyticsCache, Setting, EnrichedLogPayloadRow } from "@/lib/supabase/types";
+import { fetchDailyLogs } from "@/lib/queries/dailyLogs";
+import { fetchSettings } from "@/lib/queries/settings";
+import { fetchEnrichedLogs } from "@/lib/queries/analytics";
 import type { CurrentPhase } from "@/lib/utils/energyBalance";
 
 export const revalidate = 3600;
 
-type EnrichedLogsFetch =
-  | { kind: "ok"; rows: EnrichedLogPayloadRow[]; updatedAt: string }
-  | { kind: "not_found" }
-  | { kind: "error" };
-
-async function fetchEnrichedLogs(): Promise<EnrichedLogsFetch> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("analytics_cache")
-    .select("payload, updated_at")
-    .eq("metric_type", "enriched_logs")
-    .single();
-  if (error) {
-    return error.code === "PGRST116" ? { kind: "not_found" } : { kind: "error" };
-  }
-  if (!data) return { kind: "not_found" };
-  const row = data as Pick<AnalyticsCache, "payload" | "updated_at">;
-  return {
-    kind: "ok",
-    rows: row.payload as unknown as EnrichedLogPayloadRow[],
-    updatedAt: row.updated_at,
-  };
-}
-
-async function fetchRawLogs(): Promise<DailyLog[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("daily_logs").select("*").order("log_date", { ascending: true });
-  if (error) return [];
-  return (data as DailyLog[]) ?? [];
-}
-
-async function fetchSettings(): Promise<Record<string, number | string | null>> {
-  const supabase = createClient();
-  const { data } = await supabase.from("settings").select("key, value_num, value_str");
-  const rows = (data as Setting[] | null) ?? [];
-  return Object.fromEntries(
-    rows.map((r) => [r.key, r.value_num !== null ? r.value_num : r.value_str])
-  );
-}
-
 export default async function TdeePage() {
-  const [enrichedFetch, rawLogs, settings] = await Promise.all([
-    fetchEnrichedLogs(),
-    fetchRawLogs(),
+  const [rawLogs, settings] = await Promise.all([
+    fetchDailyLogs(),
     fetchSettings(),
   ]);
-  const enrichedRows = enrichedFetch.kind === "ok" ? enrichedFetch.rows : [];
+
+  const sortedRaw = [...rawLogs].sort((a, b) => a.log_date.localeCompare(b.log_date));
+  const latestRawLogDate = sortedRaw[sortedRaw.length - 1]?.log_date ?? null;
+
+  // enriched_logs は rawLogs の最新日を渡して新鮮さを判定する
+  const enrichedResult = await fetchEnrichedLogs(latestRawLogDate);
+  const enrichedRows = enrichedResult.rows;
+  const enrichedAvailability = enrichedResult.availability;
 
   // current_phase — "Cut" / "Bulk" のみ有効（それ以外は null に落とす）
   const rawPhase = settings["current_phase"];
@@ -98,25 +63,14 @@ export default async function TdeePage() {
         })
       : null;
 
-  const sortedRaw = [...rawLogs].sort((a, b) => a.log_date.localeCompare(b.log_date));
-
-  // enriched_logs の新鮮さを判定
-  const latestRawLogDate = sortedRaw[sortedRaw.length - 1]?.log_date ?? null;
-  const enrichedAvailability =
-    enrichedFetch.kind === "error"
-      ? errorAvailability()
-      : getEnrichedLogsAvailability(
-          enrichedFetch.kind === "ok" ? enrichedFetch.updatedAt : null,
-          latestRawLogDate
-        );
-
   // グラフ用データ: enriched がある場合はその日付軸を使う。ない場合は rawLogs を軸に tdee=null で描画。
   // tdee は canonical 値 (tdee_estimated) をそのまま使う。再平滑化しない。
   // intake は batch の avg_calories_7d を使う（ない場合は calories の raw 値で fallback）。
   const rawCaloriesMap = new Map<string, number | null>(
     sortedRaw.map((r) => [r.log_date, r.calories])
   );
-  const chartData = enrichedFetch.kind === "ok"
+  const hasEnrichedData = enrichedResult.availability.status === "fresh" || enrichedResult.availability.status === "stale";
+  const chartData = hasEnrichedData
     ? enrichedRows.map((row) => ({
         date: row.log_date.slice(5),
         tdee: row.tdee_estimated,

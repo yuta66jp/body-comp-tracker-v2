@@ -1,72 +1,9 @@
-import { createClient } from "@/lib/supabase/server";
 import { BacktestResults } from "@/components/charts/BacktestResults";
 import { BacktestComparison } from "@/components/charts/BacktestComparison";
 import { BarChart2 } from "lucide-react";
-import type {
-  ForecastBacktestRun,
-  ForecastBacktestMetric,
-  Json,
-} from "@/lib/supabase/types";
+import { fetchLatestRuns, fetchMetrics } from "@/lib/queries/backtest";
 
 export const revalidate = 3600; // 1時間キャッシュ (バッチは週1回)
-
-// ─── ヘルパー ────────────────────────────────────────────────────────────────
-
-/**
- * config.series_type を安全に読み出す。
- * 旧来の run (series_type なし) は "daily" として扱う。
- */
-function getSeriesType(run: ForecastBacktestRun): string {
-  const cfg = run.config;
-  if (cfg && typeof cfg === "object" && !Array.isArray(cfg)) {
-    const st = (cfg as Record<string, Json>)["series_type"];
-    if (typeof st === "string") return st;
-  }
-  return "daily";
-}
-
-// ─── データ取得 ──────────────────────────────────────────────────────────────
-
-/**
- * 最新 20 件の run を取得し、daily / sma7 それぞれの最新 run を返す。
- * 旧来の run (config.series_type なし) は daily として扱う。
- */
-async function fetchLatestRuns(): Promise<{
-  dailyRun: ForecastBacktestRun | null;
-  sma7Run: ForecastBacktestRun | null;
-}> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("forecast_backtest_runs")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(20);
-
-  if (error) {
-    console.error("forecast_backtest_runs fetch error:", error.message);
-    return { dailyRun: null, sma7Run: null };
-  }
-
-  const runs = (data as ForecastBacktestRun[]) ?? [];
-  const dailyRun = runs.find((r) => getSeriesType(r) === "daily") ?? null;
-  const sma7Run = runs.find((r) => getSeriesType(r) === "sma7") ?? null;
-
-  return { dailyRun, sma7Run };
-}
-
-async function fetchMetrics(runId: string): Promise<ForecastBacktestMetric[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("forecast_backtest_metrics")
-    .select("*")
-    .eq("run_id", runId)
-    .order("horizon_days", { ascending: true });
-  if (error) {
-    console.error("forecast_backtest_metrics fetch error:", error.message);
-    return [];
-  }
-  return (data as ForecastBacktestMetric[]) ?? [];
-}
 
 // ─── ページ ──────────────────────────────────────────────────────────────────
 
