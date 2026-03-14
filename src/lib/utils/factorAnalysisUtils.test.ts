@@ -3,10 +3,12 @@ import {
   prepareFactorRows,
   isHighDropRate,
   calcDropPct,
+  mergeStability,
   MIN_ROWS,
   HIGH_DROP_THRESHOLD,
   type FactorEntry,
   type FactorMeta,
+  type StabilityEntry,
 } from "./factorAnalysisUtils";
 
 // ── isValidEntry ─────────────────────────────────────────────────────────────
@@ -180,5 +182,107 @@ describe("constants", () => {
   it("HIGH_DROP_THRESHOLD は 0〜1 の範囲内である", () => {
     expect(HIGH_DROP_THRESHOLD).toBeGreaterThan(0);
     expect(HIGH_DROP_THRESHOLD).toBeLessThan(1);
+  });
+});
+
+// ── mergeStability ────────────────────────────────────────────────────────────
+
+describe("mergeStability", () => {
+  const entries: Record<string, FactorEntry> = {
+    cal_lag1: { label: "カロリー", importance: 0.5, pct: 50 },
+    p_lag1:   { label: "タンパク質", importance: 0.3, pct: 30 },
+    c_lag1:   { label: "炭水化物", importance: 0.2, pct: 20 },
+  };
+
+  const stabilityMap: Record<string, StabilityEntry> = {
+    cal_lag1: { stability: "high",   cv: 0.1 },
+    p_lag1:   { stability: "medium", cv: 0.4 },
+    c_lag1:   { stability: "low",    cv: 0.8 },
+  };
+
+  it("_stability がある場合、各エントリに stability / cv がマージされる", () => {
+    const result = mergeStability(entries, stabilityMap);
+    expect(result["cal_lag1"].stability).toBe("high");
+    expect(result["cal_lag1"].cv).toBe(0.1);
+    expect(result["p_lag1"].stability).toBe("medium");
+    expect(result["c_lag1"].stability).toBe("low");
+    expect(result["c_lag1"].cv).toBe(0.8);
+  });
+
+  it("_stability が null の場合、全エントリの stability が unavailable になる", () => {
+    const result = mergeStability(entries, null);
+    for (const entry of Object.values(result)) {
+      expect(entry.stability).toBe("unavailable");
+      expect(entry.cv).toBeNull();
+    }
+  });
+
+  it("_stability が undefined の場合、全エントリの stability が unavailable になる", () => {
+    const result = mergeStability(entries, undefined);
+    for (const entry of Object.values(result)) {
+      expect(entry.stability).toBe("unavailable");
+    }
+  });
+
+  it("_stability に対応するキーがない特徴量は stability が unavailable になる", () => {
+    const partialStability: Record<string, StabilityEntry> = {
+      cal_lag1: { stability: "high", cv: 0.1 },
+      // p_lag1 と c_lag1 は省略
+    };
+    const result = mergeStability(entries, partialStability);
+    expect(result["cal_lag1"].stability).toBe("high");
+    expect(result["p_lag1"].stability).toBe("unavailable");
+    expect(result["c_lag1"].stability).toBe("unavailable");
+  });
+
+  it("元の entries の importance / pct / label を変更しない", () => {
+    const result = mergeStability(entries, stabilityMap);
+    expect(result["cal_lag1"].importance).toBe(0.5);
+    expect(result["cal_lag1"].pct).toBe(50);
+    expect(result["cal_lag1"].label).toBe("カロリー");
+  });
+
+  it("入力 entries を変更しない（immutable）", () => {
+    mergeStability(entries, stabilityMap);
+    expect(entries["cal_lag1"].stability).toBeUndefined();
+  });
+
+  it("空の entries を渡すと空オブジェクトが返る", () => {
+    const result = mergeStability({}, stabilityMap);
+    expect(Object.keys(result)).toHaveLength(0);
+  });
+});
+
+// ── prepareFactorRows stability フィールド ────────────────────────────────────
+
+describe("prepareFactorRows stability fields", () => {
+  it("stability フィールドが各行に付与される", () => {
+    const data: Record<string, FactorEntry> = {
+      cal_lag1: { label: "カロリー", importance: 0.5, pct: 50, stability: "high", cv: 0.1 },
+      p_lag1:   { label: "タンパク質", importance: 0.3, pct: 30, stability: "low", cv: 0.9 },
+    };
+    const { rows } = prepareFactorRows(data);
+    expect(rows[0].stability).toBe("high");
+    expect(rows[1].stability).toBe("low");
+  });
+
+  it("stability が付いていないエントリは unavailable として扱われる", () => {
+    const data: Record<string, FactorEntry> = {
+      cal_lag1: { label: "カロリー", importance: 0.5, pct: 100 },
+    };
+    const { rows } = prepareFactorRows(data);
+    expect(rows[0].stability).toBe("unavailable");
+    expect(rows[0].cv).toBeNull();
+  });
+
+  it("stability=unavailable のエントリも正常に表示できる（フィルタされない）", () => {
+    const data: Record<string, FactorEntry> = {
+      cal_lag1: { label: "カロリー", importance: 0.5, pct: 50, stability: "unavailable", cv: null },
+      p_lag1:   { label: "タンパク質", importance: 0.3, pct: 30, stability: "high", cv: 0.2 },
+    };
+    const { rows, filteredOutCount } = prepareFactorRows(data);
+    expect(filteredOutCount).toBe(0);
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r) => r.key === "cal_lag1")?.stability).toBe("unavailable");
   });
 });

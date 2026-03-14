@@ -23,8 +23,9 @@ analyze.py — XGBoost 因子分析バッチ
     純粋ロジック層 (ファイル I/O・外部依存なし):
         apply_feature_engineering() — 欠損除去・特徴量計算・target 計算
         run_importance()            — XGBoost 学習・重要度算出
+        compute_stability()        — Bootstrap による feature importance 安定性算出
         compute_meta()             — サンプル数・日付範囲などの前提情報算出
-        build_payload()            — importance + meta → analytics_cache 形式へ合成
+        build_payload()            — importance + meta + stability → analytics_cache 形式へ合成
 
     外部 I/O 層 (supabase 依存):
         fetch_daily_logs()         — daily_logs テーブルから全件取得
@@ -45,6 +46,21 @@ logger = logging.getLogger(__name__)
 
 # 旧版と同じ 5 特徴 (current_weight はリーケージのため除外)
 FEATURE_COLS = ["cal_lag1", "rolling_cal_7", "p_lag1", "f_lag1", "c_lag1"]
+
+# ── stability 定義 ────────────────────────────────────────────────────────────
+# N_BOOTSTRAP 回のリサンプリングで XGBoost を再学習し、各 feature の
+# importance（feature_importances_）を収集する。
+# 各 feature の importance の変動係数（CV = std / mean）を stability_cv とする。
+#
+# stability ラベル（経験則ベース。将来 A/B 比較や交差検証で検証予定）:
+#   CV < 0.3  → "high"   (再現性が高い)
+#   CV < 0.6  → "medium" (中程度のばらつき)
+#   CV >= 0.6 → "low"    (ばらつきが大きく解釈に注意)
+#
+# データ不足・ブートストラップが成立しない場合:
+#   → stability = "unavailable"
+#     (importance は表示するが stability は提供しない)
+N_BOOTSTRAP = 20  # bootstrap 反復数。少なすぎると CV が不安定、多すぎると重い
 FEATURE_LABELS = {
     # フロントエンド featureLabels.ts の FEATURE_LABEL_MAP と同期すること
     "cal_lag1":      "摂取 kcal（当日）",
@@ -148,6 +164,85 @@ def run_importance(df: pd.DataFrame) -> dict[str, dict[str, float | str]]:
     }
 
 
+def compute_stability(
+    df: pd.DataFrame,
+    n_bootstrap: int = N_BOOTSTRAP,
+) -> dict[str, dict[str, float | str]]:
+    """Bootstrap による feature importance の安定性を算出する。
+
+    各 bootstrap サンプルで XGBoost を再学習し、
+    feature importance の変動係数 (CV = std / mean) から stability ラベルを導出する。
+
+    Returns:
+        特徴量名をキーとする辞書。各値は:
+        - stability (str): "high" / "medium" / "low" / "unavailable"
+        - cv (float | None): 変動係数。"unavailable" の場合は None
+    """
+    import math as _math
+
+    try:
+        import numpy as np
+        import xgboost as xgb  # 遅延 import: 分析実行時のみ必要
+    except ImportError:
+        return {col: {"stability": "unavailable", "cv": None} for col in FEATURE_COLS}
+
+    df_proc = apply_feature_engineering(df)
+    df_proc = df_proc.dropna(subset=FEATURE_COLS + ["target"])
+
+    if len(df_proc) < MIN_ROWS:
+        return {col: {"stability": "unavailable", "cv": None} for col in FEATURE_COLS}
+
+    X = df_proc[FEATURE_COLS].values
+    y = df_proc["target"].values
+    n = len(X)
+
+    # bootstrap ごとの importance を収集する
+    boot_importances: list[list[float]] = [[] for _ in FEATURE_COLS]
+
+    rng = np.random.default_rng(seed=42)
+    for _ in range(n_bootstrap):
+        idx = rng.integers(0, n, size=n)
+        X_boot = X[idx]
+        y_boot = y[idx]
+        # bootstrap サンプルに定数 target しかない場合はスキップ
+        if np.std(y_boot) == 0:
+            continue
+        model = xgb.XGBRegressor(
+            n_estimators=100, max_depth=3, random_state=42, verbosity=0
+        )
+        model.fit(X_boot, y_boot)
+        for j, imp in enumerate(model.feature_importances_.tolist()):
+            boot_importances[j].append(imp)
+
+    result: dict[str, dict[str, float | str]] = {}
+    for j, col in enumerate(FEATURE_COLS):
+        samples = boot_importances[j]
+        if len(samples) < 2:
+            result[col] = {"stability": "unavailable", "cv": None}
+            continue
+        mean = float(np.mean(samples))
+        std = float(np.std(samples, ddof=1))
+        if mean == 0:
+            # mean=0 は全 bootstrap で重要度 0 → 安定しているとも言えるが
+            # CV が定義できないため "unavailable" とする
+            result[col] = {"stability": "unavailable", "cv": None}
+            continue
+        cv = std / mean
+        if not _math.isfinite(cv) or cv < 0:
+            result[col] = {"stability": "unavailable", "cv": None}
+            continue
+        cv_rounded = round(cv, 6)
+        if cv < 0.3:
+            label = "high"
+        elif cv < 0.6:
+            label = "medium"
+        else:
+            label = "low"
+        result[col] = {"stability": label, "cv": cv_rounded}
+
+    return result
+
+
 def compute_meta(df: pd.DataFrame) -> dict[str, object]:
     """分析前提情報（サンプル数・日付範囲・除外数）を計算して返す。
 
@@ -175,13 +270,16 @@ def compute_meta(df: pd.DataFrame) -> dict[str, object]:
     }
 
 
-def build_payload(importance: dict, meta: dict) -> dict:
-    """importance と meta を analytics_cache.payload 形式に合成する。
+def build_payload(importance: dict, meta: dict, stability: dict | None = None) -> dict:
+    """importance と meta と stability を analytics_cache.payload 形式に合成する。
 
     Returns:
-        {"_meta": meta, **importance}
+        {"_meta": meta, **importance} に stability を渡した場合は "_stability" キーも付与する。
     """
-    return {"_meta": meta, **importance}
+    payload = {"_meta": meta, **importance}
+    if stability is not None:
+        payload["_stability"] = stability
+    return payload
 
 
 # ── 外部 I/O 層 ───────────────────────────────────────────────────────────────
@@ -245,8 +343,17 @@ def main() -> None:
 
     logger.info("Importance: %s", importance)
 
+    logger.info("Running bootstrap stability (n_bootstrap=%d)...", N_BOOTSTRAP)
+    try:
+        stability = compute_stability(df)
+    except Exception as e:
+        logger.warning("Bootstrap stability failed, skipping: %s", e)
+        stability = None
+
+    logger.info("Stability: %s", stability)
+
     meta = compute_meta(df)
-    payload = build_payload(importance, meta)
+    payload = build_payload(importance, meta, stability)
 
     logger.info("Saving xgboost_importance to 'analytics_cache'...")
     try:
