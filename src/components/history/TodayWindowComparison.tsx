@@ -202,7 +202,7 @@ export function TodayWindowComparison({
                           </span>
                         )}
                         {fmtDateRange(entry.dateFrom, entry.dateTo) && (
-                          <div className="mt-0.5 text-[10px] text-slate-300">
+                          <div className="mt-0.5 text-[10px] text-slate-500">
                             {fmtDateRange(entry.dateFrom, entry.dateTo)}
                           </div>
                         )}
