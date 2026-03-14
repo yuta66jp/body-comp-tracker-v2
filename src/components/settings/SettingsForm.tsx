@@ -15,13 +15,15 @@ interface FieldMeta {
   label: string;
   unit?: string;
   type: FieldType;
-  options?: string[];   // type === "select" のみ
+  options?: string[];       // type === "select" のみ
+  optionLabels?: string[];  // options の表示ラベル（省略時は options をそのまま使用）
   placeholder?: string;
 }
 
 const FIELDS: Record<string, FieldMeta> = {
   current_season:    { label: "現在のシーズン", type: "text", placeholder: "2026_TokyoNovice" },
   current_phase:     { label: "現在のフェーズ", type: "select", options: ["Cut", "Bulk"] },
+  sex:               { label: "性別", type: "select", options: ["male", "female"], optionLabels: ["男性", "女性"] },
   goal_weight:       { label: "目標体重", unit: "kg", type: "number", placeholder: "58.5" },
   monthly_target:    { label: "月次目標体重", unit: "kg", type: "number", placeholder: "62.0" },
   contest_date:      { label: "コンテスト日", type: "date" },
@@ -178,7 +180,7 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
 
               {meta.type === "select" ? (
                 <div className="flex gap-2">
-                  {meta.options!.map((opt) => (
+                  {meta.options!.map((opt, i) => (
                     <button
                       key={opt}
                       type="button"
@@ -191,7 +193,7 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
                           : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:bg-slate-100"
                       }`}
                     >
-                      {opt}
+                      {meta.optionLabels?.[i] ?? opt}
                     </button>
                   ))}
                 </div>

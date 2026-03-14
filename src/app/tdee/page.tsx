@@ -61,13 +61,17 @@ export default async function TdeePage() {
   const activityFactor = typeof settings["activity_factor"] === "number" ? settings["activity_factor"] : 1.55;
   const latestWeight = rawLogs.filter((d) => d.weight !== null).at(-1)?.weight ?? null;
 
+  const sex = settings["sex"];
+  const isMale: boolean | null =
+    sex === "male" ? true : sex === "female" ? false : null;
+
   const theoreticalTdee =
-    heightCm && ageYears && latestWeight
+    heightCm !== null && ageYears !== null && latestWeight !== null && isMale !== null
       ? calcTheoreticalTdee({
           weightKg: latestWeight,
           heightCm,
           ageYears,
-          isMale: true, // TODO: settings に性別追加
+          isMale,
           activityFactor,
         })
       : null;
@@ -168,7 +172,7 @@ export default async function TdeePage() {
         <TdeeDailyTable data={tableData} phase={currentPhase} />
         {!theoreticalTdee && (
           <p className="text-center text-xs text-gray-400">
-            ※ 理論 TDEE を表示するには「設定」で身長・年齢・活動係数を入力してください。
+            ※ 理論 TDEE を表示するには「設定」で身長・年齢・活動係数・性別を入力してください。
           </p>
         )}
       </div>

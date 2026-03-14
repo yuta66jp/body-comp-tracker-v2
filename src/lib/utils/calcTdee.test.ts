@@ -101,12 +101,22 @@ describe("calcBmr", () => {
 });
 
 describe("calcTheoreticalTdee", () => {
-  it("BMR × 活動係数 が理論 TDEE", () => {
+  it("BMR × 活動係数 が理論 TDEE（男性）", () => {
     const bmr = calcBmr({ weightKg: 70, heightCm: 170, ageYears: 30, isMale: true });
     const tdee = calcTheoreticalTdee({
       weightKg: 70, heightCm: 170, ageYears: 30, isMale: true, activityFactor: 1.55,
     });
     expect(tdee).toBeCloseTo(bmr * 1.55, 1);
+  });
+
+  it("BMR × 活動係数 が理論 TDEE（女性）", () => {
+    // BMR = 10*55 + 6.25*160 - 5*25 - 161 = 1264
+    const bmr = calcBmr({ weightKg: 55, heightCm: 160, ageYears: 25, isMale: false });
+    const tdee = calcTheoreticalTdee({
+      weightKg: 55, heightCm: 160, ageYears: 25, isMale: false, activityFactor: 1.375,
+    });
+    expect(tdee).toBeCloseTo(bmr * 1.375, 1);
+    expect(tdee).toBeCloseTo(1264 * 1.375, 1);
   });
 });
 
