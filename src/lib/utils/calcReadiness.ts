@@ -33,6 +33,12 @@ export interface ReadinessMetrics {
    * 負 = 減量, 正 = 増量
    */
   weekly_rate_kg: number | null;
+  /**
+   * 2週あたりの体重変化率 (kg/2週) — ペース分析の primary 単位
+   * = weekly_rate_kg * 2
+   * null: weekly_rate_kg が null の場合
+   */
+  weekly_rate_kg_per_2weeks: number | null;
   /** コンテストまでの残り日数 (今日含まず) */
   days_to_contest: number | null;
   /**
@@ -48,6 +54,12 @@ export interface ReadinessMetrics {
    * null: days_to_contest が 0 以下 or データ不足
    */
   required_rate_kg_per_week: number | null;
+  /**
+   * 目標達成に必要な2週あたり変化率 (kg/2週) — ペース分析の primary 単位
+   * = required_rate_kg_per_week * 2
+   * null: required_rate_kg_per_week が null の場合
+   */
+  required_rate_kg_per_2weeks: number | null;
 }
 
 interface ReadinessSettings {
@@ -121,6 +133,9 @@ export function calcReadiness(
     .filter((p): p is { date: string; weight: number } => p.weight !== null);
   const weekly_rate_kg =
     trendData.length >= 2 ? calcWeightTrend(trendData).slope * 7 : null;
+  // 2週あたり変化率: weekly_rate_kg × 2
+  const weekly_rate_kg_per_2weeks =
+    weekly_rate_kg !== null ? weekly_rate_kg * 2 : null;
 
   // --- コンテストまでの残り日数 ---
   // calcDaysLeft を使い KpiCards / GoalNavigator / calcReadiness で定義を統一する
@@ -145,6 +160,9 @@ export function calcReadiness(
     // (goal - current) = -remaining, 負なら減量が必要
     required_rate_kg_per_week = -remaining_to_goal_kg / weeksLeft;
   }
+  // 必要2週次変化率: required_rate_kg_per_week × 2
+  const required_rate_kg_per_2weeks =
+    required_rate_kg_per_week !== null ? required_rate_kg_per_week * 2 : null;
 
   return {
     current_weight,
@@ -152,10 +170,67 @@ export function calcReadiness(
     weight_14d_avg,
     weight_change_7d,
     weekly_rate_kg,
+    weekly_rate_kg_per_2weeks,
     days_to_contest,
     remaining_to_goal_kg,
     required_rate_kg_per_week,
+    required_rate_kg_per_2weeks,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2週ベースペース計算（純粋関数 / テスト可能）
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * 目標達成に必要な 2週あたり変化率 (kg/2週) を返す。
+ *
+ * 計算式: (remainingKg / remainingDays) * 14
+ * 負 = 減量が必要 (Cut), 正 = 増量が必要 (Bulk)
+ *
+ * @param remainingDays  残り日数 (0 以下のとき null を返す)
+ * @param remainingKg    基準体重 − 目標体重 (正=まだ上, Cut では減量が必要)
+ * @returns kg/2週。residual が 0 の場合は 0, remainingDays ≤ 0 なら null。
+ */
+export function calcRequiredPacePerTwoWeeks(
+  remainingDays: number,
+  remainingKg: number
+): number | null {
+  if (remainingDays <= 0) return null;
+  // (goal - current) / days * 14 = -(remainingKg / remainingDays) * 14
+  return (-remainingKg / remainingDays) * 14;
+}
+
+/**
+ * 直近の実績ペース (kg/2週) を体重ログから算出する。
+ *
+ * 内部計算: 直近14暦日の線形回帰 slope × 14
+ * データ点が 2件未満の場合は null を返す。
+ *
+ * @param logs   体重ログ配列 (date: YYYY-MM-DD, weight: number)
+ * @param today  基準日 YYYY-MM-DD。省略時は JST 今日。
+ * @returns kg/2週。データ不足なら null。
+ */
+export function calcActualPacePerTwoWeeks(
+  logs: { date: string; weight: number }[],
+  today?: string
+): number | null {
+  const todayStr = today ?? toJstDateStr(new Date());
+  const d14Start = addDaysStr(todayStr, -13) ?? todayStr;
+  const last14Dates = dateRangeStr(d14Start, todayStr);
+
+  const logMap = new Map<string, number>();
+  for (const l of logs) {
+    logMap.set(l.date, l.weight);
+  }
+
+  const trendData = last14Dates
+    .map((d) => ({ date: d, weight: logMap.get(d) ?? null }))
+    .filter((p): p is { date: string; weight: number } => p.weight !== null);
+
+  if (trendData.length < 2) return null;
+  const slopePerDay = calcWeightTrend(trendData).slope;
+  return slopePerDay * 14;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
