@@ -45,8 +45,9 @@ venv/
 env/
 *.egg
 
-# NeuralProphet / PyTorch Lightning の学習ログ
+# NeuralProphet / PyTorch Lightning の学習ログ・一時チェックポイント
 lightning_logs/
+.lr_find_*.ckpt
 
 # Supabase local dev
 .supabase/
