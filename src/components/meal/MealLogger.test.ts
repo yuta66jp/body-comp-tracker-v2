@@ -1,15 +1,16 @@
 import { computeHasContent } from "./MealLogger";
 
 const base = {
-  weight: "",
-  cartItems: [],
-  note: "",
+  weight: "" as string | null,
+  cartItems: [] as Parameters<typeof computeHasContent>[0]["cartItems"],
+  cartEverHadItems: false,
+  note: "" as string | null,
   touchedTags: new Set<import("@/lib/utils/dayTags").DayTag>(),
-  sleepHours: "",
-  hadBowelMovement: null,
+  sleepHours: "" as string | null,
+  hadBowelMovementTouched: false,
   trainingTypeTouched: false,
   workModeTouched: false,
-} as const satisfies Parameters<typeof computeHasContent>[0];
+} satisfies Parameters<typeof computeHasContent>[0];
 
 describe("computeHasContent", () => {
   // ── 何も変更していない場合 ──
@@ -17,7 +18,7 @@ describe("computeHasContent", () => {
     expect(computeHasContent({ ...base })).toBe(false);
   });
 
-  // ── 体重・食事・メモ ──
+  // ── 体重・食事・メモ（通常入力） ──
   it("体重が入力されている場合は true", () => {
     expect(computeHasContent({ ...base, weight: "65.5" })).toBe(true);
   });
@@ -31,6 +32,23 @@ describe("computeHasContent", () => {
     expect(computeHasContent({ ...base, note: "調子良い" })).toBe(true);
   });
 
+  // ── 明示的クリア（null 状態） ──
+  it("weight が null（明示クリア）のとき true", () => {
+    expect(computeHasContent({ ...base, weight: null })).toBe(true);
+  });
+
+  it("note が null（明示クリア）のとき true", () => {
+    expect(computeHasContent({ ...base, note: null })).toBe(true);
+  });
+
+  it("sleepHours が null（明示クリア）のとき true", () => {
+    expect(computeHasContent({ ...base, sleepHours: null })).toBe(true);
+  });
+
+  it("cartEverHadItems=true（カートを追加後に空にした）のとき true", () => {
+    expect(computeHasContent({ ...base, cartEverHadItems: true })).toBe(true);
+  });
+
   // ── 特殊日タグ ──
   it("false -> true にトグルした場合は true", () => {
     const touchedTags = new Set<import("@/lib/utils/dayTags").DayTag>(["is_cheat_day"]);
@@ -38,7 +56,6 @@ describe("computeHasContent", () => {
   });
 
   it("true -> false に戻した場合も true (変更があるとみなす)", () => {
-    // タグを一度 ON にしてから OFF に戻した状態: touchedTags には残る
     const touchedTags = new Set<import("@/lib/utils/dayTags").DayTag>(["is_refeed_day"]);
     expect(computeHasContent({ ...base, touchedTags })).toBe(true);
   });
@@ -49,7 +66,6 @@ describe("computeHasContent", () => {
   });
 
   it("touchedTags が空（未操作）の場合はタグ由来では true にならない", () => {
-    // 他フィールドも未入力
     expect(computeHasContent({ ...base, touchedTags: new Set() })).toBe(false);
   });
 
@@ -58,16 +74,12 @@ describe("computeHasContent", () => {
     expect(computeHasContent({ ...base, sleepHours: "7.5" })).toBe(true);
   });
 
-  it("便通が true に設定されている場合は true", () => {
-    expect(computeHasContent({ ...base, hadBowelMovement: true })).toBe(true);
+  it("hadBowelMovementTouched が true（ボタン操作あり）の場合は true", () => {
+    expect(computeHasContent({ ...base, hadBowelMovementTouched: true })).toBe(true);
   });
 
-  it("便通が false に設定されている場合も true（明示的選択）", () => {
-    expect(computeHasContent({ ...base, hadBowelMovement: false })).toBe(true);
-  });
-
-  it("便通が null（未操作）の場合は false", () => {
-    expect(computeHasContent({ ...base, hadBowelMovement: null })).toBe(false);
+  it("hadBowelMovementTouched が false（未操作）の場合は false", () => {
+    expect(computeHasContent({ ...base, hadBowelMovementTouched: false })).toBe(false);
   });
 
   it("trainingTypeTouched が true の場合は true", () => {
@@ -87,5 +99,9 @@ describe("computeHasContent", () => {
   it("タグ変更 + 体重入力の複合でも true", () => {
     const touchedTags = new Set<import("@/lib/utils/dayTags").DayTag>(["is_cheat_day"]);
     expect(computeHasContent({ ...base, weight: "64.0", touchedTags })).toBe(true);
+  });
+
+  it("weight null かつ cartEverHadItems=true の複合でも true", () => {
+    expect(computeHasContent({ ...base, weight: null, cartEverHadItems: true })).toBe(true);
   });
 });

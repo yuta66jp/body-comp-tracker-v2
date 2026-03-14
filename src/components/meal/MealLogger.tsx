@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, AlertCircle, Loader2, PenLine } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, PenLine, X, Undo2 } from "lucide-react";
 import { saveDailyLog } from "@/app/actions/saveDailyLog";
 import { FoodPicker } from "./FoodPicker";
 import { Cart, calcCartTotals } from "./Cart";
@@ -32,24 +32,27 @@ function todayStr() {
 
 /** hasContent 判定のための純粋関数（テスト容易性のために抽出） */
 export interface HasContentInput {
-  weight: string;
+  weight: string | null;          // null = 明示的クリア予定
   cartItems: CartItem[];
-  note: string;
+  cartEverHadItems: boolean;      // カートに一度でもアイテムが追加されたか
+  note: string | null;            // null = 明示的クリア予定
   touchedTags: Set<DayTag>;
-  sleepHours: string;
-  hadBowelMovement: boolean | null;
+  sleepHours: string | null;      // null = 明示的クリア予定
+  hadBowelMovementTouched: boolean; // ボタンを一度でも操作したか
   trainingTypeTouched: boolean;
   workModeTouched: boolean;
 }
 
 export function computeHasContent(input: HasContentInput): boolean {
   return (
+    // null !== "" → true なので、明示的クリア状態も「保存すべき内容あり」として扱う
     input.weight !== "" ||
     input.cartItems.length > 0 ||
+    input.cartEverHadItems ||       // カートを空にした場合も null 送信のため有効化
     input.note !== "" ||
     input.touchedTags.size > 0 ||
     input.sleepHours !== "" ||
-    input.hadBowelMovement !== null ||
+    input.hadBowelMovementTouched || // touched なら null 送信も含め有効化
     input.trainingTypeTouched ||
     input.workModeTouched
   );
@@ -62,9 +65,12 @@ interface MealLoggerProps {
 export function MealLogger({ sidebar = false }: MealLoggerProps) {
   // ── 既存フィールド ──
   const [date, setDate] = useState(todayStr);
-  const [weight, setWeight] = useState("");
-  const [note, setNote] = useState("");
+  // string | null: "" = 未入力, "70.5" = 入力値, null = 明示的クリア予定（null 送信）
+  const [weight, setWeight] = useState<string | null>("");
+  const [note, setNote] = useState<string | null>("");
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  // カートに一度でもアイテムが追加されたか（空カートでも null 送信させるためのフラグ）
+  const [cartEverHadItems, setCartEverHadItems] = useState(false);
   const [tags, setTags] = useState<ReturnType<typeof emptyTagState>>(emptyTagState);
   // 明示的にトグルされたタグのみ追跡する（未操作タグは undefined として送り既存値を保持）
   const [touchedTags, setTouchedTags] = useState<Set<DayTag>>(new Set());
@@ -72,9 +78,13 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
   const [errorMessage, setErrorMessage] = useState<string>("");
 
   // ── Phase 2.5 新規フィールド ──
-  const [sleepHours, setSleepHours] = useState("");
-  // had_bowel_movement: null=未操作(undefined送信), true/false=明示的選択
+  // string | null: "" = 未入力, "7.5" = 入力値, null = 明示的クリア予定
+  const [sleepHours, setSleepHours] = useState<string | null>("");
+  // had_bowel_movement: null=未選択, true/false=明示選択
+  // hadBowelMovementTouched=true のとき: null→null 送信（明示クリア），true/false→値送信
+  // hadBowelMovementTouched=false のとき: undefined 送信（既存値を保持）
   const [hadBowelMovement, setHadBowelMovement] = useState<boolean | null>(null);
+  const [hadBowelMovementTouched, setHadBowelMovementTouched] = useState(false);
   // training_type: null=未選択, Touched=true で null 送信(明示クリア)も可
   const [trainingType, setTrainingType] = useState<TrainingType | null>(null);
   const [trainingTypeTouched, setTrainingTypeTouched] = useState(false);
@@ -98,6 +108,7 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
   }
 
   function addFood(food: FoodMaster) {
+    setCartEverHadItems(true);
     setCartItems((prev) => {
       const existing = prev.findIndex((item) => item.food.name === food.name);
       if (existing >= 0) {
@@ -110,6 +121,7 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
   }
 
   function addFromMenu(items: CartItem[]) {
+    setCartEverHadItems(true);
     setCartItems((prev) => {
       const next = [...prev];
       for (const item of items) {
@@ -136,17 +148,20 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
 
     const result = await saveDailyLog({
       log_date: date,
-      // 未入力項目は undefined → 既存値を保持（null は「明示的クリア」専用）
-      weight:   weight !== ""          ? parseFloat(weight) : undefined,
-      calories: cartItems.length > 0   ? totals.calories    : undefined,
-      protein:  cartItems.length > 0   ? totals.protein     : undefined,
-      fat:      cartItems.length > 0   ? totals.fat         : undefined,
-      carbs:    cartItems.length > 0   ? totals.carbs       : undefined,
-      note:     note !== ""            ? note               : undefined,
+      // null = 明示的クリア（null 送信）/ "" = 未入力（undefined 送信、既存値保持）
+      weight:   weight === null   ? null   : (weight   !== "" ? parseFloat(weight)   : undefined),
+      // カートに一度でも追加後に空にした → null 送信（マクロをクリア）
+      calories: cartItems.length > 0 ? totals.calories : (cartEverHadItems ? null : undefined),
+      protein:  cartItems.length > 0 ? totals.protein  : (cartEverHadItems ? null : undefined),
+      fat:      cartItems.length > 0 ? totals.fat      : (cartEverHadItems ? null : undefined),
+      carbs:    cartItems.length > 0 ? totals.carbs    : (cartEverHadItems ? null : undefined),
+      note:     note === null     ? null   : (note     !== "" ? note                 : undefined),
       ...tagPayload,
       // Phase 2.5 新規フィールド
-      sleep_hours:        sleepHours !== "" ? parseFloat(sleepHours) : undefined,
-      had_bowel_movement: hadBowelMovement !== null ? hadBowelMovement : undefined,
+      sleep_hours:        sleepHours === null ? null : (sleepHours !== "" ? parseFloat(sleepHours) : undefined),
+      // touched=true かつ値あり → 値送信; touched=false または null（未選択）→ undefined（既存値保持）
+      // DB が boolean NOT NULL のため null 送信不可。null=「何も選ばなかった」→ undefined
+      had_bowel_movement: hadBowelMovementTouched && hadBowelMovement !== null ? hadBowelMovement : undefined,
       training_type:      trainingTypeTouched ? trainingType : undefined,
       work_mode:          workModeTouched     ? workMode     : undefined,
     });
@@ -160,12 +175,14 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
       setStatus("saved");
       // フォームをリセット
       setCartItems([]);
+      setCartEverHadItems(false);
       setNote("");
       setWeight("");
       setTags(emptyTagState());
       setTouchedTags(new Set());
       setSleepHours("");
       setHadBowelMovement(null);
+      setHadBowelMovementTouched(false);
       setTrainingType(null);
       setTrainingTypeTouched(false);
       setWorkMode(null);
@@ -175,12 +192,15 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
   }
 
   const hasContent = computeHasContent({
-    weight, cartItems, note, touchedTags,
-    sleepHours, hadBowelMovement, trainingTypeTouched, workModeTouched,
+    weight, cartItems, cartEverHadItems, note, touchedTags,
+    sleepHours, hadBowelMovementTouched, trainingTypeTouched, workModeTouched,
   });
 
   const inputCls =
     "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400";
+  // 明示的クリア状態（null）のときの入力欄スタイル
+  const inputClearedCls =
+    "w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-400 placeholder:text-rose-300 outline-none opacity-75 cursor-default";
 
   const chipCls = (active: boolean) =>
     `rounded-xl border px-3 py-2 text-xs font-semibold transition-colors ${
@@ -199,13 +219,49 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
         </div>
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">体重 (kg)</label>
-          <input type="number" step="0.1" min="0" placeholder="70.5" value={weight}
-            onChange={(e) => setWeight(e.target.value)} className={inputCls} />
+          <div className="relative">
+            {weight === null ? (
+              <input type="number" disabled placeholder="削除予定" className={`${inputClearedCls} pr-8`} />
+            ) : (
+              <input type="number" step="0.1" min="0" placeholder="70.5" value={weight}
+                onChange={(e) => setWeight(e.target.value)} className={`${inputCls} ${weight !== "" ? "pr-8" : ""}`} />
+            )}
+            {weight !== "" && weight !== null && (
+              <button type="button" onClick={() => setWeight(null)} title="null 保存（クリア）"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-400 transition-colors">
+                <X size={13} />
+              </button>
+            )}
+            {weight === null && (
+              <button type="button" onClick={() => setWeight("")} title="クリアを取り消す"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-rose-400 hover:text-slate-500 transition-colors">
+                <Undo2 size={13} />
+              </button>
+            )}
+          </div>
         </div>
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">メモ</label>
-          <input type="text" placeholder="任意" value={note}
-            onChange={(e) => setNote(e.target.value)} className={inputCls} />
+          <div className="relative">
+            {note === null ? (
+              <input type="text" disabled placeholder="削除予定" className={`${inputClearedCls} pr-8`} />
+            ) : (
+              <input type="text" placeholder="任意" value={note}
+                onChange={(e) => setNote(e.target.value)} className={`${inputCls} ${note !== "" ? "pr-8" : ""}`} />
+            )}
+            {note !== "" && note !== null && (
+              <button type="button" onClick={() => setNote(null)} title="null 保存（クリア）"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-400 transition-colors">
+                <X size={13} />
+              </button>
+            )}
+            {note === null && (
+              <button type="button" onClick={() => setNote("")} title="クリアを取り消す"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-rose-400 hover:text-slate-500 transition-colors">
+                <Undo2 size={13} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -237,16 +293,28 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
           {/* 睡眠時間 */}
           <div>
             <label className="mb-1.5 block text-xs font-medium text-slate-500">睡眠時間 (h)</label>
-            <input
-              type="number"
-              step="0.5"
-              min="0"
-              max="24"
-              placeholder="7.5"
-              value={sleepHours}
-              onChange={(e) => setSleepHours(e.target.value)}
-              className={inputCls}
-            />
+            <div className="relative">
+              {sleepHours === null ? (
+                <input type="number" disabled placeholder="削除予定" className={`${inputClearedCls} pr-8`} />
+              ) : (
+                <input type="number" step="0.5" min="0" max="24" placeholder="7.5"
+                  value={sleepHours}
+                  onChange={(e) => setSleepHours(e.target.value)}
+                  className={`${inputCls} ${sleepHours !== "" ? "pr-8" : ""}`} />
+              )}
+              {sleepHours !== "" && sleepHours !== null && (
+                <button type="button" onClick={() => setSleepHours(null)} title="null 保存（クリア）"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-400 transition-colors">
+                  <X size={13} />
+                </button>
+              )}
+              {sleepHours === null && (
+                <button type="button" onClick={() => setSleepHours("")} title="クリアを取り消す"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-rose-400 hover:text-slate-500 transition-colors">
+                  <Undo2 size={13} />
+                </button>
+              )}
+            </div>
           </div>
           {/* 便通 */}
           <div>
@@ -254,14 +322,20 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setHadBowelMovement((prev) => (prev === true ? null : true))}
+                onClick={() => {
+                  setHadBowelMovementTouched(true);
+                  setHadBowelMovement((prev) => (prev === true ? null : true));
+                }}
                 className={chipCls(hadBowelMovement === true)}
               >
                 あり
               </button>
               <button
                 type="button"
-                onClick={() => setHadBowelMovement((prev) => (prev === false ? null : false))}
+                onClick={() => {
+                  setHadBowelMovementTouched(true);
+                  setHadBowelMovement((prev) => (prev === false ? null : false));
+                }}
                 className={chipCls(hadBowelMovement === false)}
               >
                 なし
