@@ -10,6 +10,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import type { TooltipValueType } from "recharts";
 
 interface MacroPoint {
   date: string;
@@ -43,7 +44,7 @@ export function MacroStackedChart({ data }: MacroStackedChartProps) {
           <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={20} />
           <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${Math.round(v * 100)}%`} />
           <Tooltip
-            formatter={(v: any, name: any) => [`${v}%`, name]}
+            formatter={(v: TooltipValueType | undefined, name: number | string | undefined) => [`${v ?? ""}%`, name ?? ""]}
           />
           <Legend />
           <Area type="monotone" dataKey="タンパク質" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.7} />

@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
+import type { TooltipValueType } from "recharts";
 
 interface TdeePoint {
   date: string;
@@ -34,7 +35,7 @@ export function TdeeDetailChart({ data, avgTdee }: TdeeDetailChartProps) {
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={20} />
           <YAxis domain={["auto", "auto"]} tick={{ fontSize: 11 }} width={56} tickFormatter={(v: number) => v.toLocaleString()} />
-          <Tooltip formatter={(v: any, name: any) => [v !== null ? `${Math.round(v).toLocaleString()} kcal` : "—", name]} />
+          <Tooltip formatter={(v: TooltipValueType | undefined, name: number | string | undefined) => [typeof v === "number" ? `${Math.round(v).toLocaleString()} kcal` : "—", name ?? ""]} />
           <Legend />
           {avgTdee && <ReferenceLine y={avgTdee} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: "平均", fontSize: 10 }} />}
           <Area

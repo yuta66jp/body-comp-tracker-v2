@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
+import type { TooltipValueType } from "recharts";
 import type { DailyLog, Prediction } from "@/lib/supabase/types";
 import { toJstDateStr, addDaysStr, dateRangeStr } from "@/lib/utils/date";
 
@@ -154,18 +155,19 @@ export function ForecastChart({
             width={52}
           />
           <Tooltip
-            formatter={(value: any, name: any) => {
+            formatter={(value: TooltipValueType | undefined, name: number | string | undefined) => {
               const labels: Record<string, string> = {
                 actual: "実測",
                 sma7: "7日平均",
                 forecast: "AI予測",
               };
+              const nameStr = String(name ?? "");
               return [
                 typeof value === "number" ? `${value.toFixed(1)} kg` : "—",
-                labels[name as string] ?? name,
+                labels[nameStr] ?? nameStr,
               ];
             }}
-            labelFormatter={(label: any) => String(label)}
+            labelFormatter={(label: unknown) => String(label)}
           />
           <Legend
             formatter={(value: string) => {

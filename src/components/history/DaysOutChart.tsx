@@ -11,6 +11,13 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
+import type { TooltipValueType } from "recharts";
+
+interface DotRenderProps {
+  cx?: number;
+  cy?: number;
+  payload: { daysOut: number };
+}
 
 interface DaysOutChartProps {
   data: Array<Record<string, number | null>>;
@@ -76,11 +83,11 @@ export function DaysOutChart({ data, seasons, currentSeason, todayDaysOut }: Day
             tickFormatter={(v: number) => `${v}kg`}
           />
           <Tooltip
-            formatter={(v: any, name: any) => [
-              v !== null ? `${Number(v).toFixed(1)} kg` : "—",
-              name,
+            formatter={(v: TooltipValueType | undefined, name: number | string | undefined) => [
+              v != null ? `${Number(v).toFixed(1)} kg` : "—",
+              name ?? "",
             ]}
-            labelFormatter={(label: any) => `大会 ${Math.abs(Number(label))} 日前`}
+            labelFormatter={(label: unknown) => `大会 ${Math.abs(Number(label))} 日前`}
           />
           <Legend />
           <ReferenceLine x={0} stroke="#ef4444" strokeDasharray="4 4" label={{ value: "大会日", fontSize: 10 }} />
@@ -104,7 +111,7 @@ export function DaysOutChart({ data, seasons, currentSeason, todayDaysOut }: Day
                 dataKey={season}
                 stroke={color}
                 strokeWidth={1.5}
-                dot={(props: any) => {
+                dot={(props: DotRenderProps) => {
                   const { cx, cy, payload } = props;
                   if (payload.daysOut !== endDaysOut) return <g />;
                   return (
@@ -133,7 +140,7 @@ export function DaysOutChart({ data, seasons, currentSeason, todayDaysOut }: Day
                 dataKey={currentSeason}
                 stroke="#ef4444"
                 strokeWidth={2.5}
-                dot={(props: any) => {
+                dot={(props: DotRenderProps) => {
                   const { cx, cy, payload } = props;
                   if (payload.daysOut !== endDaysOut) return <g />;
                   return (

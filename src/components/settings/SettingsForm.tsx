@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import { Save, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Setting } from "@/lib/supabase/types";
-import { normalizeSettingField } from "./normalizeSettingField";
 
 interface SettingsFormProps {
   initialSettings: Setting[];

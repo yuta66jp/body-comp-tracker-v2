@@ -129,7 +129,7 @@ describe("isHighDropRate", () => {
   });
 
   it("dropped_count が undefined のとき false", () => {
-    const { dropped_count: _, ...withoutDrop } = base;
+    const { dropped_count: _dropped, ...withoutDrop } = base;
     expect(isHighDropRate(withoutDrop as FactorMeta)).toBe(false);
   });
 
@@ -161,7 +161,7 @@ describe("calcDropPct", () => {
   });
 
   it("dropped_count が undefined のとき null", () => {
-    const { dropped_count: _, ...withoutDrop } = base;
+    const { dropped_count: _dropped, ...withoutDrop } = base;
     expect(calcDropPct(withoutDrop as FactorMeta)).toBeNull();
   });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingDown, TrendingUp, Minus, ShieldCheck, ShieldAlert, Shield } from "lucide-react";
+import { ShieldCheck, ShieldAlert, Shield } from "lucide-react";
 import type { TdeeConfidence } from "@/lib/utils/calcTdee";
 
 interface TdeeKpiCardProps {

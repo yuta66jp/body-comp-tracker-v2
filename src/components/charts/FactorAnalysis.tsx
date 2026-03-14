@@ -4,12 +4,12 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, LabelList,
 } from "recharts";
+import type { TooltipValueType, RenderableText } from "recharts";
 import {
   type FactorEntry,
   type FactorMeta,
   type SortedFactorRow,
   MIN_ROWS,
-  HIGH_DROP_THRESHOLD,
   prepareFactorRows,
   isHighDropRate,
   calcDropPct,
@@ -293,9 +293,9 @@ export function FactorAnalysis({ data, updatedAt, meta }: FactorAnalysisProps) {
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
           <XAxis type="number" tick={{ fontSize: 11 }} unit="%" domain={[0, 100]} />
           <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={130} />
-          <Tooltip formatter={(v: any) => [`${v}%`, "重要度（相対値）"]} />
+          <Tooltip formatter={(v: TooltipValueType | undefined, _: number | string | undefined) => [`${v ?? ""}%`, "重要度（相対値）"]} />
           <Bar dataKey="pct" radius={[0, 4, 4, 0]}>
-            <LabelList dataKey="pct" position="right" formatter={(v: any) => `${v}%`} style={{ fontSize: 11, fill: "#6b7280" }} />
+            <LabelList dataKey="pct" position="right" formatter={(v: RenderableText) => `${v ?? ""}%`} style={{ fontSize: 11, fill: "#6b7280" }} />
             {chartData.map((_, i) => (
               <Cell key={i} fill={IMPORTANCE_COLORS[i % IMPORTANCE_COLORS.length]} />
             ))}

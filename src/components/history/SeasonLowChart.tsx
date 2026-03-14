@@ -11,7 +11,16 @@ import {
   LabelList,
   ResponsiveContainer,
 } from "recharts";
+import type { TooltipValueType, RenderableText } from "recharts";
 import type { SeasonMeta } from "@/lib/utils/calcSeason";
+
+interface SeasonLowTooltipEntry {
+  payload?: {
+    delta?: number | null;
+    isCurrent?: boolean;
+    peakDate?: string | null;
+  };
+}
 
 interface SeasonLowChartProps {
   seasons: SeasonMeta[];       // 過去シーズン（career_logs）
@@ -60,7 +69,7 @@ export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) 
             tickFormatter={(v: number) => `${v}kg`}
           />
           <Tooltip
-            formatter={(v: any, _: any, entry: any) => {
+            formatter={(v: TooltipValueType | undefined, _: number | string | undefined, entry: SeasonLowTooltipEntry) => {
               const { delta, isCurrent, peakDate } = entry?.payload ?? {};
               const deltaStr = delta !== null && delta !== undefined
                 ? ` (前年比 ${delta > 0 ? "+" : ""}${delta.toFixed(1)}kg)`
@@ -85,8 +94,7 @@ export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) 
               dataKey="weight"
               position="top"
               fontSize={12}
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              formatter={(v: any) => typeof v === "number" ? `${v.toFixed(1)}kg` : ""}
+              formatter={(v: RenderableText) => typeof v === "number" ? `${v.toFixed(1)}kg` : ""}
             />
           </Bar>
         </BarChart>
@@ -104,7 +112,7 @@ export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) 
             </tr>
           </thead>
           <tbody>
-            {data.map((row, i) => (
+            {data.map((row) => (
               <tr
                 key={row.season}
                 className={`border-b border-gray-50 hover:bg-gray-50 ${row.isCurrent ? "font-semibold" : ""}`}

@@ -10,6 +10,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import type { TooltipValueType } from "recharts";
 
 interface MonthlyPoint {
   week: string;
@@ -35,7 +36,7 @@ export function MonthlyChart({ data, months, title, unit, colors }: MonthlyChart
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis dataKey="week" tick={{ fontSize: 11 }} label={{ value: "経過週", position: "insideBottomRight", fontSize: 11 }} />
           <YAxis tick={{ fontSize: 11 }} width={52} tickFormatter={(v: number) => `${v}${unit}`} />
-          <Tooltip formatter={(v: any, name: any) => [v !== null ? `${v}${unit}` : "—", name]} />
+          <Tooltip formatter={(v: TooltipValueType | undefined, name: number | string | undefined) => [v != null ? `${v}${unit}` : "—", name ?? ""]} />
           <Legend />
           {months.map((month, i) => (
             <Line

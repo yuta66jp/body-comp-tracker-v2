@@ -27,10 +27,6 @@ interface SeasonComparisonTableProps {
 
 // ─── ヘルパー ────────────────────────────────────────────────────────────────
 
-function fmt1(v: number | null): string {
-  return v !== null ? v.toFixed(1) : "—";
-}
-
 function daysOutLabel(d: number): string {
   if (d === 0) return "大会日";
   if (d === Infinity) return "仕上がり";
