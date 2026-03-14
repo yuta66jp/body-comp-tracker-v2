@@ -121,10 +121,21 @@ def main() -> None:
 
     logger.info("Importance: %s", importance)
 
-    # 分析前提情報を計算（run_importance と同じフィルタを適用）
+    # 分析前提情報を計算（run_importance と同じフィルタ＋特徴量エンジニアリングを適用）
     df_meta = df.dropna(subset=["weight", "calories", "protein", "fat", "carbs"])
     df_meta = df_meta.sort_values("log_date").reset_index(drop=True)
+    # run_importance と同じ特徴量エンジニアリングを適用してから dropna する
+    df_meta = df_meta.copy()
+    df_meta["cal_lag1"]      = df_meta["calories"]
+    df_meta["rolling_cal_7"] = df_meta["calories"].rolling(window=7, min_periods=1).mean()
+    df_meta["p_lag1"]        = df_meta["protein"]
+    df_meta["f_lag1"]        = df_meta["fat"]
+    df_meta["c_lag1"]        = df_meta["carbs"]
     df_meta = df_meta.assign(target=df_meta["weight"].shift(-1))
+    missing_cols = [c for c in FEATURE_COLS + ["target"] if c not in df_meta.columns]
+    if missing_cols:
+        logger.error("df_meta is missing expected columns: %s", missing_cols)
+        raise SystemExit(1)
     df_meta = df_meta.dropna(subset=FEATURE_COLS + ["target"])
     sample_count = int(len(df_meta))
     total_rows   = int(len(df))
