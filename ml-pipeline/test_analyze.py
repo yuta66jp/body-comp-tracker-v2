@@ -16,6 +16,7 @@ from analyze import (
     run_importance,
     apply_feature_engineering,
     compute_meta,
+    compute_stability,
     build_payload,
     FEATURE_COLS,
     MIN_ROWS,
@@ -348,3 +349,96 @@ class TestBuildPayload:
         build_payload(importance, meta)
         assert "_meta" not in importance
         assert "feat" not in meta
+
+
+# ── compute_stability のテスト ────────────────────────────────────────────────
+
+VALID_STABILITY_LABELS = {"high", "medium", "low", "unavailable"}
+
+
+class TestComputeStability:
+    """
+    compute_stability() のテスト。
+    bootstrap による feature importance の安定性算出ロジックを検証する。
+    """
+
+    def test_returns_all_feature_cols(self):
+        """全 FEATURE_COLS に stability エントリが返る。"""
+        df = _make_df(n=30)
+        result = compute_stability(df)
+        assert set(result.keys()) == set(FEATURE_COLS)
+
+    def test_stability_label_is_valid(self):
+        """stability ラベルが high/medium/low/unavailable のいずれか。"""
+        df = _make_df(n=30)
+        result = compute_stability(df)
+        for col, entry in result.items():
+            assert entry["stability"] in VALID_STABILITY_LABELS, \
+                f"{col}: unexpected stability label '{entry['stability']}'"
+
+    def test_cv_is_none_when_unavailable(self):
+        """stability が unavailable の場合 cv は None。"""
+        df = _make_df(n=MIN_ROWS - 1)  # 不足データ
+        result = compute_stability(df)
+        for entry in result.values():
+            assert entry["stability"] == "unavailable"
+            assert entry["cv"] is None
+
+    def test_cv_is_finite_when_available(self):
+        """利用可能な場合 cv は有限の非負数値（unavailable を除く）。"""
+        import math
+        df = _make_df(n=30)
+        result = compute_stability(df)
+        for entry in result.values():
+            if entry["stability"] != "unavailable":
+                cv = entry["cv"]
+                assert cv is not None
+                assert math.isfinite(cv)
+                assert cv >= 0
+
+    def test_insufficient_data_returns_unavailable(self):
+        """MIN_ROWS 未満データでは全特徴量が unavailable になる。"""
+        df = _make_df(n=MIN_ROWS - 1)
+        result = compute_stability(df)
+        assert all(e["stability"] == "unavailable" for e in result.values())
+        assert all(e["cv"] is None for e in result.values())
+
+    def test_sufficient_data_returns_non_unavailable(self):
+        """十分なデータがあれば少なくとも一つは unavailable 以外になる。"""
+        df = _make_df(n=30)
+        result = compute_stability(df)
+        labels = [e["stability"] for e in result.values()]
+        # 十分なデータがあれば全て unavailable にはならないはず
+        assert any(s != "unavailable" for s in labels), \
+            "All stabilities are unavailable with n=30, check implementation"
+
+    def test_result_has_stability_and_cv_keys(self):
+        """各エントリに stability / cv キーが存在する。"""
+        df = _make_df(n=30)
+        result = compute_stability(df)
+        for entry in result.values():
+            assert "stability" in entry
+            assert "cv" in entry
+
+    def test_build_payload_includes_stability(self):
+        """stability を渡すと payload に _stability が含まれる。"""
+        importance = {"feat": {"label": "x", "importance": 0.5, "pct": 100.0}}
+        meta = {"sample_count": 10}
+        stability = {"feat": {"stability": "high", "cv": 0.1}}
+        payload = build_payload(importance, meta, stability)
+        assert "_stability" in payload
+        assert payload["_stability"] == stability
+
+    def test_build_payload_without_stability(self):
+        """stability=None なら _stability キーが含まれない。"""
+        importance = {"feat": {"label": "x", "importance": 0.5, "pct": 100.0}}
+        meta = {"sample_count": 10}
+        payload = build_payload(importance, meta)
+        assert "_stability" not in payload
+
+    def test_build_payload_stability_default_is_none(self):
+        """stability 引数省略時は _stability キーが含まれない（デフォルト None）。"""
+        importance = {"feat": {"label": "x", "importance": 0.5, "pct": 100.0}}
+        meta = {"sample_count": 10}
+        payload = build_payload(importance, meta, None)
+        assert "_stability" not in payload
