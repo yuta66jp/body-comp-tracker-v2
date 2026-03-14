@@ -4,15 +4,46 @@ import { ArrowDown, ArrowUp, Minus } from "lucide-react";
 import type { DailyLog } from "@/lib/supabase/types";
 import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayTags";
 import { formatConditionSummary } from "@/lib/utils/trainingType";
+import { getNormalizedDiffWidth } from "@/lib/utils/calorieDiff";
 
 interface RecentLogsTableProps {
   logs: DailyLog[];
   embedded?: boolean;
   seasonMap?: Map<string, string>;   // log_date → season name
   currentSeason?: string | null;
+  /** settings.target_calories_kcal — 設定済みのときのみ diverging bar を表示 */
+  targetCalories?: number | null;
 }
 
-export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeason }: RecentLogsTableProps) {
+interface CalorieDiffBarProps {
+  diff: number;
+  ratio: number; // 0–1
+}
+
+/** 中央0基準の diverging bar（左=超過赤、右=不足青は反転、ここでは正=超過→右青、負=不足→左赤） */
+function CalorieDiffBar({ diff, ratio }: CalorieDiffBarProps) {
+  const pct = `${(ratio * 100).toFixed(1)}%`;
+  return (
+    <div className="mt-1 flex h-1.5 items-center" aria-hidden="true">
+      {/* 左半分: 負（摂取不足）→ 赤バーが右端から左へ伸びる */}
+      <div className="flex h-full flex-1 items-center justify-end overflow-hidden">
+        {diff < 0 && (
+          <div className="h-full rounded-l-sm bg-rose-400" style={{ width: pct }} />
+        )}
+      </div>
+      {/* 中央線 */}
+      <div className="h-3 w-px shrink-0 bg-slate-200" />
+      {/* 右半分: 正（摂取過多）→ 青バーが左端から右へ伸びる */}
+      <div className="flex h-full flex-1 items-center overflow-hidden">
+        {diff > 0 && (
+          <div className="h-full rounded-r-sm bg-blue-400" style={{ width: pct }} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeason, targetCalories }: RecentLogsTableProps) {
   const sorted = [...logs]
     .filter((d) => d.weight !== null)
     .sort((a, b) => b.log_date.localeCompare(a.log_date))
@@ -30,6 +61,15 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
     return log.weight - prev.weight;
   }
 
+  // diverging bar の正規化用: 表示14行の diff 絶対値最大を事前算出
+  const maxAbs = (() => {
+    if (targetCalories == null) return 0;
+    const absDiffs = sorted
+      .filter((log): log is DailyLog & { calories: number } => log.calories !== null)
+      .map((log) => Math.abs(log.calories - targetCalories));
+    return absDiffs.length > 0 ? Math.max(...absDiffs) : 0;
+  })();
+
   const table = (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -38,7 +78,7 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
             <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">日付</th>
             <th className="pb-2 pr-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">体重</th>
             <th className="pb-2 pr-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">変化</th>
-            <th className="pb-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">カロリー</th>
+            <th className="pb-2 pl-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">カロリー</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-50">
@@ -50,6 +90,14 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
               training_type: log.training_type,
               work_mode: log.work_mode,
             });
+
+            // カロリー差分（targetCalories 未設定 or log.calories null なら null）
+            const calDiff =
+              targetCalories != null && log.calories !== null
+                ? log.calories - targetCalories
+                : null;
+            const calRatio = calDiff !== null ? getNormalizedDiffWidth(calDiff, maxAbs) : 0;
+
             return (
               <tr key={log.log_date} className="transition-colors hover:bg-slate-50/70">
                 <td className="py-2 pr-4">
@@ -94,10 +142,31 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
                     <span className="text-xs text-slate-300">—</span>
                   )}
                 </td>
-                <td className="py-2 text-right text-xs text-slate-500">
-                  {log.calories !== null
-                    ? <>{log.calories.toLocaleString()}<span className="ml-0.5 text-slate-400">kcal</span></>
-                    : <span className="text-slate-300">—</span>}
+                <td className="py-2 pl-2">
+                  {log.calories !== null ? (
+                    <>
+                      <div className="text-right text-xs">
+                        <span className="text-slate-700">{log.calories.toLocaleString()}</span>
+                        <span className="ml-0.5 text-[10px] text-slate-400">kcal</span>
+                        {calDiff !== null && (
+                          <span
+                            className={`ml-1 text-[10px] font-medium ${
+                              calDiff > 0
+                                ? "text-blue-500"
+                                : calDiff < 0
+                                ? "text-rose-500"
+                                : "text-slate-400"
+                            }`}
+                          >
+                            ({calDiff > 0 ? "+" : ""}{Math.round(calDiff)})
+                          </span>
+                        )}
+                      </div>
+                      {calDiff !== null && <CalorieDiffBar diff={calDiff} ratio={calRatio} />}
+                    </>
+                  ) : (
+                    <div className="text-right text-xs text-slate-300">—</div>
+                  )}
                 </td>
               </tr>
             );
