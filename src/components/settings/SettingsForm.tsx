@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Save, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { saveSettings } from "@/app/settings/actions";
 import type { Setting } from "@/lib/supabase/types";
 
 interface SettingsFormProps {
@@ -87,75 +87,49 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
     });
   }
 
-  /** 各フィールドの範囲バリデーションを行い、エラーがあれば fieldErrors にセットして false を返す。 */
-  function validate(): boolean {
-    const errors: Record<string, string> = {};
-
-    function checkRange(key: string, min: number, max: number, label: string) {
-      const raw = values[key] ?? "";
-      if (raw === "") return; // 空欄は未設定扱いでスキップ
-      const v = parseFloat(raw);
-      if (isNaN(v) || v < min || v > max) {
-        errors[key] = `${label} は ${min}〜${max} の範囲で入力してください`;
-      }
-    }
-
-    checkRange("height_cm", 100, 250, "身長");
-    checkRange("age", 1, 120, "年齢");
-    checkRange("activity_factor", 1.2, 2.5, "活動係数");
-    checkRange("goal_weight", 20, 200, "目標体重");
-    checkRange("monthly_target", 20, 200, "月次目標体重");
-    checkRange("target_calories_kcal", 500, 6000, "目標カロリー");
-    checkRange("target_protein_g", 0, 500, "目標タンパク質");
-    checkRange("target_fat_g", 0, 300, "目標脂質");
-    checkRange("target_carbs_g", 0, 800, "目標炭水化物");
-
-    // current_phase は "Cut" / "Bulk" のみ許容
-    const phase = values["current_phase"] ?? "";
-    if (phase !== "" && !["Cut", "Bulk"].includes(phase)) {
-      errors["current_phase"] = 'フェーズは "Cut" または "Bulk" を選択してください';
-    }
-
-    // contest_date は YYYY-MM-DD 形式のみ許容
-    const contestDate = values["contest_date"] ?? "";
-    if (contestDate !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(contestDate)) {
-      errors["contest_date"] = "日付は YYYY-MM-DD 形式で入力してください";
-    }
-
-    setFieldErrors(errors);
-    return Object.keys(errors).length === 0;
-  }
-
+  /**
+   * 保存ボタン押下時のハンドラ。
+   * バリデーションと DB 保存は server action (saveSettings) が canonical source。
+   * UI はエラー表示とステータス管理に専念する。
+   */
   async function handleSave() {
-    if (!validate()) return;
     setStatus("saving");
-    const supabase = createClient();
+    setFieldErrors({});
 
-    const allMeta = { ...FIELDS, ...MACRO_TARGET_FIELDS };
-    const upserts = ALL_FIELD_KEYS.map((key) => {
-      const meta = allMeta[key];
-      const raw = values[key] ?? "";
-      const isNumeric = meta.type === "number";
-      const isDate = meta.type === "date";
-
-      // text / select フィールド: 前後空白を除去
-      const normalizedStr = (!isNumeric && !isDate) ? raw.trim() : raw;
-      // number フィールド: parseFloat して有限数でなければ null
-      const parsedNum = isNumeric && raw.trim() !== "" ? parseFloat(raw.trim()) : NaN;
-      const numValue = isNumeric ? (Number.isFinite(parsedNum) ? parsedNum : null) : null;
-      // date フィールド: YYYY-MM-DD 形式のみ保存（それ以外は null）
-      const dateValue = isDate && /^\d{4}-\d{2}-\d{2}$/.test(raw.trim()) ? raw.trim() : null;
-
-      return {
-        key,
-        value_num: numValue,
-        value_str: isNumeric ? null : (isDate ? dateValue : (normalizedStr !== "" ? normalizedStr : null)),
-      };
+    const result = await saveSettings({
+      goal_weight:          values["goal_weight"] ?? "",
+      monthly_target:       values["monthly_target"] ?? "",
+      activity_factor:      values["activity_factor"] ?? "",
+      height_cm:            values["height_cm"] ?? "",
+      age:                  values["age"] ?? "",
+      target_calories_kcal: values["target_calories_kcal"] ?? "",
+      target_protein_g:     values["target_protein_g"] ?? "",
+      target_fat_g:         values["target_fat_g"] ?? "",
+      target_carbs_g:       values["target_carbs_g"] ?? "",
+      current_season:       values["current_season"] ?? "",
+      current_phase:        values["current_phase"] ?? "",
+      sex:                  values["sex"] ?? "",
+      contest_date:         values["contest_date"] ?? "",
     });
 
-    const { error } = await supabase.from("settings").upsert(upserts as never);
-    if (error) {
-      console.error("settings upsert error:", error.message);
+    if (!result.ok) {
+      // server action からのエラーを fieldErrors に展開する
+      // フォーマット: "field: message, field: message"
+      const newErrors: Record<string, string> = {};
+      const errorParts = result.error
+        .replace(/^入力値が不正です。/, "")
+        .split(", ");
+      for (const part of errorParts) {
+        const colonIdx = part.indexOf(": ");
+        if (colonIdx !== -1) {
+          const field = part.slice(0, colonIdx).trim();
+          const message = part.slice(colonIdx + 2).trim();
+          newErrors[field] = message;
+        }
+      }
+      if (Object.keys(newErrors).length > 0) {
+        setFieldErrors(newErrors);
+      }
       setStatus("error");
       setTimeout(() => setStatus("idle"), 3000);
     } else {
