@@ -6,13 +6,17 @@ test_enrich.py — enrich.py の平滑化・頑健化ロジックのテスト
   2. 体重・カロリー欠損があってもクラッシュしない
   3. 出力値が生理的に妥当な範囲に収まる
   4. 冪等性が保たれる
+
+実行: pytest ml-pipeline/test_enrich.py -v
+依存: pandas, numpy (requirements-ci.txt に含まれる)
+      supabase は不要 — import enrich 時に supabase を要求しないことを保証する
 """
 import math
 
 import pandas as pd
 import pytest
 
-from enrich import enrich_data
+from enrich import enrich_data, build_enriched_payload
 
 
 def _make_df(
@@ -170,3 +174,74 @@ def test_sufficient_data_produces_estimates():
         if v is not None and isinstance(v, float) and math.isfinite(v)
     )
     assert finite_count >= 10, f"後半の有限 TDEE 値が少なすぎます: {finite_count}"
+
+
+# ── build_enriched_payload のテスト ───────────────────────────────────────────
+
+class TestBuildEnrichedPayload:
+    """
+    build_enriched_payload() の純粋変換ロジックを検証する。
+    supabase なしで動作することをこのクラスが間接的に保証する。
+    analytics_cache.payload["enriched_logs"] の構造仕様を文書化する役割も持つ。
+    """
+
+    def _make_enriched(self, n: int = 20) -> pd.DataFrame:
+        return enrich_data(_make_df(n=n))
+
+    def test_returns_list_of_dicts(self):
+        """出力はリストであり、各要素が dict である。"""
+        records = build_enriched_payload(self._make_enriched())
+        assert isinstance(records, list)
+        assert all(isinstance(r, dict) for r in records)
+
+    def test_length_equals_input_rows(self):
+        """出力レコード数が入力行数と一致する。"""
+        df = self._make_enriched(30)
+        records = build_enriched_payload(df)
+        assert len(records) == 30
+
+    def test_each_record_has_required_keys(self):
+        """各レコードに log_date / weight_sma7 / tdee_estimated が存在する。"""
+        records = build_enriched_payload(self._make_enriched())
+        for r in records:
+            assert "log_date" in r
+            assert "weight_sma7" in r
+            assert "tdee_estimated" in r
+
+    def test_log_date_is_yyyy_mm_dd_string(self):
+        """log_date が "YYYY-MM-DD" 形式の文字列になっている。"""
+        records = build_enriched_payload(self._make_enriched())
+        import re
+        pattern = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+        for r in records:
+            assert pattern.match(r["log_date"]), f"Bad log_date format: {r['log_date']}"
+
+    def test_inf_values_become_none(self):
+        """inf / -inf を含む列は None になる。"""
+        df = self._make_enriched(10)
+        df.loc[5, "tdee_estimated"] = float("inf")
+        df.loc[6, "tdee_estimated"] = float("-inf")
+        records = build_enriched_payload(df)
+        assert records[5]["tdee_estimated"] is None
+        assert records[6]["tdee_estimated"] is None
+
+    def test_nan_values_become_none(self):
+        """NaN を含む列は None になる。"""
+        df = self._make_enriched(10)
+        df.loc[3, "weight_sma7"] = float("nan")
+        records = build_enriched_payload(df)
+        assert records[3]["weight_sma7"] is None
+
+    def test_does_not_mutate_input(self):
+        """入力 DataFrame を変更しない。"""
+        df = self._make_enriched(10)
+        original_log_date_dtype = df["log_date"].dtype
+        build_enriched_payload(df)
+        assert df["log_date"].dtype == original_log_date_dtype
+
+    def test_early_rows_tdee_may_be_none(self):
+        """先頭付近 (min_periods=3 未満) の tdee_estimated は None でも許容。"""
+        records = build_enriched_payload(self._make_enriched(10))
+        # 1行目は None または float — クラッシュしないことを確認
+        first = records[0]["tdee_estimated"]
+        assert first is None or isinstance(first, float)

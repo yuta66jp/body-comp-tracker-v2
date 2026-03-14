@@ -5,14 +5,9 @@
 # 依存の整理状況:
 #   analyze.py: xgboost は run_importance() 内で遅延 import、
 #               supabase は main() 内で遅延 import 済み。
-#               → import analyze だけでは xgboost / supabase 不要になった。
-#   enrich.py:  supabase をトップレベル import しているため、
-#               test_enrich.py の import 時に supabase が必要（未整理）。
-#               → supabase はここに残す。
-#               除去条件: enrich.py の `from supabase import create_client` を
-#               main() 内への遅延 import に移動すれば、この行を削除できる。
+#   enrich.py:  supabase は main() 内で遅延 import 済み。
+#               → import analyze / import enrich ともに supabase 不要になった。
 pandas==2.*
 xgboost==2.*
 scikit-learn>=1.3
-supabase==2.*
 pytest
