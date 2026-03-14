@@ -1,38 +1,18 @@
-import { createClient } from "@/lib/supabase/server";
 import { SettingsForm } from "@/components/settings/SettingsForm";
 import { ExportSection } from "@/components/settings/ExportSection";
 import { ImportSection } from "@/components/settings/ImportSection";
 import { DataQualityPanel } from "@/components/settings/DataQualityPanel";
 import { calcDataQuality } from "@/lib/utils/calcDataQuality";
-import type { Setting, DailyLog } from "@/lib/supabase/types";
+import { fetchSettingsRows } from "@/lib/queries/settings";
+import { fetchDailyLogsForSettings } from "@/lib/queries/dailyLogs";
 
 export const revalidate = 0;
 
-async function fetchSettings(): Promise<Setting[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase.from("settings").select("*");
-  if (error) {
-    console.error("settings fetch error:", error.message);
-    return [];
-  }
-  return (data as Setting[]) ?? [];
-}
-
-async function fetchLogs(): Promise<DailyLog[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("daily_logs")
-    .select("log_date, weight, calories")
-    .order("log_date", { ascending: true });
-  if (error) {
-    console.error("daily_logs fetch error:", error.message);
-    return [];
-  }
-  return (data as DailyLog[]) ?? [];
-}
-
 export default async function SettingsPage() {
-  const [settings, logs] = await Promise.all([fetchSettings(), fetchLogs()]);
+  const [settings, logs] = await Promise.all([
+    fetchSettingsRows(),
+    fetchDailyLogsForSettings(),
+  ]);
   const qualityReport = calcDataQuality(logs);
 
   return (

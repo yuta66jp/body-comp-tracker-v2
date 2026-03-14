@@ -1,4 +1,3 @@
-import { createClient } from "@/lib/supabase/server";
 import { DaysOutChart } from "@/components/history/DaysOutChart";
 import { SeasonLowChart } from "@/components/history/SeasonLowChart";
 import { SeasonComparisonTable } from "@/components/history/SeasonComparisonTable";
@@ -12,47 +11,19 @@ import {
   calcTodayDaysOut,
 } from "@/lib/utils/calcSeason";
 import { toJstDateStr } from "@/lib/utils/date";
-import type { DailyLog, CareerLog, Setting } from "@/lib/supabase/types";
+import { fetchCareerLogs, fetchWeightLogs } from "@/lib/queries/dailyLogs";
+import { fetchSettings } from "@/lib/queries/settings";
+import type { CareerLog } from "@/lib/supabase/types";
 
 /** 比較するマイルストーン (大会日からの日数) */
 const MILESTONES = [-180, -120, -90, -60, -30, -14];
 
 export const revalidate = 3600;
 
-async function fetchCareerLogs(): Promise<CareerLog[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("career_logs")
-    .select("*")
-    .order("log_date", { ascending: true });
-  if (error) { console.error(error.message); return []; }
-  return (data as CareerLog[]) ?? [];
-}
-
-async function fetchCurrentLogs(): Promise<DailyLog[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("daily_logs")
-    .select("log_date, weight")
-    .not("weight", "is", null)
-    .order("log_date", { ascending: true });
-  if (error) { console.error(error.message); return []; }
-  return (data as DailyLog[]) ?? [];
-}
-
-async function fetchSettings(): Promise<Record<string, string | number | null>> {
-  const supabase = createClient();
-  const { data } = await supabase.from("settings").select("key, value_num, value_str");
-  const rows = (data as Setting[] | null) ?? [];
-  return Object.fromEntries(
-    rows.map((r) => [r.key, r.value_num !== null ? r.value_num : r.value_str])
-  );
-}
-
 export default async function HistoryPage() {
   const [careerLogs, currentLogs, settings] = await Promise.all([
     fetchCareerLogs(),
-    fetchCurrentLogs(),
+    fetchWeightLogs(),
     fetchSettings(),
   ]);
 

@@ -1,11 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
 import { MacroKpiCards } from "@/components/macro/MacroKpiCards";
 import { MacroStackedChart } from "@/components/macro/MacroStackedChart";
 import { MacroDailyTable } from "@/components/macro/MacroDailyTable";
 import { MacroPfcSummary } from "@/components/macro/MacroPfcSummary";
 import { FactorAnalysis, FactorAnalysisPlaceholder } from "@/components/charts/FactorAnalysis";
-import type { FactorEntry, FactorMeta, StabilityEntry } from "@/lib/utils/factorAnalysisUtils";
-import { mergeStability } from "@/lib/utils/factorAnalysisUtils";
 import {
   calcMacroKpi,
   calcDailyMacro,
@@ -13,74 +10,15 @@ import {
   calcPfcKcalRatio,
 } from "@/lib/utils/calcMacro";
 import type { MacroTargets } from "@/lib/utils/calcMacro";
-import { getXgboostAvailability, errorAvailability } from "@/lib/analytics/status";
-import type { DailyLog, AnalyticsCache } from "@/lib/supabase/types";
+import { fetchDailyLogs } from "@/lib/queries/dailyLogs";
+import { fetchMacroTargets } from "@/lib/queries/settings";
+import { fetchFactorAnalysis } from "@/lib/queries/analytics";
 
 export const revalidate = 3600;
 
-async function fetchLogs(): Promise<DailyLog[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("daily_logs").select("*").order("log_date", { ascending: true });
-  if (error) { console.error(error.message); return []; }
-  return (data as DailyLog[]) ?? [];
-}
-
-type FactorFetchResult =
-  | { kind: "ok"; payload: Record<string, FactorEntry>; meta: FactorMeta | null; updatedAt: string }
-  | { kind: "not_found" }
-  | { kind: "error" };
-
-async function fetchFactorAnalysis(): Promise<FactorFetchResult> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("analytics_cache")
-    .select("payload, updated_at")
-    .eq("metric_type", "xgboost_importance")
-    .single();
-  if (error) {
-    return error.code === "PGRST116" ? { kind: "not_found" } : { kind: "error" };
-  }
-  if (!data) return { kind: "not_found" };
-  const row = data as Pick<AnalyticsCache, "payload" | "updated_at">;
-  const rawPayload = row.payload as Record<string, unknown>;
-  // _meta / _stability を分離して残りを FactorEntry として渡す
-  const { _meta, _stability, ...entries } = rawPayload;
-  const stabilityMap = (_stability ?? null) as Record<string, StabilityEntry> | null;
-  const mergedEntries = mergeStability(entries as Record<string, FactorEntry>, stabilityMap);
-  return {
-    kind: "ok",
-    payload: mergedEntries,
-    meta: (_meta ?? null) as FactorMeta | null,
-    updatedAt: row.updated_at,
-  };
-}
-
-async function fetchMacroTargets(): Promise<MacroTargets & { calTarget: number | null }> {
-  const supabase = createClient();
-  const keys = ["target_calories_kcal", "target_protein_g", "target_fat_g", "target_carbs_g", "goal_calories"];
-  const { data } = await supabase
-    .from("settings")
-    .select("key, value_num")
-    .in("key", keys);
-  const map: Record<string, number | null> = {};
-  for (const row of (data as { key: string; value_num: number | null }[]) ?? []) {
-    map[row.key] = row.value_num;
-  }
-  return {
-    calories: map["target_calories_kcal"] ?? null,
-    protein:  map["target_protein_g"]     ?? null,
-    fat:      map["target_fat_g"]         ?? null,
-    carbs:    map["target_carbs_g"]       ?? null,
-    // 後方互換: MacroDailyTable 用 (旧 goal_calories → target_calories_kcal にフォールバック)
-    calTarget: map["target_calories_kcal"] ?? map["goal_calories"] ?? null,
-  };
-}
-
 export default async function MacroPage() {
-  const [logs, factorFetch, targetsResult] = await Promise.all([
-    fetchLogs(),
-    fetchFactorAnalysis(),
+  const [logs, targetsResult] = await Promise.all([
+    fetchDailyLogs(),
     fetchMacroTargets(),
   ]);
 
@@ -92,21 +30,15 @@ export default async function MacroPage() {
     );
   }
 
-  const { calTarget, ...targets } = targetsResult;
+  // factor analysis は rawLogs の最新日を渡して新鮮さを判定する
+  const latestRawLogDate = logs[logs.length - 1]?.log_date ?? null;
+  const factorResult = await fetchFactorAnalysis(latestRawLogDate);
+
+  const { calTarget, ...targets }: MacroTargets & { calTarget: number | null } = targetsResult;
   const kpi = calcMacroKpi(logs);
   const dailyData = calcDailyMacro(logs, 60);
   const diff = calcMacroDiff(kpi.weekly, targets);
   const pfcRatio = calcPfcKcalRatio(kpi.weekly);
-
-  // xgboost_importance の新鮮さを判定
-  const latestRawLogDate = logs[logs.length - 1]?.log_date ?? null;
-  const factorAvailability =
-    factorFetch.kind === "error"
-      ? errorAvailability()
-      : getXgboostAvailability(
-          factorFetch.kind === "ok" ? factorFetch.updatedAt : null,
-          latestRawLogDate
-        );
 
   return (
     <main className="min-h-screen bg-gray-50 p-6">
@@ -124,15 +56,15 @@ export default async function MacroPage() {
         {/* 既存: 日次栄養内訳テーブル */}
         <MacroDailyTable data={dailyData} calTarget={calTarget} />
 
-        {factorFetch.kind === "ok" ? (
+        {factorResult.payload !== null ? (
           <FactorAnalysis
-            data={factorFetch.payload}
-            meta={factorFetch.meta}
-            updatedAt={factorFetch.updatedAt}
-            analyticsAvailability={factorAvailability}
+            data={factorResult.payload}
+            meta={factorResult.meta}
+            updatedAt={factorResult.updatedAt ?? ""}
+            analyticsAvailability={factorResult.availability}
           />
         ) : (
-          <FactorAnalysisPlaceholder analyticsAvailability={factorAvailability} />
+          <FactorAnalysisPlaceholder analyticsAvailability={factorResult.availability} />
         )}
       </div>
     </main>
