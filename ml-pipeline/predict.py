@@ -10,6 +10,19 @@ import math
 import os
 from datetime import datetime, timezone, timedelta
 
+# torch 2.6+ changed weights_only default to True, which breaks pytorch-lightning's
+# LR-finder checkpoint restore when loading NeuralProphet objects.
+# This pipeline only ever loads checkpoints it wrote itself in the same run (trusted),
+# so overriding weights_only=False is safe here.
+import torch as _torch
+if tuple(int(x) for x in _torch.__version__.split(".")[:2]) >= (2, 6):
+    _orig_torch_load = _torch.load
+
+    def _trusted_load(f, map_location=None, pickle_module=None, weights_only=None, mmap=None, **kw):
+        return _orig_torch_load(f, map_location=map_location, weights_only=False, **kw)
+
+    _torch.load = _trusted_load
+
 import pandas as pd
 from neuralprophet import NeuralProphet
 from supabase import create_client
