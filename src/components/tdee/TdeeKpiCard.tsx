@@ -87,7 +87,7 @@ export function TdeeKpiCard({
             <span className="ml-1 text-base font-normal text-gray-400">kcal</span>
           </p>
           <p className="mt-1 text-xs text-gray-400">
-            体重変化と摂取から逆算
+            体重推移を平滑化して逆算（短期ノイズを除去）
             {theoreticalTdee !== null && (
               <> — 理論値 {Math.round(theoreticalTdee).toLocaleString()} kcal</>
             )}

@@ -145,11 +145,41 @@ export interface TdeeConfidence {
 }
 
 /**
+ * 日次 TDEE 系列に後方ローリング中央値 (rolling median) を適用する。
+ *
+ * 用途: 体水分・塩分・便通等で生じる短期ノイズを吸収し、週次判断に使いやすい値に平滑化する。
+ * 設計:
+ *   - 後方窓 (index i − windowSize + 1 〜 i) を使うので未来データへの依存なし。
+ *   - minPeriods 未満の有効サンプルしか集まらない場合は null を返す（無理推定しない）。
+ *   - null はウィンドウから除外してサンプル数をカウントする（欠損日に対応）。
+ *
+ * @param values     日次 TDEE 推定値の配列 (古い順)
+ * @param windowSize ウィンドウ幅 (デフォルト 7)
+ * @param minPeriods 最低有効サンプル数 (デフォルト 3)
+ */
+export function smoothTdeeSeries(
+  values: (number | null)[],
+  windowSize = 7,
+  minPeriods = 3
+): (number | null)[] {
+  return values.map((_, i) => {
+    const start = Math.max(0, i - windowSize + 1);
+    const win = values.slice(start, i + 1).filter((v): v is number => v !== null);
+    if (win.length < minPeriods) return null;
+    const sorted = [...win].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 0
+      ? (sorted[mid - 1] + sorted[mid]) / 2
+      : sorted[mid];
+  });
+}
+
+/**
  * TDEE 推定の信頼度を判定する。
  *
  * 判定基準:
- *   high   : calories + weight ともに直近7エントリ中 6日以上記録 かつ 体重標準偏差 ≤ 1.5 kg
- *   medium : calories + weight ともに 4日以上
+ *   high   : calories + weight ともに直近7エントリ中 6日以上記録 かつ 体重標準偏差 ≤ 1.5 kg かつ TDEE σ ≤ 350 kcal
+ *   medium : calories + weight ともに 4日以上、または変動が大きい
  *   low    : いずれかが 3日以下、または実測TDEE推定値なし
  */
 export function calcTdeeConfidence(params: {
@@ -157,23 +187,40 @@ export function calcTdeeConfidence(params: {
   weightDays: number;
   hasTdeeEstimate: boolean;
   weightStdDev?: number;
+  /** 直近7日 TDEE 推定値の標準偏差 (kcal) */
+  tdeeStdDev?: number;
 }): TdeeConfidence {
-  const { calDays, weightDays, hasTdeeEstimate, weightStdDev } = params;
+  const { calDays, weightDays, hasTdeeEstimate, weightStdDev, tdeeStdDev } = params;
   const minDays = Math.min(calDays, weightDays);
 
   if (!hasTdeeEstimate) {
     return { level: "low", reason: "実測TDEE推定値がありません (ML バッチ未実行)" };
   }
   if (minDays < 4) {
-    return { level: "low", reason: `直近7日のうちカロリー/体重の両方が揃う日が ${minDays} 日のみです` };
+    return {
+      level: "low",
+      reason: `直近7日のうちカロリー/体重の両方が揃う日が ${minDays} 日のみです。データ不足のため参考値としてのみ扱ってください。`,
+    };
   }
   if (weightStdDev !== undefined && weightStdDev > 1.5) {
-    return { level: "medium", reason: `体重変動が大きく推定が不安定です (σ ≈ ${weightStdDev.toFixed(1)} kg)` };
+    return {
+      level: "medium",
+      reason: `直近の体重変動が大きく推定が不安定です (σ ≈ ${weightStdDev.toFixed(1)} kg)。単日変動を平滑化した参考値です。`,
+    };
+  }
+  if (tdeeStdDev !== undefined && tdeeStdDev > 350) {
+    return {
+      level: "medium",
+      reason: `TDEE推定の変動幅が大きい状態です (σ ≈ ${Math.round(tdeeStdDev)} kcal)。直近の体重変動が大きいため参考度は中程度です。`,
+    };
   }
   if (minDays < 6) {
-    return { level: "medium", reason: `直近7日のうち ${minDays} 日分のデータで推定しています` };
+    return {
+      level: "medium",
+      reason: `直近7日のうち ${minDays} 日分のデータで推定しています。`,
+    };
   }
-  return { level: "high", reason: "直近7日のデータが十分に揃っています" };
+  return { level: "high", reason: "直近7日のデータが十分に揃っています。" };
 }
 
 /**

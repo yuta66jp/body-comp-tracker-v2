@@ -8,6 +8,7 @@ import {
   calcTheoreticalWeightChangePerWeek,
   calcTdeeConfidence,
   buildTdeeInterpretation,
+  smoothTdeeSeries,
 } from "@/lib/utils/calcTdee";
 import type { DailyLog, AnalyticsCache, Setting } from "@/lib/supabase/types";
 import type { CurrentPhase } from "@/lib/utils/energyBalance";
@@ -86,11 +87,20 @@ export default async function TdeePage() {
     }
   }
 
+  // enriched TDEE 系列を平滑化（水分・塩分・便通由来の単日ノイズを除去）
+  // enrich.py 側でも SMA7 差分 + rolling median 済みだが、フロントで一層かけることで
+  // バッチ未更新日や直近エントリのノイズも吸収する
+  const allTdeeRaw: (number | null)[] = (enriched ?? []).map((r) => r.tdee_estimated);
+  const smoothedTdeeValues = smoothTdeeSeries(allTdeeRaw);
+  const smoothedTdeeMap = new Map(
+    (enriched ?? []).map((r, i) => [r.log_date, smoothedTdeeValues[i]])
+  );
+
   // enriched がある場合はその日付軸を使う。ない場合は rawLogs を軸に tdee=null で描画
   const chartData = enriched
     ? enriched.map((row) => ({
         date: row.log_date.slice(5),
-        tdee: row.tdee_estimated,
+        tdee: smoothedTdeeMap.get(row.log_date) ?? null,
         intake: calMaMap.get(row.log_date) ?? null,
         theoretical: theoreticalTdee,
       }))
@@ -101,10 +111,24 @@ export default async function TdeePage() {
         theoretical: theoreticalTdee,
       }));
 
-  const tdeeValues = (enriched ?? []).map((r) => r.tdee_estimated).filter((v): v is number => v !== null);
-  const avgTdee = tdeeValues.length > 0
-    ? tdeeValues.slice(-7).reduce((a, b) => a + b, 0) / Math.min(7, tdeeValues.length)
-    : null;
+  // 直近7日の平滑化済み TDEE から平均値を算出
+  const tdeeValues7 = smoothedTdeeValues.slice(-7).filter((v): v is number => v !== null);
+  const avgTdee =
+    tdeeValues7.length > 0
+      ? tdeeValues7.reduce((a, b) => a + b, 0) / tdeeValues7.length
+      : null;
+
+  // TDEE 推定値の標準偏差 (信頼度判定に使用)
+  const tdeeStdDev =
+    tdeeValues7.length > 1
+      ? (() => {
+          const mean = tdeeValues7.reduce((a, b) => a + b, 0) / tdeeValues7.length;
+          return Math.sqrt(
+            tdeeValues7.map((v) => (v - mean) ** 2).reduce((a, b) => a + b, 0) /
+              tdeeValues7.length
+          );
+        })()
+      : undefined;
 
   const last7 = sortedRaw.slice(-7);
   const calLogs7 = last7.filter((d) => d.calories !== null);
@@ -125,24 +149,31 @@ export default async function TdeePage() {
   // 信頼度算出
   const calDays = calLogs7.length;
   const weightDays = weights7.length;
-  const weightStdDev = weights7.length > 1 && avgW7 !== null
-    ? Math.sqrt(weights7.map((w) => (w - avgW7) ** 2).reduce((a, b) => a + b, 0) / weights7.length)
-    : undefined;
+  const weightStdDev =
+    weights7.length > 1 && avgW7 !== null
+      ? Math.sqrt(
+          weights7.map((w) => (w - avgW7) ** 2).reduce((a, b) => a + b, 0) / weights7.length
+        )
+      : undefined;
 
   // 収支・理論変化・解釈
   const balance = calcEnergyBalance(avgCalories7, avgTdee);
   const theoreticalWeightChange = calcTheoreticalWeightChangePerWeek(balance);
-  const confidence = calcTdeeConfidence({ calDays, weightDays, hasTdeeEstimate: avgTdee !== null, weightStdDev });
+  const confidence = calcTdeeConfidence({
+    calDays,
+    weightDays,
+    hasTdeeEstimate: avgTdee !== null,
+    weightStdDev,
+    tdeeStdDev,
+  });
   const interpretation = buildTdeeInterpretation(balance, theoreticalWeightChange, measuredWeightChange);
 
   // rawLogs を主軸にして直近14日を表示（enriched にない新規エントリも反映）
-  const enrichedTdeeMap = new Map(
-    (enriched ?? []).map((r) => [r.log_date, r.tdee_estimated])
-  );
+  // smoothedTdeeMap を使うことで TDEE 列も平滑化済みの値を表示
   const tableData = sortedRaw.slice(-14).map((row) => ({
     date: row.log_date,
     calories: row.calories,
-    tdee: enrichedTdeeMap.get(row.log_date) ?? null,
+    tdee: smoothedTdeeMap.get(row.log_date) ?? null,
   }));
 
   return (

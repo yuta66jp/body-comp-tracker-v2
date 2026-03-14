@@ -7,6 +7,7 @@ import {
   calcTheoreticalWeightChangePerWeek,
   calcTdeeConfidence,
   buildTdeeInterpretation,
+  smoothTdeeSeries,
   KCAL_PER_KG_FAT,
 } from "./calcTdee";
 
@@ -198,6 +199,16 @@ describe("calcTdeeConfidence", () => {
     expect(r.level).toBe("medium");
   });
 
+  it("tdeeStdDev > 350 → medium", () => {
+    const r = calcTdeeConfidence({ calDays: 7, weightDays: 7, hasTdeeEstimate: true, tdeeStdDev: 400 });
+    expect(r.level).toBe("medium");
+  });
+
+  it("tdeeStdDev ≤ 350 かつ minDays ≥ 6 → high", () => {
+    const r = calcTdeeConfidence({ calDays: 7, weightDays: 6, hasTdeeEstimate: true, tdeeStdDev: 200 });
+    expect(r.level).toBe("high");
+  });
+
   it("最小日数 ≥ 6 かつ σ ≤ 1.5 → high", () => {
     const r = calcTdeeConfidence({ calDays: 7, weightDays: 6, hasTdeeEstimate: true, weightStdDev: 1.0 });
     expect(r.level).toBe("high");
@@ -206,6 +217,67 @@ describe("calcTdeeConfidence", () => {
   it("reason が空文字でない", () => {
     const r = calcTdeeConfidence({ calDays: 7, weightDays: 7, hasTdeeEstimate: true });
     expect(r.reason.length).toBeGreaterThan(0);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// smoothTdeeSeries
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("smoothTdeeSeries", () => {
+  it("空配列 → 空配列", () => {
+    expect(smoothTdeeSeries([])).toEqual([]);
+  });
+
+  it("minPeriods 未満のウィンドウは null を返す", () => {
+    // 3 要素でも非 null は 2 つ → minPeriods=3 未満 → 全 null
+    const result = smoothTdeeSeries([2000, null, 2100], 7, 3);
+    expect(result[0]).toBeNull();
+    expect(result[1]).toBeNull();
+    expect(result[2]).toBeNull();
+  });
+
+  it("奇数個の中央値が正しい", () => {
+    // 窓内 [2100, 2200, 2200, 2250, 2300, 2400, 2600] の中央値 = sorted[3] = 2250
+    const values = [2100, 2200, 2200, 2250, 2300, 2400, 2600];
+    const result = smoothTdeeSeries(values, 7, 3);
+    expect(result[6]).toBeCloseTo(2250, 0);
+  });
+
+  it("偶数個の中央値が正しい（2要素の平均）", () => {
+    // 窓 [2000, 2200, 2400, 2600] の中央値 = (2200+2400)/2 = 2300
+    const values = [2000, 2200, 2400, 2600];
+    const result = smoothTdeeSeries(values, 4, 2);
+    expect(result[3]).toBeCloseTo(2300, 0);
+  });
+
+  it("外れ値が中央値で抑制される", () => {
+    // 1日だけ 9999 という外れ値（チートデイ翌日の水分増加 → TDEE spike を模倣）
+    // sorted: [2100, 2150, 2200, 2200, 2250, 2300, 9999] → median = 2200
+    const values = [2200, 2100, 2300, 9999, 2150, 2250, 2200];
+    const result = smoothTdeeSeries(values, 7, 3);
+    expect(result[6]).toBeLessThan(3000);
+    expect(result[6]).toBeGreaterThan(2000);
+  });
+
+  it("null が混在してもサンプル数が満たせれば計算できる", () => {
+    const values: (number | null)[] = [2000, null, null, 2200, 2400, null, 2300];
+    // 最終窓 非 null = [2000, 2200, 2400, 2300] → 4 ≥ 3 → non-null
+    const result = smoothTdeeSeries(values, 7, 3);
+    expect(result[6]).not.toBeNull();
+  });
+
+  it("全 null → 全 null", () => {
+    const values: (number | null)[] = [null, null, null, null];
+    expect(smoothTdeeSeries(values).every((v) => v === null)).toBe(true);
+  });
+
+  it("十分なデータがあれば後半は non-null になる", () => {
+    const values = Array.from({ length: 14 }, (_, i) => 2000 + i * 10);
+    const result = smoothTdeeSeries(values, 7, 3);
+    // index 2 以降は非 null のはず
+    expect(result[2]).not.toBeNull();
+    expect(result[13]).not.toBeNull();
   });
 });
 

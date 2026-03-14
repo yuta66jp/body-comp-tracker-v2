@@ -39,10 +39,17 @@ def enrich_data(df: pd.DataFrame) -> pd.DataFrame:
     # 7日間単純移動平均
     df["weight_sma7"] = df["weight"].rolling(window=SMA_WINDOW, min_periods=1).mean()
 
-    # TDEE逆算 (体重差分とカロリーから推定)
-    weight_delta = df["weight"].diff()  # kg/day
-    energy_balance = weight_delta * KCAL_PER_KG_FAT
-    df["tdee_estimated"] = df["calories"] - energy_balance
+    # TDEE逆算 — 平滑化済み体重推移を使って単日ノイズを除去する
+    #
+    # 従来: weight.diff() を使用 → 水分・塩分・便通で±2 kg 変動すると TDEE が±14,400 kcal 乱高下
+    # 改善: weight_sma7.diff() = 7日移動平均の差分
+    #       SMA7 の差分は 1 日分の変化が 1/7 に分散されるため、短期ノイズに強い
+    #       さらに rolling median (min_periods=3) で外れ値日のカロリー記録を平滑化する
+    weight_sma7_delta = df["weight_sma7"].diff()  # kg/day (SMA7 の差分: ≒ (w_t - w_{t-6}) / 6)
+    tdee_candidates = df["calories"] - weight_sma7_delta * KCAL_PER_KG_FAT
+    df["tdee_estimated"] = tdee_candidates.rolling(
+        window=SMA_WINDOW, min_periods=3
+    ).median()
 
     return df
 

@@ -56,4 +56,4 @@ jobs:
 
       - name: Test
         working-directory: ml-pipeline
-        run: pytest test_analyze.py -v
+        run: pytest test_analyze.py test_enrich.py -v
