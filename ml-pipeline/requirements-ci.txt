@@ -1,0 +1,8 @@
+# Minimal dependencies for running ml-pipeline unit tests in CI.
+# Does NOT include neuralprophet / torch (too heavy for CI install).
+# Used by .github/workflows/ci.yml python-test job.
+pandas==2.*
+xgboost==2.*
+scikit-learn>=1.3
+supabase==2.*
+pytest

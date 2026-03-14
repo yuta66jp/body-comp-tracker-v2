@@ -17,7 +17,11 @@ All of the following must pass before merging:
 - `npm test` — Jest unit tests
 - `npm run build` — Next.js production build
 
-CI runs these automatically on every push and pull request.
+CI runs these automatically on every push and pull request (`lint-typecheck-build` job).
+
+In addition, `ml-pipeline/test_analyze.py` runs as a separate `python-test` job on the same triggers.
+To run Python tests locally: `cd ml-pipeline && pytest test_analyze.py -v`
+Dependencies: `pip install -r ml-pipeline/requirements-ci.txt` (pandas / xgboost / scikit-learn / supabase / pytest — no torch required).
 
 ## GitHub Actions
 
