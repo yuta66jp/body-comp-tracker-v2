@@ -15,12 +15,13 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 // ── fetchSettings ─────────────────────────────────────────────────────────────
-// fetchSettings: .from("settings").select("key, value_num, value_str")  → Promise<{data, error}>
+// fetchSettings: .from("settings").select("key, value_num, value_str")  → Promise<AppSettings>
+// mapToAppSettings への委譲をここで確認する。
 
 describe("fetchSettings", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("正常系: value_num があるキーは数値、value_str があるキーは文字列を返す", async () => {
+  it("正常系: value_num があるキーは AppSettings の数値フィールドとして返る", async () => {
     const rows = [
       { key: "goal_weight",   value_num: 72.5, value_str: null },
       { key: "contest_date",  value_num: null,  value_str: "2026-10-01" },
@@ -30,46 +31,50 @@ describe("fetchSettings", () => {
     mockFrom.mockReturnValue({ select: selectFn });
 
     const result = await fetchSettings();
-    expect(result["goal_weight"]).toBe(72.5);
-    expect(result["contest_date"]).toBe("2026-10-01");
-    expect(result["current_phase"]).toBe("Cut");
+    expect(result.targetWeight).toBe(72.5);
+    expect(result.contestDate).toBe("2026-10-01");
+    expect(result.currentPhase).toBe("Cut");
   });
 
-  it("正常系: データが空のとき空オブジェクトを返す", async () => {
+  it("正常系: データが空のとき全フィールドが null の AppSettings を返す", async () => {
     const selectFn = jest.fn().mockResolvedValue({ data: [], error: null });
     mockFrom.mockReturnValue({ select: selectFn });
     const result = await fetchSettings();
-    expect(result).toEqual({});
+    expect(result.targetWeight).toBeNull();
+    expect(result.contestDate).toBeNull();
+    expect(result.currentPhase).toBeNull();
   });
 
-  it("正常系: データが null のとき空オブジェクトを返す", async () => {
+  it("正常系: データが null のとき全フィールドが null の AppSettings を返す", async () => {
     const selectFn = jest.fn().mockResolvedValue({ data: null, error: null });
     mockFrom.mockReturnValue({ select: selectFn });
     const result = await fetchSettings();
-    expect(result).toEqual({});
+    expect(result.targetWeight).toBeNull();
+    expect(result.contestDate).toBeNull();
   });
 
   it("value_num が 0 (falsy) のとき 0 を返す", async () => {
-    const rows = [{ key: "some_num", value_num: 0, value_str: null }];
+    const rows = [{ key: "activity_factor", value_num: 0, value_str: null }];
     const selectFn = jest.fn().mockResolvedValue({ data: rows, error: null });
     mockFrom.mockReturnValue({ select: selectFn });
     const result = await fetchSettings();
-    expect(result["some_num"]).toBe(0);
+    expect(result.activityFactor).toBe(0);
   });
 
-  it("value_num も value_str も null のとき null を返す", async () => {
-    const rows = [{ key: "empty_key", value_num: null, value_str: null }];
+  it("value_num も value_str も null のとき該当フィールドは null を返す", async () => {
+    const rows = [{ key: "goal_weight", value_num: null, value_str: null }];
     const selectFn = jest.fn().mockResolvedValue({ data: rows, error: null });
     mockFrom.mockReturnValue({ select: selectFn });
     const result = await fetchSettings();
-    expect(result["empty_key"]).toBeNull();
+    expect(result.targetWeight).toBeNull();
   });
 
-  it("DB エラーのとき空オブジェクトを返す（エラーを握りつぶす）", async () => {
+  it("DB エラーのとき全フィールドが null の AppSettings を返す", async () => {
     const selectFn = jest.fn().mockResolvedValue({ data: null, error: { message: "DB error" } });
     mockFrom.mockReturnValue({ select: selectFn });
     const result = await fetchSettings();
-    expect(result).toEqual({});
+    expect(result.targetWeight).toBeNull();
+    expect(result.contestDate).toBeNull();
   });
 });
 

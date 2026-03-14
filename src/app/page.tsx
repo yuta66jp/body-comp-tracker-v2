@@ -99,10 +99,10 @@ export default async function DashboardPage() {
     .filter((r) => r.tdee_estimated !== null)
     .at(-1)?.tdee_estimated ?? null;
 
-  const goalWeight = typeof settings["goal_weight"] === "number" ? settings["goal_weight"] : undefined;
-  const monthlyTarget = typeof settings["monthly_target"] === "number" ? settings["monthly_target"] : undefined;
-  const contestDate = typeof settings["contest_date"] === "string" ? settings["contest_date"] : undefined;
-  const currentSeason = typeof settings["current_season"] === "string" ? settings["current_season"] : null;
+  const goalWeight = settings.targetWeight ?? undefined;
+  const monthlyTarget = settings.monthlyTarget ?? undefined;
+  const contestDate = settings.contestDate ?? undefined;
+  const currentSeason = settings.currentSeason;
 
   // シーズン関連データ
   const seasonMap = buildSeasonMap(careerLogs);
@@ -115,8 +115,7 @@ export default async function DashboardPage() {
 
   const qualityReport = calcDataQuality(logs);
 
-  const phase =
-    typeof settings["current_phase"] === "string" ? settings["current_phase"] : "Cut";
+  const phase = settings.currentPhase ?? "Cut";
 
   const readinessMetrics = calcReadiness(logs, {
     contest_date: contestDate ?? null,

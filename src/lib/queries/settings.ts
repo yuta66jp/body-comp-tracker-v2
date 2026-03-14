@@ -1,7 +1,7 @@
 /**
  * settings テーブルの read 責務を集約する。
  *
- * - fetchSettings()     : 全キーを key → value のマップとして返す（page 用）
+ * - fetchSettings()     : 全キーを AppSettings ドメイン型に変換して返す（page 用）
  * - fetchSettingsRows() : settings テーブルの行配列を返す（SettingsForm などフォーム用）
  * - fetchMacroTargets() : マクロ目標値キーだけをピンポイント取得する（MacroPage 用）
  *
@@ -11,19 +11,20 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Setting } from "@/lib/supabase/types";
 import type { MacroTargets } from "@/lib/utils/calcMacro";
+import { mapToAppSettings } from "@/lib/domain/settings";
+import type { AppSettings } from "@/lib/domain/settings";
 
 /**
- * settings テーブルを全件取得し、key → (value_num ?? value_str) のマップを返す。
+ * settings テーブルを全件取得し、AppSettings ドメイン型に変換して返す。
  *
- * フォールバック: エラー時は空オブジェクトを返す（page 側が null チェック不要になる）。
+ * - DB row[] → AppSettings の変換は mapToAppSettings (lib/domain/settings.ts) に委譲する。
+ * - フォールバック: エラー時は全フィールドが null の AppSettings を返す。
  */
-export async function fetchSettings(): Promise<Record<string, string | number | null>> {
+export async function fetchSettings(): Promise<AppSettings> {
   const supabase = createClient();
   const { data } = await supabase.from("settings").select("key, value_num, value_str");
   const rows = (data as Setting[] | null) ?? [];
-  return Object.fromEntries(
-    rows.map((r) => [r.key, r.value_num !== null ? r.value_num : r.value_str])
-  );
+  return mapToAppSettings(rows);
 }
 
 /**

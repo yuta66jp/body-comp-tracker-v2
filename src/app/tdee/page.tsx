@@ -38,19 +38,18 @@ export default async function TdeePage() {
   const enrichedAvailability = enrichedResult.availability;
 
   // current_phase — "Cut" / "Bulk" のみ有効（それ以外は null に落とす）
-  const rawPhase = settings["current_phase"];
+  const rawPhase = settings.currentPhase;
   const currentPhase: CurrentPhase | null =
     rawPhase === "Cut" || rawPhase === "Bulk" ? rawPhase : null;
 
   // 理論 TDEE（settings から）
-  const heightCm = typeof settings["height_cm"] === "number" ? settings["height_cm"] : null;
-  const ageYears = typeof settings["age"] === "number" ? settings["age"] : null;
-  const activityFactor = typeof settings["activity_factor"] === "number" ? settings["activity_factor"] : 1.55;
+  const heightCm = settings.height;
+  const ageYears = settings.age;
+  const activityFactor = settings.activityFactor ?? 1.55;
   const latestWeight = rawLogs.filter((d) => d.weight !== null).at(-1)?.weight ?? null;
 
-  const sex = settings["sex"];
   const isMale: boolean | null =
-    sex === "male" ? true : sex === "female" ? false : null;
+    settings.gender === "male" ? true : settings.gender === "female" ? false : null;
 
   const theoreticalTdee =
     heightCm !== null && ageYears !== null && latestWeight !== null && isMale !== null

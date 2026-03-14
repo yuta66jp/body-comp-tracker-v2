@@ -2,6 +2,7 @@
 
 import { TrendingDown, TrendingUp, Minus, Weight, Flame, CalendarClock, Zap, Target } from "lucide-react";
 import type { DailyLog } from "@/lib/supabase/types";
+import type { AppSettings } from "@/lib/domain/settings";
 import { calcWeightTrend } from "@/lib/utils/calcTrend";
 import { toJstDateStr, calcDaysLeft, addDaysStr } from "@/lib/utils/date";
 import { filterLastNCalendarDays } from "@/lib/utils/timeWindow";
@@ -10,7 +11,7 @@ const KCAL_PER_KG = 7200;
 
 interface KpiCardsProps {
   logs: DailyLog[];
-  settings: Record<string, number | string | null>;
+  settings: AppSettings;
   avgTdee: number | null;
 }
 
@@ -89,11 +90,11 @@ export function KpiCards({ logs, settings, avgTdee }: KpiCardsProps) {
   // calcDaysLeft を使い GoalNavigator / calcReadiness と定義を統一する。
   // (旧実装: new Date(contestDate).getTime() - Date.now() は UTC 解釈のため
   //  JST 00:00〜08:59 に大会当日を "1日前" と誤表示するバグがあった)
-  const contestDate = typeof settings["contest_date"] === "string" ? settings["contest_date"] : null;
+  const contestDate = settings.contestDate;
   const daysLeft = contestDate ? calcDaysLeft(todayStr, contestDate) : null;
 
   // --- 目標到達予定日（線形トレンドから算出）---
-  const goalWeight = typeof settings["goal_weight"] === "number" ? settings["goal_weight"] : null;
+  const goalWeight = settings.targetWeight;
   const currentWeight = latest?.weight ?? null;
   const slopePerDay = trend.slope; // kg/day
 
@@ -118,7 +119,7 @@ export function KpiCards({ logs, settings, avgTdee }: KpiCardsProps) {
   }
 
   // --- 推奨カロリー調整 ---
-  const phase = typeof settings["current_phase"] === "string" ? settings["current_phase"] : "Cut";
+  const phase = settings.currentPhase ?? "Cut";
   const isCut = phase !== "Bulk";
 
   const gap = currentWeight !== null && goalWeight !== null ? currentWeight - goalWeight : null;
