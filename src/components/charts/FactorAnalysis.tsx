@@ -9,6 +9,7 @@ import {
   type FactorEntry,
   type FactorMeta,
   type SortedFactorRow,
+  type StabilityLabel,
   MIN_ROWS,
   prepareFactorRows,
   isHighDropRate,
@@ -154,6 +155,31 @@ function AnalysisPremise({ meta }: { meta: FactorMeta | null | undefined }) {
   );
 }
 
+// stability ラベルごとの表示設定
+const STABILITY_CFG: Record<
+  StabilityLabel,
+  { label: string; className: string; tooltip: string } | null
+> = {
+  high:        { label: "安定", className: "text-emerald-700 bg-emerald-50 border-emerald-200", tooltip: "重要度がデータの変動に対して安定しています" },
+  medium:      { label: "中程度", className: "text-amber-700 bg-amber-50 border-amber-200",    tooltip: "ある程度安定していますが解釈には注意が必要です" },
+  low:         { label: "不安定", className: "text-rose-600 bg-rose-50 border-rose-200",       tooltip: "データの揺らぎで重要度が変わりやすく、強い解釈は避けてください" },
+  unavailable: null,  // バッジ非表示
+};
+
+/** stability 補助バッジ（"unavailable" は null を返す） */
+function StabilityBadge({ stability }: { stability: StabilityLabel }) {
+  const cfg = STABILITY_CFG[stability];
+  if (!cfg) return null;
+  return (
+    <span
+      title={cfg.tooltip}
+      className={`ml-1.5 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold leading-none ${cfg.className}`}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
 /** 説明表（グラフの補助情報） */
 function FactorTable({ rows }: { rows: SortedFactorRow[] }) {
   return (
@@ -180,7 +206,10 @@ function FactorTable({ rows }: { rows: SortedFactorRow[] }) {
             return (
               <tr key={row.key} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                 <td className="py-2 text-gray-400">{row.rank}</td>
-                <td className="py-2 font-medium text-gray-700">{row.label}</td>
+                <td className="py-2 font-medium text-gray-700">
+                  {row.label}
+                  <StabilityBadge stability={row.stability} />
+                </td>
                 <td className={`py-2 text-right tabular-nums ${pctColor}`}>{row.pct}%</td>
                 <td className="py-2 pl-4 text-gray-500 hidden sm:table-cell">
                   {direction ?? <span className="text-gray-300">—</span>}
@@ -353,6 +382,7 @@ export function FactorAnalysis({ data, updatedAt, meta, analyticsAvailability }:
       {/* フッター: 技術的注記 */}
       <p className="mt-3 text-[11px] text-gray-300">
         ※ 重要度は XGBoost 特徴量ゲインの相対値（合計 100%）。傾向はドメイン知識に基づく目安。
+        安定バッジは bootstrap 再現性を示す補助情報（安定 = CV &lt; 0.3 / 中程度 = CV &lt; 0.6 / 不安定 = CV ≥ 0.6）。
       </p>
     </div>
   );
