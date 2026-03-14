@@ -1,9 +1,10 @@
 /**
- * AnalyticsStatusNote — analytics 依存値の stale / unavailable 補助注記
+ * AnalyticsStatusNote — analytics 依存値の stale / unavailable / error 補助注記
  *
  * - fresh:       何も表示しない
  * - stale:       「再計算前データ（最終更新: YYYY-MM-DD、N日前）」
  * - unavailable: 「未計算 — <unavailableLabel>」
+ * - error:       「取得エラー — <errorLabel>」
  *
  * 使用箇所: TdeeKpiCard, WeeklyReviewCard エネルギーバランス, FactorAnalysis ヘッダー
  */
@@ -13,11 +14,14 @@ interface Props {
   availability: AnalyticsAvailability;
   /** unavailable 時の説明ラベル（デフォルト: "ML バッチが未実行のため未計算"） */
   unavailableLabel?: string;
+  /** error 時の説明ラベル（デフォルト: "データ取得に失敗しました"） */
+  errorLabel?: string;
 }
 
 export function AnalyticsStatusNote({
   availability,
   unavailableLabel = "ML バッチが未実行のため未計算",
+  errorLabel = "データ取得に失敗しました",
 }: Props) {
   if (availability.status === "fresh") return null;
 
@@ -30,6 +34,14 @@ export function AnalyticsStatusNote({
     return (
       <span className="inline-block text-xs text-amber-600">
         再計算前データ（最終更新: {dateStr}{dayStr}）
+      </span>
+    );
+  }
+
+  if (availability.status === "error") {
+    return (
+      <span className="inline-block text-xs text-rose-500">
+        {errorLabel}
       </span>
     );
   }

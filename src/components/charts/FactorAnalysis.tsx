@@ -57,26 +57,42 @@ function formatDateRange(from: string | null, to: string | null): string {
 /**
  * バッチ未実行・キャッシュなし時のプレースホルダー。
  * macro/page.tsx から factorResult が null のときに表示する。
+ * analyticsAvailability を渡すことで error / unavailable を使い分けられる。
  */
-export function FactorAnalysisPlaceholder() {
+export function FactorAnalysisPlaceholder({
+  analyticsAvailability,
+}: {
+  analyticsAvailability?: AnalyticsAvailability;
+}) {
+  const isError = analyticsAvailability?.status === "error";
+
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-700">AI 因子分析（XGBoost）</h2>
         <p className="mt-0.5 text-xs text-gray-400">翌日体重変化量に最も影響を与えている栄養素</p>
       </div>
-      <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-4">
-        <p className="text-sm font-medium text-amber-800">分析結果がまだありません</p>
-        <p className="mt-1.5 text-xs text-amber-700">
-          ML バッチ（analyze.py）が実行されると結果が表示されます。
-          GitHub Actions の日次 cron（毎日 AM 3:00 JST）で自動実行されます。
-        </p>
-        <p className="mt-3 text-xs font-medium text-amber-700">分析に必要な条件:</p>
-        <ul className="mt-1 list-disc list-inside space-y-0.5 text-xs text-amber-600">
-          <li>体重・カロリー・タンパク質・脂質・炭水化物の記録が {MIN_ROWS} 日分以上</li>
-          <li>欠損なしで揃っている日が {MIN_ROWS} 日以上あること</li>
-        </ul>
-      </div>
+      {isError ? (
+        <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-4">
+          <p className="text-sm font-medium text-rose-800">データ取得に失敗しました</p>
+          <p className="mt-1.5 text-xs text-rose-700">
+            Supabase からの取得中にエラーが発生しました。しばらく待ってからページを再読み込みしてください。
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-4">
+          <p className="text-sm font-medium text-amber-800">分析結果がまだありません</p>
+          <p className="mt-1.5 text-xs text-amber-700">
+            ML バッチ（analyze.py）が実行されると結果が表示されます。
+            GitHub Actions の日次 cron（毎日 AM 3:00 JST）で自動実行されます。
+          </p>
+          <p className="mt-3 text-xs font-medium text-amber-700">分析に必要な条件:</p>
+          <ul className="mt-1 list-disc list-inside space-y-0.5 text-xs text-amber-600">
+            <li>体重・カロリー・タンパク質・脂質・炭水化物の記録が {MIN_ROWS} 日分以上</li>
+            <li>欠損なしで揃っている日が {MIN_ROWS} 日以上あること</li>
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

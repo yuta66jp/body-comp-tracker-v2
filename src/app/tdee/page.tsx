@@ -10,25 +10,32 @@ import {
   buildTdeeInterpretation,
   smoothTdeeSeries,
 } from "@/lib/utils/calcTdee";
-import { getAnalyticsAvailability } from "@/lib/analytics/status";
+import { getEnrichedLogsAvailability, errorAvailability } from "@/lib/analytics/status";
 import type { DailyLog, AnalyticsCache, Setting } from "@/lib/supabase/types";
 import type { CurrentPhase } from "@/lib/utils/energyBalance";
 
 export const revalidate = 3600;
 
 type EnrichedLogsRow = { log_date: string; weight_sma7: number | null; tdee_estimated: number | null };
-type EnrichedLogsResult = { rows: EnrichedLogsRow[]; updatedAt: string };
+type EnrichedLogsFetch =
+  | { kind: "ok"; rows: EnrichedLogsRow[]; updatedAt: string }
+  | { kind: "not_found" }
+  | { kind: "error" };
 
-async function fetchEnrichedLogs(): Promise<EnrichedLogsResult | null> {
+async function fetchEnrichedLogs(): Promise<EnrichedLogsFetch> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("analytics_cache")
     .select("payload, updated_at")
     .eq("metric_type", "enriched_logs")
     .single();
-  if (error || !data) return null;
+  if (error) {
+    return error.code === "PGRST116" ? { kind: "not_found" } : { kind: "error" };
+  }
+  if (!data) return { kind: "not_found" };
   const row = data as Pick<AnalyticsCache, "payload" | "updated_at">;
   return {
+    kind: "ok",
     rows: row.payload as EnrichedLogsRow[],
     updatedAt: row.updated_at,
   };
@@ -52,11 +59,12 @@ async function fetchSettings(): Promise<Record<string, number | string | null>> 
 }
 
 export default async function TdeePage() {
-  const [enriched, rawLogs, settings] = await Promise.all([
+  const [enrichedFetch, rawLogs, settings] = await Promise.all([
     fetchEnrichedLogs(),
     fetchRawLogs(),
     fetchSettings(),
   ]);
+  const enrichedRows = enrichedFetch.kind === "ok" ? enrichedFetch.rows : [];
 
   // current_phase — "Cut" / "Bulk" のみ有効（それ以外は null に落とす）
   const rawPhase = settings["current_phase"];
@@ -96,23 +104,26 @@ export default async function TdeePage() {
 
   // enriched_logs の新鮮さを判定
   const latestRawLogDate = sortedRaw[sortedRaw.length - 1]?.log_date ?? null;
-  const enrichedAvailability = getAnalyticsAvailability(
-    enriched?.updatedAt ?? null,
-    latestRawLogDate
-  );
+  const enrichedAvailability =
+    enrichedFetch.kind === "error"
+      ? errorAvailability()
+      : getEnrichedLogsAvailability(
+          enrichedFetch.kind === "ok" ? enrichedFetch.updatedAt : null,
+          latestRawLogDate
+        );
 
   // enriched TDEE 系列を平滑化（水分・塩分・便通由来の単日ノイズを除去）
   // enrich.py 側でも SMA7 差分 + rolling median 済みだが、フロントで一層かけることで
   // バッチ未更新日や直近エントリのノイズも吸収する
-  const allTdeeRaw: (number | null)[] = (enriched?.rows ?? []).map((r) => r.tdee_estimated);
+  const allTdeeRaw: (number | null)[] = enrichedRows.map((r) => r.tdee_estimated);
   const smoothedTdeeValues = smoothTdeeSeries(allTdeeRaw);
   const smoothedTdeeMap = new Map(
-    (enriched?.rows ?? []).map((r, i) => [r.log_date, smoothedTdeeValues[i]])
+    enrichedRows.map((r, i) => [r.log_date, smoothedTdeeValues[i]])
   );
 
   // enriched がある場合はその日付軸を使う。ない場合は rawLogs を軸に tdee=null で描画
-  const chartData = enriched
-    ? enriched.rows.map((row) => ({
+  const chartData = enrichedFetch.kind === "ok"
+    ? enrichedRows.map((row) => ({
         date: row.log_date.slice(5),
         tdee: smoothedTdeeMap.get(row.log_date) ?? null,
         intake: calMaMap.get(row.log_date) ?? null,
@@ -195,6 +206,13 @@ export default async function TdeePage() {
       <h1 className="mb-6 text-xl font-bold text-gray-800">TDEE・代謝分析</h1>
 
       {/* enriched_logs の状態バナー（コンテンツはブロックしない） */}
+      {enrichedAvailability.status === "error" && (
+        <div className="mb-5 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+          実測 TDEE のデータ取得中にエラーが発生しました。
+          しばらく待ってからページを再読み込みしてください。
+          理論 TDEE・平均摂取カロリー・体重推移は引き続き表示しています。
+        </div>
+      )}
       {enrichedAvailability.status === "unavailable" && (
         <div className="mb-5 rounded-2xl border border-amber-100 bg-amber-50 px-5 py-3 text-sm text-amber-700">
           実測 TDEE は ML バッチ（enrich.py）が未実行のため表示できません（未計算）。

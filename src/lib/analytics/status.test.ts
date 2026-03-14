@@ -1,4 +1,10 @@
-import { getAnalyticsAvailability } from "./status";
+import {
+  getAnalyticsAvailability,
+  getEnrichedLogsAvailability,
+  getXgboostAvailability,
+  errorAvailability,
+  unavailableAvailability,
+} from "./status";
 
 describe("getAnalyticsAvailability", () => {
   // ── unavailable ──────────────────────────────────────────────────────────
@@ -67,5 +73,63 @@ describe("getAnalyticsAvailability", () => {
   it("タイムゾーンオフセット付き → 日付部分のみ抽出される", () => {
     const r = getAnalyticsAvailability("2026-03-10T12:00:00+09:00", "2026-03-12");
     expect(r.lastUpdatedDate).toBe("2026-03-10");
+  });
+});
+
+// ─── ヘルパー関数 ─────────────────────────────────────────────────────────────
+
+describe("unavailableAvailability", () => {
+  it("status = unavailable、他フィールドは null", () => {
+    const r = unavailableAvailability();
+    expect(r.status).toBe("unavailable");
+    expect(r.lastUpdatedDate).toBeNull();
+    expect(r.staleDays).toBeNull();
+  });
+});
+
+describe("errorAvailability", () => {
+  it("status = error、他フィールドは null", () => {
+    const r = errorAvailability();
+    expect(r.status).toBe("error");
+    expect(r.lastUpdatedDate).toBeNull();
+    expect(r.staleDays).toBeNull();
+  });
+});
+
+// ─── 用途別ラッパー ────────────────────────────────────────────────────────────
+
+describe("getEnrichedLogsAvailability", () => {
+  it("getAnalyticsAvailability と同じ判定を返す（fresh）", () => {
+    const r = getEnrichedLogsAvailability("2026-03-14T00:00:00Z", "2026-03-14");
+    expect(r.status).toBe("fresh");
+  });
+
+  it("cacheUpdatedAt が null → unavailable", () => {
+    const r = getEnrichedLogsAvailability(null, "2026-03-14");
+    expect(r.status).toBe("unavailable");
+  });
+
+  it("stale 判定が伝播する", () => {
+    const r = getEnrichedLogsAvailability("2026-03-12T00:00:00Z", "2026-03-14");
+    expect(r.status).toBe("stale");
+    expect(r.staleDays).toBe(2);
+  });
+});
+
+describe("getXgboostAvailability", () => {
+  it("getAnalyticsAvailability と同じ判定を返す（fresh）", () => {
+    const r = getXgboostAvailability("2026-03-14T00:00:00Z", "2026-03-14");
+    expect(r.status).toBe("fresh");
+  });
+
+  it("cacheUpdatedAt が null → unavailable", () => {
+    const r = getXgboostAvailability(null, "2026-03-14");
+    expect(r.status).toBe("unavailable");
+  });
+
+  it("stale 判定が伝播する", () => {
+    const r = getXgboostAvailability("2026-03-10T00:00:00Z", "2026-03-14");
+    expect(r.status).toBe("stale");
+    expect(r.staleDays).toBe(4);
   });
 });

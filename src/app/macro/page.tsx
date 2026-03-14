@@ -12,7 +12,7 @@ import {
   calcPfcKcalRatio,
 } from "@/lib/utils/calcMacro";
 import type { MacroTargets } from "@/lib/utils/calcMacro";
-import { getAnalyticsAvailability } from "@/lib/analytics/status";
+import { getXgboostAvailability, errorAvailability } from "@/lib/analytics/status";
 import type { DailyLog, AnalyticsCache } from "@/lib/supabase/types";
 
 export const revalidate = 3600;
@@ -25,19 +25,28 @@ async function fetchLogs(): Promise<DailyLog[]> {
   return (data as DailyLog[]) ?? [];
 }
 
-async function fetchFactorAnalysis() {
+type FactorFetchResult =
+  | { kind: "ok"; payload: Record<string, FactorEntry>; meta: FactorMeta | null; updatedAt: string }
+  | { kind: "not_found" }
+  | { kind: "error" };
+
+async function fetchFactorAnalysis(): Promise<FactorFetchResult> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("analytics_cache")
     .select("payload, updated_at")
     .eq("metric_type", "xgboost_importance")
     .single();
-  if (error || !data) return null;
+  if (error) {
+    return error.code === "PGRST116" ? { kind: "not_found" } : { kind: "error" };
+  }
+  if (!data) return { kind: "not_found" };
   const row = data as Pick<AnalyticsCache, "payload" | "updated_at">;
   const rawPayload = row.payload as Record<string, unknown>;
   // _meta を分離して残りを FactorEntry として渡す
   const { _meta, ...entries } = rawPayload;
   return {
+    kind: "ok",
     payload: entries as Record<string, FactorEntry>,
     meta: (_meta ?? null) as FactorMeta | null,
     updatedAt: row.updated_at,
@@ -66,7 +75,7 @@ async function fetchMacroTargets(): Promise<MacroTargets & { calTarget: number |
 }
 
 export default async function MacroPage() {
-  const [logs, factorResult, targetsResult] = await Promise.all([
+  const [logs, factorFetch, targetsResult] = await Promise.all([
     fetchLogs(),
     fetchFactorAnalysis(),
     fetchMacroTargets(),
@@ -88,10 +97,13 @@ export default async function MacroPage() {
 
   // xgboost_importance の新鮮さを判定
   const latestRawLogDate = logs[logs.length - 1]?.log_date ?? null;
-  const factorAvailability = getAnalyticsAvailability(
-    factorResult?.updatedAt ?? null,
-    latestRawLogDate
-  );
+  const factorAvailability =
+    factorFetch.kind === "error"
+      ? errorAvailability()
+      : getXgboostAvailability(
+          factorFetch.kind === "ok" ? factorFetch.updatedAt : null,
+          latestRawLogDate
+        );
 
   return (
     <main className="min-h-screen bg-gray-50 p-6">
@@ -109,15 +121,15 @@ export default async function MacroPage() {
         {/* 既存: 日次栄養内訳テーブル */}
         <MacroDailyTable data={dailyData} calTarget={calTarget} />
 
-        {factorResult ? (
+        {factorFetch.kind === "ok" ? (
           <FactorAnalysis
-            data={factorResult.payload}
-            meta={factorResult.meta}
-            updatedAt={factorResult.updatedAt}
+            data={factorFetch.payload}
+            meta={factorFetch.meta}
+            updatedAt={factorFetch.updatedAt}
             analyticsAvailability={factorAvailability}
           />
         ) : (
-          <FactorAnalysisPlaceholder />
+          <FactorAnalysisPlaceholder analyticsAvailability={factorAvailability} />
         )}
       </div>
     </main>
