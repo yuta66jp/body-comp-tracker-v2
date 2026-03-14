@@ -306,7 +306,12 @@ def save_analytics_cache(client, metric_type: str, payload: dict) -> None:
 
 
 def main() -> None:
-    from supabase import create_client  # 遅延 import: I/O 実行時のみ必要
+    try:
+        from supabase import create_client  # 遅延 import: I/O 実行時のみ必要
+    except ImportError as e:
+        raise ImportError(
+            "supabase が未導入です。pip install supabase でインストールしてください。"
+        ) from e
 
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
