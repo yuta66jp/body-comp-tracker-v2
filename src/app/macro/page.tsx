@@ -43,7 +43,7 @@ async function fetchFactorAnalysis() {
   };
 }
 
-async function fetchMacroTargets(): Promise<MacroTargets & { calTarget: number }> {
+async function fetchMacroTargets(): Promise<MacroTargets & { calTarget: number | null }> {
   const supabase = createClient();
   const keys = ["target_calories_kcal", "target_protein_g", "target_fat_g", "target_carbs_g", "goal_calories"];
   const { data } = await supabase
@@ -60,7 +60,7 @@ async function fetchMacroTargets(): Promise<MacroTargets & { calTarget: number }
     fat:      map["target_fat_g"]         ?? null,
     carbs:    map["target_carbs_g"]       ?? null,
     // 後方互換: MacroDailyTable 用 (旧 goal_calories → target_calories_kcal にフォールバック)
-    calTarget: map["target_calories_kcal"] ?? map["goal_calories"] ?? 2000,
+    calTarget: map["target_calories_kcal"] ?? map["goal_calories"] ?? null,
   };
 }
 

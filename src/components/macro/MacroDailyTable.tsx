@@ -1,5 +1,8 @@
 "use client";
 
+import { DivergingBar } from "@/components/ui/DivergingBar";
+import { getNormalizedDiffWidth } from "@/lib/utils/calorieDiff";
+
 interface DailyRow {
   fullDate: string;
   calories: number;
@@ -10,7 +13,8 @@ interface DailyRow {
 
 interface MacroDailyTableProps {
   data: DailyRow[];
-  calTarget?: number;
+  /** settings.target_calories_kcal — 未設定時は null（差分表示・バーなし） */
+  calTarget?: number | null;
 }
 
 function pct(macro_g: number, total_kcal: number, multiplier: number) {
@@ -18,8 +22,15 @@ function pct(macro_g: number, total_kcal: number, multiplier: number) {
   return `${Math.round((macro_g * multiplier / total_kcal) * 100)}%`;
 }
 
-export function MacroDailyTable({ data, calTarget = 2000 }: MacroDailyTableProps) {
+export function MacroDailyTable({ data, calTarget = null }: MacroDailyTableProps) {
   const recent = [...data].sort((a, b) => b.fullDate.localeCompare(a.fullDate)).slice(0, 14);
+
+  // diverging bar 正規化用: 表示14行の diff 絶対値最大値
+  const maxAbs = (() => {
+    if (calTarget == null) return 0;
+    const absDiffs = recent.map((row) => Math.abs(row.calories - calTarget));
+    return absDiffs.length > 0 ? Math.max(...absDiffs) : 0;
+  })();
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
@@ -37,18 +48,41 @@ export function MacroDailyTable({ data, calTarget = 2000 }: MacroDailyTableProps
           </thead>
           <tbody>
             {recent.map((row) => {
-              const barPct = Math.min(100, Math.round((row.calories / calTarget) * 100));
-              const barColor = row.calories > calTarget ? "bg-rose-400" : "bg-blue-400";
+              const calDiff = calTarget != null ? row.calories - calTarget : null;
+              const calRatio = calDiff !== null ? getNormalizedDiffWidth(calDiff, maxAbs) : 0;
               return (
                 <tr key={row.fullDate} className="border-b border-gray-50 hover:bg-gray-50">
                   <td className="py-2 pr-4 font-medium text-gray-700">{row.fullDate}</td>
                   <td className="py-2 pr-4">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-24 overflow-hidden rounded-full bg-gray-100">
-                        <div className={`h-full ${barColor} rounded-full`} style={{ width: `${barPct}%` }} />
-                      </div>
+                    {/* テキスト: 実績値 + 差分 */}
+                    <div className="flex items-baseline gap-1">
                       <span className="text-xs text-gray-600">{row.calories.toLocaleString()}</span>
+                      <span className="text-[10px] text-gray-400">kcal</span>
+                      {calDiff !== null && (
+                        <span
+                          className={`text-[10px] font-medium ${
+                            calDiff > 0
+                              ? "text-blue-500"
+                              : calDiff < 0
+                              ? "text-rose-500"
+                              : "text-gray-400"
+                          }`}
+                        >
+                          ({calDiff > 0 ? "+" : ""}{Math.round(calDiff)})
+                        </span>
+                      )}
                     </div>
+                    {/* diverging bar（目標設定時のみ） */}
+                    {calDiff !== null && (
+                      <div className="mt-1">
+                        <DivergingBar
+                          diff={calDiff}
+                          ratio={calRatio}
+                          leftColor="bg-rose-400"
+                          rightColor="bg-blue-400"
+                        />
+                      </div>
+                    )}
                   </td>
                   <td className="py-2 pr-4 text-right text-xs text-gray-600">
                     {row.protein}g <span className="text-gray-400">({pct(row.protein, row.calories, 4)})</span>
