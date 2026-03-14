@@ -4,6 +4,7 @@ import { TrendingDown, TrendingUp, Minus, Weight, Flame, CalendarClock, Zap, Tar
 import type { DailyLog } from "@/lib/supabase/types";
 import { calcWeightTrend } from "@/lib/utils/calcTrend";
 import { toJstDateStr, calcDaysLeft, addDaysStr } from "@/lib/utils/date";
+import { filterLastNCalendarDays } from "@/lib/utils/timeWindow";
 
 const KCAL_PER_KG = 7200;
 
@@ -70,8 +71,16 @@ export function KpiCards({ logs, settings, avgTdee }: KpiCardsProps) {
     ? "横ばい"
     : `${slopePerWeek > 0 ? "+" : ""}${slopePerWeek.toFixed(2)} kg/週`;
 
+  // --- 基準日 (todayStr) ---
+  // 以降の全暦日計算で共通して使う。JST 固定で UTC サーバー上でもズレない。
+  const todayStr = toJstDateStr();
+
   // --- 平均カロリー (7日) ---
-  const last7cal = sorted.slice(-7).filter((d) => d.calories !== null);
+  // 暦日ベースで直近7日を抽出する。記録日ベース（slice(-7)）と異なり、
+  // 欠損日があっても比較期間が常に同一の7暦日になる。
+  // 意味の変更: 記録日ベースでは欠損日があると実質8日以上前の記録が含まれることがあったが、
+  // 暦日ベースでは常に「今日を含む7暦日」の平均になる。
+  const last7cal = filterLastNCalendarDays(sorted, todayStr, 7).filter((d) => d.calories !== null);
   const avgCalories = last7cal.length > 0
     ? last7cal.reduce((s, d) => s + d.calories!, 0) / last7cal.length
     : null;
@@ -81,7 +90,6 @@ export function KpiCards({ logs, settings, avgTdee }: KpiCardsProps) {
   // (旧実装: new Date(contestDate).getTime() - Date.now() は UTC 解釈のため
   //  JST 00:00〜08:59 に大会当日を "1日前" と誤表示するバグがあった)
   const contestDate = typeof settings["contest_date"] === "string" ? settings["contest_date"] : null;
-  const todayStr = toJstDateStr();
   const daysLeft = contestDate ? calcDaysLeft(todayStr, contestDate) : null;
 
   // --- 目標到達予定日（線形トレンドから算出）---

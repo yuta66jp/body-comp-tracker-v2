@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { DailyLog } from "@/lib/supabase/types";
+import { lastNEntries } from "@/lib/utils/timeWindow";
 
 interface MacroChartProps {
   logs: DailyLog[];
@@ -18,9 +19,12 @@ interface MacroChartProps {
 }
 
 export function MacroChart({ logs, days = 30 }: MacroChartProps) {
-  const sorted = [...logs]
-    .sort((a, b) => a.log_date.localeCompare(b.log_date))
-    .slice(-days);
+  // 記録日ベース: グラフ表示目的なので直近 N 件の記録を使う。
+  // 暦日ベースにすると欠損日がグラフに空白として現れるため表示には不向き。
+  const sorted = lastNEntries(
+    [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date)),
+    days
+  );
 
   const data = sorted.map((d) => ({
     date: d.log_date.slice(5), // MM-DD
