@@ -86,7 +86,7 @@ export const FEATURE_DIRECTION_MAP: Readonly<Record<string, string>> = {
  */
 export const FEATURE_NOTE_MAP: Readonly<Record<string, string>> = {
   // 現在の XGBoost 特徴量
-  cal_lag1:      "翌日体重への直接的な影響",
+  cal_lag1:      "翌日体重変化量への直接的な影響",
   rolling_cal_7: "食習慣の傾向を反映",
   p_lag1:        "筋合成・水分保持を通じた影響",
   f_lag1:        "消化・吸収が緩やか",
@@ -119,7 +119,7 @@ export function getFeatureNote(key: string): string | null {
  */
 export const FEATURE_HINT_MAP: Readonly<Record<string, string>> = {
   cal_lag1:
-    "総摂取量と翌日体重の関係を継続的に確認すると、自分のカロリー感度が見えてくるかもしれません。",
+    "総摂取量と翌日体重変化量の関係を継続的に確認すると、自分のカロリー感度が見えてくるかもしれません。",
   rolling_cal_7:
     "単日より週単位の摂取傾向が体重に反映されている可能性があります。週平均を安定させることが示唆されます。",
   p_lag1:
@@ -129,7 +129,7 @@ export const FEATURE_HINT_MAP: Readonly<Record<string, string>> = {
   c_lag1:
     "炭水化物はグリコーゲン貯蔵・水分保持を通じた体重変動が出やすい栄養素です。チートデイやリフィード後の変動と照らし合わせてみてください。",
   sleep_hours:
-    "睡眠時間と翌日体重の関係は回復・代謝・食欲調節を通じた間接的な経路が考えられます。睡眠の質や記録精度も確認してみてください。",
+    "睡眠時間と翌日体重変化量との関係は回復・代謝・食欲調節を通じた間接的な経路が考えられます。睡眠の質や記録精度も確認してみてください。",
   had_bowel_movement:
     "便通は腸内容物による一時的な体重変動と関連する可能性があります。体脂肪の変化とは別の経路であることを考慮してみてください。",
   leg_flag:

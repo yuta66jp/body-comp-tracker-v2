@@ -59,7 +59,7 @@ export function FactorAnalysisPlaceholder() {
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-700">AI 因子分析（XGBoost）</h2>
-        <p className="mt-0.5 text-xs text-gray-400">翌日体重に最も影響を与えている栄養素</p>
+        <p className="mt-0.5 text-xs text-gray-400">翌日体重変化量に最も影響を与えている栄養素</p>
       </div>
       <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-4">
         <p className="text-sm font-medium text-amber-800">分析結果がまだありません</p>
@@ -106,7 +106,7 @@ function AnalysisPremise({ meta }: { meta: FactorMeta | null | undefined }) {
       <dl className="mt-2.5 grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs sm:grid-cols-4">
         <div>
           <dt className="text-gray-400">分析対象</dt>
-          <dd className="font-medium text-gray-700">翌日体重との関連</dd>
+          <dd className="font-medium text-gray-700">翌日体重変化量との関連</dd>
         </div>
         <div>
           <dt className="text-gray-400">使用サンプル</dt>
@@ -230,7 +230,7 @@ function FactorInterpretation({
       {topLabel && !hint && (
         <p className="text-xs text-gray-500">
           <span className="font-medium">1位「{topLabel}」</span>が最も強い関連を示しています。
-          この特徴量が高い日・低い日の翌日体重を比較してみてください。
+          この特徴量が高い日・低い日の翌日体重変化量を比較してみてください。
         </p>
       )}
 
@@ -256,7 +256,7 @@ export function FactorAnalysis({ data, updatedAt, meta }: FactorAnalysisProps) {
         <div className="mb-4 flex items-start justify-between">
           <div>
             <h2 className="text-base font-semibold text-gray-700">AI 因子分析（XGBoost）</h2>
-            <p className="mt-0.5 text-xs text-gray-400">翌日体重に最も影響を与えている栄養素</p>
+            <p className="mt-0.5 text-xs text-gray-400">翌日体重変化量に最も影響を与えている栄養素</p>
           </div>
           <p className="text-xs text-gray-300">{updatedAt.slice(0, 10)} 更新</p>
         </div>
@@ -278,7 +278,7 @@ export function FactorAnalysis({ data, updatedAt, meta }: FactorAnalysisProps) {
       <div className="mb-4 flex items-start justify-between">
         <div>
           <h2 className="text-base font-semibold text-gray-700">AI 因子分析（XGBoost）</h2>
-          <p className="mt-0.5 text-xs text-gray-400">翌日体重に最も影響を与えている栄養素</p>
+          <p className="mt-0.5 text-xs text-gray-400">翌日体重変化量に最も影響を与えている栄養素</p>
         </div>
         <p className="text-xs text-gray-300">{updatedAt.slice(0, 10)} 更新</p>
       </div>

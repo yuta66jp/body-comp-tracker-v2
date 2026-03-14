@@ -2,9 +2,16 @@
 analyze.py — XGBoost 因子分析バッチ
 旧: logic.py の run_xgboost_importance() を移植
 
-current_weight を説明変数から除外してリーケージを防ぐ。
-旧版に合わせて cal_lag1 / rolling_cal_7 / p_lag1 / f_lag1 / c_lag1 の 5 特徴を使用。
-結果は analytics_cache.payload (JSONB) に保存する。
+■ 目的変数 (target):
+    翌日体重変化量 = weight(t+1) - weight(t)
+    符号: 増加を正、減少を負。
+    current_weight を説明変数から除外してリーケージを防ぐ。
+
+■ 特徴量:
+    旧版に合わせて cal_lag1 / rolling_cal_7 / p_lag1 / f_lag1 / c_lag1 の 5 特徴を使用。
+
+■ 出力:
+    結果は analytics_cache.payload (JSONB) に保存する。
 
 実行: python ml-pipeline/analyze.py
 """
@@ -58,8 +65,21 @@ def run_importance(df: pd.DataFrame) -> dict[str, dict[str, float | str]]:
     df["f_lag1"] = df["fat"]
     df["c_lag1"] = df["carbs"]
 
-    # ターゲット: 翌日の体重変化 (リーケージ回避)
-    df["target"] = df["weight"].shift(-1)
+    # ── 目的変数: 翌日体重変化量 = weight(t+1) - weight(t) ──────────────────
+    # 「翌日体重の絶対値」ではなく「翌日の変化量（増加=正、減少=負）」を予測する。
+    # これにより「炭水化物・脚トレ・睡眠などが翌日体重をどれだけ動かすか」という
+    # 解釈しやすい目的変数になる。current_weight は説明変数から除外済み（リーケージ回避）。
+    #
+    # ── 将来拡張メモ ─────────────────────────────────────────────────────────
+    # 今回は最も単純で解釈しやすい「翌日変化量」を採用する。
+    # 将来比較したい target 候補:
+    #   - 2日後変化量:       weight.shift(-2) - weight
+    #   - 3日移動平均との差: rolling(3).mean().shift(-1) - weight  ← 定義は要検討
+    # 足トレや高糖質の影響は翌日だけでなく 2 日程度残る可能性があるため、
+    # データが十分に蓄積されたタイミングで比較実験すること。
+    # 追加するには本関数に `target_type` 引数を設け、上記の計算式を分岐させる。
+    # ─────────────────────────────────────────────────────────────────────────
+    df["target"] = df["weight"].shift(-1) - df["weight"]
     df = df.dropna(subset=FEATURE_COLS + ["target"])
 
     if len(df) < MIN_ROWS:
@@ -131,7 +151,7 @@ def main() -> None:
     df_meta["p_lag1"]        = df_meta["protein"]
     df_meta["f_lag1"]        = df_meta["fat"]
     df_meta["c_lag1"]        = df_meta["carbs"]
-    df_meta = df_meta.assign(target=df_meta["weight"].shift(-1))
+    df_meta = df_meta.assign(target=df_meta["weight"].shift(-1) - df_meta["weight"])
     missing_cols = [c for c in FEATURE_COLS + ["target"] if c not in df_meta.columns]
     if missing_cols:
         logger.error("df_meta is missing expected columns: %s", missing_cols)
