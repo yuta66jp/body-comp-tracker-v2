@@ -1,13 +1,10 @@
 "use client";
 
-import { TrendingDown, TrendingUp, Minus, Weight, Flame, CalendarClock, Zap, Target } from "lucide-react";
+import { TrendingDown, TrendingUp, Minus, Weight, CalendarClock, Target } from "lucide-react";
 import type { DailyLog } from "@/lib/supabase/types";
 import type { AppSettings } from "@/lib/domain/settings";
 import { calcWeightTrend } from "@/lib/utils/calcTrend";
 import { toJstDateStr, calcDaysLeft, addDaysStr } from "@/lib/utils/date";
-import { filterLastNCalendarDays } from "@/lib/utils/timeWindow";
-
-const KCAL_PER_KG = 7200;
 
 interface KpiCardsProps {
   logs: DailyLog[];
@@ -56,7 +53,7 @@ function KpiCard({ label, value, unit, sub, icon, accent, iconColor, trendDir, t
   );
 }
 
-export function KpiCards({ logs, settings, avgTdee }: KpiCardsProps) {
+export function KpiCards({ logs, settings, avgTdee: _avgTdee }: KpiCardsProps) {
   const sorted = [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date));
   const latest = sorted[sorted.length - 1];
 
@@ -76,22 +73,15 @@ export function KpiCards({ logs, settings, avgTdee }: KpiCardsProps) {
   // 以降の全暦日計算で共通して使う。JST 固定で UTC サーバー上でもズレない。
   const todayStr = toJstDateStr();
 
-  // --- 平均カロリー (7日) ---
-  // 暦日ベースで直近7日を抽出する。記録日ベース（slice(-7)）と異なり、
-  // 欠損日があっても比較期間が常に同一の7暦日になる。
-  // 意味の変更: 記録日ベースでは欠損日があると実質8日以上前の記録が含まれることがあったが、
-  // 暦日ベースでは常に「今日を含む7暦日」の平均になる。
-  const last7cal = filterLastNCalendarDays(sorted, todayStr, 7).filter((d) => d.calories !== null);
-  const avgCalories = last7cal.length > 0
-    ? last7cal.reduce((s, d) => s + d.calories!, 0) / last7cal.length
-    : null;
-
-  // --- 残り日数 ---
+  // --- 残り日数 + 残り週数 ---
   // calcDaysLeft を使い GoalNavigator / calcReadiness と定義を統一する。
   // (旧実装: new Date(contestDate).getTime() - Date.now() は UTC 解釈のため
   //  JST 00:00〜08:59 に大会当日を "1日前" と誤表示するバグがあった)
   const contestDate = settings.contestDate;
   const daysLeft = contestDate ? calcDaysLeft(todayStr, contestDate) : null;
+  // 残り週数: 1 桁の小数で表示
+  const weeksLeft =
+    daysLeft !== null && daysLeft > 0 ? (daysLeft / 7).toFixed(1) : null;
 
   // --- 目標到達予定日（線形トレンドから算出）---
   const goalWeight = settings.targetWeight;
@@ -118,51 +108,8 @@ export function KpiCards({ logs, settings, avgTdee }: KpiCardsProps) {
     }
   }
 
-  // --- 推奨カロリー調整 ---
-  const phase = settings.currentPhase ?? "Cut";
-  const isCut = phase !== "Bulk";
-
-  const gap = currentWeight !== null && goalWeight !== null ? currentWeight - goalWeight : null;
-
-  let actionValue = "Keep";
-  let actionSub = "On Track";
-  let actionColor = "text-emerald-500";
-
-  if (gap !== null && daysLeft !== null) {
-    const adj = Math.round((Math.abs(gap) * KCAL_PER_KG) / daysLeft);
-    if (isCut) {
-      if (gap > 0.2) {
-        actionValue = `-${adj.toLocaleString()} kcal`;
-        actionSub = "もっと絞って";
-        actionColor = "text-rose-500";
-      } else if (gap <= 0) {
-        actionValue = "目標達成!";
-        actionSub = "維持フェーズ";
-        actionColor = "text-blue-500";
-      } else {
-        actionValue = "Keep";
-        actionSub = "順調";
-        actionColor = "text-emerald-500";
-      }
-    } else {
-      if (gap < -0.5) {
-        actionValue = `+${adj.toLocaleString()} kcal`;
-        actionSub = "もっと食べて";
-        actionColor = "text-amber-500";
-      } else if (gap > 0.5) {
-        actionValue = `-${adj.toLocaleString()} kcal`;
-        actionSub = "ペースダウン";
-        actionColor = "text-rose-500";
-      } else {
-        actionValue = "Keep";
-        actionSub = "順調";
-        actionColor = "text-emerald-500";
-      }
-    }
-  }
-
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
       {/* 現在体重 */}
       <KpiCard
         label="現在体重"
@@ -176,61 +123,20 @@ export function KpiCards({ logs, settings, avgTdee }: KpiCardsProps) {
         trendPositive="down"
       />
 
-      {/* 平均カロリー + TDEE */}
-      <KpiCard
-        label="平均カロリー 7日"
-        value={avgCalories !== null ? Math.round(avgCalories).toLocaleString() : "—"}
-        unit="kcal"
-        sub={
-          avgTdee !== null ? (
-            <span>
-              TDEE <span className="font-semibold text-orange-500">{Math.round(avgTdee).toLocaleString()}</span> kcal
-              {avgCalories !== null && (
-                <span className={avgCalories - avgTdee < 0 ? " text-emerald-500" : " text-rose-500"}>
-                  {" "}({avgCalories - avgTdee < 0 ? "" : "+"}{Math.round(avgCalories - avgTdee)} kcal)
-                </span>
-              )}
-            </span>
-          ) : undefined
-        }
-        icon={<Flame size={18} />}
-        accent="bg-orange-50"
-        iconColor="text-orange-500"
-      />
-
-      {/* 残り日数 */}
+      {/* 残り日数 + 残り週数 */}
       <KpiCard
         label="残り日数"
         value={daysLeft !== null ? daysLeft.toLocaleString() : "—"}
         unit={daysLeft !== null ? "日" : ""}
-        sub={contestDate ?? "コンテスト日未設定"}
+        sub={
+          daysLeft !== null && daysLeft > 0 && weeksLeft !== null
+            ? `${weeksLeft} 週 / ${contestDate}`
+            : (contestDate ?? "コンテスト日未設定")
+        }
         icon={<CalendarClock size={18} />}
         accent="bg-violet-50"
         iconColor="text-violet-600"
       />
-
-      {/* 推奨カロリー調整 */}
-      <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
-        <div className="flex items-start justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">推奨調整</p>
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50">
-            <Zap size={18} className="text-emerald-600" />
-          </div>
-        </div>
-        <div className="mt-3 flex items-baseline gap-1">
-          <span className={`text-2xl font-bold leading-none tracking-tight ${actionColor}`}>
-            {actionValue}
-          </span>
-        </div>
-        <div className="mt-2 flex items-center justify-between">
-          <span className={`text-xs font-medium ${actionColor}`}>{actionSub}</span>
-          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-            isCut ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"
-          }`}>
-            {phase}
-          </span>
-        </div>
-      </div>
 
       {/* 目標到達予定日 */}
       <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">

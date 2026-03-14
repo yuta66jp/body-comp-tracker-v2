@@ -84,9 +84,9 @@ function fmt1(v: number | null, fallback = "—"): string {
   return v !== null ? v.toFixed(1) : fallback;
 }
 
-function fmtRate(v: number | null, fallback = "—"): string {
+function fmtRate2W(v: number | null, fallback = "—"): string {
   if (v === null) return fallback;
-  return `${v > 0 ? "+" : ""}${v.toFixed(2)} kg/週`;
+  return `${v > 0 ? "+" : ""}${v.toFixed(2)} kg/2週`;
 }
 
 function fmtKcal(v: number | null, fallback = "—"): string {
@@ -94,15 +94,15 @@ function fmtKcal(v: number | null, fallback = "—"): string {
   return `${v > 0 ? "+" : ""}${v.toLocaleString()} kcal/日`;
 }
 
-/** 差の符号をわかりやすくラベル化 */
+/** 差の符号をわかりやすくラベル化 (kg/2週) */
 function paceGapLabel(gap: number | null, isCut: boolean): string {
   if (gap === null) return "—";
   const abs = Math.abs(gap).toFixed(2);
-  if (Math.abs(gap) < 0.02) return "ほぼ一致";
+  if (Math.abs(gap) < 0.04) return "ほぼ一致";
   // Cut: gap > 0 = 遅れ, gap < 0 = 先行
   // Bulk: gap < 0 = 遅れ, gap > 0 = 先行
   const isBehind = isCut ? gap > 0 : gap < 0;
-  return `${gap > 0 ? "+" : ""}${abs} kg/週 (${isBehind ? "遅れ" : "先行"})`;
+  return `${gap > 0 ? "+" : ""}${abs} kg/2週 (${isBehind ? "遅れ" : "先行"})`;
 }
 
 // ─── サブセクション ─────────────────────────────────────────────────────────
@@ -156,36 +156,44 @@ export function GoalNavigator({
   const refWeight = metrics.weight_7d_avg ?? metrics.current_weight;
   const refWeightLabel = metrics.weight_7d_avg !== null ? "7日平均" : "最新値";
 
-  // ── 7d avg ベースで必要ペース・残りを再計算 ──
+  // ── 7d avg ベースで必要ペース・残りを再計算 (kg/2週) ──
+  const remainingKg =
+    refWeight !== null && goalWeight !== null ? refWeight - goalWeight : null;
+
+  // 大会まで表示用の残り週数
   const weeksLeft =
     metrics.days_to_contest !== null && metrics.days_to_contest > 0
       ? metrics.days_to_contest / 7
       : null;
 
-  const remainingKg =
-    refWeight !== null && goalWeight !== null ? refWeight - goalWeight : null;
-
-  const requiredRateKg =
-    remainingKg !== null && weeksLeft !== null
-      ? -remainingKg / weeksLeft
+  // 必要ペース: calcReadiness の required_rate_kg_per_2weeks を参照
+  // ただし 7d avg ベースで再計算（calcReadiness は current_weight ベース）
+  const daysLeft2W = metrics.days_to_contest;
+  const requiredRateKg2W =
+    remainingKg !== null && daysLeft2W !== null && daysLeft2W > 0
+      ? (-remainingKg / daysLeft2W) * 14
       : null;
 
-  // ── 実績ペース ──
-  const actualRateKg = metrics.weekly_rate_kg;
+  // ── 実績ペース (kg/2週) ──
+  const actualRateKg2W = metrics.weekly_rate_kg_per_2weeks;
 
   // ── ペース差 (actual - required): 正=遅れ(Cut), 正=先行(Bulk) によって意味が変わる ──
+  // kg/2週 ベースで統一: 比較の単位を揃えることで誤判定を防ぐ
   const paceGap =
-    actualRateKg !== null && requiredRateKg !== null
-      ? actualRateKg - requiredRateKg
+    actualRateKg2W !== null && requiredRateKg2W !== null
+      ? actualRateKg2W - requiredRateKg2W
       : null;
 
-  // ── kcal 補正 ──
-  const kcalCorrection = calcKcalCorrection(actualRateKg, requiredRateKg);
+  // ── kcal 補正 (calcKcalCorrection は kg/週ベース引数を期待するため週次換算して渡す) ──
+  const actualRateKgWeek = metrics.weekly_rate_kg;
+  const requiredRateKgWeek =
+    requiredRateKg2W !== null ? requiredRateKg2W / 2 : null;
+  const kcalCorrection = calcKcalCorrection(actualRateKgWeek, requiredRateKgWeek);
 
-  // ── ステータス ──
+  // ── ステータス (kg/2週 ベースで統一して渡す) ──
   const status = calcGoalStatus(
-    actualRateKg,
-    requiredRateKg,
+    actualRateKg2W,
+    requiredRateKg2W,
     remainingKg,
     metrics.days_to_contest
   );
@@ -315,7 +323,7 @@ export function GoalNavigator({
         {/* ─── 列3: ペース分析 ─── */}
         <div className="flex flex-col gap-1.5 border-t border-slate-100 p-5 sm:border-t-0">
           <SectionLabel>
-            {actualRateKg !== null && actualRateKg < 0 ? (
+            {actualRateKg2W !== null && actualRateKg2W < 0 ? (
               <TrendingDown size={11} className="inline mr-1" />
             ) : (
               <TrendingUp size={11} className="inline mr-1" />
@@ -324,18 +332,18 @@ export function GoalNavigator({
           </SectionLabel>
 
           <MetricRow
-            label="必要"
-            value={fmtRate(requiredRateKg)}
-            valueColor={requiredRateKg === null ? "text-slate-400" : "text-slate-700"}
-            note={requiredRateKg !== null ? "(7日平均ベース)" : undefined}
+            label="必要ペース"
+            value={fmtRate2W(requiredRateKg2W)}
+            valueColor={requiredRateKg2W === null ? "text-slate-400" : "text-slate-700"}
+            note={requiredRateKg2W !== null ? "(7日平均ベース)" : undefined}
           />
           <MetricRow
-            label="実績"
-            value={fmtRate(actualRateKg)}
+            label="実績ペース"
+            value={fmtRate2W(actualRateKg2W)}
             valueColor={
-              actualRateKg === null
+              actualRateKg2W === null
                 ? "text-slate-400"
-                : (isCut ? actualRateKg < 0 : actualRateKg > 0)
+                : (isCut ? actualRateKg2W < 0 : actualRateKg2W > 0)
                 ? "text-emerald-600"
                 : "text-rose-600"
             }
@@ -389,7 +397,7 @@ export function GoalNavigator({
 
       {/* ── フッター注記 ── */}
       <div className="border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400">
-        体重は 7 日移動平均を基準値として使用 / ペースは 14 日線形回帰 / 推定値のため目安としてご利用ください
+        体重は 7 日移動平均を基準値として使用 / ペースは 14 日線形回帰・kg/2週 表示 / 推定値のため目安としてご利用ください
       </div>
     </div>
   );
