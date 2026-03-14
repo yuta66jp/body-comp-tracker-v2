@@ -159,8 +159,12 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
       ...tagPayload,
       // Phase 2.5 新規フィールド
       sleep_hours:        sleepHours === null ? null : (sleepHours !== "" ? parseFloat(sleepHours) : undefined),
-      // touched=true かつ値あり → 値送信; touched=false または null（未選択）→ undefined（既存値保持）
-      // DB が boolean NOT NULL のため null 送信不可。null=「何も選ばなかった」→ undefined
+      // ルール: touched=true かつ true/false → 値送信
+      //         touched=false または (touched=true かつ チップ再クリックで null に戻した) → undefined（既存値保持）
+      // 設計上の割り切り: DB が BOOLEAN NOT NULL DEFAULT FALSE のため null を送れない。
+      //   touched=true かつ null (= チップ再クリック後) は「選択取り消し」として undefined にフォールバックし既存値を保持する。
+      //   これにより「未記録」と「便通なし(false)」は DB 上で区別できない。
+      //   完全な三状態（true/false/null=未記録）は DB を NULLABLE にするマイグレーションで解決可能。
       had_bowel_movement: hadBowelMovementTouched && hadBowelMovement !== null ? hadBowelMovement : undefined,
       training_type:      trainingTypeTouched ? trainingType : undefined,
       work_mode:          workModeTouched     ? workMode     : undefined,
