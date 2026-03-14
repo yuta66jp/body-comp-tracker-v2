@@ -14,6 +14,24 @@ analyze.py — XGBoost 因子分析バッチ
     結果は analytics_cache.payload (JSONB) に保存する。
 
 実行: python ml-pipeline/analyze.py
+
+■ モジュール構成 (責務分離):
+    トップレベル import: 軽量標準ライブラリ + pandas のみ
+    xgboost  : run_importance() 内で遅延 import（分析実行時のみ必要）
+    supabase : main() 内で遅延 import（I/O 実行時のみ必要）
+
+    純粋ロジック層 (ファイル I/O・外部依存なし):
+        apply_feature_engineering() — 欠損除去・特徴量計算・target 計算
+        run_importance()            — XGBoost 学習・重要度算出
+        compute_meta()             — サンプル数・日付範囲などの前提情報算出
+        build_payload()            — importance + meta → analytics_cache 形式へ合成
+
+    外部 I/O 層 (supabase 依存):
+        fetch_daily_logs()         — daily_logs テーブルから全件取得
+        save_analytics_cache()     — analytics_cache テーブルへ upsert
+
+    実行入口:
+        main()                     — 環境変数解決・エラーハンドリング・各層の呼び出し
 """
 
 import logging
@@ -21,8 +39,6 @@ import os
 from datetime import datetime, timezone
 
 import pandas as pd
-import xgboost as xgb
-from supabase import create_client
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -40,30 +56,30 @@ FEATURE_LABELS = {
 MIN_ROWS = 14
 
 
-def fetch_daily_logs(client) -> pd.DataFrame:
-    response = client.table("daily_logs").select("*").order("log_date").execute()
-    return pd.DataFrame(response.data)
+# ── 純粋ロジック層 ─────────────────────────────────────────────────────────────
 
 
-def run_importance(df: pd.DataFrame) -> dict[str, dict[str, float | str]]:
-    """XGBoost で特徴量重要度を計算して返す。
+def apply_feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
+    """欠損除去・ソート・特徴量エンジニアリング・target 計算を適用した DataFrame を返す。
 
-    Returns:
-        特徴量名をキーとする辞書。各値は以下のキーを持つ辞書:
-        - label (str): 日本語ラベル
-        - importance (float): XGBoost の feature_importances_ の生値（0〜1）
-        - pct (float): 全特徴量合計に対する割合（%）
+    run_importance() と compute_meta() の両方がこの関数を経由することで、
+    特徴量エンジニアリングのロジックをここに一元化する。
+
+    返す DataFrame の末尾 1 行は target が NaN（shift(-1) によるもの）。
+    呼び出し側で dropna(subset=FEATURE_COLS + ["target"]) を行うこと。
+
+    入力 df を変更しない（内部で copy する）。
+    xgboost / supabase を必要としない純粋変換。
     """
     df = df.copy()
     df = df.dropna(subset=["weight", "calories", "protein", "fat", "carbs"])
     df = df.sort_values("log_date").reset_index(drop=True)
 
-    # 特徴量エンジニアリング (旧版踏襲)
-    df["cal_lag1"] = df["calories"]
+    df["cal_lag1"]      = df["calories"]
     df["rolling_cal_7"] = df["calories"].rolling(window=7, min_periods=1).mean()
-    df["p_lag1"] = df["protein"]
-    df["f_lag1"] = df["fat"]
-    df["c_lag1"] = df["carbs"]
+    df["p_lag1"]        = df["protein"]
+    df["f_lag1"]        = df["fat"]
+    df["c_lag1"]        = df["carbs"]
 
     # ── 目的変数: 翌日体重変化量 = weight(t+1) - weight(t) ──────────────────
     # 「翌日体重の絶対値」ではなく「翌日の変化量（増加=正、減少=負）」を予測する。
@@ -80,6 +96,33 @@ def run_importance(df: pd.DataFrame) -> dict[str, dict[str, float | str]]:
     # 追加するには本関数に `target_type` 引数を設け、上記の計算式を分岐させる。
     # ─────────────────────────────────────────────────────────────────────────
     df["target"] = df["weight"].shift(-1) - df["weight"]
+
+    return df
+
+
+def run_importance(df: pd.DataFrame) -> dict[str, dict[str, float | str]]:
+    """XGBoost で特徴量重要度を計算して返す。
+
+    xgboost はこの関数内で遅延 import する（分析実行時のみ必要）。
+    import analyze 時に xgboost が要求されないよう意図的に遅延させている。
+
+    Returns:
+        特徴量名をキーとする辞書。各値は以下のキーを持つ辞書:
+        - label (str): 日本語ラベル
+        - importance (float): XGBoost の feature_importances_ の生値（0〜1）
+        - pct (float): 全特徴量合計に対する割合（%）
+
+    Raises:
+        ValueError: 有効行数が MIN_ROWS 未満のとき
+    """
+    try:
+        import xgboost as xgb  # 遅延 import: 分析実行時のみ必要
+    except ImportError as e:
+        raise ImportError(
+            "xgboost が未導入です。pip install xgboost でインストールしてください。"
+        ) from e
+
+    df = apply_feature_engineering(df)
     df = df.dropna(subset=FEATURE_COLS + ["target"])
 
     if len(df) < MIN_ROWS:
@@ -105,7 +148,68 @@ def run_importance(df: pd.DataFrame) -> dict[str, dict[str, float | str]]:
     }
 
 
+def compute_meta(df: pd.DataFrame) -> dict[str, object]:
+    """分析前提情報（サンプル数・日付範囲・除外数）を計算して返す。
+
+    apply_feature_engineering() 経由で run_importance() と同じ前処理を参照する。
+    xgboost / supabase を必要としない純粋関数。
+
+    Returns:
+        _meta キー向けの辞書:
+        - sample_count (int): 有効サンプル数（欠損除外 + shift(-1) 末尾除外後）
+        - date_from (str | None): 有効サンプルの最古日付。サンプルなしなら None
+        - date_to (str | None): 有効サンプルの最新日付。サンプルなしなら None
+        - total_rows (int): 入力 df の行数（フィルタ前）
+        - dropped_count (int): 欠損除外 + shift(-1) 末尾除外の合計
+    """
+    total_rows = int(len(df))
+    df_proc = apply_feature_engineering(df)
+    df_proc = df_proc.dropna(subset=FEATURE_COLS + ["target"])
+    sample_count = int(len(df_proc))
+    return {
+        "sample_count":  sample_count,
+        "date_from":     str(df_proc["log_date"].iloc[0])  if sample_count > 0 else None,
+        "date_to":       str(df_proc["log_date"].iloc[-1]) if sample_count > 0 else None,
+        "total_rows":    total_rows,
+        "dropped_count": total_rows - sample_count,
+    }
+
+
+def build_payload(importance: dict, meta: dict) -> dict:
+    """importance と meta を analytics_cache.payload 形式に合成する。
+
+    Returns:
+        {"_meta": meta, **importance}
+    """
+    return {"_meta": meta, **importance}
+
+
+# ── 外部 I/O 層 ───────────────────────────────────────────────────────────────
+
+
+def fetch_daily_logs(client) -> pd.DataFrame:
+    """Supabase から daily_logs を全件取得して DataFrame で返す。"""
+    response = client.table("daily_logs").select("*").order("log_date").execute()
+    return pd.DataFrame(response.data)
+
+
+def save_analytics_cache(client, metric_type: str, payload: dict) -> None:
+    """analytics_cache テーブルに payload を upsert する。"""
+    client.table("analytics_cache").upsert(
+        {
+            "metric_type": metric_type,
+            "payload": payload,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    ).execute()
+
+
+# ── 実行入口 ──────────────────────────────────────────────────────────────────
+
+
 def main() -> None:
+    from supabase import create_client  # 遅延 import: I/O 実行時のみ必要
+
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
@@ -141,42 +245,12 @@ def main() -> None:
 
     logger.info("Importance: %s", importance)
 
-    # 分析前提情報を計算（run_importance と同じフィルタ＋特徴量エンジニアリングを適用）
-    df_meta = df.dropna(subset=["weight", "calories", "protein", "fat", "carbs"])
-    df_meta = df_meta.sort_values("log_date").reset_index(drop=True)
-    # run_importance と同じ特徴量エンジニアリングを適用してから dropna する
-    df_meta = df_meta.copy()
-    df_meta["cal_lag1"]      = df_meta["calories"]
-    df_meta["rolling_cal_7"] = df_meta["calories"].rolling(window=7, min_periods=1).mean()
-    df_meta["p_lag1"]        = df_meta["protein"]
-    df_meta["f_lag1"]        = df_meta["fat"]
-    df_meta["c_lag1"]        = df_meta["carbs"]
-    df_meta = df_meta.assign(target=df_meta["weight"].shift(-1) - df_meta["weight"])
-    missing_cols = [c for c in FEATURE_COLS + ["target"] if c not in df_meta.columns]
-    if missing_cols:
-        logger.error("df_meta is missing expected columns: %s", missing_cols)
-        raise SystemExit(1)
-    df_meta = df_meta.dropna(subset=FEATURE_COLS + ["target"])
-    sample_count = int(len(df_meta))
-    total_rows   = int(len(df))
-    meta: dict[str, object] = {
-        "sample_count":  sample_count,
-        "date_from":     str(df_meta["log_date"].iloc[0]) if sample_count > 0 else None,
-        "date_to":       str(df_meta["log_date"].iloc[-1]) if sample_count > 0 else None,
-        "total_rows":    total_rows,
-        "dropped_count": total_rows - sample_count,  # 欠損除外 + shift(-1) による末尾除外の合計
-    }
-    payload = {"_meta": meta, **importance}
+    meta = compute_meta(df)
+    payload = build_payload(importance, meta)
 
     logger.info("Saving xgboost_importance to 'analytics_cache'...")
     try:
-        client.table("analytics_cache").upsert(
-            {
-                "metric_type": "xgboost_importance",
-                "payload": payload,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }
-        ).execute()
+        save_analytics_cache(client, "xgboost_importance", payload)
     except Exception as e:
         logger.error("Failed to save analytics_cache: %s", e)
         raise SystemExit(1)

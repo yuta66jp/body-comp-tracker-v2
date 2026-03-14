@@ -12,7 +12,14 @@ import math
 import pandas as pd
 import pytest
 
-from analyze import run_importance, MIN_ROWS
+from analyze import (
+    run_importance,
+    apply_feature_engineering,
+    compute_meta,
+    build_payload,
+    FEATURE_COLS,
+    MIN_ROWS,
+)
 
 
 # ── ヘルパー ──────────────────────────────────────────────────────────────────
@@ -159,7 +166,6 @@ class TestMinRows:
 class TestOutputFormat:
     def test_returns_all_feature_cols(self):
         """FEATURE_COLS の全キーが出力辞書に含まれる。"""
-        from analyze import FEATURE_COLS
         df = _make_df(n=30)
         result = run_importance(df)
         for col in FEATURE_COLS:
@@ -187,3 +193,158 @@ class TestOutputFormat:
         result = run_importance(df)
         for entry in result.values():
             assert entry["importance"] >= 0
+
+
+# ── apply_feature_engineering のテスト ───────────────────────────────────────
+
+class TestApplyFeatureEngineering:
+    """
+    apply_feature_engineering() の純粋変換ロジックを検証する。
+    xgboost / supabase 不要で動作することをこのクラスが間接的に保証する。
+    """
+
+    def test_returns_all_feature_and_target_cols(self):
+        """特徴量列と target 列が全て追加されている。"""
+        df = _make_df(n=20)
+        result = apply_feature_engineering(df)
+        for col in FEATURE_COLS + ["target"]:
+            assert col in result.columns
+
+    def test_does_not_mutate_input(self):
+        """入力 DataFrame を変更しない（copy して返す）。"""
+        df = _make_df(n=20)
+        original_cols = set(df.columns)
+        apply_feature_engineering(df)
+        assert set(df.columns) == original_cols
+        assert "cal_lag1" not in df.columns
+
+    def test_drops_rows_with_null_weight(self):
+        """weight が欠損している行を除去する。"""
+        df = _make_df(n=20)
+        df.loc[5, "weight"] = None
+        result = apply_feature_engineering(df)
+        assert len(result) < 20
+        assert result["weight"].isna().sum() == 0
+
+    def test_sorts_by_log_date(self):
+        """log_date の昇順でソートされている。"""
+        df = _make_df(n=20)
+        df = df.iloc[::-1].reset_index(drop=True)  # 逆順に並べ替え
+        result = apply_feature_engineering(df)
+        assert result["log_date"].is_monotonic_increasing
+
+    def test_cal_lag1_equals_calories(self):
+        """cal_lag1 は calories と等値（当日カロリーの alias）。"""
+        df = _make_df(n=20)
+        result = apply_feature_engineering(df)
+        pd.testing.assert_series_equal(
+            result["cal_lag1"].reset_index(drop=True),
+            result["calories"].reset_index(drop=True),
+            check_names=False,
+        )
+
+    def test_last_row_target_is_nan(self):
+        """shift(-1) により末尾行の target は NaN になる。"""
+        df = _make_df(n=20)
+        result = apply_feature_engineering(df)
+        assert math.isnan(result["target"].iloc[-1])
+
+    def test_target_positive_for_increasing_weight(self):
+        """体重単調増加データでは target（翌日変化量）が全て正になる。"""
+        n = 10
+        dates = pd.date_range("2025-01-01", periods=n, freq="D").strftime("%Y-%m-%d").tolist()
+        df = pd.DataFrame({
+            "log_date": dates,
+            "weight":   [65.0 + i * 0.1 for i in range(n)],
+            "calories": [2000.0] * n,
+            "protein":  [150.0] * n,
+            "fat":      [60.0] * n,
+            "carbs":    [200.0] * n,
+        })
+        result = apply_feature_engineering(df)
+        valid = result.dropna(subset=["target"])
+        assert (valid["target"] > 0).all()
+
+
+# ── compute_meta のテスト ─────────────────────────────────────────────────────
+
+class TestComputeMeta:
+    """
+    compute_meta() の純粋計算ロジックを検証する。
+    run_importance() と同じ前処理が apply_feature_engineering() 経由で適用されることも確認する。
+    """
+
+    def test_returns_expected_keys(self):
+        """必要な全キーが返される。"""
+        df = _make_df(n=20)
+        meta = compute_meta(df)
+        for key in ["sample_count", "date_from", "date_to", "total_rows", "dropped_count"]:
+            assert key in meta
+
+    def test_total_rows_reflects_input_length(self):
+        """total_rows は入力 df の行数そのもの（フィルタ前）。"""
+        df = _make_df(n=20)
+        meta = compute_meta(df)
+        assert meta["total_rows"] == 20
+
+    def test_sample_count_less_than_total_due_to_shift(self):
+        """shift(-1) により末尾行が落ちるため sample_count < total_rows になる。"""
+        df = _make_df(n=20)
+        meta = compute_meta(df)
+        assert meta["sample_count"] < meta["total_rows"]
+
+    def test_dropped_count_equals_total_minus_sample(self):
+        """dropped_count = total_rows - sample_count の整合性を確認。"""
+        df = _make_df(n=20)
+        meta = compute_meta(df)
+        assert meta["dropped_count"] == meta["total_rows"] - meta["sample_count"]
+
+    def test_date_from_and_to_are_strings(self):
+        """サンプルがある場合、date_from / date_to は文字列で返る。"""
+        df = _make_df(n=20)
+        meta = compute_meta(df)
+        assert isinstance(meta["date_from"], str)
+        assert isinstance(meta["date_to"], str)
+
+    def test_empty_input_returns_null_dates_and_zero_counts(self):
+        """空 DataFrame を渡すと date_from/to は None、各カウントは 0 になる。"""
+        df = pd.DataFrame(columns=["log_date", "weight", "calories", "protein", "fat", "carbs"])
+        meta = compute_meta(df)
+        assert meta["date_from"] is None
+        assert meta["date_to"] is None
+        assert meta["sample_count"] == 0
+        assert meta["total_rows"] == 0
+        assert meta["dropped_count"] == 0
+
+
+# ── build_payload のテスト ───────────────────────────────────────────────────
+
+class TestBuildPayload:
+    """
+    build_payload() が importance と meta を正しく合成することを検証する。
+    analytics_cache.payload の構造仕様を文書化する役割も持つ。
+    """
+
+    def test_meta_key_present(self):
+        """_meta キーが最上位に存在する。"""
+        payload = build_payload(
+            {"feat": {"label": "x", "importance": 0.5, "pct": 100.0}},
+            {"sample_count": 10},
+        )
+        assert "_meta" in payload
+
+    def test_importance_keys_merged_at_top_level(self):
+        """importance のキーがトップレベルに展開されている。"""
+        importance = {"feat": {"label": "x", "importance": 0.5, "pct": 100.0}}
+        meta = {"sample_count": 10}
+        payload = build_payload(importance, meta)
+        assert "feat" in payload
+        assert payload["_meta"] == meta
+
+    def test_does_not_mutate_inputs(self):
+        """importance / meta 辞書を変更しない。"""
+        importance = {"feat": {"label": "x", "importance": 0.5, "pct": 100.0}}
+        meta = {"sample_count": 10}
+        build_payload(importance, meta)
+        assert "_meta" not in importance
+        assert "feat" not in meta
