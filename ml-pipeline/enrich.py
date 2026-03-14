@@ -18,6 +18,15 @@ enrich.py — TDEE逆算・SMA計算・データ加工バッチ
 
     実行入口:
         main()                    — 環境変数解決・エラーハンドリング・各層の呼び出し
+
+── TDEE 推定仕様 ────────────────────────────────────────────────────────────
+canonical source: このファイル (batch)
+window:  SMA_WINDOW = 7 日 (weight_sma7.diff() ベース)
+平滑化:  weight_sma7.diff() + rolling median (min_periods=3)
+係数:    KCAL_PER_KG_FAT = 7200 kcal/kg (Hall et al., 2012)
+front 側でこの値を再計算・再平滑化しないこと。
+front は analytics_cache["enriched_logs"] の tdee_estimated を表示・fallback・整形するだけにすること。
+─────────────────────────────────────────────────────────────────────────────
 """
 
 import logging
@@ -71,9 +80,33 @@ def build_enriched_payload(df: pd.DataFrame) -> list[dict]:
 
     log_date を "YYYY-MM-DD" 文字列、inf / NaN を None に正規化する。
     入力 df を変更しない。supabase を必要としない純粋変換。
+
+    生成フィールド:
+      - log_date        : YYYY-MM-DD 文字列
+      - weight_sma7     : 7日単純移動平均体重 (kg)
+      - tdee_estimated  : 推定 TDEE (kcal/日)。canonical source はこのバッチ。
+      - avg_tdee_7d     : 後方 SMA_WINDOW 日の推定 TDEE 平均 (kcal/日)
+                          front 側で再平均しなくてよいように事前計算する。
+      - avg_calories_7d : 後方 SMA_WINDOW 日の摂取カロリー平均 (kcal/日)
+                          front 側の週平均カロリー表示に使う場合はこの値を利用すること。
     """
-    payload = df[["log_date", "weight_sma7", "tdee_estimated"]].copy()
-    payload["log_date"] = payload["log_date"].dt.strftime("%Y-%m-%d")
+    work = df.copy()
+    work["log_date"] = work["log_date"].dt.strftime("%Y-%m-%d")
+
+    # 後方 SMA_WINDOW 日の TDEE 平均 (min_periods=3 で枠が足りない場合は None)
+    work["avg_tdee_7d"] = work["tdee_estimated"].rolling(
+        window=SMA_WINDOW, min_periods=3
+    ).mean()
+
+    # 後方 SMA_WINDOW 日のカロリー平均 (calories 列がある場合のみ)
+    if "calories" in work.columns:
+        work["avg_calories_7d"] = work["calories"].rolling(
+            window=SMA_WINDOW, min_periods=1
+        ).mean()
+    else:
+        work["avg_calories_7d"] = np.nan
+
+    payload = work[["log_date", "weight_sma7", "tdee_estimated", "avg_tdee_7d", "avg_calories_7d"]].copy()
     # inf → NaN → None の順で正規化
     payload = payload.replace([np.inf, -np.inf], np.nan)
     payload = payload.where(pd.notna(payload), None)

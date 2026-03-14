@@ -354,6 +354,31 @@ export interface RecipeItem {
   amount: number; // グラム数
 }
 
+/**
+ * analytics_cache["enriched_logs"] の payload 要素型。
+ *
+ * canonical source: ml-pipeline/enrich.py (batch)
+ * - tdee_estimated : SMA7 差分 + rolling median (window=7, min_periods=3)
+ *                   係数: KCAL_PER_KG_FAT = 7200 kcal/kg (Hall et al., 2012)
+ * - avg_tdee_7d    : 後方 7 日の tdee_estimated 平均 (min_periods=3)
+ *                   front 側で再平均しないこと。この値をそのまま表示する。
+ * - avg_calories_7d: 後方 7 日の摂取カロリー平均 (min_periods=1)
+ *                   front 側で再平均しないこと。この値をそのまま表示する。
+ *
+ * avg_tdee_7d / avg_calories_7d は新規追加フィールドのため、
+ * 古いバッチ結果では undefined になる場合がある。必ず ?? null で fallback すること。
+ */
+export interface EnrichedLogPayloadRow {
+  log_date: string;
+  weight_sma7: number | null;
+  /** 推定 TDEE (kcal/日)。canonical source: enrich.py */
+  tdee_estimated: number | null;
+  /** 後方 7 日の推定 TDEE 平均 (kcal/日)。enrich.py で事前計算済み。 */
+  avg_tdee_7d?: number | null;
+  /** 後方 7 日の摂取カロリー平均 (kcal/日)。enrich.py で事前計算済み。 */
+  avg_calories_7d?: number | null;
+}
+
 // Backtest table aliases
 export type ForecastBacktestRun =
   Database["public"]["Tables"]["forecast_backtest_runs"]["Row"];
