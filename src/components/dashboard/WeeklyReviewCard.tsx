@@ -24,10 +24,14 @@ import {
 } from "lucide-react";
 import type { WeeklyReviewData, StagnationLevel } from "@/lib/utils/calcWeeklyReview";
 import { DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayTags";
+import { AnalyticsStatusNote } from "@/components/analytics/AnalyticsStatusNote";
+import type { AnalyticsAvailability } from "@/lib/analytics/status";
 
 interface Props {
   data: WeeklyReviewData;
   phase: string;
+  /** enriched_logs の新鮮さ（エネルギーバランス欄に補助注記を表示） */
+  enrichedAvailability?: AnalyticsAvailability;
 }
 
 // ─── 停滞バッジ設定 ──────────────────────────────────────────────────────────
@@ -126,7 +130,7 @@ function SectionLabel({ icon, children }: { icon: React.ReactNode; children: Rea
 
 // ─── メインコンポーネント ────────────────────────────────────────────────────
 
-export function WeeklyReviewCard({ data, phase }: Props) {
+export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
   const isCut = phase !== "Bulk";
   const stCfg = STAGNATION_CONFIG[data.stagnation.level];
   const StIcon = stCfg.icon;
@@ -260,10 +264,13 @@ export function WeeklyReviewCard({ data, phase }: Props) {
                 valueColor={balanceColor}
               />
             </div>
-            {tdee.avgEstimated === null && (
-              <p className="mt-1 text-[11px] text-slate-400">
-                ML バッチ（enrich.py）を実行すると TDEE が表示されます
-              </p>
+            {enrichedAvailability && enrichedAvailability.status !== "fresh" && (
+              <div className="mt-1">
+                <AnalyticsStatusNote
+                  availability={enrichedAvailability}
+                  unavailableLabel="ML バッチ（enrich.py）実行で TDEE が表示されます"
+                />
+              </div>
             )}
           </div>
 

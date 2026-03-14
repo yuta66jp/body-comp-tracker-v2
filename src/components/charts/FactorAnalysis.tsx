@@ -19,6 +19,8 @@ import {
   getFeatureNote,
   getFeatureHint,
 } from "@/lib/utils/featureLabels";
+import { AnalyticsStatusNote } from "@/components/analytics/AnalyticsStatusNote";
+import type { AnalyticsAvailability } from "@/lib/analytics/status";
 
 // FactorMeta / FactorEntry は factorAnalysisUtils からの re-export が必要な場合に備えて公開
 export type { FactorMeta, FactorEntry };
@@ -27,6 +29,8 @@ interface FactorAnalysisProps {
   data: Record<string, FactorEntry>;
   updatedAt: string;
   meta?: FactorMeta | null;
+  /** xgboost_importance の新鮮さ（stale 時に補助注記を表示） */
+  analyticsAvailability?: AnalyticsAvailability;
 }
 
 // 重要度が高い順に青を濃くする（色だけで判断させない、位置との整合を取る）
@@ -242,7 +246,7 @@ function FactorInterpretation({
   );
 }
 
-export function FactorAnalysis({ data, updatedAt, meta }: FactorAnalysisProps) {
+export function FactorAnalysis({ data, updatedAt, meta, analyticsAvailability }: FactorAnalysisProps) {
   const { rows: sorted, filteredOutCount } = prepareFactorRows(data);
 
   // 有効な結果がゼロ件の場合: 代替表示
@@ -258,7 +262,12 @@ export function FactorAnalysis({ data, updatedAt, meta }: FactorAnalysisProps) {
             <h2 className="text-base font-semibold text-gray-700">AI 因子分析（XGBoost）</h2>
             <p className="mt-0.5 text-xs text-gray-400">翌日体重変化量に最も影響を与えている栄養素</p>
           </div>
-          <p className="text-xs text-gray-300">{updatedAt.slice(0, 10)} 更新</p>
+          <div className="text-right">
+            <p className="text-xs text-gray-300">{updatedAt.slice(0, 10)} 更新</p>
+            {analyticsAvailability && analyticsAvailability.status === "stale" && (
+              <AnalyticsStatusNote availability={analyticsAvailability} />
+            )}
+          </div>
         </div>
         <AnalysisPremise meta={meta} />
         <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-4">
@@ -280,7 +289,12 @@ export function FactorAnalysis({ data, updatedAt, meta }: FactorAnalysisProps) {
           <h2 className="text-base font-semibold text-gray-700">AI 因子分析（XGBoost）</h2>
           <p className="mt-0.5 text-xs text-gray-400">翌日体重変化量に最も影響を与えている栄養素</p>
         </div>
-        <p className="text-xs text-gray-300">{updatedAt.slice(0, 10)} 更新</p>
+        <div className="text-right">
+          <p className="text-xs text-gray-300">{updatedAt.slice(0, 10)} 更新</p>
+          {analyticsAvailability && analyticsAvailability.status === "stale" && (
+            <AnalyticsStatusNote availability={analyticsAvailability} />
+          )}
+        </div>
       </div>
 
       {/* 上段: 分析前提情報 */}

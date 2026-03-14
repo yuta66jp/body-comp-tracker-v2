@@ -12,6 +12,7 @@ import {
   calcPfcKcalRatio,
 } from "@/lib/utils/calcMacro";
 import type { MacroTargets } from "@/lib/utils/calcMacro";
+import { getAnalyticsAvailability } from "@/lib/analytics/status";
 import type { DailyLog, AnalyticsCache } from "@/lib/supabase/types";
 
 export const revalidate = 3600;
@@ -85,6 +86,13 @@ export default async function MacroPage() {
   const diff = calcMacroDiff(kpi.weekly, targets);
   const pfcRatio = calcPfcKcalRatio(kpi.weekly);
 
+  // xgboost_importance の新鮮さを判定
+  const latestRawLogDate = logs[logs.length - 1]?.log_date ?? null;
+  const factorAvailability = getAnalyticsAvailability(
+    factorResult?.updatedAt ?? null,
+    latestRawLogDate
+  );
+
   return (
     <main className="min-h-screen bg-gray-50 p-6">
       <h1 className="mb-6 text-xl font-bold text-gray-800">栄養分析</h1>
@@ -106,6 +114,7 @@ export default async function MacroPage() {
             data={factorResult.payload}
             meta={factorResult.meta}
             updatedAt={factorResult.updatedAt}
+            analyticsAvailability={factorAvailability}
           />
         ) : (
           <FactorAnalysisPlaceholder />

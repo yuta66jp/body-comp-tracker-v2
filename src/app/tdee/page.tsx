@@ -10,12 +10,16 @@ import {
   buildTdeeInterpretation,
   smoothTdeeSeries,
 } from "@/lib/utils/calcTdee";
+import { getAnalyticsAvailability } from "@/lib/analytics/status";
 import type { DailyLog, AnalyticsCache, Setting } from "@/lib/supabase/types";
 import type { CurrentPhase } from "@/lib/utils/energyBalance";
 
 export const revalidate = 3600;
 
-async function fetchEnrichedLogs() {
+type EnrichedLogsRow = { log_date: string; weight_sma7: number | null; tdee_estimated: number | null };
+type EnrichedLogsResult = { rows: EnrichedLogsRow[]; updatedAt: string };
+
+async function fetchEnrichedLogs(): Promise<EnrichedLogsResult | null> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("analytics_cache")
@@ -24,7 +28,10 @@ async function fetchEnrichedLogs() {
     .single();
   if (error || !data) return null;
   const row = data as Pick<AnalyticsCache, "payload" | "updated_at">;
-  return row.payload as Array<{ log_date: string; weight_sma7: number | null; tdee_estimated: number | null }>;
+  return {
+    rows: row.payload as EnrichedLogsRow[],
+    updatedAt: row.updated_at,
+  };
 }
 
 async function fetchRawLogs(): Promise<DailyLog[]> {
@@ -87,18 +94,25 @@ export default async function TdeePage() {
     }
   }
 
+  // enriched_logs の新鮮さを判定
+  const latestRawLogDate = sortedRaw[sortedRaw.length - 1]?.log_date ?? null;
+  const enrichedAvailability = getAnalyticsAvailability(
+    enriched?.updatedAt ?? null,
+    latestRawLogDate
+  );
+
   // enriched TDEE 系列を平滑化（水分・塩分・便通由来の単日ノイズを除去）
   // enrich.py 側でも SMA7 差分 + rolling median 済みだが、フロントで一層かけることで
   // バッチ未更新日や直近エントリのノイズも吸収する
-  const allTdeeRaw: (number | null)[] = (enriched ?? []).map((r) => r.tdee_estimated);
+  const allTdeeRaw: (number | null)[] = (enriched?.rows ?? []).map((r) => r.tdee_estimated);
   const smoothedTdeeValues = smoothTdeeSeries(allTdeeRaw);
   const smoothedTdeeMap = new Map(
-    (enriched ?? []).map((r, i) => [r.log_date, smoothedTdeeValues[i]])
+    (enriched?.rows ?? []).map((r, i) => [r.log_date, smoothedTdeeValues[i]])
   );
 
   // enriched がある場合はその日付軸を使う。ない場合は rawLogs を軸に tdee=null で描画
   const chartData = enriched
-    ? enriched.map((row) => ({
+    ? enriched.rows.map((row) => ({
         date: row.log_date.slice(5),
         tdee: smoothedTdeeMap.get(row.log_date) ?? null,
         intake: calMaMap.get(row.log_date) ?? null,
@@ -180,11 +194,18 @@ export default async function TdeePage() {
     <main className="min-h-screen bg-gray-50 p-6">
       <h1 className="mb-6 text-xl font-bold text-gray-800">TDEE・代謝分析</h1>
 
-      {/* ML バッチ未実行の補助案内（コンテンツはブロックしない） */}
-      {!enriched && (
+      {/* enriched_logs の状態バナー（コンテンツはブロックしない） */}
+      {enrichedAvailability.status === "unavailable" && (
         <div className="mb-5 rounded-2xl border border-amber-100 bg-amber-50 px-5 py-3 text-sm text-amber-700">
-          実測 TDEE は ML バッチ（enrich.py）未実行のため表示できません。
+          実測 TDEE は ML バッチ（enrich.py）が未実行のため表示できません（未計算）。
           理論 TDEE・平均摂取カロリー・体重推移は引き続き表示しています。
+        </div>
+      )}
+      {enrichedAvailability.status === "stale" && (
+        <div className="mb-5 rounded-2xl border border-amber-100 bg-amber-50 px-5 py-3 text-sm text-amber-700">
+          実測 TDEE は再計算前のデータを表示しています（最終更新: {enrichedAvailability.lastUpdatedDate}、
+          {enrichedAvailability.staleDays}日前の計算）。
+          直近入力が反映されるのは次回バッチ実行後（毎日 AM 3:00 JST）です。
         </div>
       )}
 
@@ -198,6 +219,7 @@ export default async function TdeePage() {
           measuredWeightChange={measuredWeightChange}
           confidence={confidence}
           interpretation={interpretation}
+          enrichedAvailability={enrichedAvailability}
         />
         <TdeeDetailChart data={chartData} avgTdee={avgTdee} />
         <TdeeDailyTable data={tableData} phase={currentPhase} />

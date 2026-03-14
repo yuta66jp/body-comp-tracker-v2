@@ -2,6 +2,8 @@
 
 import { ShieldCheck, ShieldAlert, Shield } from "lucide-react";
 import type { TdeeConfidence } from "@/lib/utils/calcTdee";
+import { AnalyticsStatusNote } from "@/components/analytics/AnalyticsStatusNote";
+import type { AnalyticsAvailability } from "@/lib/analytics/status";
 
 interface TdeeKpiCardProps {
   avgTdee:                 number | null;
@@ -12,6 +14,8 @@ interface TdeeKpiCardProps {
   measuredWeightChange:    number | null;  // kg/週 (実体重推移)
   confidence:              TdeeConfidence;
   interpretation:          string;
+  /** enriched_logs の新鮮さ（stale 時に補助注記を表示） */
+  enrichedAvailability?:   AnalyticsAvailability;
 }
 
 function SignedKcal({ value, label }: { value: number | null; label?: string }) {
@@ -62,6 +66,7 @@ export function TdeeKpiCard({
   measuredWeightChange,
   confidence,
   interpretation,
+  enrichedAvailability,
 }: TdeeKpiCardProps) {
   return (
     <div className="space-y-4">
@@ -92,6 +97,15 @@ export function TdeeKpiCard({
               <> — 理論値 {Math.round(theoreticalTdee).toLocaleString()} kcal</>
             )}
           </p>
+          {/* stale のときだけ注記（unavailable はページ上部バナーで説明済み） */}
+          {enrichedAvailability && enrichedAvailability.status === "stale" && (
+            <div className="mt-1">
+              <AnalyticsStatusNote
+                availability={enrichedAvailability}
+                unavailableLabel="ML バッチ（enrich.py）実行で表示されます"
+              />
+            </div>
+          )}
         </div>
 
         {/* 収支差分 */}

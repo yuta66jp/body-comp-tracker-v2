@@ -9,6 +9,8 @@ import { WeeklyReviewCard } from "@/components/dashboard/WeeklyReviewCard";
 import { calcDataQuality } from "@/lib/utils/calcDataQuality";
 import { calcReadiness } from "@/lib/utils/calcReadiness";
 import { calcWeeklyReview } from "@/lib/utils/calcWeeklyReview";
+import { getAnalyticsAvailability } from "@/lib/analytics/status";
+import type { AnalyticsAvailability } from "@/lib/analytics/status";
 import type { DailyLog, Prediction, AnalyticsCache, Setting, CareerLog } from "@/lib/supabase/types";
 import type { MonthStats } from "@/components/history/SeasonSummary";
 
@@ -28,16 +30,22 @@ async function fetchPredictions(): Promise<Prediction[]> {
   return (data as Prediction[]) ?? [];
 }
 
-async function fetchEnrichedLogs() {
+type EnrichedLogsRow = { log_date: string; weight_sma7: number | null; tdee_estimated: number | null };
+type EnrichedLogsResult = { rows: EnrichedLogsRow[]; updatedAt: string };
+
+async function fetchEnrichedLogs(): Promise<EnrichedLogsResult | null> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("analytics_cache")
-    .select("payload")
+    .select("payload, updated_at")
     .eq("metric_type", "enriched_logs")
     .single();
   if (error || !data) return null;
-  const row = data as Pick<AnalyticsCache, "payload">;
-  return row.payload as Array<{ log_date: string; weight_sma7: number | null; tdee_estimated: number | null }>;
+  const row = data as Pick<AnalyticsCache, "payload" | "updated_at">;
+  return {
+    rows: row.payload as EnrichedLogsRow[],
+    updatedAt: row.updated_at,
+  };
 }
 
 async function fetchSettings(): Promise<Record<string, number | string | null>> {
@@ -128,11 +136,18 @@ export default async function DashboardPage() {
     fetchCareerLogs(),
   ]);
 
-  const sma7 = (enriched ?? [])
+  // enriched_logs の新鮮さを判定
+  const latestRawLogDate = logs[logs.length - 1]?.log_date ?? null;
+  const enrichedAvailability: AnalyticsAvailability = getAnalyticsAvailability(
+    enriched?.updatedAt ?? null,
+    latestRawLogDate
+  );
+
+  const sma7 = (enriched?.rows ?? [])
     .filter((r) => r.weight_sma7 !== null)
     .map((r) => ({ date: r.log_date, value: r.weight_sma7! }));
 
-  const latestTdee = (enriched ?? [])
+  const latestTdee = (enriched?.rows ?? [])
     .filter((r) => r.tdee_estimated !== null)
     .at(-1)?.tdee_estimated ?? null;
 
@@ -162,7 +177,7 @@ export default async function DashboardPage() {
 
   // enriched_logs から log_date → tdee_estimated の Map を構築
   const enrichedTdeeMap = new Map<string, number>();
-  for (const row of enriched ?? []) {
+  for (const row of enriched?.rows ?? []) {
     if (row.tdee_estimated !== null) {
       enrichedTdeeMap.set(row.log_date, row.tdee_estimated);
     }
@@ -193,7 +208,7 @@ export default async function DashboardPage() {
             contestDate={contestDate ?? null}
             avgTdee={latestTdee}
           />
-          <WeeklyReviewCard data={weeklyReview} phase={phase} />
+          <WeeklyReviewCard data={weeklyReview} phase={phase} enrichedAvailability={enrichedAvailability} />
           <DataQualityBadge report={qualityReport} />
           {predictions.length > 0 && (
             <ForecastChart
