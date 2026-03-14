@@ -1,8 +1,8 @@
 /**
- * GoalNavigator — 目標達成ナビ + 大会カウントダウン
+ * GoalNavigator — 目標達成ナビ
  *
- * KpiCards の「パッと見」5枚カードを補完し、
- * 「このままで大会に間に合うか」を一体として判断できるパネル。
+ * KpiCards の「パッと見」カードを補完し、
+ * 「このままで大会に間に合うか」を判断できるパネル。
  *
  * Server Component (状態・イベントなし)
  *
@@ -11,14 +11,15 @@
  *   - 必要ペースも 7d avg ベースで再計算してペース差と一致させる
  *   - 実績ペースは calcReadiness の weekly_rate_kg (14日線形回帰)
  *   - ステータス判定・kcal補正は calcReadiness エクスポートの純粋関数を使う
+ *   - 残り日数 / 残り週数 / 大会日付は KpiCards 側に集約
  */
 
 import {
   TrendingDown,
   TrendingUp,
   Target,
-  CalendarDays,
   Gauge,
+  Utensils,
   AlertTriangle,
   CheckCircle2,
   CircleDot,
@@ -141,6 +142,30 @@ function Divider() {
   return <div className="hidden sm:block w-px bg-slate-100 self-stretch" />;
 }
 
+/** 調整提案の理由を一行で生成 */
+function buildReasonLabel(
+  paceGap: number | null,
+  kcalCorrection: number | null,
+  isCut: boolean
+): string {
+  if (kcalCorrection === null) {
+    return "データ不足のため、推奨調整は参考値として扱ってください";
+  }
+  if (Math.abs(kcalCorrection) < 50) {
+    return "現状ペースが必要ペースを満たしているため、現状維持を推奨";
+  }
+  if (paceGap === null) {
+    return "ペース差を算出できません";
+  }
+  const isBehind = isCut ? paceGap > 0 : paceGap < 0;
+  const absGap = Math.abs(paceGap).toFixed(2);
+  if (isBehind) {
+    return `必要ペースより ${absGap} kg/2週 遅いため、${kcalCorrection < 0 ? "" : "+"}${kcalCorrection.toLocaleString()} kcal/日 を推奨`;
+  } else {
+    return `目標に対して ${absGap} kg/2週 先行しているため、調整は最小限でよい`;
+  }
+}
+
 // ─── メインコンポーネント ────────────────────────────────────────────────────
 
 export function GoalNavigator({
@@ -159,12 +184,6 @@ export function GoalNavigator({
   // ── 7d avg ベースで必要ペース・残りを再計算 (kg/2週) ──
   const remainingKg =
     refWeight !== null && goalWeight !== null ? refWeight - goalWeight : null;
-
-  // 大会まで表示用の残り週数
-  const weeksLeft =
-    metrics.days_to_contest !== null && metrics.days_to_contest > 0
-      ? metrics.days_to_contest / 7
-      : null;
 
   // 必要ペース: calcReadiness の required_rate_kg_per_2weeks を参照
   // ただし 7d avg ベースで再計算（calcReadiness は current_weight ベース）
@@ -202,7 +221,6 @@ export function GoalNavigator({
   const StatusIcon = statusCfg.icon;
 
   // ── 設定欠落フォールバック ──
-  const missingContest = !contestDate;
   const missingGoal = goalWeight === null;
 
   // ── kcal 表示の補足 ──
@@ -291,36 +309,7 @@ export function GoalNavigator({
 
         <Divider />
 
-        {/* ─── 列2: 大会カウントダウン ─── */}
-        <div className="flex flex-col gap-1.5 border-t border-slate-100 p-5 sm:border-t-0">
-          <SectionLabel>
-            <CalendarDays size={11} className="inline mr-1" />
-            大会まで
-          </SectionLabel>
-
-          {missingContest ? (
-            <p className="text-xs text-slate-400">大会日が未設定です</p>
-          ) : metrics.days_to_contest !== null && metrics.days_to_contest < 0 ? (
-            <p className="text-xs text-slate-400">大会日を過ぎています</p>
-          ) : (
-            <>
-              <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-bold leading-none tracking-tight text-violet-700">
-                  {metrics.days_to_contest ?? "—"}
-                </span>
-                <span className="text-sm text-slate-400">日</span>
-              </div>
-              <p className="text-xs text-slate-500">
-                {weeksLeft !== null ? `${weeksLeft.toFixed(1)} 週` : "—"}
-              </p>
-              <p className="mt-1 text-[11px] text-slate-400">{contestDate}</p>
-            </>
-          )}
-        </div>
-
-        <Divider />
-
-        {/* ─── 列3: ペース分析 ─── */}
+        {/* ─── 列2: ペース分析 ─── */}
         <div className="flex flex-col gap-1.5 border-t border-slate-100 p-5 sm:border-t-0">
           <SectionLabel>
             {actualRateKg2W !== null && actualRateKg2W < 0 ? (
@@ -363,35 +352,64 @@ export function GoalNavigator({
                 : "text-emerald-600"
             }
           />
+        </div>
 
-          {/* kcal 補正 */}
+        <Divider />
+
+        {/* ─── 列3: 調整提案 ─── */}
+        <div className="flex flex-col gap-1.5 border-t border-slate-100 p-5 sm:border-t-0">
+          <SectionLabel>
+            <Utensils size={11} className="inline mr-1" />
+            調整提案
+          </SectionLabel>
+
           {kcalCorrection !== null && Math.abs(kcalCorrection) >= 50 && (
-            <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs">
-              <span className="text-slate-500">推奨調整: </span>
-              <span
-                className={`font-bold ${
-                  kcalCorrection < 0 ? "text-rose-600" : "text-emerald-600"
-                }`}
-              >
-                {fmtKcal(kcalCorrection)}
-              </span>
+            <>
+              <MetricRow
+                label="推奨調整"
+                value={fmtKcal(kcalCorrection)}
+                valueColor={kcalCorrection < 0 ? "text-rose-600" : "text-emerald-600"}
+              />
               {recommendedIntake !== null && (
-                <span className="ml-1 text-slate-400">
-                  → 目標摂取 {recommendedIntake.toLocaleString()} kcal
-                </span>
+                <MetricRow
+                  label="目標摂取"
+                  value={`${recommendedIntake.toLocaleString()} kcal`}
+                  valueColor="text-slate-700"
+                />
               )}
-            </div>
+            </>
           )}
           {kcalCorrection !== null && Math.abs(kcalCorrection) < 50 && (
-            <div className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-              現在のペースを維持
-            </div>
+            <>
+              <MetricRow
+                label="推奨調整"
+                value="現状維持"
+                valueColor="text-emerald-600"
+              />
+              {recommendedIntake !== null && (
+                <MetricRow
+                  label="目標摂取"
+                  value={`${recommendedIntake.toLocaleString()} kcal`}
+                  valueColor="text-slate-700"
+                />
+              )}
+            </>
           )}
-          {kcalCorrection === null && !missingContest && !missingGoal && (
-            <p className="mt-2 text-[11px] text-slate-400">
+          {kcalCorrection === null && !missingGoal && (
+            <p className="text-xs text-slate-400">
               ペースデータが蓄積されると表示されます
             </p>
           )}
+          {missingGoal && (
+            <p className="text-xs text-slate-400">目標体重が未設定です</p>
+          )}
+
+          {/* 理由の一行説明 */}
+          <div className="mt-auto pt-2">
+            <p className="text-[11px] leading-relaxed text-slate-400">
+              {buildReasonLabel(paceGap, kcalCorrection, isCut)}
+            </p>
+          </div>
         </div>
       </div>
 
