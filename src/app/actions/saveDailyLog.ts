@@ -107,9 +107,10 @@ export async function saveDailyLog(
     return { ok: false, message: "保存するデータがありません" };
   }
 
-  // --- Supabase: RPC で atomic upsert ---
-  // save_daily_log_partial は INSERT ... ON CONFLICT DO UPDATE で
-  // read-then-write を廃し、1 回の DB 呼び出しで partial upsert を完結させる。
+  // --- Supabase: RPC で atomic save ---
+  // save_daily_log_partial は「UPDATE 先行 → 既存行なければ INSERT」方式。
+  // 既存行への partial update は INSERT 側の NOT NULL 制約に触れない。
+  // 新規行作成時に weight がなければ RPC が new_log_requires_weight 例外を返す。
   // payload の JSONB キー存在が undefined/null/値の 3 状態を担保する。
   const supabase = createClient();
 
@@ -119,6 +120,10 @@ export async function saveDailyLog(
   });
 
   if (saveError) {
+    // RPC が new_log_requires_weight を返した場合は分かりやすいメッセージに変換する
+    if (saveError.message === "new_log_requires_weight") {
+      return { ok: false, message: "新しい日付を作成するには体重の入力が必要です" };
+    }
     console.error("[saveDailyLog] rpc error:", saveError.message, "| payload keys:", Object.keys(payload));
     return { ok: false, message: "保存に失敗しました: " + saveError.message };
   }

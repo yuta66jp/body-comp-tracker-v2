@@ -608,3 +608,81 @@ describe("saveDailyLog — Phase 2.5 バリデーション", () => {
     expect(result.ok).toBe(false);
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// RPC 保存戦略: UPDATE 先行 / INSERT fallback
+//
+// 旧実装の INSERT ... ON CONFLICT DO UPDATE は、p_fields に weight がないと
+// INSERT 側の NOT NULL 制約で既存行更新でも失敗する問題があった。
+// 新実装は「UPDATE 先行 → 行なければ INSERT」方式で、
+// 既存行への partial update は INSERT 側に触れない。
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("saveDailyLog — 既存行 partial update (fix: INSERT NOT NULL 回避)", () => {
+  test("既存行に training_type だけ更新: weight なしでも ok: true", async () => {
+    // 既存行への partial update は INSERT 側に触れないため weight 不要
+    const capture = makeRpcMock(); // RPC 成功
+    const result = await saveDailyLog({
+      log_date: "2026-03-13",
+      training_type: "back",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(capture.p_fields?.training_type).toBe("back");
+    expect(capture.p_fields?.leg_flag).toBe(false);
+    // weight は p_fields に含まれない（既存行の値を保持する意図）
+    expect("weight" in (capture.p_fields ?? {})).toBe(false);
+  });
+
+  test("既存行に work_mode だけ更新: weight なしでも ok: true", async () => {
+    const capture = makeRpcMock();
+    const result = await saveDailyLog({
+      log_date: "2026-03-13",
+      work_mode: "remote",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(capture.p_fields?.work_mode).toBe("remote");
+    expect("weight" in (capture.p_fields ?? {})).toBe(false);
+  });
+
+  test("既存行に sleep_hours だけ更新: weight なしでも ok: true", async () => {
+    const capture = makeRpcMock();
+    const result = await saveDailyLog({
+      log_date: "2026-03-13",
+      sleep_hours: 6.5,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(capture.p_fields?.sleep_hours).toBe(6.5);
+    expect("weight" in (capture.p_fields ?? {})).toBe(false);
+  });
+
+  test("RPC が new_log_requires_weight を返す → 分かりやすいメッセージ", async () => {
+    // 新規日付への weight なし保存: RPC がエラーコードを返す
+    makeRpcMock({ message: "new_log_requires_weight" });
+    const result = await saveDailyLog({
+      log_date: "2026-03-20",
+      training_type: "chest",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toBe("新しい日付を作成するには体重の入力が必要です");
+    }
+  });
+
+  test("新規日付への weight あり保存は従来通り ok: true", async () => {
+    const capture = makeRpcMock();
+    const result = await saveDailyLog({
+      log_date: "2026-03-20",
+      weight: 70.0,
+      training_type: "chest",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(capture.p_fields?.weight).toBe(70.0);
+    expect(capture.p_fields?.training_type).toBe("chest");
+    expect(capture.p_fields?.leg_flag).toBe(false);
+  });
+});
