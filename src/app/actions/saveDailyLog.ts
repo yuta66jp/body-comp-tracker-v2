@@ -32,7 +32,7 @@ export type SaveDailyLogInput = {
   sleep_hours?: number | null;
   /** null = 明示クリア（未記録に戻す） */
   had_bowel_movement?: boolean | null;
-  /** 'chest' | 'back' | 'shoulders' | 'glutes_hamstrings' | 'quads' */
+  /** 'off' | 'chest' | 'back' | 'shoulders' | 'glutes_hamstrings' | 'quads' */
   training_type?: string | null;
   /** 'off' | 'office' | 'remote' */
   work_mode?: string | null;

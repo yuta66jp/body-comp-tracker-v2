@@ -32,6 +32,12 @@ describe("deriveLegFlag", () => {
     expect(deriveLegFlag("shoulders")).toBe(false);
   });
 
+  test("off → false (オフ日 = 非レッグ日と確定)", () => {
+    // off はトレーニングなしと明示した日。脚トレをしていないことが確定するため false。
+    // null (未記録・不明) とは区別する。
+    expect(deriveLegFlag("off")).toBe(false);
+  });
+
   test("null → null (未入力は未判定 ≠ false)", () => {
     expect(deriveLegFlag(null)).toBeNull();
   });
@@ -156,6 +162,7 @@ describe("formatConditionSummary", () => {
 
   test("全 training_type の表示文言が正しい", () => {
     const cases: [string, string][] = [
+      ["off",               "オフ"],
       ["chest",             "胸"],
       ["back",              "背中"],
       ["shoulders",         "肩"],
