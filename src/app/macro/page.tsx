@@ -17,10 +17,23 @@ import { fetchFactorAnalysis } from "@/lib/queries/analytics";
 export const revalidate = 3600;
 
 export default async function MacroPage() {
-  const [logs, targetsResult] = await Promise.all([
+  const [logsResult, targetsResult] = await Promise.all([
     fetchDailyLogs(),
     fetchMacroTargets(),
   ]);
+
+  if (logsResult.kind === "error") {
+    return (
+      <main className="min-h-screen bg-gray-50 p-6">
+        <h1 className="mb-6 text-xl font-bold text-gray-800">栄養分析</h1>
+        <div className="rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+          ログデータの取得中にエラーが発生しました。ページを再読み込みしてください。
+        </div>
+      </main>
+    );
+  }
+
+  const logs = logsResult.data;
 
   if (logs.length === 0) {
     return (
