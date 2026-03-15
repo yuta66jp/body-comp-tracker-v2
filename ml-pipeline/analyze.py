@@ -47,6 +47,7 @@ from feature_registry import (
     TargetType,
     active_feature_cols,
     active_feature_labels,
+    active_feature_names,
     active_features,
 )
 
@@ -286,6 +287,7 @@ def compute_meta(
         - date_to (str | None): 有効サンプルの最新日付。サンプルなしなら None
         - total_rows (int): 入力 df の行数（フィルタ前）
         - dropped_count (int): 欠損除外 + shift(-1) 末尾除外の合計
+        - feature_names (list[str]): アクティブ特徴量名リスト。featureLabels.ts との同期確認用。
         - feature_labels (dict[str, str]): {feature_name: label}。フロントの fallback 用。
         - feature_coverage (dict[str, float]): {feature_name: 非欠損率 0.0〜1.0}
         - target_type (str): 使用した目的変数の種類（TargetType の値）
@@ -300,6 +302,7 @@ def compute_meta(
         "date_to":          str(df_proc["log_date"].iloc[-1]) if sample_count > 0 else None,
         "total_rows":       total_rows,
         "dropped_count":    total_rows - sample_count,
+        "feature_names":    active_feature_names(),
         "feature_labels":   active_feature_labels(),
         "feature_coverage": compute_feature_coverage(df),
         "target_type":      target_type.value,

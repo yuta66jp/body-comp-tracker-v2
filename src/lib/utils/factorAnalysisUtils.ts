@@ -55,7 +55,9 @@ export interface FactorMeta {
   date_from: string | null;
   date_to: string | null;
   total_rows: number;
-  dropped_count?: number;  // 旧キャッシュとの後方互換で省略可
+  dropped_count?: number;     // 旧キャッシュとの後方互換で省略可
+  feature_names?: string[];   // アクティブ特徴量名リスト (featureLabels.ts との同期確認用)
+  feature_labels?: Record<string, string>; // {feature_name: label} フロントの fallback 用
 }
 
 /**

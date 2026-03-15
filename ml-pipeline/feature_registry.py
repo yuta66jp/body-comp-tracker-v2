@@ -6,10 +6,12 @@ feature_registry.py — 因子分析 特徴量定義の単一ソース
 ■ 設計方針
   - 特徴量の「名前 / 表示ラベル / 型 / nullable / ソース列 / encoder 方針 / 有効フラグ」を
     FeatureDef に集約する。
-  - analyze.py は active_feature_cols() / active_feature_labels() を呼んで使う。
+  - analyze.py は active_feature_cols() / active_feature_labels() / active_feature_names() を呼んで使う。
     FEATURE_COLS / FEATURE_LABELS を直書きしない。
   - フロントエンドは _meta.feature_labels (payload に含まれる) をフォールバックとして使える。
     featureLabels.ts の FEATURE_LABEL_MAP が第一優先だが、未登録キーは payload 側を使用する。
+  - featureLabels.ts の ACTIVE_FEATURE_NAMES との同期は test_feature_registry.py の
+    TestActiveFeatureNamesSync が自動検証する。
 
 ■ active フラグの意味
   active=True  : 現在の XGBoost 学習で使用する
@@ -240,6 +242,15 @@ def active_features() -> list[FeatureDef]:
 def active_feature_cols() -> list[str]:
     """現在学習に使用する特徴量列名リストを返す。analyze.py の FEATURE_COLS に相当。"""
     return [f.name for f in FEATURE_REGISTRY if f.active]
+
+
+def active_feature_names() -> list[str]:
+    """現在学習に使用する特徴量名リストを返す。active_feature_cols() の意図明示版。
+
+    compute_meta() の "feature_names" キーに格納し、フロントエンドが
+    featureLabels.ts の ACTIVE_FEATURE_NAMES との同期確認に利用できるようにする。
+    """
+    return active_feature_cols()
 
 
 def active_feature_labels() -> dict[str, str]:

@@ -283,7 +283,7 @@ class TestComputeMeta:
         meta = compute_meta(df)
         for key in [
             "sample_count", "date_from", "date_to", "total_rows", "dropped_count",
-            "feature_labels", "feature_coverage", "target_type",
+            "feature_names", "feature_labels", "feature_coverage", "target_type",
         ]:
             assert key in meta
 
@@ -366,6 +366,20 @@ class TestComputeMeta:
         df = _make_df(n=20)
         meta = compute_meta(df)
         assert meta["target_type"] == TargetType.NEXT_DAY_CHANGE.value
+
+    def test_feature_names_is_list_of_strings(self):
+        """feature_names はアクティブ特徴量名の文字列リストで返る。"""
+        df = _make_df(n=20)
+        meta = compute_meta(df)
+        names = meta["feature_names"]
+        assert isinstance(names, list)
+        assert all(isinstance(n, str) for n in names)
+
+    def test_feature_names_matches_feature_cols(self):
+        """feature_names は FEATURE_COLS と同じ内容を返す。"""
+        df = _make_df(n=20)
+        meta = compute_meta(df)
+        assert meta["feature_names"] == FEATURE_COLS
 
 
 # ── compute_feature_coverage のテスト ────────────────────────────────────────
