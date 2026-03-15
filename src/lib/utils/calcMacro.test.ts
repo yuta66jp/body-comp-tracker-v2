@@ -84,6 +84,38 @@ describe("calcMacroKpi", () => {
     const kpi = calcMacroKpi(logs);
     expect(kpi.weekly.avgCalories).toBeCloseTo(2000, 1);
   });
+
+  /**
+   * 未記録 と 実測 0（絶食日）の意味論の違いを固定するテスト。
+   *
+   * NULL = 未記録（欠損値）→ 平均計算から除外される
+   * 0    = 実測値（絶食日など）→ 平均計算に含まれる
+   *
+   * 未記録由来の 0 は migration 20260316000001_backfill_zero_macros_to_null.sql で NULL に補正済み。
+   * 現行保存経路（MealLogger）は食事未入力時に calories: undefined を送り、DB には NULL が保存される。
+   */
+  it("calories = null（未記録）は平均から除外され、calories = 0（実測絶食日）は含まれる", () => {
+    const logs = [
+      makeLog("2026-03-01", { calories: null }), // 未記録 → 除外
+      makeLog("2026-03-02", { calories: 0 }),     // 実測 0（絶食日）→ 含む
+      makeLog("2026-03-03", { calories: 3000 }),  // 含む
+      makeLog("2026-03-04", { calories: null }), // 未記録 → 除外
+      makeLog("2026-03-05", { calories: 1000 }),  // 含む
+      makeLog("2026-03-06", { calories: null }), // 未記録 → 除外
+      makeLog("2026-03-07", { calories: 2000 }),  // 含む
+    ];
+    const kpi = calcMacroKpi(logs);
+    // 平均 = (0 + 3000 + 1000 + 2000) / 4 = 1500 (null 3件は除外、0 は含む)
+    expect(kpi.weekly.avgCalories).toBeCloseTo(1500, 1);
+  });
+
+  it("全て calories = null なら avgCalories = null を返す", () => {
+    const logs = Array.from({ length: 7 }, (_, i) =>
+      makeLog(`2026-03-0${i + 1}`, { calories: null })
+    );
+    const kpi = calcMacroKpi(logs);
+    expect(kpi.weekly.avgCalories).toBeNull();
+  });
 });
 
 describe("calcDailyMacro", () => {

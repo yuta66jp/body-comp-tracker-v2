@@ -66,6 +66,13 @@ def enrich_data(df: pd.DataFrame) -> pd.DataFrame:
     # 改善: weight_sma7.diff() = 7日移動平均の差分
     #       SMA7 の差分は 1 日分の変化が 1/7 に分散されるため、短期ノイズに強い
     #       さらに rolling median (min_periods=3) で外れ値日のカロリー記録を平滑化する
+    #
+    # calories 列の意味論:
+    #   NULL (pandas NaN) = 未記録・不明。tdee_candidates も NaN になり rolling median でスキップされる。
+    #   0                 = 実測値（絶食日など）。TDEE 計算に含まれる。
+    #   未記録由来の 0 は migration 20260316000001_backfill_zero_macros_to_null.sql で NULL に補正済み。
+    #   現行保存経路（MealLogger → save_daily_log_partial RPC）は食事未入力を NULL で保存するため
+    #   未記録 0 の再発生は防がれている。
     weight_sma7_delta = df["weight_sma7"].diff()  # kg/day (SMA7 の差分: ≒ (w_t - w_{t-6}) / 6)
     tdee_candidates = df["calories"] - weight_sma7_delta * KCAL_PER_KG_FAT
     df["tdee_estimated"] = tdee_candidates.rolling(
