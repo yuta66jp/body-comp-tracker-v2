@@ -106,39 +106,19 @@ export async function saveDailyLog(
     return { ok: false, message: "保存するデータがありません" };
   }
 
-  // --- Supabase: 既存レコードを確認して insert / partial update ---
+  // --- Supabase: RPC で atomic upsert ---
+  // save_daily_log_partial は INSERT ... ON CONFLICT DO UPDATE で
+  // read-then-write を廃し、1 回の DB 呼び出しで partial upsert を完結させる。
+  // payload の JSONB キー存在が undefined/null/値の 3 状態を担保する。
   const supabase = createClient();
 
-  const { data: existing, error: fetchError } = await supabase
-    .from("daily_logs")
-    .select("log_date")
-    .eq("log_date", input.log_date)
-    .maybeSingle();
-
-  if (fetchError) {
-    console.error("[saveDailyLog] fetch error:", fetchError.message);
-    return { ok: false, message: "保存に失敗しました: " + fetchError.message };
-  }
-
-  let saveError: { message: string } | null;
-
-  if (existing) {
-    // 既存レコードあり: 送られたフィールドのみ上書き（partial update）
-    const { error } = await supabase
-      .from("daily_logs")
-      .update(payload)
-      .eq("log_date", input.log_date);
-    saveError = error;
-  } else {
-    // 新規レコード: insert
-    const { error } = await supabase
-      .from("daily_logs")
-      .insert({ log_date: input.log_date, ...payload });
-    saveError = error;
-  }
+  const { error: saveError } = await supabase.rpc("save_daily_log_partial", {
+    p_log_date: input.log_date,
+    p_fields:   payload,
+  });
 
   if (saveError) {
-    console.error("[saveDailyLog] save error:", saveError.message, "| payload keys:", Object.keys(payload));
+    console.error("[saveDailyLog] rpc error:", saveError.message, "| payload keys:", Object.keys(payload));
     return { ok: false, message: "保存に失敗しました: " + saveError.message };
   }
 

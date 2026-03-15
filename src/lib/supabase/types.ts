@@ -334,7 +334,15 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      save_daily_log_partial: {
+        Args: {
+          p_log_date: string;
+          p_fields: Record<string, unknown>;
+        };
+        Returns: undefined;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
