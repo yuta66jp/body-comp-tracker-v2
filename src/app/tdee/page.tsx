@@ -35,10 +35,15 @@ export default async function TdeePage() {
   const settings = settingsResult.kind === "ok" ? settingsResult.data : mapToAppSettings([]);
 
   const sortedRaw = [...rawLogs].sort((a, b) => a.log_date.localeCompare(b.log_date));
-  const latestRawLogDate = sortedRaw[sortedRaw.length - 1]?.log_date ?? null;
 
-  // enriched_logs は rawLogs の最新日を渡して新鮮さを判定する
-  const enrichedResult = await fetchEnrichedLogs(latestRawLogDate);
+  // MAX(updated_at) を使って stale 判定する。
+  // MAX(log_date) ではなく MAX(updated_at) を使うことで、過去日の行修正でも stale を正しく検知できる。
+  const latestRawLogUpdatedAt = rawLogs.reduce<string | null>((max, l) => {
+    if (!l.updated_at) return max;
+    return max === null || l.updated_at > max ? l.updated_at : max;
+  }, null);
+
+  const enrichedResult = await fetchEnrichedLogs(latestRawLogUpdatedAt);
   const enrichedRows = enrichedResult.rows;
   const enrichedAvailability = enrichedResult.availability;
 

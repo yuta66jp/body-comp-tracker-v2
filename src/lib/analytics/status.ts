@@ -56,13 +56,23 @@ export function getAnalyticsAvailability(
     return unavailableAvailability();
   }
 
-  const lastUpdatedDate = cacheUpdatedAt.slice(0, 10); // "YYYY-MM-DD"
+  const lastUpdatedDate = cacheUpdatedAt.slice(0, 10); // "YYYY-MM-DD" (表示用)
 
-  if (!latestDependencyUpdatedAt || lastUpdatedDate >= latestDependencyUpdatedAt) {
+  if (!latestDependencyUpdatedAt) {
     return { status: "fresh", lastUpdatedDate, staleDays: null };
   }
 
-  const staleDays = daysBetween(lastUpdatedDate, latestDependencyUpdatedAt) ?? 1;
+  // タイムスタンプ全体で比較することで、同日中の intraday 修正（バッチ実行後・同日中の過去日編集）も検知できる。
+  // YYYY-MM-DD 文字列を渡した場合は UTC 0:00 として解釈される (new Date("YYYY-MM-DD"))。
+  const cacheTs = new Date(cacheUpdatedAt).getTime();
+  const latestTs = new Date(latestDependencyUpdatedAt).getTime();
+
+  if (cacheTs >= latestTs) {
+    return { status: "fresh", lastUpdatedDate, staleDays: null };
+  }
+
+  // staleDays は表示用のため日付粒度で計算する（分単位の差分は不要）
+  const staleDays = daysBetween(lastUpdatedDate, latestDependencyUpdatedAt.slice(0, 10)) ?? 1;
   return { status: "stale", lastUpdatedDate, staleDays };
 }
 
@@ -70,7 +80,10 @@ export function getAnalyticsAvailability(
 
 /**
  * enriched_logs キャッシュの新鮮さを判定する。
- * 依存: rawLogs の最新 log_date
+ * 依存: rawLogs の MAX(updated_at) の日付部分 (YYYY-MM-DD)
+ *
+ * latestRawLogDate ではなく MAX(updated_at) を使うことで、
+ * 過去日の行を編集した場合でも stale を正しく検知できる。
  */
 export function getEnrichedLogsAvailability(
   cacheUpdatedAt: string | null,
@@ -81,7 +94,10 @@ export function getEnrichedLogsAvailability(
 
 /**
  * xgboost_importance キャッシュの新鮮さを判定する。
- * 依存: rawLogs の最新 log_date（モデル再学習の必要性を rawLogs 日で代理判定）
+ * 依存: rawLogs の MAX(updated_at) の日付部分 (YYYY-MM-DD)
+ *
+ * latestRawLogDate ではなく MAX(updated_at) を使うことで、
+ * 過去日の行を編集した場合でも stale を正しく検知できる。
  */
 export function getXgboostAvailability(
   cacheUpdatedAt: string | null,

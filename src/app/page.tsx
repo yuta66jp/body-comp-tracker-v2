@@ -89,9 +89,13 @@ export default async function DashboardPage() {
   const logs = logsResult.kind === "ok" ? logsResult.data : [];
   const settings = settingsResult.kind === "ok" ? settingsResult.data : mapToAppSettings([]);
 
-  // enriched_logs は rawLogs の最新日を渡して新鮮さを判定する
-  const latestRawLogDate = logs[logs.length - 1]?.log_date ?? null;
-  const enrichedResult = await fetchEnrichedLogs(latestRawLogDate);
+  // MAX(updated_at) を使って stale 判定する。
+  // MAX(log_date) ではなく MAX(updated_at) を使うことで、過去日の行修正でも stale を正しく検知できる。
+  const latestRawLogUpdatedAt = logs.reduce<string | null>((max, l) => {
+    if (!l.updated_at) return max;
+    return max === null || l.updated_at > max ? l.updated_at : max;
+  }, null);
+  const enrichedResult = await fetchEnrichedLogs(latestRawLogUpdatedAt);
 
   const enrichedRows = enrichedResult.rows;
   const enrichedAvailability = enrichedResult.availability;

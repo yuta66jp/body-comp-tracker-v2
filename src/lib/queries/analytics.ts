@@ -61,11 +61,13 @@ export interface FactorAnalysisResult {
  * analytics_cache の enriched_logs エントリを取得し、
  * 新鮮さ（fresh / stale / unavailable / error）を判定して返す。
  *
- * @param latestRawLogDate  rawLogs の最新 log_date (YYYY-MM-DD)。stale 判定に使用する。
- *                          null を渡した場合は cacheUpdatedAt のみで判定する。
+ * @param latestRawLogUpdatedAt  daily_logs の MAX(updated_at) (ISO 8601)。stale 判定に使用する。
+ *                               MAX(log_date) ではなく MAX(updated_at) を使うことで、
+ *                               過去日の行修正でも stale を正しく検知できる。
+ *                               null を渡した場合は cacheUpdatedAt のみで判定する。
  */
 export async function fetchEnrichedLogs(
-  latestRawLogDate: string | null
+  latestRawLogUpdatedAt: string | null
 ): Promise<EnrichedLogsResult> {
   const supabase = createClient();
   const { data, error } = await supabase
@@ -78,7 +80,7 @@ export async function fetchEnrichedLogs(
     if (error.code === "PGRST116") {
       // 行なし = バッチ未実行
       return {
-        availability: getEnrichedLogsAvailability(null, latestRawLogDate),
+        availability: getEnrichedLogsAvailability(null, latestRawLogUpdatedAt),
         rows: [],
         updatedAt: null,
       };
@@ -92,7 +94,7 @@ export async function fetchEnrichedLogs(
 
   if (!data) {
     return {
-      availability: getEnrichedLogsAvailability(null, latestRawLogDate),
+      availability: getEnrichedLogsAvailability(null, latestRawLogUpdatedAt),
       rows: [],
       updatedAt: null,
     };
@@ -101,7 +103,7 @@ export async function fetchEnrichedLogs(
   const row = data as Pick<AnalyticsCache, "payload" | "updated_at">;
   const updatedAt = row.updated_at;
   return {
-    availability: getEnrichedLogsAvailability(updatedAt, latestRawLogDate),
+    availability: getEnrichedLogsAvailability(updatedAt, latestRawLogUpdatedAt),
     rows: row.payload as unknown as EnrichedLogPayloadRow[],
     updatedAt,
   };
@@ -111,11 +113,13 @@ export async function fetchEnrichedLogs(
  * analytics_cache の xgboost_importance エントリを取得し、
  * 新鮮さ（fresh / stale / unavailable / error）を判定して返す。
  *
- * @param latestRawLogDate  rawLogs の最新 log_date (YYYY-MM-DD)。stale 判定に使用する。
- *                          null を渡した場合は cacheUpdatedAt のみで判定する。
+ * @param latestRawLogUpdatedAt  daily_logs の MAX(updated_at) (ISO 8601)。stale 判定に使用する。
+ *                               MAX(log_date) ではなく MAX(updated_at) を使うことで、
+ *                               過去日の行修正でも stale を正しく検知できる。
+ *                               null を渡した場合は cacheUpdatedAt のみで判定する。
  */
 export async function fetchFactorAnalysis(
-  latestRawLogDate: string | null
+  latestRawLogUpdatedAt: string | null
 ): Promise<FactorAnalysisResult> {
   const supabase = createClient();
   const { data, error } = await supabase
@@ -127,7 +131,7 @@ export async function fetchFactorAnalysis(
   if (error) {
     if (error.code === "PGRST116") {
       return {
-        availability: getXgboostAvailability(null, latestRawLogDate),
+        availability: getXgboostAvailability(null, latestRawLogUpdatedAt),
         payload: null,
         meta: null,
         updatedAt: null,
@@ -143,7 +147,7 @@ export async function fetchFactorAnalysis(
 
   if (!data) {
     return {
-      availability: getXgboostAvailability(null, latestRawLogDate),
+      availability: getXgboostAvailability(null, latestRawLogUpdatedAt),
       payload: null,
       meta: null,
       updatedAt: null,
@@ -160,7 +164,7 @@ export async function fetchFactorAnalysis(
   const mergedEntries = mergeStability(entries as Record<string, FactorEntry>, stabilityMap);
 
   return {
-    availability: getXgboostAvailability(updatedAt, latestRawLogDate),
+    availability: getXgboostAvailability(updatedAt, latestRawLogUpdatedAt),
     payload: mergedEntries,
     meta: (_meta ?? null) as FactorMeta | null,
     updatedAt,

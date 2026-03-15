@@ -43,27 +43,52 @@ describe("fetchEnrichedLogs", () => {
       data: { payload: rows, updated_at: "2026-03-14T03:00:00Z" },
       error: null,
     });
-    const result = await fetchEnrichedLogs("2026-03-14");
+    const result = await fetchEnrichedLogs("2026-03-14T03:00:00Z");
     expect(result.availability.status).toBe("fresh");
     expect(result.rows).toHaveLength(1);
     expect(result.updatedAt).toBe("2026-03-14T03:00:00Z");
   });
 
-  it("正常系: stale — updated_at が latestRawLogDate より古いとき status = stale", async () => {
+  it("正常系: stale — cacheUpdatedAt が latestRawLogUpdatedAt より古いとき status = stale", async () => {
     const rows = [{ log_date: "2026-03-12", weight_sma7: 72.2, tdee_estimated: 2380 }];
     setupChain({
       data: { payload: rows, updated_at: "2026-03-12T03:00:00Z" },
       error: null,
     });
-    const result = await fetchEnrichedLogs("2026-03-14");
+    const result = await fetchEnrichedLogs("2026-03-14T10:00:00Z");
     expect(result.availability.status).toBe("stale");
     expect(result.availability.staleDays).toBe(2);
     expect(result.rows).toHaveLength(1);
   });
 
+  it("過去日更新(翌日): 最新 log_date は変わらないが MAX(updated_at) が翌日 → stale", async () => {
+    // 2026-03-10 の行を 2026-03-15 に編集した場合のシナリオ
+    // cache: 2026-03-14T18:00:00Z (バッチ実行)、MAX(updated_at): 2026-03-15T01:00:00Z
+    const rows = [{ log_date: "2026-03-10", weight_sma7: 73.0, tdee_estimated: 2350 }];
+    setupChain({
+      data: { payload: rows, updated_at: "2026-03-14T18:00:00Z" },
+      error: null,
+    });
+    const result = await fetchEnrichedLogs("2026-03-15T01:00:00Z");
+    expect(result.availability.status).toBe("stale");
+  });
+
+  it("過去日更新(同日 intraday): バッチ後に同日中に過去日を修正した場合も stale", async () => {
+    // cache: 2026-03-14T18:00:00Z (バッチ実行)
+    // MAX(updated_at): 2026-03-14T20:00:00Z (同日中に過去日の行を編集)
+    // 日付粒度では検知できないがタイムスタンプ比較で stale になること
+    const rows = [{ log_date: "2026-03-10", weight_sma7: 73.0, tdee_estimated: 2350 }];
+    setupChain({
+      data: { payload: rows, updated_at: "2026-03-14T18:00:00Z" },
+      error: null,
+    });
+    const result = await fetchEnrichedLogs("2026-03-14T20:00:00Z");
+    expect(result.availability.status).toBe("stale");
+  });
+
   it("行なし (PGRST116): status = unavailable / rows = []", async () => {
     setupChain({ data: null, error: { code: "PGRST116", message: "not found" } });
-    const result = await fetchEnrichedLogs("2026-03-14");
+    const result = await fetchEnrichedLogs("2026-03-14T03:00:00Z");
     expect(result.availability.status).toBe("unavailable");
     expect(result.rows).toEqual([]);
     expect(result.updatedAt).toBeNull();
@@ -71,7 +96,7 @@ describe("fetchEnrichedLogs", () => {
 
   it("DB エラー (PGRST116 以外): status = error / rows = []", async () => {
     setupChain({ data: null, error: { code: "500", message: "server error" } });
-    const result = await fetchEnrichedLogs("2026-03-14");
+    const result = await fetchEnrichedLogs("2026-03-14T03:00:00Z");
     expect(result.availability.status).toBe("error");
     expect(result.rows).toEqual([]);
     expect(result.updatedAt).toBeNull();
@@ -79,12 +104,12 @@ describe("fetchEnrichedLogs", () => {
 
   it("data が null: status = unavailable / rows = []", async () => {
     setupChain({ data: null, error: null });
-    const result = await fetchEnrichedLogs("2026-03-14");
+    const result = await fetchEnrichedLogs("2026-03-14T03:00:00Z");
     expect(result.availability.status).toBe("unavailable");
     expect(result.rows).toEqual([]);
   });
 
-  it("latestRawLogDate が null のとき cacheUpdatedAt のみで判定 → fresh", async () => {
+  it("latestRawLogUpdatedAt が null のとき cacheUpdatedAt のみで判定 → fresh", async () => {
     setupChain({
       data: { payload: [], updated_at: "2026-03-14T03:00:00Z" },
       error: null,
@@ -108,7 +133,7 @@ describe("fetchFactorAnalysis", () => {
       data: { payload, updated_at: "2026-03-14T03:00:00Z" },
       error: null,
     });
-    const result = await fetchFactorAnalysis("2026-03-14");
+    const result = await fetchFactorAnalysis("2026-03-14T03:00:00Z");
     expect(result.availability.status).toBe("fresh");
     expect(result.payload).not.toBeNull();
     expect(result.payload!["cal_lag1"]).toBeDefined();
@@ -118,15 +143,38 @@ describe("fetchFactorAnalysis", () => {
     expect(result.updatedAt).toBe("2026-03-14T03:00:00Z");
   });
 
-  it("正常系: stale — updated_at が古いとき status = stale", async () => {
+  it("正常系: stale — cacheUpdatedAt が latestRawLogUpdatedAt より古いとき status = stale", async () => {
     const payload = { cal_lag1: { label: "前日カロリー", importance: 0.3, pct: 30 } };
     setupChain({
       data: { payload, updated_at: "2026-03-10T03:00:00Z" },
       error: null,
     });
-    const result = await fetchFactorAnalysis("2026-03-14");
+    const result = await fetchFactorAnalysis("2026-03-14T10:00:00Z");
     expect(result.availability.status).toBe("stale");
     expect(result.availability.staleDays).toBe(4);
+    expect(result.payload).not.toBeNull();
+  });
+
+  it("過去日更新(翌日): 最新 log_date は変わらないが MAX(updated_at) が翌日 → stale", async () => {
+    const payload = { cal_lag1: { label: "前日カロリー", importance: 0.3, pct: 30 } };
+    setupChain({
+      data: { payload, updated_at: "2026-03-14T18:00:00Z" },
+      error: null,
+    });
+    const result = await fetchFactorAnalysis("2026-03-15T01:00:00Z");
+    expect(result.availability.status).toBe("stale");
+    expect(result.payload).not.toBeNull();
+  });
+
+  it("過去日更新(同日 intraday): バッチ後に同日中に過去日を修正した場合も stale", async () => {
+    // cache: 2026-03-14T18:00:00Z、MAX(updated_at): 2026-03-14T20:00:00Z
+    const payload = { cal_lag1: { label: "前日カロリー", importance: 0.3, pct: 30 } };
+    setupChain({
+      data: { payload, updated_at: "2026-03-14T18:00:00Z" },
+      error: null,
+    });
+    const result = await fetchFactorAnalysis("2026-03-14T20:00:00Z");
+    expect(result.availability.status).toBe("stale");
     expect(result.payload).not.toBeNull();
   });
 
@@ -139,7 +187,7 @@ describe("fetchFactorAnalysis", () => {
       data: { payload, updated_at: "2026-03-14T03:00:00Z" },
       error: null,
     });
-    const result = await fetchFactorAnalysis("2026-03-14");
+    const result = await fetchFactorAnalysis("2026-03-14T03:00:00Z");
     expect(result.payload!["cal_lag1"].stability).toBe("high");
     expect(result.payload!["cal_lag1"].cv).toBe(0.1);
     // _stability はエントリから除外されている
@@ -154,14 +202,14 @@ describe("fetchFactorAnalysis", () => {
       data: { payload, updated_at: "2026-03-14T03:00:00Z" },
       error: null,
     });
-    const result = await fetchFactorAnalysis("2026-03-14");
+    const result = await fetchFactorAnalysis("2026-03-14T03:00:00Z");
     expect(result.payload!["cal_lag1"].stability).toBe("unavailable");
     expect(result.payload!["cal_lag1"].cv).toBeNull();
   });
 
   it("行なし (PGRST116): status = unavailable / payload = null", async () => {
     setupChain({ data: null, error: { code: "PGRST116", message: "not found" } });
-    const result = await fetchFactorAnalysis("2026-03-14");
+    const result = await fetchFactorAnalysis("2026-03-14T03:00:00Z");
     expect(result.availability.status).toBe("unavailable");
     expect(result.payload).toBeNull();
     expect(result.meta).toBeNull();
@@ -170,19 +218,19 @@ describe("fetchFactorAnalysis", () => {
 
   it("DB エラー: status = error / payload = null", async () => {
     setupChain({ data: null, error: { code: "500", message: "server error" } });
-    const result = await fetchFactorAnalysis("2026-03-14");
+    const result = await fetchFactorAnalysis("2026-03-14T03:00:00Z");
     expect(result.availability.status).toBe("error");
     expect(result.payload).toBeNull();
   });
 
   it("data が null: status = unavailable / payload = null", async () => {
     setupChain({ data: null, error: null });
-    const result = await fetchFactorAnalysis("2026-03-14");
+    const result = await fetchFactorAnalysis("2026-03-14T03:00:00Z");
     expect(result.availability.status).toBe("unavailable");
     expect(result.payload).toBeNull();
   });
 
-  it("latestRawLogDate が null のとき cacheUpdatedAt のみで判定 → fresh", async () => {
+  it("latestRawLogUpdatedAt が null のとき cacheUpdatedAt のみで判定 → fresh", async () => {
     const payload = { cal_lag1: { label: "前日カロリー", importance: 0.3, pct: 30 } };
     setupChain({
       data: { payload, updated_at: "2026-03-14T03:00:00Z" },
