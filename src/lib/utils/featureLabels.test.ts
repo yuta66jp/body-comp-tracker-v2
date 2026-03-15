@@ -1,14 +1,24 @@
 import {
+  ACTIVE_FEATURE_NAMES,
   getFeatureLabel, FEATURE_LABEL_MAP,
   getFeatureDirection, FEATURE_DIRECTION_MAP,
   getFeatureNote, FEATURE_NOTE_MAP,
   getFeatureHint, FEATURE_HINT_MAP,
 } from "./featureLabels";
 
+describe("ACTIVE_FEATURE_NAMES", () => {
+  it("重複がない", () => {
+    expect(new Set(ACTIVE_FEATURE_NAMES).size).toBe(ACTIVE_FEATURE_NAMES.length);
+  });
+
+  it("空でない", () => {
+    expect(ACTIVE_FEATURE_NAMES.length).toBeGreaterThan(0);
+  });
+});
+
 describe("FEATURE_LABEL_MAP", () => {
-  it("現在の XGBoost 特徴量がすべて登録されている", () => {
-    const currentFeatures = ["cal_lag1", "rolling_cal_7", "p_lag1", "f_lag1", "c_lag1"];
-    for (const key of currentFeatures) {
+  it("アクティブ特徴量がすべて登録されている", () => {
+    for (const key of ACTIVE_FEATURE_NAMES) {
       expect(FEATURE_LABEL_MAP[key]).toBeDefined();
     }
   });
@@ -67,9 +77,8 @@ describe("getFeatureLabel", () => {
 // ════════════════════════════════════════════════════════════════════════════
 
 describe("FEATURE_DIRECTION_MAP", () => {
-  it("現在の XGBoost 特徴量がすべて登録されている", () => {
-    const currentFeatures = ["cal_lag1", "rolling_cal_7", "p_lag1", "f_lag1", "c_lag1"];
-    for (const key of currentFeatures) {
+  it("アクティブ特徴量がすべて登録されている", () => {
+    for (const key of ACTIVE_FEATURE_NAMES) {
       expect(FEATURE_DIRECTION_MAP[key]).toBeDefined();
     }
   });
@@ -86,9 +95,8 @@ describe("getFeatureDirection", () => {
 });
 
 describe("FEATURE_NOTE_MAP", () => {
-  it("現在の XGBoost 特徴量がすべて登録されている", () => {
-    const currentFeatures = ["cal_lag1", "rolling_cal_7", "p_lag1", "f_lag1", "c_lag1"];
-    for (const key of currentFeatures) {
+  it("アクティブ特徴量がすべて登録されている", () => {
+    for (const key of ACTIVE_FEATURE_NAMES) {
       expect(FEATURE_NOTE_MAP[key]).toBeDefined();
     }
   });
@@ -105,9 +113,8 @@ describe("getFeatureNote", () => {
 });
 
 describe("FEATURE_HINT_MAP", () => {
-  it("現在の XGBoost 特徴量がすべて登録されている", () => {
-    const currentFeatures = ["cal_lag1", "rolling_cal_7", "p_lag1", "f_lag1", "c_lag1"];
-    for (const key of currentFeatures) {
+  it("アクティブ特徴量がすべて登録されている", () => {
+    for (const key of ACTIVE_FEATURE_NAMES) {
       expect(FEATURE_HINT_MAP[key]).toBeDefined();
     }
   });
