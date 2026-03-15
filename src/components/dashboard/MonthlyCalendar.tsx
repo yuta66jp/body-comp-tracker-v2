@@ -66,18 +66,24 @@ function getWeekdayType(date: Date): WeekdayType {
   return "weekday";
 }
 
-/** 曜日タイプ → セル背景クラス（today 以外） */
+/** 曜日タイプ → セル背景クラス（today に関わらず適用） */
 const CELL_BG: Record<WeekdayType, string> = {
-  weekday:         "bg-white hover:bg-slate-50/70 transition-colors",
-  saturday:        "bg-sky-50/40 hover:bg-sky-50/70 transition-colors",
-  "sunday-holiday":"bg-rose-50/40 hover:bg-rose-50/60 transition-colors",
+  weekday:          "bg-white hover:bg-slate-50/60 transition-colors",
+  saturday:         "bg-sky-50 hover:bg-sky-100/60 transition-colors",
+  "sunday-holiday": "bg-rose-50 hover:bg-rose-100/60 transition-colors",
+};
+
+/** 曜日タイプ → セル上端アクセント色（土日祝のみ） */
+const ACCENT_COLOR: Partial<Record<WeekdayType, string>> = {
+  saturday:         "bg-sky-300",
+  "sunday-holiday": "bg-rose-300",
 };
 
 /** 曜日タイプ → 日付テキスト色（today 以外） */
 const DATE_NUM_COLOR: Record<WeekdayType, string> = {
-  weekday:          "text-slate-400",
-  saturday:         "text-sky-600",
-  "sunday-holiday": "text-rose-500",
+  weekday:          "text-slate-500",
+  saturday:         "text-sky-600 font-semibold",
+  "sunday-holiday": "text-rose-600 font-semibold",
 };
 
 // ── カスタム Day コンポーネント ─────────────────────────────────────────────
@@ -98,12 +104,17 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
   const data        = dayMap.get(dateKey);
   const dayNum      = day.date.getDate();
 
+  // 土日祝背景は常に適用。today はリングで上書きせず重ねる（2つの視覚チャネルを分離）
   const tdCls =
     `${CELL_H} border border-slate-100 relative ` +
-    (isToday ? "bg-blue-50/60" : CELL_BG[weekdayType]);
+    CELL_BG[weekdayType] +
+    (isToday ? " ring-2 ring-inset ring-blue-400" : "");
 
+  // today → 青太字（土日色より優先して "今日" を示す）
+  // 土日祝 → 色付き中太字
+  // 平日  → slate 中
   const dateNumCls = isToday
-    ? "text-blue-500 font-semibold"
+    ? "text-blue-600 font-bold"
     : DATE_NUM_COLOR[weekdayType];
 
   // absolute + overflow-hidden で固定高を保証
@@ -114,8 +125,13 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
     <td className={tdCls}>
       <div className={innerCls}>
 
+        {/* 土日祝アクセント線（上端） */}
+        {ACCENT_COLOR[weekdayType] && (
+          <div className={`absolute top-0 left-0 right-0 h-[3px] ${ACCENT_COLOR[weekdayType]}`} />
+        )}
+
         {/* ① 日付（補助・左上） */}
-        <div className={`text-[10px] font-medium leading-none ${dateNumCls}`}>
+        <div className={`text-[10px] leading-none ${dateNumCls}`}>
           {dayNum}
         </div>
 
