@@ -8,9 +8,20 @@
  *   ok with empty data — "データがない" (未入力・未設定) = 正常な空状態
  *   error              — "取得エラー" (DB 接続失敗・認証エラー等)
  *
- * analytics_cache の fresh / stale / unavailable は
- * AnalyticsAvailability (analytics/status.ts) で管理する。
- * daily_logs / settings はこの型を使用する。
+ * この型を使用する関数 (空状態と取得エラーを区別すべき主要クエリ):
+ *   - fetchDailyLogs            (daily_logs 全件)
+ *   - fetchDailyLogsForSettings (daily_logs — settings ページ用)
+ *   - fetchCareerLogs           (career_logs — history ページ主データ)
+ *   - fetchSettings             (settings → AppSettings 変換)
+ *   - fetchSettingsRows         (settings 行配列 — SettingsForm 用)
+ *
+ * ベストエフォート (空配列フォールバックで graceful degradation が成立する補助クエリ):
+ *   - fetchWeightLogs / fetchCareerLogsForDashboard / fetchPredictions
+ *   - fetchMacroTargets
+ *   各関数の JSDoc に意図を明記している。
+ *
+ * analytics_cache の fresh / stale / unavailable / error は
+ * AnalyticsAvailability (src/lib/analytics/status.ts) で管理する。
  */
 export type QueryResult<T> =
   | { kind: "ok"; data: T }

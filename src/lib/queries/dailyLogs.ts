@@ -40,7 +40,8 @@ export async function fetchDailyLogs(): Promise<QueryResult<DailyLog[]>> {
  * 体重のみが必要な軽量クエリ用（history ページの currentLogs）。
  * weight が null のレコードは除外する。
  *
- * フォールバック: エラー時は空配列を返す。
+ * フォールバック: エラー時は空配列を返す（ベストエフォート）。
+ * 補助的データのため空配列でも history ページの主要機能は維持される。
  */
 export async function fetchWeightLogs(): Promise<Pick<DailyLog, "log_date" | "weight">[]> {
   const supabase = createClient();
@@ -63,45 +64,50 @@ export async function fetchWeightLogs(): Promise<Pick<DailyLog, "log_date" | "we
  * 戻り値は DailyLog[] として型付けされるが、実際には 3 カラムのみ取得する。
  * calcDataQuality が参照するのは log_date / weight / calories のみのため安全。
  *
- * フォールバック: エラー時は空配列を返す。
+ * 戻り値:
+ *   kind: "ok"    — 取得成功。data が空配列 = ログ未入力（正常な空状態）。
+ *   kind: "error" — DB フェッチ失敗。呼び出し側で error banner を表示すること。
  */
-export async function fetchDailyLogsForSettings(): Promise<DailyLog[]> {
+export async function fetchDailyLogsForSettings(): Promise<QueryResult<DailyLog[]>> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("daily_logs")
     .select("log_date, weight, calories")
     .order("log_date", { ascending: true });
   if (error) {
-    console.error("daily_logs (settings) fetch error:", error.message);
-    return [];
+    console.error("[fetchDailyLogsForSettings] daily_logs fetch error:", error.message, { code: error.code });
+    return { kind: "error", message: error.message };
   }
-  return (data as DailyLog[]) ?? [];
+  return { kind: "ok", data: (data as DailyLog[]) ?? [] };
 }
 
 /**
  * career_logs を全カラム・日付昇順で取得する。
- * History / Dashboard ページで使われる。
+ * History ページの主データとして使われる。
  *
- * フォールバック: エラー時は空配列を返す。
+ * 戻り値:
+ *   kind: "ok"    — 取得成功。data が空配列 = 過去シーズンデータ未登録（正常な空状態）。
+ *   kind: "error" — DB フェッチ失敗。呼び出し側で error banner を表示すること。
  */
-export async function fetchCareerLogs(): Promise<CareerLog[]> {
+export async function fetchCareerLogs(): Promise<QueryResult<CareerLog[]>> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("career_logs")
     .select("*")
     .order("log_date", { ascending: true });
   if (error) {
-    console.error("career_logs fetch error:", error.message);
-    return [];
+    console.error("[fetchCareerLogs] career_logs fetch error:", error.message, { code: error.code });
+    return { kind: "error", message: error.message };
   }
-  return (data as CareerLog[]) ?? [];
+  return { kind: "ok", data: (data as CareerLog[]) ?? [] };
 }
 
 /**
  * career_logs から log_date / season / target_date のみを取得する。
  * Dashboard ページのシーズンマップ構築用（全カラム不要）。
  *
- * フォールバック: エラー時は空配列を返す。
+ * フォールバック: エラー時は空配列を返す（ベストエフォート）。
+ * シーズンバッジは補助表示のため、取得失敗時は非表示になるだけで主要機能は維持される。
  */
 export async function fetchCareerLogsForDashboard(): Promise<Pick<CareerLog, "log_date" | "season" | "target_date">[]> {
   const supabase = createClient();
@@ -117,7 +123,9 @@ export async function fetchCareerLogsForDashboard(): Promise<Pick<CareerLog, "lo
  * predictions を全カラム・日付昇順で取得する。
  * Dashboard ページの ForecastChart 用。
  *
- * フォールバック: エラー時は空配列を返す。
+ * フォールバック: エラー時は空配列を返す（ベストエフォート）。
+ * ForecastChart は predictions が空のとき非表示になるため、取得失敗時も graceful degradation が成立する。
+ * ML バッチが未実行の場合も空配列が正常な空状態として扱われるため QueryResult 化は不要。
  */
 export async function fetchPredictions(): Promise<Prediction[]> {
   const supabase = createClient();

@@ -38,23 +38,27 @@ export async function fetchSettings(): Promise<QueryResult<AppSettings>> {
  * settings テーブルを全件取得し、行配列をそのまま返す。
  * SettingsForm など、個別の key / value_num / value_str にアクセスする場面で使う。
  *
- * フォールバック: エラー時は空配列を返す。
+ * 戻り値:
+ *   kind: "ok"    — 取得成功。data が空配列 = 設定未入力（正常な空状態）。
+ *   kind: "error" — DB フェッチ失敗。呼び出し側で error banner を表示すること。
  */
-export async function fetchSettingsRows(): Promise<Setting[]> {
+export async function fetchSettingsRows(): Promise<QueryResult<Setting[]>> {
   const supabase = createClient();
   const { data, error } = await supabase.from("settings").select("*");
   if (error) {
-    console.error("settings fetch error:", error.message);
-    return [];
+    console.error("[fetchSettingsRows] settings fetch error:", error.message, { code: error.code });
+    return { kind: "error", message: error.message };
   }
-  return (data as Setting[]) ?? [];
+  return { kind: "ok", data: (data as Setting[]) ?? [] };
 }
 
 /**
  * マクロ目標キーをピンポイントで取得し、MacroTargets と calTarget を返す。
  *
  * 取得キー: target_calories_kcal / target_protein_g / target_fat_g / target_carbs_g / goal_calories
- * フォールバック: エラー時は全 null を返す。
+ * フォールバック: エラー時は全 null を返す（ベストエフォート）。
+ * macro/page.tsx では fetchDailyLogs が別途 QueryResult を返すため、
+ * 目標値が null のときは "目標未設定" として扱い、ページはブロックしない。
  */
 export async function fetchMacroTargets(): Promise<MacroTargets & { calTarget: number | null }> {
   const supabase = createClient();

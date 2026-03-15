@@ -13,6 +13,9 @@ import {
   fetchPredictions,
 } from "./dailyLogs";
 
+// fetchDailyLogs, fetchDailyLogsForSettings, fetchCareerLogs は QueryResult<T> を返す。
+// fetchWeightLogs, fetchCareerLogsForDashboard, fetchPredictions はベストエフォートで空配列を返す。
+
 // ── Mock ──────────────────────────────────────────────────────────────────────
 
 const mockOrder = jest.fn();
@@ -110,19 +113,34 @@ describe("fetchWeightLogs", () => {
 describe("fetchDailyLogsForSettings", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("正常系: ログ行を返す", async () => {
+  it("正常系: kind=ok でログ行を返す", async () => {
     const rows = [
       { log_date: "2026-03-01", weight: 72.5, calories: 2000 },
     ];
     setupChain({ data: rows, error: null });
     const result = await fetchDailyLogsForSettings();
-    expect(result).toHaveLength(1);
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.data).toHaveLength(1);
+    }
   });
 
-  it("異常系: DB エラーのとき空配列を返す", async () => {
-    setupChain({ data: null, error: { message: "DB error" } });
+  it("正常系: データが null のとき kind=ok で空配列を返す", async () => {
+    setupChain({ data: null, error: null });
     const result = await fetchDailyLogsForSettings();
-    expect(result).toEqual([]);
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.data).toEqual([]);
+    }
+  });
+
+  it("異常系: DB エラーのとき kind=error を返す", async () => {
+    setupChain({ data: null, error: { message: "DB error", code: "PGRST000" } });
+    const result = await fetchDailyLogsForSettings();
+    expect(result.kind).toBe("error");
+    if (result.kind === "error") {
+      expect(result.message).toBe("DB error");
+    }
   });
 });
 
@@ -131,20 +149,35 @@ describe("fetchDailyLogsForSettings", () => {
 describe("fetchCareerLogs", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("正常系: CareerLog[] を返す", async () => {
+  it("正常系: kind=ok で CareerLog[] を返す", async () => {
     const rows = [
       { id: 1, log_date: "2025-01-01", weight: 75.0, season: "2025_Spring", target_date: "2025-06-01", note: null },
     ];
     setupChain({ data: rows, error: null });
     const result = await fetchCareerLogs();
-    expect(result).toHaveLength(1);
-    expect(result[0].season).toBe("2025_Spring");
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].season).toBe("2025_Spring");
+    }
   });
 
-  it("異常系: DB エラーのとき空配列を返す", async () => {
-    setupChain({ data: null, error: { message: "DB error" } });
+  it("正常系: データが null のとき kind=ok で空配列を返す", async () => {
+    setupChain({ data: null, error: null });
     const result = await fetchCareerLogs();
-    expect(result).toEqual([]);
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.data).toEqual([]);
+    }
+  });
+
+  it("異常系: DB エラーのとき kind=error を返す", async () => {
+    setupChain({ data: null, error: { message: "DB error", code: "PGRST000" } });
+    const result = await fetchCareerLogs();
+    expect(result.kind).toBe("error");
+    if (result.kind === "error") {
+      expect(result.message).toBe("DB error");
+    }
   });
 });
 

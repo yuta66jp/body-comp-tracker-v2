@@ -96,12 +96,12 @@ describe("fetchSettings", () => {
 });
 
 // ── fetchSettingsRows ─────────────────────────────────────────────────────────
-// fetchSettingsRows: .from("settings").select("*") → Promise<{data, error}>
+// fetchSettingsRows: .from("settings").select("*") → Promise<QueryResult<Setting[]>>
 
 describe("fetchSettingsRows", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("正常系: Setting[] をそのまま返す", async () => {
+  it("正常系: kind=ok で Setting[] をそのまま返す", async () => {
     const rows = [
       { key: "goal_weight", value_num: 72.5, value_str: null },
       { key: "contest_date", value_num: null, value_str: "2026-10-01" },
@@ -109,22 +109,41 @@ describe("fetchSettingsRows", () => {
     const selectFn = jest.fn().mockResolvedValue({ data: rows, error: null });
     mockFrom.mockReturnValue({ select: selectFn });
     const result = await fetchSettingsRows();
-    expect(result).toHaveLength(2);
-    expect(result[0].key).toBe("goal_weight");
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.data).toHaveLength(2);
+      expect(result.data[0].key).toBe("goal_weight");
+    }
   });
 
-  it("正常系: データが空のとき空配列を返す", async () => {
+  it("正常系: データが空のとき kind=ok で空配列を返す", async () => {
     const selectFn = jest.fn().mockResolvedValue({ data: [], error: null });
     mockFrom.mockReturnValue({ select: selectFn });
     const result = await fetchSettingsRows();
-    expect(result).toEqual([]);
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.data).toEqual([]);
+    }
   });
 
-  it("異常系: DB エラーのとき空配列を返す", async () => {
-    const selectFn = jest.fn().mockResolvedValue({ data: null, error: { message: "DB error" } });
+  it("正常系: データが null のとき kind=ok で空配列を返す", async () => {
+    const selectFn = jest.fn().mockResolvedValue({ data: null, error: null });
     mockFrom.mockReturnValue({ select: selectFn });
     const result = await fetchSettingsRows();
-    expect(result).toEqual([]);
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.data).toEqual([]);
+    }
+  });
+
+  it("異常系: DB エラーのとき kind=error を返す", async () => {
+    const selectFn = jest.fn().mockResolvedValue({ data: null, error: { message: "DB error", code: "PGRST000" } });
+    mockFrom.mockReturnValue({ select: selectFn });
+    const result = await fetchSettingsRows();
+    expect(result.kind).toBe("error");
+    if (result.kind === "error") {
+      expect(result.message).toBe("DB error");
+    }
   });
 });
 

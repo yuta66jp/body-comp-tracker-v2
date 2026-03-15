@@ -22,13 +22,14 @@ const MILESTONES = [-180, -120, -90, -60, -30, -14];
 export const revalidate = 3600;
 
 export default async function HistoryPage() {
-  const [careerLogs, currentLogs, settingsResult] = await Promise.all([
+  const [careerLogsResult, currentLogs, settingsResult] = await Promise.all([
     fetchCareerLogs(),
     fetchWeightLogs(),
     fetchSettings(),
   ]);
 
   // QueryResult を展開。エラー時はフォールバック値で graceful degradation を維持する。
+  const careerLogs = careerLogsResult.kind === "ok" ? careerLogsResult.data : [];
   const settings = settingsResult.kind === "ok" ? settingsResult.data : mapToAppSettings([]);
 
   const contestDate = settings.contestDate ?? toJstDateStr();
@@ -75,7 +76,12 @@ export default async function HistoryPage() {
     <main className="min-h-screen bg-gray-50 p-6">
       <h1 className="mb-6 text-xl font-bold text-gray-800">キャリア比較</h1>
 
-      {/* Read error banner — graceful degradation: コンテンツはブロックしない */}
+      {/* Read error banners — graceful degradation: コンテンツはブロックしない */}
+      {careerLogsResult.kind === "error" && (
+        <div className="mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+          キャリアデータの取得中にエラーが発生しました。ページを再読み込みしてください。
+        </div>
+      )}
       {settingsResult.kind === "error" && (
         <div className="mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
           設定データの取得中にエラーが発生しました。コンテスト日・シーズン名がデフォルト値になります。
