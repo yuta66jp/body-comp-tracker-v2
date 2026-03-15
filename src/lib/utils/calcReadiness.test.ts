@@ -9,7 +9,7 @@
  *   - 残り週数 (daysLeft / 7) の表示値
  */
 
-import { calcReadiness, calcRequiredPacePerTwoWeeks, calcActualPacePerTwoWeeks } from "./calcReadiness";
+import { calcReadiness, calcRequiredPacePerTwoWeeks, calcActualPacePerTwoWeeks, calcGoalReachDate } from "./calcReadiness";
 import type { DailyLog } from "@/lib/supabase/types";
 
 // ─── テスト用ヘルパー ──────────────────────────────────────────────────────────
@@ -227,6 +227,95 @@ describe("calcReadiness 2週ペースフィールド", () => {
     const logs = buildLogs(14, 70, -1 / 13);
     const metrics = calcReadiness(logs, { goal_weight: 68 }, today);
     expect(metrics.required_rate_kg_per_2weeks).toBeNull();
+  });
+});
+
+// ─── calcGoalReachDate ────────────────────────────────────────────────────────
+
+describe("calcGoalReachDate", () => {
+  const today = "2026-03-15";
+
+  // ── no_data ──
+  test("weight7dAvg が null → status=no_data, label='—'", () => {
+    const r = calcGoalReachDate(null, -0.1, 68.0, today);
+    expect(r.status).toBe("no_data");
+    expect(r.date).toBeNull();
+    expect(r.label).toBe("—");
+  });
+
+  test("goalWeight が null → status=no_data, label='—'", () => {
+    const r = calcGoalReachDate(70.0, -0.1, null, today);
+    expect(r.status).toBe("no_data");
+    expect(r.date).toBeNull();
+    expect(r.label).toBe("—");
+  });
+
+  // ── achieved ──
+  test("|gap| < 0.1 → status=achieved (7日平均が目標に到達済み)", () => {
+    const r = calcGoalReachDate(68.05, -0.1, 68.0, today);
+    expect(r.status).toBe("achieved");
+    expect(r.label).toBe("達成済み ✓");
+    expect(r.date).toBeNull();
+  });
+
+  test("gap = 0 → status=achieved", () => {
+    const r = calcGoalReachDate(68.0, -0.1, 68.0, today);
+    expect(r.status).toBe("achieved");
+  });
+
+  // ── stalled ──
+  test("slopePerDay が null (データ不足) → status=stalled", () => {
+    const r = calcGoalReachDate(70.0, null, 68.0, today);
+    expect(r.status).toBe("stalled");
+    expect(r.label).toBe("停滞中");
+  });
+
+  test("slopePerDay = 0 → status=stalled", () => {
+    const r = calcGoalReachDate(70.0, 0, 68.0, today);
+    expect(r.status).toBe("stalled");
+  });
+
+  test("Cut: gap > 0 なのに slope >= 0 → status=stalled", () => {
+    // 体重が目標より上なのに増量中
+    const r = calcGoalReachDate(71.0, 0.05, 68.0, today);
+    expect(r.status).toBe("stalled");
+  });
+
+  test("Bulk: gap < 0 なのに slope <= 0 → status=stalled", () => {
+    // 体重が目標より下なのに減量中
+    const r = calcGoalReachDate(65.0, -0.05, 68.0, today);
+    expect(r.status).toBe("stalled");
+  });
+
+  test("daysNeeded > 730 → status=stalled (現実的でない到達日)", () => {
+    // gap = 1.0 kg, slope = -0.001 kg/day → daysNeeded = 1000日
+    const r = calcGoalReachDate(69.0, -0.001, 68.0, today);
+    expect(r.status).toBe("stalled");
+  });
+
+  // ── projected ──
+  test("Cut: 14日後に到達するペース → status=projected, 日付が正しい", () => {
+    // gap = 70 - 68 = 2.0, slopePerDay = -2/14 ≈ -0.1429 → daysNeeded = 14
+    const slope = -2 / 14;
+    const r = calcGoalReachDate(70.0, slope, 68.0, today);
+    expect(r.status).toBe("projected");
+    expect(r.date).toBe("2026-03-29"); // today + 14日
+    expect(r.label).toBe("03-29");
+  });
+
+  test("Cut: 7日後に到達するペース → status=projected", () => {
+    // gap = 1.0, slope = -1/7 → daysNeeded = 7
+    const r = calcGoalReachDate(69.0, -1 / 7, 68.0, today);
+    expect(r.status).toBe("projected");
+    expect(r.date).toBe("2026-03-22"); // today + 7日
+    expect(r.label).toBe("03-22");
+  });
+
+  test("Bulk: 目標より低く増量中 → status=projected", () => {
+    // gap = 65 - 70 = -5, slope = +0.357 ≈ 5/14 → daysNeeded = 14
+    const r = calcGoalReachDate(65.0, 5 / 14, 70.0, today);
+    expect(r.status).toBe("projected");
+    expect(r.date).toBe("2026-03-29");
   });
 });
 
