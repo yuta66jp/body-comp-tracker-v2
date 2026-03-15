@@ -105,6 +105,7 @@ export function ForecastChart({
     ...visibleActual,
     ...visibleForecast,
     ...(goalWeight && rangeTab === "default" ? [goalWeight] : []),
+    ...(monthlyTarget && monthlyTarget > 0 ? [monthlyTarget] : []),
   ];
 
   // タブごとのパディング（7日は±1.5kg、31日は±2.5kg、全体は広め）
@@ -189,7 +190,7 @@ export function ForecastChart({
               label={{ value: "Goal", fontSize: 10, fill: "#ef4444" }}
             />
           )}
-          {rangeTab === "default" && monthlyTarget && monthlyTarget > 0 && (
+          {monthlyTarget && monthlyTarget > 0 && (
             <ReferenceLine
               y={monthlyTarget}
               stroke="#f97316"
