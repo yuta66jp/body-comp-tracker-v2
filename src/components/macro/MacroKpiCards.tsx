@@ -62,9 +62,10 @@ export function MacroKpiCards({ kpi, targets, diff }: MacroKpiCardsProps) {
           <div className="mt-1">
             <WeekDelta curr={weekly.avgCalories} prev={prevWeekly.avgCalories} unit="kcal" />
           </div>
+          <p className="mt-1.5 text-xs text-slate-400">直近7記録日の平均</p>
           {/* TDEE 接続導線 */}
           {diff.calories !== null && (
-            <p className="mt-2 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-slate-400">
               {diff.calories > 100
                 ? "目標を超過 — 収支は TDEE 画面で確認できます"
                 : diff.calories < -100
@@ -92,7 +93,7 @@ export function MacroKpiCards({ kpi, targets, diff }: MacroKpiCardsProps) {
               : "—"}
           </p>
           <p className={`mt-1 text-sm font-medium ${paceColor}`}>{paceLabel}</p>
-          <p className="mt-2 text-xs text-slate-400">直近7日 vs 前7日の平均体重比</p>
+          <p className="mt-2 text-xs text-slate-400">直近7記録日 vs 前7記録日 の平均体重比</p>
         </div>
       </div>
 
@@ -114,6 +115,7 @@ export function MacroKpiCards({ kpi, targets, diff }: MacroKpiCardsProps) {
             <div className="mt-1">
               <WeekDelta curr={actual} prev={prevActual} unit={unit} />
             </div>
+            <p className="mt-1.5 text-xs text-slate-400">直近7記録日の平均</p>
           </div>
         ))}
       </div>

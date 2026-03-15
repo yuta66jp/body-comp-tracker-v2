@@ -80,7 +80,7 @@ export function TdeeKpiCard({
             <span className="ml-1 text-base font-normal text-gray-400">kcal</span>
           </p>
           <p className="mt-1 text-xs text-gray-400">
-            Macro 画面の週平均摂取と同一定義
+            直近7記録日の平均（ML バッチ実行時は 7 暦日ローリング平均）
           </p>
         </div>
 
@@ -92,7 +92,7 @@ export function TdeeKpiCard({
             <span className="ml-1 text-base font-normal text-gray-400">kcal</span>
           </p>
           <p className="mt-1 text-xs text-gray-400">
-            体重推移を平滑化して逆算（短期ノイズを除去）
+            体重平滑化から逆算した推定値の直近7日平均（バッチ計算値）
             {theoreticalTdee !== null && (
               <> — 理論値 {Math.round(theoreticalTdee).toLocaleString()} kcal</>
             )}
@@ -146,8 +146,8 @@ export function TdeeKpiCard({
           </p>
           <p className="mt-1 text-xs text-gray-400">
             {measuredWeightChange !== null
-              ? "直近7日 vs 前7日の平均体重差"
-              : "前週の体重データが不足しています"}
+              ? "直近7記録日 vs 前7記録日 の平均体重差"
+              : "前週の体重データが不足しています（直近7記録日）"}
           </p>
         </div>
       </div>

@@ -335,7 +335,7 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
 
       {/* ── フッター ── */}
       <div className="flex items-center justify-between border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400">
-        <span>体重は 7 日移動平均 / トレンドは 14 日線形回帰 / あくまで推定値です</span>
+        <span>体重は直近7暦日の移動平均 / トレンドは直近14暦日の線形回帰 / 栄養は直近7暦日の記録平均 / あくまで推定値です</span>
         <span className={`font-semibold ${qualityScoreColor(quality.score)}`}>
           品質 {quality.score}/100
         </span>
