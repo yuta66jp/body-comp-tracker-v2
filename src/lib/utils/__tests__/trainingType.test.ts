@@ -173,13 +173,19 @@ describe("formatConditionSummary", () => {
       ["off",    "休日"],
       ["office", "出社"],
       ["remote", "在宅"],
-      ["active", "活動"],
-      ["travel", "遠征"],
-      ["other",  "その他"],
     ];
     for (const [mode, label] of cases) {
       const result = formatConditionSummary({ had_bowel_movement: null, training_type: null, work_mode: mode });
       expect(result).toBe(label);
+    }
+  });
+
+  test("廃止された work_mode 値は isValidWorkMode で false になる", () => {
+    // active / travel / other は UI から削除済み。既存データとして残る可能性があるが、
+    // 表示では無効値として扱い、formatConditionSummary は null を返す。
+    for (const v of ["active", "travel", "other"]) {
+      const result = formatConditionSummary({ had_bowel_movement: null, training_type: null, work_mode: v });
+      expect(result).toBeNull();
     }
   });
 

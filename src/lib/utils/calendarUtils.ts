@@ -48,14 +48,11 @@ export interface CalendarDayData {
 
 // ── コンディションタグ ────────────────────────────────────────────────────────
 
-/** 勤務モード別バッジカラー */
+/** 勤務モード別バッジカラー (off / office / remote の3カテゴリ) */
 const WORK_MODE_COLOR: Record<string, string> = {
   off:    "bg-amber-100 text-amber-700",
   office: "bg-slate-100 text-slate-600",
   remote: "bg-cyan-100 text-cyan-700",
-  active: "bg-orange-100 text-orange-700",
-  travel: "bg-purple-100 text-purple-700",
-  other:  "bg-slate-100 text-slate-500",
 };
 
 /**

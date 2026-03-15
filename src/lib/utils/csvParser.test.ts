@@ -414,7 +414,7 @@ describe("round-trip: export → import", () => {
       note: "test note",
       is_cheat_day: true, is_refeed_day: true, is_eating_out: true, is_poor_sleep: true,
       sleep_hours: 5.5, had_bowel_movement: true,
-      training_type: "quads", work_mode: "travel", leg_flag: true,
+      training_type: "quads", work_mode: "remote", leg_flag: true,
     }];
 
     const csv = toCSV(original as Record<string, unknown>[], DAILY_LOG_COLUMNS);
@@ -429,7 +429,7 @@ describe("round-trip: export → import", () => {
     expect(row.sleep_hours).toBe(5.5);
     expect(row.had_bowel_movement).toBe(true);
     expect(row.training_type).toBe("quads");
-    expect(row.work_mode).toBe("travel");
+    expect(row.work_mode).toBe("remote");
     expect(row.leg_flag).toBe(true);
   });
 });

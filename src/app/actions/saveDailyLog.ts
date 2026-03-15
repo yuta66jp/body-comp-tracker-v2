@@ -33,7 +33,7 @@ export type SaveDailyLogInput = {
   had_bowel_movement?: boolean | null;
   /** 'chest' | 'back' | 'shoulders' | 'glutes_hamstrings' | 'quads' */
   training_type?: string | null;
-  /** 'off' | 'office' | 'remote' | 'active' | 'travel' | 'other' */
+  /** 'off' | 'office' | 'remote' */
   work_mode?: string | null;
   // leg_flag はユーザーから受け取らない。training_type から導出する。
 };
