@@ -8,6 +8,41 @@ import {
 } from "../trainingType";
 
 // ════════════════════════════════════════════════════════════════════════════
+// DB 制約との整合
+//
+// DB の daily_logs_training_type_check 制約が許可する値と TRAINING_TYPES が一致すること。
+// TRAINING_TYPES を変更する際は、対応する migration も更新すること。
+// 参照: supabase/migrations/20260316000000_fix_training_type_check_add_off.sql
+// ════════════════════════════════════════════════════════════════════════════
+
+const DB_ALLOWED_TRAINING_TYPES = [
+  "off",
+  "chest",
+  "back",
+  "shoulders",
+  "glutes_hamstrings",
+  "quads",
+] as const;
+
+describe("TRAINING_TYPES と DB 制約の整合", () => {
+  test("TRAINING_TYPES が DB 制約の許可値と完全一致する", () => {
+    expect([...TRAINING_TYPES].sort()).toEqual([...DB_ALLOWED_TRAINING_TYPES].sort());
+  });
+
+  test("DB 制約の全許可値が isValidTrainingType で valid と判定される", () => {
+    for (const v of DB_ALLOWED_TRAINING_TYPES) {
+      expect(isValidTrainingType(v)).toBe(true);
+    }
+  });
+
+  test("DB 制約に含まれない値は isValidTrainingType で invalid と判定される", () => {
+    expect(isValidTrainingType("legs")).toBe(false);
+    expect(isValidTrainingType("")).toBe(false);
+    expect(isValidTrainingType("OFF")).toBe(false);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
 // deriveLegFlag
 // ════════════════════════════════════════════════════════════════════════════
 
