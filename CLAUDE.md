@@ -58,6 +58,7 @@ body-comp-tracker-v2/
 │   │   │   ├── server.ts           # Server client (SSR用)
 │   │   │   └── types.ts            # DB型定義 (supabase gen types で生成)
 │   │   ├── queries/                # Supabase read 系ロジック (query layer)
+│   │   │   ├── queryResult.ts      # QueryResult<T> discriminated union (ok / error)
 │   │   │   ├── dailyLogs.ts
 │   │   │   ├── settings.ts
 │   │   │   └── analytics.ts
@@ -79,8 +80,10 @@ body-comp-tracker-v2/
 │       └── globals.css             # Tailwind base
 ├── ml-pipeline/                    # Python (GitHub Actions 専用)
 │   ├── predict.py                  # NeuralProphet バッチ予測
-│   ├── analyze.py                  # XGBoost 因子分析
+│   ├── analyze.py                  # XGBoost 因子分析 (feature_registry 経由で FEATURE_COLS を参照)
 │   ├── enrich.py                   # TDEE計算・データ加工 (canonical source)
+│   ├── backtest.py                 # 体重予測モデルの walk-forward 精度評価 (CLI で実験条件を制御)
+│   ├── feature_registry.py         # 因子分析 特徴量定義の単一ソース (active/inactive フラグ付き)
 │   ├── requirements.txt            # Python依存 (neuralprophet, xgboost, supabase)
 │   └── requirements-ci.txt         # CI用軽量依存 (supabase 不要)
 ├── .github/workflows/
@@ -112,6 +115,7 @@ body-comp-tracker-v2/
 
 - `daily_logs` — log_date(PK), weight, calories, protein, fat, carbs, note,
   sleep_hours, had_bowel_movement, training_type, work_mode
+  - `had_bowel_movement` は `BOOLEAN DEFAULT NULL`（三状態: null=未記録 / false=便通なし / true=便通あり）
   - leg_flag は派生値（deriveLegFlag のみ定義源）。直接書き込まない
   - is_poor_sleep は UI から除去済み
 - `food_master` — name(PK), protein, fat, carbs, calories, category
@@ -201,11 +205,17 @@ body-comp-tracker-v2/
 
 ### データ蓄積後の課題
 - 因子分析の特徴量拡張（sleep_hours / had_bowel_movement / training_type / work_mode / leg_flag）
+  - `feature_registry.py` に `active=False` で登録済み
   - 現時点ではサンプル不足・欠損率・カテゴリ偏りにより解釈が不安定
-  - データが十分に蓄積された段階で着手する
+  - データが十分に蓄積された段階で `active=True` に変更し、`featureLabels.ts` の
+    `ACTIVE_FEATURE_NAMES` / `ACTIVE_FEATURE_EXPLANATIONS` に追記して段階投入する
 
-### 別途管理している課題
-- `had_bowel_movement` 三状態化（DB migration が必要: `BOOLEAN NOT NULL` → `BOOLEAN DEFAULT NULL`）
+### SHAP 移行（将来課題）
+- 現在は XGBoost の `feature_importances_`（重要度の大きさのみ）を使用
+- SHAP 移行時は `analyze.py` の `run_importance()` を差し替える想定
+  `feature_registry.py` の `encoder_hint` に前処理方針を記載済みで、registry 自体は変更不要な設計
+
+### その他残課題
 - `supabase gen types` で `types.ts` を実スキーマから再生成
 
 ## Coding Standards

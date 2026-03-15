@@ -14,6 +14,11 @@
 - メモ
 - ※ leg_flag は training_type から自動導出（直接入力なし）
 
+**便通の記録について**
+`had_bowel_movement` は三状態（`null` = 未記録 / `false` = 便通なし / `true` = 便通あり）で管理している。
+DB は `BOOLEAN DEFAULT NULL` に移行済み。
+「未記録」と「便通なし」を区別した集計・分析が可能。
+
 ### ダッシュボード
 
 - **KPI カード**: 現在体重・残り日数（週数）・目標到達予定日
@@ -47,6 +52,19 @@
 - サンプル数・欠損状況によって解釈に注意が必要
 - データ不足時は警告 / 表示抑制を行う
 
+**現在の active 特徴量（feature_registry.py で管理）**
+
+| 特徴量 | 説明 |
+|---|---|
+| cal_lag1 | 摂取 kcal（当日） |
+| rolling_cal_7 | 摂取 kcal（週平均） |
+| p_lag1 | タンパク質（g） |
+| f_lag1 | 脂質（g） |
+| c_lag1 | 炭水化物（g） |
+
+`sleep_hours` / `had_bowel_movement` / `training_type` / `work_mode` / `leg_flag` 等の condition 系特徴量は
+`feature_registry.py` に `active=False` で登録済み。データ蓄積後に段階投入する（後述）。
+
 ### stability 指標について
 
 - **stability** は feature importance がデータの微小な変動でどの程度変わるかを示す補助指標
@@ -65,32 +83,83 @@
 ### fallback 表示
 
 - データ未取得・未計算の項目はページ全体を止めず、該当項目のみ unavailable 表示にする
+- DB フェッチエラー（`kind: "error"`）と「まだデータがない」（`kind: "ok"` で空）は別扱い。
+  エラー時はページ上部にエラーバナーを表示しつつコンテンツを graceful degradation させる。
 
-## 最近の改善（実装済み）
+---
+
+## 実装済み基盤
+
+### 保存・入力基盤
 
 | 項目 | 内容 |
 |---|---|
-| 保存安全性 | daily_logs の部分更新を安全化（未操作フィールドを上書きしない） |
+| 保存安全性 | daily_logs の部分更新安全化（未操作フィールドを上書きしない） |
+| atomic 保存 | `saveDailyLog` が `save_daily_log_partial` RPC を呼ぶ atomic upsert に移行。fetch-then-upsert の競合を排除 |
+| log_date 検証 | `parseLocalDateStr` による厳密バリデーション。不正フォーマットを保存前に拒否 |
+| had_bowel_movement 三状態 | DB を `BOOLEAN DEFAULT NULL` に移行。null=未記録 / false=便通なし / true=便通あり の意味論を保存から分析まで貫通 |
+| nullable UX | three-state（未操作 / 明示値 / 明示クリア）の整合性を確認・整備 |
 | 日付基準統一 | 残り日数・週次比較の計算を JST 基準で統一（`calcDaysLeft` / `toJstDateStr`） |
+
+### 分析・ML 基盤
+
+| 項目 | 内容 |
+|---|---|
+| feature registry | `ml-pipeline/feature_registry.py` が特徴量定義の単一ソース。analyze.py は `active_feature_cols()` / `active_feature_labels()` を呼ぶ。FEATURE_COLS / FEATURE_LABELS の直書き廃止 |
+| featureLabels.ts 同期 | `ACTIVE_FEATURE_NAMES as const` + `ACTIVE_FEATURE_EXPLANATIONS` で TypeScript がコンパイル時に説明マップの完全性を保証 |
+| backtest 実験基盤 | `backtest.py` が CLI オプション（`--series-type` / `--max-origins` / `--origin-step-days` / `--horizons` / `--feature-set`）で実験条件を制御可能。デフォルト設定を変えずに条件比較できる |
+| TDEE batch canonical | フロント再計算を廃止。`enrich.py` が算出した値を canonical として表示 |
+| 読み取りエラー区別 | `QueryResult<T>` discriminated union（`kind: "ok"` / `kind: "error"`）で、DB エラーと正常な空状態を型レベルで分離 |
+
+### settings / query layer
+
+| 項目 | 内容 |
+|---|---|
 | settings 統一 | Server Action + shared schema（zod）で保存。typed AppSettings で読み取り |
 | query layer | Supabase read 系ロジックを `src/lib/queries/` に集約 |
 | UI integration tests | 保存導線・fallback 導線を jsdom ベースで自動検証 |
-| TDEE batch canonical | フロント再計算を廃止。enrich.py が算出した値を canonical として表示 |
-| ダッシュボード整理 | KPI 重複を削減。GoalNavigator を判断ロジック中心に再整理 |
-| ペース分析単位統一 | kg/2週 を primary 単位に統一（GoalNavigator / calcReadiness）|
-| KPI 定義注記 | 各 KPI に期間定義・推定値区別・fallback 説明を追加 |
-| nullable UX | three-state（未操作 / 明示値 / 明示クリア）の整合性を確認・整備 |
-| ml-pipeline 保守性 | analyze.py / enrich.py の import 境界を整理（supabase を遅延 import 化） |
 
-## 今後の方向性
+### CI
 
-**直近の基盤整備は完了。今後はデータ蓄積後の分析拡張を慎重に進める。**
+| 項目 | 内容 |
+|---|---|
+| TypeScript | lint / tsc / jest / build を CI で自動検証 |
+| Python | pytest で `test_analyze.py` / `test_enrich.py` / `test_feature_registry.py` / `test_backtest.py` を CI 監視 |
 
-### データ蓄積後の課題
+---
 
-- 因子分析の特徴量拡張（sleep_hours / had_bowel_movement / training_type / work_mode / leg_flag）
-  - 現時点ではサンプル不足・欠損率・カテゴリ偏りにより解釈が不安定になりやすい
-  - データが十分に蓄積された段階で着手する
+## 今後の方針
+
+### condition 系特徴量の段階投入（データ蓄積後）
+
+`sleep_hours` / `had_bowel_movement` / `training_type` / `work_mode` / `leg_flag` は
+`feature_registry.py` に `active=False` で登録済み。
+
+現時点での保留理由:
+- サンプル数不足
+- カテゴリ偏り（特定 training_type が少ない等）
+- 欠損率が高い項目あり（sleep_hours など）
+
+これらが解消されたタイミングで `active=True` に変更し、
+`featureLabels.ts` の `ACTIVE_FEATURE_NAMES` と `ACTIVE_FEATURE_EXPLANATIONS` に追記することで
+フロント表示まで自動で整合する。
+
+### SHAP ベース説明への移行（将来課題）
+
+現在の因子分析は XGBoost の `feature_importances_`（重要度の大きさのみ）を使用している。
+SHAP（各予測への寄与量）は個別サンプルへの説明力が高く、将来の移行候補として
+`feature_registry.py` の `encoder_hint` に想定設計を残している。
+
+現時点では未実装。移行する場合は `analyze.py` の `run_importance()` を差し替える想定で、
+`feature_registry.py` 自体は変更不要な設計になっている。
+
+### read projection / window 最適化（現時点では保留）
+
+`fetchDailyLogs()` 等は現在全カラム・全期間取得をしている。
+個人利用かつレコード数が現時点では問題にならない規模のため、最適化は保留中。
+パフォーマンス問題が実際に現れた時点で対応する。
+
+---
 
 ## Tech Stack
 
