@@ -84,9 +84,14 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
                       </span>
                     ))}
                   </div>
-                  {conditionSummary && (
+                  {(conditionSummary || log.sleep_hours !== null) && (
                     <div className="mt-1 text-xs leading-snug text-slate-500">
-                      {conditionSummary}
+                      {[
+                        conditionSummary,
+                        log.sleep_hours !== null ? `${log.sleep_hours}h` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" / ")}
                     </div>
                   )}
                 </td>
