@@ -5,8 +5,7 @@ Guidelines for development and day-to-day operations on this project.
 ## Development Workflow
 
 - Work on `feature/*` branches and merge to `main` via pull request.
-- `dev` can be used for integration testing before merging to `main`.
-- Keep commits small and use [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`, etc.).
+- Keep commits small and use [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`, etc.).
 
 ## Checks Before Merging
 
@@ -14,8 +13,11 @@ All of the following must pass before merging:
 
 - `npm run lint` — ESLint
 - `npx tsc --noEmit` — TypeScript type check
-- `npm test` — Jest unit tests
+- `node_modules/.bin/jest --no-coverage` — Jest tests (unit tests + UI integration tests)
 - `npm run build` — Next.js production build
+
+Jest は `node` 環境（unit tests）と `jsdom` 環境（UI integration tests）の 2 プロジェクト構成。
+保存導線・fallback 導線の自動検証が含まれる。
 
 CI runs these automatically on every push and pull request (`lint-typecheck-build` job).
 
