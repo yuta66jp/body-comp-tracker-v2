@@ -80,8 +80,8 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
   // ── Phase 2.5 新規フィールド ──
   // string | null: "" = 未入力, "7.5" = 入力値, null = 明示的クリア予定
   const [sleepHours, setSleepHours] = useState<string | null>("");
-  // had_bowel_movement: null=未選択, true/false=明示選択
-  // hadBowelMovementTouched=true のとき: null→null 送信（明示クリア），true/false→値送信
+  // had_bowel_movement: null=未記録（未選択）, true=便通あり, false=便通なし
+  // hadBowelMovementTouched=true のとき: null→null 送信（明示クリア=未記録），true/false→値送信
   // hadBowelMovementTouched=false のとき: undefined 送信（既存値を保持）
   const [hadBowelMovement, setHadBowelMovement] = useState<boolean | null>(null);
   const [hadBowelMovementTouched, setHadBowelMovementTouched] = useState(false);
@@ -159,13 +159,12 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
       ...tagPayload,
       // Phase 2.5 新規フィールド
       sleep_hours:        sleepHours === null ? null : (sleepHours !== "" ? parseFloat(sleepHours) : undefined),
-      // ルール: touched=true かつ true/false → 値送信
-      //         touched=false または (touched=true かつ チップ再クリックで null に戻した) → undefined（既存値保持）
-      // 設計上の割り切り: DB が BOOLEAN NOT NULL DEFAULT FALSE のため null を送れない。
-      //   touched=true かつ null (= チップ再クリック後) は「選択取り消し」として undefined にフォールバックし既存値を保持する。
-      //   これにより「未記録」と「便通なし(false)」は DB 上で区別できない。
-      //   完全な三状態（true/false/null=未記録）は DB を NULLABLE にするマイグレーションで解決可能。
-      had_bowel_movement: hadBowelMovementTouched && hadBowelMovement !== null ? hadBowelMovement : undefined,
+      // ルール: touched=true → hadBowelMovement の値をそのまま送信
+      //           null  = 明示クリア（未記録に戻す）
+      //           true  = 便通あり
+      //           false = 便通なし
+      //         touched=false → undefined（既存値を保持）
+      had_bowel_movement: hadBowelMovementTouched ? hadBowelMovement : undefined,
       training_type:      trainingTypeTouched ? trainingType : undefined,
       work_mode:          workModeTouched     ? workMode     : undefined,
     });

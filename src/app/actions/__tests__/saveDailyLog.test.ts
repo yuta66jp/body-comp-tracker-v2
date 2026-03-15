@@ -161,10 +161,15 @@ describe("buildUpdatePayload — Phase 2.5 新規フィールド", () => {
     expect("had_bowel_movement" in payload).toBe(true);
   });
 
-  // MealLogger でチップを「あり→あり（再クリック）」するとフォーム state は null になるが、
-  // DB が BOOLEAN NOT NULL のため null 送信不可。undefined にフォールバックして既存値を保持する。
-  // → buildUpdatePayload 自体は undefined → ペイロード除外 の挙動を担保する。
-  test("had_bowel_movement: undefined → ペイロードに含まれない（DB NOT NULL のため null 送信不可）", () => {
+  // DB が BOOLEAN DEFAULT NULL になったため null 送信が可能。
+  // チップ再クリック → null = 「未記録」として明示クリアし DB に null を保存する。
+  test("had_bowel_movement: null → ペイロードに含まれる（明示クリア=未記録）", () => {
+    const payload = buildUpdatePayload({ had_bowel_movement: null });
+    expect("had_bowel_movement" in payload).toBe(true);
+    expect(payload.had_bowel_movement).toBeNull();
+  });
+
+  test("had_bowel_movement: undefined → ペイロードに含まれない（既存値を保持）", () => {
     const payload = buildUpdatePayload({});
     expect("had_bowel_movement" in payload).toBe(false);
   });

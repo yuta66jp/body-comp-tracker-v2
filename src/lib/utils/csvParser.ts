@@ -24,7 +24,8 @@ export interface ParsedRow {
   is_eating_out: boolean;
   is_poor_sleep: boolean;
   sleep_hours: number | null;
-  had_bowel_movement: boolean;
+  /** null=未記録, true=便通あり, false=便通なし */
+  had_bowel_movement: boolean | null;
   training_type: string | null;
   work_mode: string | null;
   leg_flag: boolean | null;
@@ -235,7 +236,7 @@ export function parseCSV(text: string): ParseResult {
       is_eating_out: parseBool(raw["is_eating_out"] ?? ""),
       is_poor_sleep: parseBool(raw["is_poor_sleep"] ?? ""),
       sleep_hours: parseNum(raw["sleep_hours"] ?? ""),
-      had_bowel_movement: parseBool(raw["had_bowel_movement"] ?? ""),
+      had_bowel_movement: parseBoolNullable(raw["had_bowel_movement"] ?? ""),
       training_type: raw["training_type"] || null,
       work_mode: raw["work_mode"] || null,
       leg_flag: parseBoolNullable(raw["leg_flag"] ?? ""),

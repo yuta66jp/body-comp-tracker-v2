@@ -156,7 +156,8 @@ export type Database = {
           is_poor_sleep: boolean;
           // ── Phase 2.5 追加カラム ──
           sleep_hours: number | null;
-          had_bowel_movement: boolean;
+          /** null=未記録, true=便通あり, false=便通なし */
+          had_bowel_movement: boolean | null;
           /** 値: 'chest' | 'back' | 'shoulders' | 'glutes_hamstrings' | 'quads' */
           training_type: string | null;
           /** 値: 'off' | 'office' | 'remote' | 'active' | 'travel' | 'other' */
@@ -177,7 +178,7 @@ export type Database = {
           is_eating_out?: boolean;
           is_poor_sleep?: boolean;
           sleep_hours?: number | null;
-          had_bowel_movement?: boolean;
+          had_bowel_movement?: boolean | null;
           training_type?: string | null;
           work_mode?: string | null;
           leg_flag?: boolean | null;
@@ -195,7 +196,7 @@ export type Database = {
           is_eating_out?: boolean;
           is_poor_sleep?: boolean;
           sleep_hours?: number | null;
-          had_bowel_movement?: boolean;
+          had_bowel_movement?: boolean | null;
           training_type?: string | null;
           work_mode?: string | null;
           leg_flag?: boolean | null;
