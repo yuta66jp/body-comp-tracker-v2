@@ -20,9 +20,12 @@
  *     7. コンディションタグ（sm 以上）
  *
  * 土日祝:
- *   - 土曜: 日付テキスト text-sky-600 / セル bg-sky-50/40
- *   - 日曜・祝日: 日付テキスト text-rose-500 / セル bg-rose-50/40
+ *   - 土曜: 日付テキスト text-sky-600 / セル bg-sky-50
+ *   - 日曜・祝日: 日付テキスト text-rose-600 / セル bg-rose-50
  *   - 祝日判定: japanese-holidays パッケージを使用
+ *   - 祝日名: 日付行の右端に text-[9px] で補助表示（省略あり）
+ *
+ * 開始曜日: 日曜始まり（weekStartsOn={0}）
  *
  * 差分計算: buildCalendarDayMap に委譲。
  * 直前ログ（欠損日跨ぎあり）との差分を表示する。
@@ -73,12 +76,6 @@ const CELL_BG: Record<WeekdayType, string> = {
   "sunday-holiday": "bg-rose-50 hover:bg-rose-100/60 transition-colors",
 };
 
-/** 曜日タイプ → セル上端アクセント色（土日祝のみ） */
-const ACCENT_COLOR: Partial<Record<WeekdayType, string>> = {
-  saturday:         "bg-sky-300",
-  "sunday-holiday": "bg-rose-300",
-};
-
 /** 曜日タイプ → 日付テキスト色（today 以外） */
 const DATE_NUM_COLOR: Record<WeekdayType, string> = {
   weekday:          "text-slate-500",
@@ -103,6 +100,7 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
   const weekdayType = getWeekdayType(day.date);
   const data        = dayMap.get(dateKey);
   const dayNum      = day.date.getDate();
+  const holidayName = JapaneseHolidays.isHoliday(day.date) || null;
 
   // 土日祝背景は常に適用。today はリングで上書きせず重ねる（2つの視覚チャネルを分離）
   const tdCls =
@@ -125,14 +123,14 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
     <td className={tdCls}>
       <div className={innerCls}>
 
-        {/* 土日祝アクセント線（上端） */}
-        {ACCENT_COLOR[weekdayType] && (
-          <div className={`absolute top-0 left-0 right-0 h-[3px] ${ACCENT_COLOR[weekdayType]}`} />
-        )}
-
-        {/* ① 日付（補助・左上） */}
-        <div className={`text-[10px] leading-none ${dateNumCls}`}>
-          {dayNum}
+        {/* ① 日付（左）+ 祝日名（右・補助） */}
+        <div className="flex items-baseline justify-between gap-0.5 leading-none">
+          <span className={`text-[10px] leading-none ${dateNumCls}`}>{dayNum}</span>
+          {holidayName && (
+            <span className="min-w-0 flex-1 truncate text-right text-[8px] leading-none text-rose-400 ml-0.5">
+              {holidayName}
+            </span>
+          )}
         </div>
 
         {/* ② 体重（主情報） */}
@@ -243,7 +241,7 @@ export function MonthlyCalendar({ logs }: MonthlyCalendarProps) {
         month={month}
         onMonthChange={setMonth}
         locale={ja}
-        weekStartsOn={1}
+        weekStartsOn={0}
         showOutsideDays
         components={{ Day: CalendarDayCell }}
         classNames={{
