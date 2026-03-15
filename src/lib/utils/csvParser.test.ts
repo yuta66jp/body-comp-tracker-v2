@@ -7,7 +7,7 @@ const NEW_FIELD_DEFAULTS = {
   is_eating_out: false,
   is_poor_sleep: false,
   sleep_hours: null,
-  had_bowel_movement: false,
+  had_bowel_movement: null,
   training_type: null,
   work_mode: null,
   leg_flag: null,
@@ -231,6 +231,28 @@ describe("parseCSV", () => {
       is_poor_sleep: false,
       had_bowel_movement: true,
     });
+  });
+
+  it("新カラム: had_bowel_movement は空文字で null になる（未記録）", () => {
+    const csv = [
+      "log_date,had_bowel_movement",
+      "2026-03-15,",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.rows[0].had_bowel_movement).toBeNull();
+  });
+
+  it("新カラム: had_bowel_movement は true/false を正しくパースする", () => {
+    const csv = [
+      "log_date,had_bowel_movement",
+      "2026-03-15,true",
+      "2026-03-16,false",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.rows[0].had_bowel_movement).toBe(true);
+    expect(result.rows[1].had_bowel_movement).toBe(false);
   });
 
   it("新カラム: leg_flag は空文字で null になる", () => {
