@@ -109,14 +109,14 @@ DB は `BOOLEAN DEFAULT NULL` に移行済み。
 | featureLabels.ts 同期 | `ACTIVE_FEATURE_NAMES as const` + `ACTIVE_FEATURE_EXPLANATIONS` で TypeScript がコンパイル時に説明マップの完全性を保証 |
 | backtest 実験基盤 | `backtest.py` が CLI オプション（`--series-type` / `--max-origins` / `--origin-step-days` / `--horizons` / `--feature-set`）で実験条件を制御可能。デフォルト設定を変えずに条件比較できる |
 | TDEE batch canonical | フロント再計算を廃止。`enrich.py` が算出した値を canonical として表示 |
-| 読み取りエラー区別 | `QueryResult<T>` discriminated union（`kind: "ok"` / `kind: "error"`）で、DB エラーと正常な空状態を型レベルで分離 |
+| 読み取りエラー区別 | `QueryResult<T>` discriminated union（`kind: "ok"` / `kind: "error"`）で、DB エラーと正常な空状態を型レベルで分離。主要クエリ（daily_logs / career_logs / settings 系）に適用し、各ページで error banner を表示しつつ graceful degradation を維持する |
 
 ### settings / query layer
 
 | 項目 | 内容 |
 |---|---|
 | settings 統一 | Server Action + shared schema（zod）で保存。typed AppSettings で読み取り |
-| query layer | Supabase read 系ロジックを `src/lib/queries/` に集約 |
+| query layer | Supabase read 系ロジックを `src/lib/queries/` に集約。主要クエリは `QueryResult<T>` で状態を明示し、補助的なクエリ（career_logs-for-dashboard / predictions 等）はベストエフォートで空配列フォールバック。意図を JSDoc に明記 |
 | UI integration tests | 保存導線・fallback 導線を jsdom ベースで自動検証 |
 
 ### CI
