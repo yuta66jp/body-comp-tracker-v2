@@ -17,6 +17,13 @@
 import type { DailyLog } from "@/lib/supabase/types";
 import { toJstDateStr, addDaysStr, dateRangeStr } from "./date";
 
+/**
+ * calcDataQuality が実際に参照する列のみを持つ軽量型。
+ * fetchDailyLogsForSettings() の戻り値型と対応する。
+ * DailyLog はこの型のスーパータイプなので、DailyLog[] を渡してもエラーにならない。
+ */
+export type DataQualityLog = Pick<DailyLog, "log_date" | "weight" | "calories">;
+
 // ---- 閾値定数 ----
 /** 前日比でこれを超えたら体重異常値 (kg) */
 export const WEIGHT_JUMP_THRESHOLD_KG = 3.0;
@@ -69,7 +76,7 @@ function calcScore(window: Omit<QualityWindow, "score">): number {
 /** ウィンドウ期間 (dates) の品質を集計 */
 function buildWindow(
   dates: string[],
-  logByDate: Map<string, DailyLog>,
+  logByDate: Map<string, DataQualityLog>,
   sortedWithWeight: Array<{ date: string; weight: number }>
 ): QualityWindow {
   const totalDays = dates.length;
@@ -147,13 +154,13 @@ function buildWindow(
  * @param today 基準日 (YYYY-MM-DD JST). 省略時は JST 今日
  */
 export function calcDataQuality(
-  logs: DailyLog[],
+  logs: DataQualityLog[],
   today?: string
 ): DataQualityReport {
   const todayStr = today ?? toJstDateStr(new Date());
 
   // ---- 日付→ログ Map ----
-  const logByDate = new Map<string, DailyLog>();
+  const logByDate = new Map<string, DataQualityLog>();
   const dateCount = new Map<string, number>();
 
   for (const log of logs) {

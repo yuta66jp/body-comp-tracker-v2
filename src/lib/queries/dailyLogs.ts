@@ -12,6 +12,7 @@
  */
 import { createClient } from "@/lib/supabase/server";
 import type { DailyLog, CareerLog, Prediction } from "@/lib/supabase/types";
+import type { DataQualityLog } from "@/lib/utils/calcDataQuality";
 import type { QueryResult } from "./queryResult";
 
 /**
@@ -59,16 +60,16 @@ export async function fetchWeightLogs(): Promise<Pick<DailyLog, "log_date" | "we
 
 /**
  * daily_logs から log_date / weight / calories のみを取得する。
- * DataQuality 計算（settings ページ）用。
+ * DataQuality 計算（settings ページ）用の軽量クエリ。
  *
- * 戻り値は DailyLog[] として型付けされるが、実際には 3 カラムのみ取得する。
- * calcDataQuality が参照するのは log_date / weight / calories のみのため安全。
+ * 戻り値型は DataQualityLog[] (= Pick<DailyLog, "log_date" | "weight" | "calories">[])
+ * で実取得列に一致させてある。未取得列を呼び出し側が参照すると型エラーになる。
  *
  * 戻り値:
  *   kind: "ok"    — 取得成功。data が空配列 = ログ未入力（正常な空状態）。
  *   kind: "error" — DB フェッチ失敗。呼び出し側で error banner を表示すること。
  */
-export async function fetchDailyLogsForSettings(): Promise<QueryResult<DailyLog[]>> {
+export async function fetchDailyLogsForSettings(): Promise<QueryResult<DataQualityLog[]>> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("daily_logs")
@@ -78,7 +79,7 @@ export async function fetchDailyLogsForSettings(): Promise<QueryResult<DailyLog[
     console.error("[fetchDailyLogsForSettings] daily_logs fetch error:", error.message, { code: error.code });
     return { kind: "error", message: error.message };
   }
-  return { kind: "ok", data: (data as DailyLog[]) ?? [] };
+  return { kind: "ok", data: (data as DataQualityLog[]) ?? [] };
 }
 
 /**
