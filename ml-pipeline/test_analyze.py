@@ -15,12 +15,14 @@ import pytest
 from analyze import (
     run_importance,
     apply_feature_engineering,
+    compute_feature_coverage,
     compute_meta,
     compute_stability,
     build_payload,
     FEATURE_COLS,
     MIN_ROWS,
 )
+from feature_registry import TargetType
 
 
 # ── ヘルパー ──────────────────────────────────────────────────────────────────
@@ -279,7 +281,10 @@ class TestComputeMeta:
         """必要な全キーが返される。"""
         df = _make_df(n=20)
         meta = compute_meta(df)
-        for key in ["sample_count", "date_from", "date_to", "total_rows", "dropped_count"]:
+        for key in [
+            "sample_count", "date_from", "date_to", "total_rows", "dropped_count",
+            "feature_labels", "feature_coverage", "target_type",
+        ]:
             assert key in meta
 
     def test_total_rows_reflects_input_length(self):
@@ -316,6 +321,94 @@ class TestComputeMeta:
         assert meta["sample_count"] == 0
         assert meta["total_rows"] == 0
         assert meta["dropped_count"] == 0
+
+    def test_feature_labels_is_dict_of_strings(self):
+        """feature_labels は {str: str} の辞書で返る。"""
+        df = _make_df(n=20)
+        meta = compute_meta(df)
+        labels = meta["feature_labels"]
+        assert isinstance(labels, dict)
+        for k, v in labels.items():
+            assert isinstance(k, str)
+            assert isinstance(v, str)
+
+    def test_feature_labels_keys_match_feature_cols(self):
+        """feature_labels のキーが FEATURE_COLS と一致する。"""
+        df = _make_df(n=20)
+        meta = compute_meta(df)
+        assert set(meta["feature_labels"].keys()) == set(FEATURE_COLS)
+
+    def test_feature_coverage_is_dict_of_floats(self):
+        """feature_coverage は {str: float} の辞書で返る。"""
+        df = _make_df(n=20)
+        meta = compute_meta(df)
+        cov = meta["feature_coverage"]
+        assert isinstance(cov, dict)
+        for k, v in cov.items():
+            assert isinstance(k, str)
+            assert isinstance(v, float)
+
+    def test_feature_coverage_values_in_range(self):
+        """coverage 値は 0.0〜1.0 の範囲に収まる。"""
+        df = _make_df(n=20)
+        meta = compute_meta(df)
+        for v in meta["feature_coverage"].values():
+            assert 0.0 <= v <= 1.0
+
+    def test_target_type_is_string(self):
+        """target_type は文字列で返る（TargetType.value）。"""
+        df = _make_df(n=20)
+        meta = compute_meta(df)
+        assert isinstance(meta["target_type"], str)
+
+    def test_target_type_default_is_next_day_change(self):
+        """デフォルトの target_type は 'next_day_change'。"""
+        df = _make_df(n=20)
+        meta = compute_meta(df)
+        assert meta["target_type"] == TargetType.NEXT_DAY_CHANGE.value
+
+
+# ── compute_feature_coverage のテスト ────────────────────────────────────────
+
+class TestComputeFeatureCoverage:
+    def test_returns_dict_keyed_by_feature_name(self):
+        """FEATURE_COLS のキーで辞書が返る。"""
+        df = _make_df(n=20)
+        result = compute_feature_coverage(df)
+        assert isinstance(result, dict)
+        for col in FEATURE_COLS:
+            assert col in result
+
+    def test_full_data_returns_1_0(self):
+        """欠損なしデータでは全特徴量の coverage が 1.0 になる。"""
+        df = _make_df(n=20)
+        result = compute_feature_coverage(df)
+        for col in FEATURE_COLS:
+            assert result[col] == 1.0, f"{col}: expected 1.0 but got {result[col]}"
+
+    def test_partial_missing_reduces_coverage(self):
+        """一部欠損があると coverage が 1.0 未満になる。"""
+        df = _make_df(n=20)
+        df.loc[:9, "calories"] = None  # 20行中10行を欠損にする
+        result = compute_feature_coverage(df)
+        # calories を source_col に持つ特徴量 (cal_lag1, rolling_cal_7) が影響を受ける
+        assert result["cal_lag1"] < 1.0
+        assert result["rolling_cal_7"] < 1.0
+
+    def test_coverage_values_in_range(self):
+        """coverage は 0.0〜1.0 に収まる。"""
+        df = _make_df(n=20)
+        df.loc[0, "calories"] = None
+        result = compute_feature_coverage(df)
+        for v in result.values():
+            assert 0.0 <= v <= 1.0
+
+    def test_empty_dataframe_returns_zeros(self):
+        """空 DataFrame では全特徴量が 0.0 になる。"""
+        df = pd.DataFrame(columns=["log_date", "weight", "calories", "protein", "fat", "carbs"])
+        result = compute_feature_coverage(df)
+        for col in FEATURE_COLS:
+            assert result[col] == 0.0
 
 
 # ── build_payload のテスト ───────────────────────────────────────────────────

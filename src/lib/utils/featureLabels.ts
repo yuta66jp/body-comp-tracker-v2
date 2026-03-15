@@ -8,7 +8,9 @@
  *
  * 追加手順:
  *   1. このマップに追記する
- *   2. analyze.py の FEATURE_LABELS と同期する
+ *      ※ ml-pipeline/feature_registry.py が特徴量定義の正本。
+ *        未登録キーは _meta.feature_labels (payload) が fallback になるため
+ *        このマップへの追加は任意だが、direction/note/hint も合わせて追加することを推奨。
  */
 export const FEATURE_LABEL_MAP: Readonly<Record<string, string>> = {
   // ── 現在の XGBoost 特徴量 (analyze.py FEATURE_COLS) ──────────────────────

@@ -8,7 +8,9 @@ analyze.py — XGBoost 因子分析バッチ
     current_weight を説明変数から除外してリーケージを防ぐ。
 
 ■ 特徴量:
-    旧版に合わせて cal_lag1 / rolling_cal_7 / p_lag1 / f_lag1 / c_lag1 の 5 特徴を使用。
+    feature_registry.py の FEATURE_REGISTRY (active=True) から動的取得する。
+    特徴量の追加・変更は feature_registry.py のみを編集すること。
+    FEATURE_COLS を analyze.py に直書きしない。
 
 ■ 出力:
     結果は analytics_cache.payload (JSONB) に保存する。
@@ -41,11 +43,18 @@ from datetime import datetime, timezone
 
 import pandas as pd
 
+from feature_registry import (
+    TargetType,
+    active_feature_cols,
+    active_feature_labels,
+    active_features,
+)
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-# 旧版と同じ 5 特徴 (current_weight はリーケージのため除外)
-FEATURE_COLS = ["cal_lag1", "rolling_cal_7", "p_lag1", "f_lag1", "c_lag1"]
+# feature_registry.py から動的取得。直書きしない。
+FEATURE_COLS = active_feature_cols()
 
 # ── stability 定義 ────────────────────────────────────────────────────────────
 # N_BOOTSTRAP 回のリサンプリングで XGBoost を再学習し、各 feature の
@@ -61,21 +70,16 @@ FEATURE_COLS = ["cal_lag1", "rolling_cal_7", "p_lag1", "f_lag1", "c_lag1"]
 #   → stability = "unavailable"
 #     (importance は表示するが stability は提供しない)
 N_BOOTSTRAP = 20  # bootstrap 反復数。少なすぎると CV が不安定、多すぎると重い
-FEATURE_LABELS = {
-    # フロントエンド featureLabels.ts の FEATURE_LABEL_MAP と同期すること
-    "cal_lag1":      "摂取 kcal（当日）",
-    "rolling_cal_7": "摂取 kcal（週平均）",
-    "p_lag1":        "タンパク質（g）",
-    "f_lag1":        "脂質（g）",
-    "c_lag1":        "炭水化物（g）",
-}
 MIN_ROWS = 14
 
 
 # ── 純粋ロジック層 ─────────────────────────────────────────────────────────────
 
 
-def apply_feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
+def apply_feature_engineering(
+    df: pd.DataFrame,
+    target_type: TargetType = TargetType.NEXT_DAY_CHANGE,
+) -> pd.DataFrame:
     """欠損除去・ソート・特徴量エンジニアリング・target 計算を適用した DataFrame を返す。
 
     run_importance() と compute_meta() の両方がこの関数を経由することで、
@@ -86,6 +90,12 @@ def apply_feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
 
     入力 df を変更しない（内部で copy する）。
     xgboost / supabase を必要としない純粋変換。
+
+    Args:
+        df:          daily_logs の生 DataFrame。
+        target_type: 目的変数の種類。TargetType.NEXT_DAY_CHANGE のみ実装済み。
+                     新しい target_type は feature_registry.TargetType に追加してから
+                     ここに分岐を追加すること。
     """
     df = df.copy()
     df = df.dropna(subset=["weight", "calories", "protein", "fat", "carbs"])
@@ -97,21 +107,14 @@ def apply_feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
     df["f_lag1"]        = df["fat"]
     df["c_lag1"]        = df["carbs"]
 
-    # ── 目的変数: 翌日体重変化量 = weight(t+1) - weight(t) ──────────────────
-    # 「翌日体重の絶対値」ではなく「翌日の変化量（増加=正、減少=負）」を予測する。
-    # これにより「炭水化物・脚トレ・睡眠などが翌日体重をどれだけ動かすか」という
-    # 解釈しやすい目的変数になる。current_weight は説明変数から除外済み（リーケージ回避）。
-    #
-    # ── 将来拡張メモ ─────────────────────────────────────────────────────────
-    # 今回は最も単純で解釈しやすい「翌日変化量」を採用する。
-    # 将来比較したい target 候補:
-    #   - 2日後変化量:       weight.shift(-2) - weight
-    #   - 3日移動平均との差: rolling(3).mean().shift(-1) - weight  ← 定義は要検討
-    # 足トレや高糖質の影響は翌日だけでなく 2 日程度残る可能性があるため、
-    # データが十分に蓄積されたタイミングで比較実験すること。
-    # 追加するには本関数に `target_type` 引数を設け、上記の計算式を分岐させる。
-    # ─────────────────────────────────────────────────────────────────────────
-    df["target"] = df["weight"].shift(-1) - df["weight"]
+    # ── 目的変数 ─────────────────────────────────────────────────────────────
+    if target_type == TargetType.NEXT_DAY_CHANGE:
+        # 翌日体重変化量 = weight(t+1) - weight(t)
+        # 「翌日体重の絶対値」ではなく「翌日の変化量（増加=正、減少=負）」を予測する。
+        # current_weight は説明変数から除外済み（リーケージ回避）。
+        df["target"] = df["weight"].shift(-1) - df["weight"]
+    else:
+        raise ValueError(f"未実装の target_type: {target_type!r}")
 
     return df
 
@@ -153,10 +156,11 @@ def run_importance(df: pd.DataFrame) -> dict[str, dict[str, float | str]]:
     raw = dict(zip(FEATURE_COLS, model.feature_importances_.tolist()))
 
     # ラベルと重要度（%）を合わせて返す
+    labels = active_feature_labels()
     total = sum(raw.values()) or 1.0
     return {
         col: {
-            "label": FEATURE_LABELS[col],
+            "label": labels[col],
             "importance": round(raw[col], 6),
             "pct": round(raw[col] / total * 100, 1),
         }
@@ -243,8 +247,34 @@ def compute_stability(
     return result
 
 
-def compute_meta(df: pd.DataFrame) -> dict[str, object]:
-    """分析前提情報（サンプル数・日付範囲・除外数）を計算して返す。
+def compute_feature_coverage(df: pd.DataFrame) -> dict[str, float]:
+    """アクティブな特徴量ごとのソース列の非欠損率を返す。
+
+    apply_feature_engineering() 前の生 DataFrame を渡すこと。
+    フィルタ後の df では全列が non-null になるため意味がない。
+
+    Returns:
+        {feature_name: coverage_rate} の辞書。coverage_rate は 0.0〜1.0 の float。
+        入力 df が空の場合は全特徴量が 0.0 になる。
+    """
+    n = len(df)
+    if n == 0:
+        return {f.name: 0.0 for f in active_features()}
+    result: dict[str, float] = {}
+    for feat in active_features():
+        if feat.source_col in df.columns:
+            coverage = float(df[feat.source_col].notna().sum()) / n
+        else:
+            coverage = 0.0
+        result[feat.name] = round(coverage, 4)
+    return result
+
+
+def compute_meta(
+    df: pd.DataFrame,
+    target_type: TargetType = TargetType.NEXT_DAY_CHANGE,
+) -> dict[str, object]:
+    """分析前提情報（サンプル数・日付範囲・除外数・特徴量情報）を計算して返す。
 
     apply_feature_engineering() 経由で run_importance() と同じ前処理を参照する。
     xgboost / supabase を必要としない純粋関数。
@@ -256,17 +286,23 @@ def compute_meta(df: pd.DataFrame) -> dict[str, object]:
         - date_to (str | None): 有効サンプルの最新日付。サンプルなしなら None
         - total_rows (int): 入力 df の行数（フィルタ前）
         - dropped_count (int): 欠損除外 + shift(-1) 末尾除外の合計
+        - feature_labels (dict[str, str]): {feature_name: label}。フロントの fallback 用。
+        - feature_coverage (dict[str, float]): {feature_name: 非欠損率 0.0〜1.0}
+        - target_type (str): 使用した目的変数の種類（TargetType の値）
     """
     total_rows = int(len(df))
-    df_proc = apply_feature_engineering(df)
+    df_proc = apply_feature_engineering(df, target_type=target_type)
     df_proc = df_proc.dropna(subset=FEATURE_COLS + ["target"])
     sample_count = int(len(df_proc))
     return {
-        "sample_count":  sample_count,
-        "date_from":     str(df_proc["log_date"].iloc[0])  if sample_count > 0 else None,
-        "date_to":       str(df_proc["log_date"].iloc[-1]) if sample_count > 0 else None,
-        "total_rows":    total_rows,
-        "dropped_count": total_rows - sample_count,
+        "sample_count":     sample_count,
+        "date_from":        str(df_proc["log_date"].iloc[0])  if sample_count > 0 else None,
+        "date_to":          str(df_proc["log_date"].iloc[-1]) if sample_count > 0 else None,
+        "total_rows":       total_rows,
+        "dropped_count":    total_rows - sample_count,
+        "feature_labels":   active_feature_labels(),
+        "feature_coverage": compute_feature_coverage(df),
+        "target_type":      target_type.value,
     }
 
 
