@@ -4,7 +4,7 @@
  * buildCalendarDayMap の差分計算・タグ処理・コンディション整形を検証する。
  */
 
-import { buildCalendarDayMap, toDateKey } from "./calendarUtils";
+import { buildCalendarDayMap, buildConditionTags, toDateKey } from "./calendarUtils";
 import type { DailyLog } from "@/lib/supabase/types";
 
 // ── テストデータ工場 ─────────────────────────────────────────────────────────
@@ -199,6 +199,76 @@ describe("buildCalendarDayMap", () => {
       const map = buildCalendarDayMap(logs);
       expect(map.get("2026-03-10")!.conditionSummary).toBe("便通なし");
     });
+  });
+});
+
+// ── conditionTags (buildCalendarDayMap 経由) ─────────────────────────────────
+
+describe("conditionTags (buildCalendarDayMap)", () => {
+  it("had_bowel_movement=true → key=bowel, label=便通, green color", () => {
+    const logs = [makeLog({ log_date: "2026-03-10", had_bowel_movement: true })];
+    const map = buildCalendarDayMap(logs);
+    const tags = map.get("2026-03-10")!.conditionTags;
+    expect(tags.find((t) => t.key === "bowel")?.label).toBe("便通");
+    expect(tags.find((t) => t.key === "bowel")?.colorClass).toContain("green");
+  });
+
+  it("had_bowel_movement=false → key=bowel, label=便通なし, slate color", () => {
+    const logs = [makeLog({ log_date: "2026-03-10", had_bowel_movement: false })];
+    const map = buildCalendarDayMap(logs);
+    const tags = map.get("2026-03-10")!.conditionTags;
+    expect(tags.find((t) => t.key === "bowel")?.label).toBe("便通なし");
+    expect(tags.find((t) => t.key === "bowel")?.colorClass).toContain("slate");
+  });
+
+  it("training_type=glutes_hamstrings → key=training, label=ハム・ケツ", () => {
+    const logs = [makeLog({ log_date: "2026-03-10", training_type: "glutes_hamstrings" })];
+    const map = buildCalendarDayMap(logs);
+    const tags = map.get("2026-03-10")!.conditionTags;
+    expect(tags.find((t) => t.key === "training")?.label).toBe("ハム・ケツ");
+  });
+
+  it("work_mode=off → key=work, label=休日, amber color", () => {
+    const logs = [makeLog({ log_date: "2026-03-10", work_mode: "off" })];
+    const map = buildCalendarDayMap(logs);
+    const tags = map.get("2026-03-10")!.conditionTags;
+    expect(tags.find((t) => t.key === "work")?.label).toBe("休日");
+    expect(tags.find((t) => t.key === "work")?.colorClass).toContain("amber");
+  });
+
+  it("全て null → conditionTags は空配列", () => {
+    const logs = [makeLog({ log_date: "2026-03-10" })];
+    const map = buildCalendarDayMap(logs);
+    expect(map.get("2026-03-10")!.conditionTags).toHaveLength(0);
+  });
+});
+
+// ── buildConditionTags (standalone) ─────────────────────────────────────────
+
+describe("buildConditionTags", () => {
+  it("全 null → 空配列", () => {
+    expect(buildConditionTags({ had_bowel_movement: null, training_type: null, work_mode: null }))
+      .toHaveLength(0);
+  });
+
+  it("全て指定 → 3タグ返す", () => {
+    const tags = buildConditionTags({
+      had_bowel_movement: true,
+      training_type: "chest",
+      work_mode: "remote",
+    });
+    expect(tags).toHaveLength(3);
+    expect(tags.map((t) => t.key)).toEqual(["bowel", "training", "work"]);
+  });
+
+  it("未知 training_type は除外される", () => {
+    const tags = buildConditionTags({ had_bowel_movement: null, training_type: "unknown_type", work_mode: null });
+    expect(tags).toHaveLength(0);
+  });
+
+  it("work_mode=remote → cyan color", () => {
+    const tags = buildConditionTags({ had_bowel_movement: null, training_type: null, work_mode: "remote" });
+    expect(tags[0].colorClass).toContain("cyan");
   });
 });
 
