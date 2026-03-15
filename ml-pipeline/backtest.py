@@ -29,8 +29,12 @@ backtest.py — 体重予測モデルの walk-forward 精度評価
   - forecast_backtest_predictions (個別予測点)
 
 実行:
-  python ml-pipeline/backtest.py                     # 単日評価 (デフォルト)
-  python ml-pipeline/backtest.py --series-type sma7  # 7日平均評価
+  python ml-pipeline/backtest.py                          # 単日評価 (デフォルト)
+  python ml-pipeline/backtest.py --series-type sma7       # 7日平均評価
+  python ml-pipeline/backtest.py --max-origins 10         # 起点数を絞る
+  python ml-pipeline/backtest.py --origin-step-days 14    # 起点間隔を広げる
+  python ml-pipeline/backtest.py --horizons 7 14 30       # ホライズン指定
+  python ml-pipeline/backtest.py --feature-set baseline   # 再現メタ (デフォルト)
 """
 
 import argparse
@@ -38,12 +42,12 @@ import logging
 import math
 import os
 import uuid
+from dataclasses import dataclass, field
 from datetime import date, timedelta
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
 import pandas as pd
-from supabase import create_client, Client
 
 logging.basicConfig(
     level=logging.INFO,
@@ -51,31 +55,82 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# ── 設定 ───────────────────────────────────────────────────────────────────────
+# ── デフォルト定数 ──────────────────────────────────────────────────────────────
+# CLI 引数未指定時のデフォルト値。実験時は CLI で上書きする。
 
-HORIZONS = [7, 14, 30]
+_DEFAULT_HORIZONS       = [7, 14, 30]
+_DEFAULT_MAX_ORIGINS    = 15   # 実行時間を抑えるための最大起点数 (直近優先)
+_DEFAULT_ORIGIN_STEP    = 7    # 起点を何日おきにサンプリングするか
+_DEFAULT_NP_EPOCHS      = 100  # 本番は 500。バックテストでは速度優先
+_DEFAULT_FEATURE_SET    = "baseline"
 
-# walk-forward の起点サンプリング設定
-MIN_TRAIN_ROWS_NP = 30        # NeuralProphet に必要な最低学習データ数
-MIN_TRAIN_ROWS_BASELINE = 7   # ベースラインに必要な最低学習データ数
-MAX_ORIGINS = 15              # 実行時間を抑えるための最大起点数 (直近優先)
-ORIGIN_STEP_DAYS = 7          # 起点を何日おきにサンプリングするか
-
-# NeuralProphet の設定 (backtest 用に epoch 数を抑える)
-NP_EPOCHS_BACKTEST = 100      # 本番は 500。バックテストでは速度優先
-MODEL_VERSION = "neuralprophet-v1"
+# 内部固定値 (実験条件に依らず変えない)
+_MIN_TRAIN_ROWS_NP         = 30   # NeuralProphet に必要な最低学習データ数
+_MIN_TRAIN_ROWS_BASELINE   = 7    # ベースラインに必要な最低学習データ数
+_SMA7_MIN_PERIODS          = 4    # SMA7 評価時に有効とみなすウィンドウ内の最低データ数
+_MODEL_VERSION             = "neuralprophet-v1"
 
 # 評価軸
 SERIES_DAILY = "daily"
-SERIES_SMA7 = "sma7"
-
-# SMA7 評価時に有効とみなすウィンドウ内の最低データ数 (7日中 N 日以上)
-SMA7_MIN_PERIODS = 4
+SERIES_SMA7  = "sma7"
 
 
-# ── Supabase クライアント ──────────────────────────────────────────────────────
+# ── 実験 config ─────────────────────────────────────────────────────────────────
 
-def get_client() -> Client:
+@dataclass
+class BacktestConfig:
+    """比較実験の全パラメータを一元管理する。
+
+    CLI 引数 → BacktestConfig の変換は build_config() で行う。
+    純粋ロジック関数はこの config のみを参照し、モジュール定数を直参照しない。
+
+    フィールド:
+      series_type      : 評価軸 ("daily" / "sma7")
+      horizons         : 評価するホライズン日数リスト
+      max_origins      : walk-forward の最大起点数 (直近優先)
+      origin_step_days : 起点のサンプリング間隔 (日)
+      np_epochs        : NeuralProphet のエポック数
+      feature_set      : 使用特徴量セットの識別子 (再現メタ用; 現状は "baseline" のみ)
+
+    内部定数 (変更不可):
+      min_train_rows_np        : NP に必要な最低学習データ数
+      min_train_rows_baseline  : ベースラインに必要な最低学習データ数
+      sma7_min_periods         : SMA7 評価の最低有効データ数
+    """
+    series_type:      str       = SERIES_DAILY
+    horizons:         list[int] = field(default_factory=lambda: list(_DEFAULT_HORIZONS))
+    max_origins:      int       = _DEFAULT_MAX_ORIGINS
+    origin_step_days: int       = _DEFAULT_ORIGIN_STEP
+    np_epochs:        int       = _DEFAULT_NP_EPOCHS
+    feature_set:      str       = _DEFAULT_FEATURE_SET
+
+    # 内部固定値 (CLI 引数なし。変えるときはコードレビュー必須)
+    min_train_rows_np:       int = _MIN_TRAIN_ROWS_NP
+    min_train_rows_baseline: int = _MIN_TRAIN_ROWS_BASELINE
+    sma7_min_periods:        int = _SMA7_MIN_PERIODS
+
+
+def build_config(args: argparse.Namespace) -> BacktestConfig:
+    """CLI 引数から BacktestConfig を構築する。"""
+    return BacktestConfig(
+        series_type=args.series_type,
+        horizons=args.horizons,
+        max_origins=args.max_origins,
+        origin_step_days=args.origin_step_days,
+        np_epochs=args.np_epochs,
+        feature_set=args.feature_set,
+    )
+
+
+# ── Supabase クライアント (遅延 import) ─────────────────────────────────────────
+
+def get_client():
+    """Supabase クライアントを生成して返す。
+
+    supabase は重い外部依存のため main() 内で遅延 import する。
+    純粋ロジック層 (run_backtest 等) はこの関数を呼ばない。
+    """
+    from supabase import create_client  # noqa: PLC0415
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
@@ -86,7 +141,7 @@ def get_client() -> Client:
 
 # ── データ取得 ─────────────────────────────────────────────────────────────────
 
-def fetch_weight_history(sb: Client) -> pd.DataFrame:
+def fetch_weight_history(sb) -> pd.DataFrame:
     """daily_logs から weight が存在するレコードを日付昇順で取得する。"""
     resp = sb.from_("daily_logs").select("log_date,weight").order("log_date").execute()
     df = pd.DataFrame(resp.data)
@@ -131,65 +186,78 @@ def predict_linear(train: pd.DataFrame, horizon: int) -> float:
     return float(slope * (len(window) - 1 + horizon) + intercept)
 
 
-def predict_neuralprophet(train: pd.DataFrame, horizon: int) -> Optional[float]:
-    """NeuralProphet: 学習データで再訓練し horizon 日先を予測する。
+def make_neuralprophet_predictor(config: BacktestConfig) -> Callable:
+    """config を閉じ込めた NeuralProphet 予測関数を返す。
 
-    訓練失敗時は None を返し、その起点をスキップする。
-    epoch 数はバックテスト用に NP_EPOCHS_BACKTEST に抑えている。
+    NeuralProphet の epoch 数は config.np_epochs から取得するため、
+    CLI で --np-epochs を変えれば再学習コストを調整できる。
     """
-    try:
-        from neuralprophet import NeuralProphet  # noqa: PLC0415
+    np_epochs = config.np_epochs
 
-        df_np = train[["log_date", "weight"]].rename(
-            columns={"log_date": "ds", "weight": "y"}
-        )
-        m = NeuralProphet(
-            n_lags=0,
-            epochs=NP_EPOCHS_BACKTEST,
-            weekly_seasonality=True,
-            daily_seasonality=False,
-            yearly_seasonality=False,
-        )
-        m.fit(df_np, freq="D", progress="none")
-        future = m.make_future_dataframe(df_np, periods=horizon, n_historic_predictions=0)
-        forecast = m.predict(future)
-        return float(forecast["yhat1"].iloc[-1])
-    except Exception as exc:
-        log.warning("NeuralProphet 予測失敗 (horizon=%d): %s", horizon, exc)
-        return None
+    def _predict(train: pd.DataFrame, horizon: int) -> Optional[float]:
+        """NeuralProphet: 学習データで再訓練し horizon 日先を予測する。
+
+        訓練失敗時は None を返し、その起点をスキップする。
+        """
+        try:
+            from neuralprophet import NeuralProphet  # noqa: PLC0415
+
+            df_np = train[["log_date", "weight"]].rename(
+                columns={"log_date": "ds", "weight": "y"}
+            )
+            m = NeuralProphet(
+                n_lags=0,
+                epochs=np_epochs,
+                weekly_seasonality=True,
+                daily_seasonality=False,
+                yearly_seasonality=False,
+            )
+            m.fit(df_np, freq="D", progress="none")
+            future = m.make_future_dataframe(df_np, periods=horizon, n_historic_predictions=0)
+            forecast = m.predict(future)
+            return float(forecast["yhat1"].iloc[-1])
+        except Exception as exc:
+            log.warning("NeuralProphet 予測失敗 (horizon=%d): %s", horizon, exc)
+            return None
+
+    return _predict
 
 
-# ── モデルレジストリ ───────────────────────────────────────────────────────────
+def build_models(config: BacktestConfig) -> dict[str, Callable]:
+    """config から実験で使うモデル辞書を構築する。
 
-MODELS: dict[str, object] = {
-    "NeuralProphet": predict_neuralprophet,
-    "Naive": predict_naive,
-    "MovingAverage7d": predict_ma7,
-    "LinearTrend30d": predict_linear,
-}
+    NeuralProphet は config.np_epochs を閉じ込めたクロージャとして生成する。
+    feature_set による特徴量切替はここで行う (現状は baseline のみ)。
+    """
+    return {
+        "NeuralProphet":  make_neuralprophet_predictor(config),
+        "Naive":          predict_naive,
+        "MovingAverage7d": predict_ma7,
+        "LinearTrend30d": predict_linear,
+    }
 
 
 # ── 起点選択 ───────────────────────────────────────────────────────────────────
 
-def select_origins(df: pd.DataFrame) -> list[int]:
+def select_origins(df: pd.DataFrame, config: BacktestConfig) -> list[int]:
     """walk-forward の起点インデックスを選択する。
 
     条件:
-      - 起点より前に MIN_TRAIN_ROWS_NP 件以上のデータがある
-      - 起点より後に max(HORIZONS) 日以上のデータがある (実績値が存在するため)
-      - ORIGIN_STEP_DAYS おきにサンプリング
-      - 直近 MAX_ORIGINS 件に絞る
+      - 起点より前に config.min_train_rows_np 件以上のデータがある
+      - 起点より後に max(config.horizons) 日以上のデータがある (実績値が存在するため)
+      - config.origin_step_days おきにサンプリング
+      - 直近 config.max_origins 件に絞る
     """
-    max_h = max(HORIZONS)
+    max_h = max(config.horizons)
     valid_indices = [
-        i for i in range(MIN_TRAIN_ROWS_NP, len(df) - max_h)
+        i for i in range(config.min_train_rows_np, len(df) - max_h)
     ]
     if not valid_indices:
         return []
-    sampled = valid_indices[::ORIGIN_STEP_DAYS]
-    # 直近優先で MAX_ORIGINS 件に絞る
-    if len(sampled) > MAX_ORIGINS:
-        sampled = sampled[-MAX_ORIGINS:]
+    sampled = valid_indices[::config.origin_step_days]
+    # 直近優先で max_origins 件に絞る
+    if len(sampled) > config.max_origins:
+        sampled = sampled[-config.max_origins:]
     return sampled
 
 
@@ -199,7 +267,7 @@ def compute_actual_sma7(
     df: pd.DataFrame,
     target_date: date,
     origin_date: date,
-    min_periods: int = SMA7_MIN_PERIODS,
+    min_periods: int = _SMA7_MIN_PERIODS,
 ) -> Optional[float]:
     """target_date 終端の 7 日間移動平均実測体重を返す。
 
@@ -243,7 +311,7 @@ def compute_metrics(errors: list[float], actuals: list[float]) -> dict:
     """
     arr = np.array(errors, dtype=float)
     act = np.array(actuals, dtype=float)
-    mae = float(np.mean(np.abs(arr)))
+    mae  = float(np.mean(np.abs(arr)))
     rmse = float(np.sqrt(np.mean(arr ** 2)))
     bias = float(np.mean(arr))   # 正 = 上振れ傾向, 負 = 下振れ傾向
     mape: Optional[float] = None
@@ -258,42 +326,48 @@ def compute_metrics(errors: list[float], actuals: list[float]) -> dict:
 BacktestResults = dict[str, dict[int, list[tuple[float, float, float, date, date]]]]
 
 
-def run_backtest(df: pd.DataFrame, series_type: str = SERIES_DAILY) -> BacktestResults:
+def run_backtest(df: pd.DataFrame, config: BacktestConfig) -> BacktestResults:
     """walk-forward バックテストを実行する。
 
-    series_type:
+    config.series_type:
       SERIES_DAILY: 各予測を target_date の単日実測体重と比較 (デフォルト)
       SERIES_SMA7:  各予測を target_date 終端の 7 日間移動平均実測体重と比較
                     ノイズに強い評価軸。horizon >= 7 のためリークは発生しない。
+
+    モデル辞書は config から生成する (NeuralProphet の epochs も config 経由)。
     """
-    origins = select_origins(df)
+    models = build_models(config)
+    origins = select_origins(df, config)
+
     if not origins:
         log.warning("有効な起点がありません。データ不足の可能性があります。")
-        return {m: {h: [] for h in HORIZONS} for m in MODELS}
+        return {m: {h: [] for h in config.horizons} for m in models}
 
     log.info(
-        "バックテスト開始: series_type=%s, 起点数=%d, horizons=%s",
-        series_type, len(origins), HORIZONS,
+        "バックテスト開始: series_type=%s, feature_set=%s, 起点数=%d, horizons=%s",
+        config.series_type, config.feature_set, len(origins), config.horizons,
     )
 
-    results: BacktestResults = {m: {h: [] for h in HORIZONS} for m in MODELS}
+    results: BacktestResults = {m: {h: [] for h in config.horizons} for m in models}
 
     for origin_idx in origins:
         train = df.iloc[:origin_idx].copy()
         origin_date: date = train["log_date"].iloc[-1].date()
         log.info("  起点 %s (n_train=%d)", origin_date, len(train))
 
-        for horizon in HORIZONS:
+        for horizon in config.horizons:
             target_date = origin_date + timedelta(days=horizon)
 
             # ── 実測値の取得 ──
-            if series_type == SERIES_SMA7:
+            if config.series_type == SERIES_SMA7:
                 # 7日移動平均実測値 (リークなし)
-                actual_val = compute_actual_sma7(df, target_date, origin_date)
+                actual_val = compute_actual_sma7(
+                    df, target_date, origin_date, config.sma7_min_periods
+                )
                 if actual_val is None:
                     log.debug(
                         "    SMA7実測値不足: %s (h=%d, min_periods=%d), スキップ",
-                        target_date, horizon, SMA7_MIN_PERIODS,
+                        target_date, horizon, config.sma7_min_periods,
                     )
                     continue
                 actual = actual_val
@@ -306,12 +380,16 @@ def run_backtest(df: pd.DataFrame, series_type: str = SERIES_DAILY) -> BacktestR
                     continue
                 actual = float(target_rows["weight"].iloc[0])
 
-            for model_name, predict_fn in MODELS.items():
-                min_rows = MIN_TRAIN_ROWS_NP if model_name == "NeuralProphet" else MIN_TRAIN_ROWS_BASELINE
+            for model_name, predict_fn in models.items():
+                min_rows = (
+                    config.min_train_rows_np
+                    if model_name == "NeuralProphet"
+                    else config.min_train_rows_baseline
+                )
                 if len(train) < min_rows:
                     continue
 
-                pred = predict_fn(train, horizon)  # type: ignore[operator]
+                pred = predict_fn(train, horizon)
                 if pred is None or not math.isfinite(pred):
                     continue
 
@@ -326,51 +404,57 @@ def run_backtest(df: pd.DataFrame, series_type: str = SERIES_DAILY) -> BacktestR
 # ── DB 保存 ────────────────────────────────────────────────────────────────────
 
 def save_results(
-    sb: Client,
+    sb,
     df: pd.DataFrame,
     results: BacktestResults,
-    series_type: str = SERIES_DAILY,
+    config: BacktestConfig,
 ) -> str:
     """バックテスト結果を DB に保存し、run_id を返す。
 
-    series_type は config.series_type に記録する。
-    フロントエンドはこのフィールドで daily/sma7 の run を識別する。
+    config の全パラメータを runs.config JSONB に記録することで、
+    後から実験条件を再現・比較できる。
+    feature_set / series_type (= target_type) も再現メタとして保存する。
     """
     run_id = str(uuid.uuid4())
-    origins = select_origins(df)
+    origins = select_origins(df, config)
 
     # 1. runs テーブルに実行メタ情報を挿入
     run_row = {
-        "id": run_id,
-        "model_name": "all",
-        "model_version": MODEL_VERSION,
-        "horizons": HORIZONS,
+        "id":            run_id,
+        "model_name":    "all",
+        "model_version": _MODEL_VERSION,
+        "horizons":      config.horizons,
         "train_min_date": df["log_date"].min().date().isoformat(),
         "train_max_date": df["log_date"].max().date().isoformat(),
         "n_source_rows": len(df),
         "notes": (
-            f"Walk-forward backtest, series_type={series_type}, "
+            f"Walk-forward backtest, series_type={config.series_type}, "
+            f"feature_set={config.feature_set}, "
             f"origins={len(origins)}, "
-            f"np_epochs={NP_EPOCHS_BACKTEST}, "
-            f"step={ORIGIN_STEP_DAYS}d"
+            f"np_epochs={config.np_epochs}, "
+            f"step={config.origin_step_days}d"
         ),
+        # 再現メタ: この config を使えば同じ実験を再現できる
         "config": {
-            "horizons": HORIZONS,
-            "max_origins": MAX_ORIGINS,
-            "origin_step_days": ORIGIN_STEP_DAYS,
-            "np_epochs_backtest": NP_EPOCHS_BACKTEST,
-            "min_train_rows_np": MIN_TRAIN_ROWS_NP,
-            "min_train_rows_baseline": MIN_TRAIN_ROWS_BASELINE,
-            "series_type": series_type,           # ← 評価軸を記録
-            "sma7_min_periods": SMA7_MIN_PERIODS, # ← SMA7 評価の設定
+            "series_type":             config.series_type,
+            "target_type":             config.series_type,   # 将来の比較軸向けエイリアス
+            "feature_set":             config.feature_set,
+            "horizons":                config.horizons,
+            "max_origins":             config.max_origins,
+            "origin_step_days":        config.origin_step_days,
+            "np_epochs":               config.np_epochs,
+            "min_train_rows_np":       config.min_train_rows_np,
+            "min_train_rows_baseline": config.min_train_rows_baseline,
+            "sma7_min_periods":        config.sma7_min_periods,
         },
     }
     sb.from_("forecast_backtest_runs").insert(run_row).execute()
-    log.info("runs に挿入: run_id=%s, series_type=%s", run_id, series_type)
+    log.info("runs に挿入: run_id=%s, series_type=%s, feature_set=%s",
+             run_id, config.series_type, config.feature_set)
 
     # 2. metrics テーブルに集計結果を挿入
     metric_rows = []
-    pred_rows = []
+    pred_rows   = []
 
     for model_name, horizon_data in results.items():
         for horizon, records in horizon_data.items():
@@ -381,11 +465,11 @@ def save_results(
                 )
                 continue
 
-            errors  = [r[0] for r in records]
-            actuals = [r[1] for r in records]
-            preds   = [r[2] for r in records]
+            errors       = [r[0] for r in records]
+            actuals      = [r[1] for r in records]
+            preds        = [r[2] for r in records]
             origins_list = [r[3] for r in records]
-            targets = [r[4] for r in records]
+            targets      = [r[4] for r in records]
 
             m = compute_metrics(errors, actuals)
 
@@ -412,11 +496,11 @@ def save_results(
                     "forecast_origin_date": orig.isoformat(),
                     "target_date":          tgt.isoformat(),
                     "horizon_days":         horizon,
-                    "predicted_weight":     round(pred,       3),
-                    "actual_weight":        round(act,        3),
-                    "error":                round(err,        3),
-                    "abs_error":            round(abs(err),   3),
-                    "squared_error":        round(err ** 2,   4),
+                    "predicted_weight":     round(pred,     3),
+                    "actual_weight":        round(act,      3),
+                    "error":                round(err,      3),
+                    "abs_error":            round(abs(err), 3),
+                    "squared_error":        round(err ** 2, 4),
                     "ape":                  round(ape, 4) if ape is not None else None,
                 })
 
@@ -438,12 +522,16 @@ def save_results(
 
 # ── サマリーログ ───────────────────────────────────────────────────────────────
 
-def log_summary(results: BacktestResults) -> None:
+def log_summary(results: BacktestResults, config: BacktestConfig) -> None:
     """評価結果のサマリーをログ出力する。"""
-    log.info("=== バックテスト結果サマリー ===")
-    for model_name in MODELS:
-        for horizon in HORIZONS:
-            records = results[model_name][horizon]
+    models = list(results.keys())
+    log.info(
+        "=== バックテスト結果サマリー (series_type=%s, feature_set=%s) ===",
+        config.series_type, config.feature_set,
+    )
+    for model_name in models:
+        for horizon in config.horizons:
+            records = results[model_name].get(horizon, [])
             if not records:
                 log.info("  %-20s h=%2dd  データ不足のためスキップ", model_name, horizon)
                 continue
@@ -475,14 +563,62 @@ def main() -> None:
             f"{SERIES_SMA7}=7日移動平均体重 (ノイズに強い評価)"
         ),
     )
+    parser.add_argument(
+        "--horizons",
+        nargs="+",
+        type=int,
+        default=list(_DEFAULT_HORIZONS),
+        metavar="DAYS",
+        help=f"評価ホライズン (日数、スペース区切り複数可)。デフォルト: {_DEFAULT_HORIZONS}",
+    )
+    parser.add_argument(
+        "--max-origins",
+        type=int,
+        default=_DEFAULT_MAX_ORIGINS,
+        dest="max_origins",
+        help=f"walk-forward の最大起点数 (直近優先)。デフォルト: {_DEFAULT_MAX_ORIGINS}",
+    )
+    parser.add_argument(
+        "--origin-step-days",
+        type=int,
+        default=_DEFAULT_ORIGIN_STEP,
+        dest="origin_step_days",
+        help=f"起点のサンプリング間隔 (日)。デフォルト: {_DEFAULT_ORIGIN_STEP}",
+    )
+    parser.add_argument(
+        "--np-epochs",
+        type=int,
+        default=_DEFAULT_NP_EPOCHS,
+        dest="np_epochs",
+        help=f"NeuralProphet のエポック数。デフォルト: {_DEFAULT_NP_EPOCHS}",
+    )
+    parser.add_argument(
+        "--feature-set",
+        default=_DEFAULT_FEATURE_SET,
+        dest="feature_set",
+        help=(
+            "使用する特徴量セットの識別子 (再現メタとして保存)。"
+            f"デフォルト: {_DEFAULT_FEATURE_SET}。"
+            "将来の比較実験例: baseline / conditions / conditions_legs"
+        ),
+    )
     args = parser.parse_args()
 
+    config = build_config(args)
+    log.info(
+        "実験 config: series_type=%s, feature_set=%s, horizons=%s, "
+        "max_origins=%d, origin_step_days=%d, np_epochs=%d",
+        config.series_type, config.feature_set, config.horizons,
+        config.max_origins, config.origin_step_days, config.np_epochs,
+    )
+
+    # supabase は実行系でのみ使用する (純粋ロジック層に依存を持ち込まない)
     sb = get_client()
 
     log.info("体重履歴を取得中...")
     df = fetch_weight_history(sb)
 
-    min_required = MIN_TRAIN_ROWS_NP + max(HORIZONS)
+    min_required = config.min_train_rows_np + max(config.horizons)
     if len(df) < min_required:
         log.warning(
             "バックテストに必要なデータが不足しています "
@@ -491,12 +627,14 @@ def main() -> None:
         )
         return
 
-    log.info("評価軸: %s", args.series_type)
-    results = run_backtest(df, series_type=args.series_type)
-    log_summary(results)
+    results = run_backtest(df, config)
+    log_summary(results, config)
 
-    run_id = save_results(sb, df, results, series_type=args.series_type)
-    log.info("バックテスト完了。run_id=%s, series_type=%s", run_id, args.series_type)
+    run_id = save_results(sb, df, results, config)
+    log.info(
+        "バックテスト完了。run_id=%s, series_type=%s, feature_set=%s",
+        run_id, config.series_type, config.feature_set,
+    )
 
 
 if __name__ == "__main__":
