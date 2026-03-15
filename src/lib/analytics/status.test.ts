@@ -62,6 +62,24 @@ describe("getAnalyticsAvailability", () => {
     expect(r.staleDays).toBeGreaterThanOrEqual(1);
   });
 
+  // ── intraday 比較 ─────────────────────────────────────────────────────────
+
+  it("同日の cache より新しい updated_at → stale（intraday 修正を検知）", () => {
+    // バッチが 18:00 UTC に実行後、同日 20:00 UTC に過去日の行を編集したケース
+    const r = getAnalyticsAvailability("2026-03-14T18:00:00Z", "2026-03-14T20:00:00Z");
+    expect(r.status).toBe("stale");
+  });
+
+  it("同日の cache より古い updated_at → fresh（バッチ後に修正なし）", () => {
+    const r = getAnalyticsAvailability("2026-03-14T20:00:00Z", "2026-03-14T18:00:00Z");
+    expect(r.status).toBe("fresh");
+  });
+
+  it("cache と updated_at が同一タイムスタンプ → fresh", () => {
+    const r = getAnalyticsAvailability("2026-03-14T18:00:00Z", "2026-03-14T18:00:00Z");
+    expect(r.status).toBe("fresh");
+  });
+
   // ── ISO 8601 パース ──────────────────────────────────────────────────────
 
   it("ISO 8601 timestamp から日付部分のみ抽出される", () => {

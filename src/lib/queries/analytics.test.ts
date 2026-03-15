@@ -61,17 +61,28 @@ describe("fetchEnrichedLogs", () => {
     expect(result.rows).toHaveLength(1);
   });
 
-  it("過去日更新: 最新 log_date は変わらないが MAX(updated_at) が cache より新しいとき stale", async () => {
+  it("過去日更新(翌日): 最新 log_date は変わらないが MAX(updated_at) が翌日 → stale", async () => {
     // 2026-03-10 の行を 2026-03-15 に編集した場合のシナリオ
-    // cache: 2026-03-14T18:00:00Z (バッチ実行)
-    // MAX(updated_at): 2026-03-15T01:00:00Z (過去日の行を翌日編集)
-    // 最新 log_date は 2026-03-14 で変わっていないが、updated_at が新しいので stale になること
+    // cache: 2026-03-14T18:00:00Z (バッチ実行)、MAX(updated_at): 2026-03-15T01:00:00Z
     const rows = [{ log_date: "2026-03-10", weight_sma7: 73.0, tdee_estimated: 2350 }];
     setupChain({
       data: { payload: rows, updated_at: "2026-03-14T18:00:00Z" },
       error: null,
     });
     const result = await fetchEnrichedLogs("2026-03-15T01:00:00Z");
+    expect(result.availability.status).toBe("stale");
+  });
+
+  it("過去日更新(同日 intraday): バッチ後に同日中に過去日を修正した場合も stale", async () => {
+    // cache: 2026-03-14T18:00:00Z (バッチ実行)
+    // MAX(updated_at): 2026-03-14T20:00:00Z (同日中に過去日の行を編集)
+    // 日付粒度では検知できないがタイムスタンプ比較で stale になること
+    const rows = [{ log_date: "2026-03-10", weight_sma7: 73.0, tdee_estimated: 2350 }];
+    setupChain({
+      data: { payload: rows, updated_at: "2026-03-14T18:00:00Z" },
+      error: null,
+    });
+    const result = await fetchEnrichedLogs("2026-03-14T20:00:00Z");
     expect(result.availability.status).toBe("stale");
   });
 
@@ -144,16 +155,25 @@ describe("fetchFactorAnalysis", () => {
     expect(result.payload).not.toBeNull();
   });
 
-  it("過去日更新: 最新 log_date は変わらないが MAX(updated_at) が cache より新しいとき stale", async () => {
-    // 2026-03-10 の行を 2026-03-15 に編集した場合のシナリオ
-    // cache: 2026-03-14T18:00:00Z (バッチ実行)
-    // MAX(updated_at): 2026-03-15T01:00:00Z (過去日の行を翌日編集)
+  it("過去日更新(翌日): 最新 log_date は変わらないが MAX(updated_at) が翌日 → stale", async () => {
     const payload = { cal_lag1: { label: "前日カロリー", importance: 0.3, pct: 30 } };
     setupChain({
       data: { payload, updated_at: "2026-03-14T18:00:00Z" },
       error: null,
     });
     const result = await fetchFactorAnalysis("2026-03-15T01:00:00Z");
+    expect(result.availability.status).toBe("stale");
+    expect(result.payload).not.toBeNull();
+  });
+
+  it("過去日更新(同日 intraday): バッチ後に同日中に過去日を修正した場合も stale", async () => {
+    // cache: 2026-03-14T18:00:00Z、MAX(updated_at): 2026-03-14T20:00:00Z
+    const payload = { cal_lag1: { label: "前日カロリー", importance: 0.3, pct: 30 } };
+    setupChain({
+      data: { payload, updated_at: "2026-03-14T18:00:00Z" },
+      error: null,
+    });
+    const result = await fetchFactorAnalysis("2026-03-14T20:00:00Z");
     expect(result.availability.status).toBe("stale");
     expect(result.payload).not.toBeNull();
   });

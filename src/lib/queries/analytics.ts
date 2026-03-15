@@ -69,9 +69,6 @@ export interface FactorAnalysisResult {
 export async function fetchEnrichedLogs(
   latestRawLogUpdatedAt: string | null
 ): Promise<EnrichedLogsResult> {
-  // ISO 8601 timestamp の日付部分 (YYYY-MM-DD) を抽出して比較基準とする
-  const latestRawLogDate = latestRawLogUpdatedAt ? latestRawLogUpdatedAt.slice(0, 10) : null;
-
   const supabase = createClient();
   const { data, error } = await supabase
     .from("analytics_cache")
@@ -83,7 +80,7 @@ export async function fetchEnrichedLogs(
     if (error.code === "PGRST116") {
       // 行なし = バッチ未実行
       return {
-        availability: getEnrichedLogsAvailability(null, latestRawLogDate),
+        availability: getEnrichedLogsAvailability(null, latestRawLogUpdatedAt),
         rows: [],
         updatedAt: null,
       };
@@ -97,7 +94,7 @@ export async function fetchEnrichedLogs(
 
   if (!data) {
     return {
-      availability: getEnrichedLogsAvailability(null, latestRawLogDate),
+      availability: getEnrichedLogsAvailability(null, latestRawLogUpdatedAt),
       rows: [],
       updatedAt: null,
     };
@@ -106,7 +103,7 @@ export async function fetchEnrichedLogs(
   const row = data as Pick<AnalyticsCache, "payload" | "updated_at">;
   const updatedAt = row.updated_at;
   return {
-    availability: getEnrichedLogsAvailability(updatedAt, latestRawLogDate),
+    availability: getEnrichedLogsAvailability(updatedAt, latestRawLogUpdatedAt),
     rows: row.payload as unknown as EnrichedLogPayloadRow[],
     updatedAt,
   };
@@ -124,8 +121,6 @@ export async function fetchEnrichedLogs(
 export async function fetchFactorAnalysis(
   latestRawLogUpdatedAt: string | null
 ): Promise<FactorAnalysisResult> {
-  // ISO 8601 timestamp の日付部分 (YYYY-MM-DD) を抽出して比較基準とする
-  const latestRawLogDate = latestRawLogUpdatedAt ? latestRawLogUpdatedAt.slice(0, 10) : null;
   const supabase = createClient();
   const { data, error } = await supabase
     .from("analytics_cache")
@@ -136,7 +131,7 @@ export async function fetchFactorAnalysis(
   if (error) {
     if (error.code === "PGRST116") {
       return {
-        availability: getXgboostAvailability(null, latestRawLogDate),
+        availability: getXgboostAvailability(null, latestRawLogUpdatedAt),
         payload: null,
         meta: null,
         updatedAt: null,
@@ -152,7 +147,7 @@ export async function fetchFactorAnalysis(
 
   if (!data) {
     return {
-      availability: getXgboostAvailability(null, latestRawLogDate),
+      availability: getXgboostAvailability(null, latestRawLogUpdatedAt),
       payload: null,
       meta: null,
       updatedAt: null,
@@ -169,7 +164,7 @@ export async function fetchFactorAnalysis(
   const mergedEntries = mergeStability(entries as Record<string, FactorEntry>, stabilityMap);
 
   return {
-    availability: getXgboostAvailability(updatedAt, latestRawLogDate),
+    availability: getXgboostAvailability(updatedAt, latestRawLogUpdatedAt),
     payload: mergedEntries,
     meta: (_meta ?? null) as FactorMeta | null,
     updatedAt,
