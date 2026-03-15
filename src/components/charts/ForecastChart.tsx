@@ -117,6 +117,16 @@ export function ForecastChart({
     : Math.floor((dataMin - yPad) * 10) / 10;
   const yMax = Math.ceil((dataMax + yPad) * 10) / 10;
 
+  // Y軸 tick 配列（7日: 1kg刻み、31日: 2kg刻み、全体: Recharts 自動）
+  const yTicks: number[] | undefined = (() => {
+    if (rangeTab === "default") return undefined;
+    const step = rangeTab === "7d" ? 1 : 2;
+    const start = Math.ceil(yMin / step) * step;
+    const ticks: number[] = [];
+    for (let v = start; v <= yMax; v += step) ticks.push(v);
+    return ticks;
+  })();
+
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
       {/* ヘッダー + タブ */}
@@ -151,8 +161,8 @@ export function ForecastChart({
           <YAxis
             domain={[yMin, yMax]}
             tick={{ fontSize: 11 }}
-            tickFormatter={(v: number) => `${v}kg`}
-            tickCount={rangeTab === "7d" ? 4 : rangeTab === "31d" ? 5 : undefined}
+            tickFormatter={(v: number) => `${Math.floor(v)}kg`}
+            ticks={yTicks}
             width={52}
           />
           <Tooltip
