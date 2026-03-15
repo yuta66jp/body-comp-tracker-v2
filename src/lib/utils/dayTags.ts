@@ -21,6 +21,7 @@ export type DayTag =
   | "is_cheat_day"
   | "is_refeed_day"
   | "is_eating_out"
+  | "is_travel_day"
   | "is_poor_sleep"; // @deprecated 入力UI廃止。表示互換のため型に残す。
 
 /**
@@ -31,6 +32,7 @@ export const DAY_TAGS: DayTag[] = [
   "is_cheat_day",
   "is_refeed_day",
   "is_eating_out",
+  "is_travel_day",
   // is_poor_sleep は UI 入力廃止のためここには含めない
 ];
 
@@ -39,6 +41,7 @@ export const DAY_TAG_LABELS: Record<DayTag, string> = {
   is_cheat_day:  "チートデイ",
   is_refeed_day: "リフィード",
   is_eating_out: "外食",
+  is_travel_day: "旅行",
   is_poor_sleep: "睡眠不良",
 };
 
@@ -47,6 +50,7 @@ export const DAY_TAG_BADGE_COLORS: Record<DayTag, string> = {
   is_cheat_day:  "bg-rose-100 text-rose-700",
   is_refeed_day: "bg-amber-100 text-amber-700",
   is_eating_out: "bg-blue-100 text-blue-700",
+  is_travel_day: "bg-teal-100 text-teal-700",
   is_poor_sleep: "bg-purple-100 text-purple-700",
 };
 
@@ -55,6 +59,7 @@ export const DAY_TAG_ACTIVE_COLORS: Record<DayTag, string> = {
   is_cheat_day:  "bg-rose-500 text-white border-rose-500",
   is_refeed_day: "bg-amber-500 text-white border-amber-500",
   is_eating_out: "bg-blue-500 text-white border-blue-500",
+  is_travel_day: "bg-teal-500 text-white border-teal-500",
   is_poor_sleep: "bg-purple-500 text-white border-purple-500",
 };
 
@@ -62,10 +67,11 @@ export const DAY_TAG_ACTIVE_COLORS: Record<DayTag, string> = {
  * 入力 UI に表示するタグを false で初期化したオブジェクトを返す。
  * is_poor_sleep は入力 UI から廃止されたため含まない。
  */
-export function emptyTagState(): Pick<Record<DayTag, boolean>, "is_cheat_day" | "is_refeed_day" | "is_eating_out"> {
+export function emptyTagState(): Pick<Record<DayTag, boolean>, "is_cheat_day" | "is_refeed_day" | "is_eating_out" | "is_travel_day"> {
   return {
     is_cheat_day:  false,
     is_refeed_day: false,
     is_eating_out: false,
+    is_travel_day: false,
   };
 }

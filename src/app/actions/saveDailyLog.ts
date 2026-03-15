@@ -25,6 +25,7 @@ export type SaveDailyLogInput = {
   is_cheat_day?: boolean;
   is_refeed_day?: boolean;
   is_eating_out?: boolean;
+  is_travel_day?: boolean;
   /** @deprecated UIからの入力廃止。既存データとの互換のため型には残す。 */
   is_poor_sleep?: boolean;
   // ── Phase 2.5 追加 ──

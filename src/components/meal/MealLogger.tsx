@@ -268,7 +268,7 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
         </div>
       </div>
 
-      {/* 特殊日タグ (is_cheat_day / is_refeed_day / is_eating_out) */}
+      {/* 特殊日タグ (is_cheat_day / is_refeed_day / is_eating_out / is_travel_day) */}
       <div>
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">特殊日</p>
         <div className="grid grid-cols-3 gap-2">

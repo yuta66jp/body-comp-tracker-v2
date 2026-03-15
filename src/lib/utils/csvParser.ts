@@ -22,6 +22,7 @@ export interface ParsedRow {
   is_cheat_day: boolean;
   is_refeed_day: boolean;
   is_eating_out: boolean;
+  is_travel_day: boolean;
   is_poor_sleep: boolean;
   sleep_hours: number | null;
   /** null=未記録, true=便通あり, false=便通なし */
@@ -48,6 +49,7 @@ const ALIASES: Record<string, keyof ParsedRow> = {
   is_cheat_day: "is_cheat_day",
   is_refeed_day: "is_refeed_day",
   is_eating_out: "is_eating_out",
+  is_travel_day: "is_travel_day",
   is_poor_sleep: "is_poor_sleep",
   sleep_hours: "sleep_hours",
   had_bowel_movement: "had_bowel_movement",
@@ -234,6 +236,7 @@ export function parseCSV(text: string): ParseResult {
       is_cheat_day: parseBool(raw["is_cheat_day"] ?? ""),
       is_refeed_day: parseBool(raw["is_refeed_day"] ?? ""),
       is_eating_out: parseBool(raw["is_eating_out"] ?? ""),
+      is_travel_day: parseBool(raw["is_travel_day"] ?? ""),
       is_poor_sleep: parseBool(raw["is_poor_sleep"] ?? ""),
       sleep_hours: parseNum(raw["sleep_hours"] ?? ""),
       had_bowel_movement: parseBoolNullable(raw["had_bowel_movement"] ?? ""),
