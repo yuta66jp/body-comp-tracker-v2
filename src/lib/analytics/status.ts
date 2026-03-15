@@ -70,7 +70,10 @@ export function getAnalyticsAvailability(
 
 /**
  * enriched_logs キャッシュの新鮮さを判定する。
- * 依存: rawLogs の最新 log_date
+ * 依存: rawLogs の MAX(updated_at) の日付部分 (YYYY-MM-DD)
+ *
+ * latestRawLogDate ではなく MAX(updated_at) を使うことで、
+ * 過去日の行を編集した場合でも stale を正しく検知できる。
  */
 export function getEnrichedLogsAvailability(
   cacheUpdatedAt: string | null,
@@ -81,7 +84,10 @@ export function getEnrichedLogsAvailability(
 
 /**
  * xgboost_importance キャッシュの新鮮さを判定する。
- * 依存: rawLogs の最新 log_date（モデル再学習の必要性を rawLogs 日で代理判定）
+ * 依存: rawLogs の MAX(updated_at) の日付部分 (YYYY-MM-DD)
+ *
+ * latestRawLogDate ではなく MAX(updated_at) を使うことで、
+ * 過去日の行を編集した場合でも stale を正しく検知できる。
  */
 export function getXgboostAvailability(
   cacheUpdatedAt: string | null,

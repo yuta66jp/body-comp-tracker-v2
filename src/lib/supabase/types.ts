@@ -165,6 +165,8 @@ export type Database = {
           work_mode: string | null;
           /** training_type から導出 (quads/glutes_hamstrings → true, それ以外 → false, 未入力 → null) */
           leg_flag: boolean | null;
+          /** 行の最終更新日時 (ISO 8601)。analytics stale 判定の基準として MAX(updated_at) を使用する */
+          updated_at: string;
         };
         Insert: {
           log_date: string;
@@ -184,6 +186,7 @@ export type Database = {
           training_type?: string | null;
           work_mode?: string | null;
           leg_flag?: boolean | null;
+          updated_at?: string;
         };
         Update: {
           log_date?: string;
@@ -203,6 +206,7 @@ export type Database = {
           training_type?: string | null;
           work_mode?: string | null;
           leg_flag?: boolean | null;
+          updated_at?: string;
         };
         Relationships: [];
       };

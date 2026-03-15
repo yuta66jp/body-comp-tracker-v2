@@ -28,6 +28,7 @@ function makeLog(overrides: Partial<DailyLog> & { log_date: string }): DailyLog 
     training_type:      overrides.training_type      ?? null,
     work_mode:          overrides.work_mode          ?? null,
     leg_flag:           overrides.leg_flag           ?? null,
+    updated_at:         overrides.updated_at         ?? "2026-03-01T00:00:00Z",
   };
 }
 

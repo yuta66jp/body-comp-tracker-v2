@@ -43,9 +43,13 @@ export default async function MacroPage() {
     );
   }
 
-  // factor analysis は rawLogs の最新日を渡して新鮮さを判定する
-  const latestRawLogDate = logs[logs.length - 1]?.log_date ?? null;
-  const factorResult = await fetchFactorAnalysis(latestRawLogDate);
+  // MAX(updated_at) を使って stale 判定する。
+  // MAX(log_date) ではなく MAX(updated_at) を使うことで、過去日の行修正でも stale を正しく検知できる。
+  const latestRawLogUpdatedAt = logs.reduce<string | null>((max, l) => {
+    if (!l.updated_at) return max;
+    return max === null || l.updated_at > max ? l.updated_at : max;
+  }, null);
+  const factorResult = await fetchFactorAnalysis(latestRawLogUpdatedAt);
 
   const { calTarget, ...targets }: MacroTargets & { calTarget: number | null } = targetsResult;
   const kpi = calcMacroKpi(logs);

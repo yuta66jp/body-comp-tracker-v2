@@ -61,12 +61,17 @@ export interface FactorAnalysisResult {
  * analytics_cache の enriched_logs エントリを取得し、
  * 新鮮さ（fresh / stale / unavailable / error）を判定して返す。
  *
- * @param latestRawLogDate  rawLogs の最新 log_date (YYYY-MM-DD)。stale 判定に使用する。
- *                          null を渡した場合は cacheUpdatedAt のみで判定する。
+ * @param latestRawLogUpdatedAt  daily_logs の MAX(updated_at) (ISO 8601)。stale 判定に使用する。
+ *                               MAX(log_date) ではなく MAX(updated_at) を使うことで、
+ *                               過去日の行修正でも stale を正しく検知できる。
+ *                               null を渡した場合は cacheUpdatedAt のみで判定する。
  */
 export async function fetchEnrichedLogs(
-  latestRawLogDate: string | null
+  latestRawLogUpdatedAt: string | null
 ): Promise<EnrichedLogsResult> {
+  // ISO 8601 timestamp の日付部分 (YYYY-MM-DD) を抽出して比較基準とする
+  const latestRawLogDate = latestRawLogUpdatedAt ? latestRawLogUpdatedAt.slice(0, 10) : null;
+
   const supabase = createClient();
   const { data, error } = await supabase
     .from("analytics_cache")
@@ -111,12 +116,16 @@ export async function fetchEnrichedLogs(
  * analytics_cache の xgboost_importance エントリを取得し、
  * 新鮮さ（fresh / stale / unavailable / error）を判定して返す。
  *
- * @param latestRawLogDate  rawLogs の最新 log_date (YYYY-MM-DD)。stale 判定に使用する。
- *                          null を渡した場合は cacheUpdatedAt のみで判定する。
+ * @param latestRawLogUpdatedAt  daily_logs の MAX(updated_at) (ISO 8601)。stale 判定に使用する。
+ *                               MAX(log_date) ではなく MAX(updated_at) を使うことで、
+ *                               過去日の行修正でも stale を正しく検知できる。
+ *                               null を渡した場合は cacheUpdatedAt のみで判定する。
  */
 export async function fetchFactorAnalysis(
-  latestRawLogDate: string | null
+  latestRawLogUpdatedAt: string | null
 ): Promise<FactorAnalysisResult> {
+  // ISO 8601 timestamp の日付部分 (YYYY-MM-DD) を抽出して比較基準とする
+  const latestRawLogDate = latestRawLogUpdatedAt ? latestRawLogUpdatedAt.slice(0, 10) : null;
   const supabase = createClient();
   const { data, error } = await supabase
     .from("analytics_cache")
