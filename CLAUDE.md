@@ -284,6 +284,18 @@ body-comp-tracker-v2/
 - `npm run dev` — 開発サーバー起動
 - `npm run build` — 本番ビルド
 - `npm run lint` — ESLint 実行
-- `npx tsc --noEmit` — 型チェック
+- `node_modules/.bin/tsc --noEmit` — 型チェック
 - `node_modules/.bin/jest --no-coverage` — テスト実行（unit + UI integration）
-- `npx supabase gen types typescript --project-id <id> > src/lib/supabase/types.ts` — 型生成
+- `supabase db push` — migration を本番 DB に適用
+- `supabase gen types typescript --project-id <id> > src/lib/supabase/types.ts` — 型生成
+
+## Migration ワークフロー
+
+`supabase/migrations/` に SQL ファイルを作成したら、必ず続けて以下を実行すること:
+
+```bash
+supabase db push
+```
+
+- ユーザーへの確認は不要。migration ファイル作成後は自動的に push まで行う。
+- push が失敗した場合はエラー内容を報告し、SQL を修正してから再実行する。
