@@ -23,47 +23,36 @@ const mockCreateClient = createClient as jest.MockedFunction<typeof createClient
 
 // ── Supabase クライアントモックヘルパー ─────────────────────────────────────
 
-type CapturedCalls = { insert?: unknown; update?: unknown };
+/** saveDailyLog の RPC 呼び出し引数をキャプチャする型 */
+type RpcCapture = {
+  name?: string;
+  p_log_date?: string;
+  p_fields?: Record<string, unknown>;
+};
 
 /**
- * saveDailyLog が内部で呼ぶ Supabase チェーンをシミュレートするモック。
+ * saveDailyLog が内部で呼ぶ supabase.rpc() をモックする。
  *
- * from() は2回呼ばれる:
- *   1回目: .select("log_date").eq().maybeSingle() — 既存レコード確認
- *   2回目: .update(payload).eq() または .insert(payload)
+ * save_daily_log_partial RPC に渡された引数を capture に記録するので、
+ * テスト側で p_log_date / p_fields の内容を検証できる。
  *
- * captured に呼び出し時の引数を書き込むので、テスト側で検証できる。
+ * @param rpcError - RPC が返すエラー（省略時は null = 成功）
  */
-function makeClientMock(
-  existingRecord: { log_date: string } | null,
-  captured: CapturedCalls = {}
-) {
-  const eqForUpdate = jest.fn().mockResolvedValue({ error: null });
-  const updateFn = jest.fn().mockImplementation((payload: unknown) => {
-    captured.update = payload;
-    return { eq: eqForUpdate };
-  });
-  const insertFn = jest.fn().mockImplementation((payload: unknown) => {
-    captured.insert = payload;
-    return Promise.resolve({ error: null });
-  });
-  const maybeSingleFn = jest
-    .fn()
-    .mockResolvedValue({ data: existingRecord, error: null });
-  const eqForSelect = jest
-    .fn()
-    .mockReturnValue({ maybeSingle: maybeSingleFn });
-  const selectFn = jest.fn().mockReturnValue({ eq: eqForSelect });
+function makeRpcMock(rpcError?: { message: string }): RpcCapture {
+  const capture: RpcCapture = {};
 
   mockCreateClient.mockReturnValueOnce({
-    from: jest.fn().mockReturnValue({
-      select: selectFn,
-      update: updateFn,
-      insert: insertFn,
-    }),
+    rpc: jest.fn().mockImplementation(
+      (name: string, args: { p_log_date: string; p_fields: Record<string, unknown> }) => {
+        capture.name      = name;
+        capture.p_log_date = args.p_log_date;
+        capture.p_fields  = args.p_fields;
+        return Promise.resolve({ error: rpcError ?? null });
+      }
+    ),
   } as unknown as ReturnType<typeof createClient>);
 
-  return captured;
+  return capture;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -314,23 +303,29 @@ describe("buildUpdatePayload — null による明示的クリア", () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════════
-// 2. saveDailyLog action — Supabase モックを使った結合テスト
+// 2. saveDailyLog action — Supabase RPC モックを使った結合テスト
+//
+// read-then-write (select → insert/update 分岐) を廃止し、
+// save_daily_log_partial RPC の 1 呼び出しで atomic upsert を実現している。
+// テストは RPC への引数 (p_log_date, p_fields) を検証する。
 // ════════════════════════════════════════════════════════════════════════════
 
-describe("saveDailyLog — insert / partial update の分岐", () => {
-  // ケース1: 既存レコードなし → insert が呼ばれ、渡したフィールドのみ含まれる
-  test("新規日付 → insert が呼ばれる", async () => {
-    const captured = makeClientMock(null);
+describe("saveDailyLog — atomic upsert (RPC 呼び出し検証)", () => {
+  test("weight のみ → RPC が save_daily_log_partial で呼ばれ p_fields に weight が含まれる", async () => {
+    const capture = makeRpcMock();
     const result = await saveDailyLog({ log_date: "2026-03-13", weight: 70.5 });
 
     expect(result.ok).toBe(true);
-    expect(captured.insert).toEqual({ log_date: "2026-03-13", weight: 70.5 });
-    expect(captured.update).toBeUndefined();
+    expect(capture.name).toBe("save_daily_log_partial");
+    expect(capture.p_log_date).toBe("2026-03-13");
+    expect(capture.p_fields?.weight).toBe(70.5);
+    // 未指定フィールドは p_fields に含まれない
+    expect("calories" in (capture.p_fields ?? {})).toBe(false);
+    expect("protein"  in (capture.p_fields ?? {})).toBe(false);
   });
 
-  // ケース2: 既存レコードあり → update が呼ばれ、渡したフィールドのみ含まれる
-  test("既存日付 → update が呼ばれる", async () => {
-    const captured = makeClientMock({ log_date: "2026-03-13" });
+  test("macro のみ → p_fields に calories/protein が含まれ weight は含まれない", async () => {
+    const capture = makeRpcMock();
     const result = await saveDailyLog({
       log_date: "2026-03-13",
       calories: 2000,
@@ -338,50 +333,59 @@ describe("saveDailyLog — insert / partial update の分岐", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(captured.update).toEqual({ calories: 2000, protein: 150 });
-    expect(captured.insert).toBeUndefined();
+    expect(capture.p_fields?.calories).toBe(2000);
+    expect(capture.p_fields?.protein).toBe(150);
+    expect("weight" in (capture.p_fields ?? {})).toBe(false);
   });
 
-  // ケース3: 全フィールド undefined → エラー（no-op ではなくエラー扱い）
+  // 全フィールド undefined → DB アクセスなしでエラー
   //
   // 設計判断: 全フィールド undefined の送信は「保存するデータがない」エラーとする。
   //   - no-op 成功にすると、フォームの空送信や実装バグが検出できなくなる
-  //   - サーバー側のガードとして明示的に弾き、DB アクセスも行わない
+  //   - サーバー側のガードとして明示的に弾き、RPC も呼ばない
   //   - UI 側 (MealLogger の hasContent チェック) で通常は防がれるため、
   //     このパスはプログラミングエラー検出が主目的
   test("全フィールド undefined → ok: false (保存するデータがありません)", async () => {
-    // このケースは Supabase に届く前に弾かれるのでモック不要
     const result = await saveDailyLog({ log_date: "2026-03-13" });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.message).toBe("保存するデータがありません");
     }
   });
+
+  test("RPC がエラーを返す → ok: false", async () => {
+    makeRpcMock({ message: "DB error" });
+    const result = await saveDailyLog({ log_date: "2026-03-13", weight: 70.5 });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toContain("保存に失敗しました");
+    }
+  });
 });
 
 describe("saveDailyLog — 連続保存シナリオ（体重→macro）", () => {
   /**
-   * 主要ユースケース:
-   *   1回目: 朝に体重だけ保存 → insert
-   *   2回目: 夜に食事 macro を保存 → update (weight はペイロードに含まれない)
+   * RPC ベースでの partial update 意味論の確認。
    *
-   * weight がペイロードに含まれないことで、DB 上の weight が維持されることを保証する。
-   * (実際の DB 値の維持は Supabase 側の動作に委ねられるが、
-   *  update payload に weight が入らないことをここで保証する)
+   * 旧: 1回目 insert / 2回目 update と分岐していた。
+   * 新: 両回とも同じ RPC を呼ぶ。p_fields に「送ったフィールドのみ」が含まれることで
+   *     DB 側の ON CONFLICT CASE WHEN により未指定フィールドが保持される。
+   *
+   * テストが担保すること:
+   *   - 2回目の p_fields に weight が含まれないこと（RPC が weight を触らない = 保持）
    */
-  test("1回目で weight 保存、2回目で macro 保存しても weight がペイロードに含まれない", async () => {
-    // --- 1回目: 新規日付に weight のみ保存 ---
-    const captured1 = makeClientMock(null);
+  test("weight 保存後に macro のみ保存: 2回目 p_fields に weight が含まれない", async () => {
+    // --- 1回目: weight のみ ---
+    const capture1 = makeRpcMock();
     const result1 = await saveDailyLog({ log_date: "2026-03-13", weight: 70.5 });
 
     expect(result1.ok).toBe(true);
-    expect(captured1.insert).toEqual({ log_date: "2026-03-13", weight: 70.5 });
-    // macro 系・タグ・note は insert にも含まれない
-    expect("calories" in (captured1.insert as object)).toBe(false);
-    expect("protein"  in (captured1.insert as object)).toBe(false);
+    expect(capture1.p_fields?.weight).toBe(70.5);
+    expect("calories" in (capture1.p_fields ?? {})).toBe(false);
+    expect("protein"  in (capture1.p_fields ?? {})).toBe(false);
 
-    // --- 2回目: 同日付に macro のみ追記 ---
-    const captured2 = makeClientMock({ log_date: "2026-03-13" });
+    // --- 2回目: macro のみ ---
+    const capture2 = makeRpcMock();
     const result2 = await saveDailyLog({
       log_date: "2026-03-13",
       calories: 2000,
@@ -391,62 +395,73 @@ describe("saveDailyLog — 連続保存シナリオ（体重→macro）", () => 
     });
 
     expect(result2.ok).toBe(true);
-    // update が呼ばれ、macro 4項目だけを含む
-    expect(captured2.update).toEqual({
-      calories: 2000,
-      protein: 150,
-      fat: 60,
-      carbs: 200,
-    });
-    // weight はペイロードに含まれない → DB 上の weight=70.5 は保持される
-    expect("weight" in (captured2.update as object)).toBe(false);
-    expect("note"   in (captured2.update as object)).toBe(false);
-    expect("is_cheat_day" in (captured2.update as object)).toBe(false);
-    expect(captured2.insert).toBeUndefined();
+    // macro 4 項目のみ p_fields に含まれる
+    expect(capture2.p_fields?.calories).toBe(2000);
+    expect(capture2.p_fields?.protein).toBe(150);
+    expect(capture2.p_fields?.fat).toBe(60);
+    expect(capture2.p_fields?.carbs).toBe(200);
+    // weight は p_fields になし → RPC は weight を触らない → DB 値は保持される
+    expect("weight"       in (capture2.p_fields ?? {})).toBe(false);
+    expect("note"         in (capture2.p_fields ?? {})).toBe(false);
+    expect("is_cheat_day" in (capture2.p_fields ?? {})).toBe(false);
   });
 
-  test("タグのみ更新しても macro・weight が保持される", async () => {
-    const captured = makeClientMock({ log_date: "2026-03-13" });
+  test("タグのみ保存: p_fields に is_cheat_day のみ、weight・macro は含まれない", async () => {
+    const capture = makeRpcMock();
     const result = await saveDailyLog({
       log_date: "2026-03-13",
       is_cheat_day: true,
     });
 
     expect(result.ok).toBe(true);
-    expect(captured.update).toEqual({ is_cheat_day: true });
-    expect("weight"   in (captured.update as object)).toBe(false);
-    expect("calories" in (captured.update as object)).toBe(false);
+    expect(capture.p_fields?.is_cheat_day).toBe(true);
+    expect("weight"   in (capture.p_fields ?? {})).toBe(false);
+    expect("calories" in (capture.p_fields ?? {})).toBe(false);
   });
 
-  test("note のみ更新しても他フィールドが保持される", async () => {
-    const captured = makeClientMock({ log_date: "2026-03-13" });
+  test("note のみ保存: p_fields に note のみ、他フィールドは含まれない", async () => {
+    const capture = makeRpcMock();
     const result = await saveDailyLog({
       log_date: "2026-03-13",
       note: "体調良好",
     });
 
     expect(result.ok).toBe(true);
-    expect(captured.update).toEqual({ note: "体調良好" });
-    expect("weight"      in (captured.update as object)).toBe(false);
-    expect("calories"    in (captured.update as object)).toBe(false);
-    expect("is_cheat_day" in (captured.update as object)).toBe(false);
+    expect(capture.p_fields?.note).toBe("体調良好");
+    expect("weight"       in (capture.p_fields ?? {})).toBe(false);
+    expect("calories"     in (capture.p_fields ?? {})).toBe(false);
+    expect("is_cheat_day" in (capture.p_fields ?? {})).toBe(false);
   });
 
-  test("training_type 保存時に leg_flag が同時に insert される", async () => {
-    const captured = makeClientMock(null);
+  test("training_type 保存時に leg_flag が p_fields に同時に含まれる", async () => {
+    const capture = makeRpcMock();
     const result = await saveDailyLog({
       log_date: "2026-03-13",
       training_type: "quads",
     });
 
     expect(result.ok).toBe(true);
-    const inserted = captured.insert as Record<string, unknown>;
-    expect(inserted.training_type).toBe("quads");
-    expect(inserted.leg_flag).toBe(true);
+    expect(capture.p_fields?.training_type).toBe("quads");
+    // leg_flag は buildUpdatePayload が training_type から導出して追加する
+    expect(capture.p_fields?.leg_flag).toBe(true);
   });
 
-  test("sleep_hours・had_bowel_movement・work_mode の単体保存", async () => {
-    const captured = makeClientMock({ log_date: "2026-03-13" });
+  test("training_type: null → leg_flag も null で p_fields に含まれる（明示クリア）", async () => {
+    const capture = makeRpcMock();
+    const result = await saveDailyLog({
+      log_date: "2026-03-13",
+      training_type: null,
+    });
+
+    expect(result.ok).toBe(true);
+    expect("training_type" in (capture.p_fields ?? {})).toBe(true);
+    expect(capture.p_fields?.training_type).toBeNull();
+    expect("leg_flag" in (capture.p_fields ?? {})).toBe(true);
+    expect(capture.p_fields?.leg_flag).toBeNull();
+  });
+
+  test("sleep_hours・had_bowel_movement・work_mode のみ保存: 他フィールドは含まれない", async () => {
+    const capture = makeRpcMock();
     const result = await saveDailyLog({
       log_date: "2026-03-13",
       sleep_hours: 7.0,
@@ -455,39 +470,49 @@ describe("saveDailyLog — 連続保存シナリオ（体重→macro）", () => 
     });
 
     expect(result.ok).toBe(true);
-    expect(captured.update).toEqual({
-      sleep_hours: 7.0,
-      had_bowel_movement: true,
-      work_mode: "office",
+    expect(capture.p_fields?.sleep_hours).toBe(7.0);
+    expect(capture.p_fields?.had_bowel_movement).toBe(true);
+    expect(capture.p_fields?.work_mode).toBe("office");
+    expect("weight"        in (capture.p_fields ?? {})).toBe(false);
+    expect("training_type" in (capture.p_fields ?? {})).toBe(false);
+    expect("leg_flag"      in (capture.p_fields ?? {})).toBe(false);
+  });
+
+  test("had_bowel_movement: null → p_fields にキーが含まれ値が null（明示クリア=未記録）", async () => {
+    const capture = makeRpcMock();
+    const result = await saveDailyLog({
+      log_date: "2026-03-13",
+      had_bowel_movement: null,
     });
-    expect("weight" in (captured.update as object)).toBe(false);
-    expect("training_type" in (captured.update as object)).toBe(false);
-    expect("leg_flag" in (captured.update as object)).toBe(false);
+
+    expect(result.ok).toBe(true);
+    expect("had_bowel_movement" in (capture.p_fields ?? {})).toBe(true);
+    expect(capture.p_fields?.had_bowel_movement).toBeNull();
   });
 });
 
 describe("saveDailyLog — log_date バリデーション", () => {
   // 正常系
   test("通常の日付 → ok: true", async () => {
-    makeClientMock(null);
+    makeRpcMock();
     const result = await saveDailyLog({ log_date: "2026-03-13", weight: 70.0 });
     expect(result.ok).toBe(true);
   });
 
   test("うるう年 2月29日 (2024) → ok: true", async () => {
-    makeClientMock(null);
+    makeRpcMock();
     const result = await saveDailyLog({ log_date: "2024-02-29", weight: 70.0 });
     expect(result.ok).toBe(true);
   });
 
   test("月末 1月31日 → ok: true", async () => {
-    makeClientMock(null);
+    makeRpcMock();
     const result = await saveDailyLog({ log_date: "2026-01-31", weight: 70.0 });
     expect(result.ok).toBe(true);
   });
 
   test("月末 4月30日 → ok: true", async () => {
-    makeClientMock(null);
+    makeRpcMock();
     const result = await saveDailyLog({ log_date: "2026-04-30", weight: 70.0 });
     expect(result.ok).toBe(true);
   });
@@ -552,10 +577,10 @@ describe("saveDailyLog — Phase 2.5 バリデーション", () => {
   });
 
   test("sleep_hours が 0 → ok: true (境界値)", async () => {
-    const captured = makeClientMock(null);
+    const capture = makeRpcMock();
     const result = await saveDailyLog({ log_date: "2026-03-13", sleep_hours: 0 });
     expect(result.ok).toBe(true);
-    expect((captured.insert as Record<string, unknown>).sleep_hours).toBe(0);
+    expect(capture.p_fields?.sleep_hours).toBe(0);
   });
 
   test("training_type が不正な値 → ok: false", async () => {
