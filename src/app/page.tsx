@@ -11,6 +11,7 @@ import { calcWeeklyReview } from "@/lib/utils/calcWeeklyReview";
 import { fetchDailyLogs, fetchPredictions, fetchCareerLogsForDashboard } from "@/lib/queries/dailyLogs";
 import { fetchSettings } from "@/lib/queries/settings";
 import { fetchEnrichedLogs } from "@/lib/queries/analytics";
+import { mapToAppSettings } from "@/lib/domain/settings";
 import type { DailyLog, CareerLog } from "@/lib/supabase/types";
 import type { MonthStats } from "@/components/history/SeasonSummary";
 
@@ -77,12 +78,16 @@ function buildMonthStats(logs: DailyLog[], months = 3): MonthStats[] {
 }
 
 export default async function DashboardPage() {
-  const [logs, predictions, settings, careerLogs] = await Promise.all([
+  const [logsResult, predictions, settingsResult, careerLogs] = await Promise.all([
     fetchDailyLogs(),
     fetchPredictions(),
     fetchSettings(),
     fetchCareerLogsForDashboard(),
   ]);
+
+  // QueryResult を展開。エラー時はフォールバック値で graceful degradation を維持する。
+  const logs = logsResult.kind === "ok" ? logsResult.data : [];
+  const settings = settingsResult.kind === "ok" ? settingsResult.data : mapToAppSettings([]);
 
   // enriched_logs は rawLogs の最新日を渡して新鮮さを判定する
   const latestRawLogDate = logs[logs.length - 1]?.log_date ?? null;
@@ -137,7 +142,23 @@ export default async function DashboardPage() {
 
   return (
     <DashboardLayout>
-      {logs.length > 0 ? (
+      {/* Read error banners — graceful degradation: コンテンツはブロックしない */}
+      {logsResult.kind === "error" && (
+        <div className="mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+          ログデータの取得中にエラーが発生しました。ページを再読み込みしてください。
+        </div>
+      )}
+      {settingsResult.kind === "error" && (
+        <div className="mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+          設定データの取得中にエラーが発生しました。一部の表示がデフォルト値になります。
+        </div>
+      )}
+
+      {logsResult.kind === "error" ? (
+        <p className="rounded-2xl border border-slate-100 bg-white p-8 text-center text-sm text-slate-400 shadow-sm">
+          データを取得できませんでした。
+        </p>
+      ) : logs.length > 0 ? (
         <>
           {/* シーズンバッジ */}
           {currentSeason && (

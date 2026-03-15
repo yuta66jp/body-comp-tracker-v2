@@ -13,18 +13,25 @@ import type { Setting } from "@/lib/supabase/types";
 import type { MacroTargets } from "@/lib/utils/calcMacro";
 import { mapToAppSettings } from "@/lib/domain/settings";
 import type { AppSettings } from "@/lib/domain/settings";
+import type { QueryResult } from "./queryResult";
 
 /**
  * settings テーブルを全件取得し、AppSettings ドメイン型に変換して返す。
  *
  * - DB row[] → AppSettings の変換は mapToAppSettings (lib/domain/settings.ts) に委譲する。
- * - フォールバック: エラー時は全フィールドが null の AppSettings を返す。
+ * 戻り値:
+ *   kind: "ok"    — 取得成功。data の全フィールド null = 設定未入力（正常な空状態）。
+ *   kind: "error" — DB フェッチ失敗。呼び出し側で error banner を表示すること。
  */
-export async function fetchSettings(): Promise<AppSettings> {
+export async function fetchSettings(): Promise<QueryResult<AppSettings>> {
   const supabase = createClient();
-  const { data } = await supabase.from("settings").select("key, value_num, value_str");
+  const { data, error } = await supabase.from("settings").select("key, value_num, value_str");
+  if (error) {
+    console.error("[fetchSettings] settings fetch error:", error.message, { code: error.code });
+    return { kind: "error", message: error.message };
+  }
   const rows = (data as Setting[] | null) ?? [];
-  return mapToAppSettings(rows);
+  return { kind: "ok", data: mapToAppSettings(rows) };
 }
 
 /**

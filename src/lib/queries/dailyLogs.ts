@@ -12,24 +12,27 @@
  */
 import { createClient } from "@/lib/supabase/server";
 import type { DailyLog, CareerLog, Prediction } from "@/lib/supabase/types";
+import type { QueryResult } from "./queryResult";
 
 /**
  * daily_logs を全カラム・日付昇順で取得する。
  * Dashboard / TDEE / Macro ページで最もよく使われる形式。
  *
- * フォールバック: エラー時は空配列を返す。
+ * 戻り値:
+ *   kind: "ok"    — 取得成功。data が空配列 = ログ未入力（正常な空状態）。
+ *   kind: "error" — DB フェッチ失敗。呼び出し側で error banner を表示すること。
  */
-export async function fetchDailyLogs(): Promise<DailyLog[]> {
+export async function fetchDailyLogs(): Promise<QueryResult<DailyLog[]>> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("daily_logs")
     .select("*")
     .order("log_date", { ascending: true });
   if (error) {
-    console.error("daily_logs fetch error:", error.message);
-    return [];
+    console.error("[fetchDailyLogs] daily_logs fetch error:", error.message, { code: error.code });
+    return { kind: "error", message: error.message };
   }
-  return (data as DailyLog[]) ?? [];
+  return { kind: "ok", data: (data as DailyLog[]) ?? [] };
 }
 
 /**

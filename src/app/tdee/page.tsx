@@ -19,15 +19,20 @@ import {
 import { fetchDailyLogs } from "@/lib/queries/dailyLogs";
 import { fetchSettings } from "@/lib/queries/settings";
 import { fetchEnrichedLogs } from "@/lib/queries/analytics";
+import { mapToAppSettings } from "@/lib/domain/settings";
 import type { CurrentPhase } from "@/lib/utils/energyBalance";
 
 export const revalidate = 3600;
 
 export default async function TdeePage() {
-  const [rawLogs, settings] = await Promise.all([
+  const [rawLogsResult, settingsResult] = await Promise.all([
     fetchDailyLogs(),
     fetchSettings(),
   ]);
+
+  // QueryResult を展開。エラー時はフォールバック値で graceful degradation を維持する。
+  const rawLogs = rawLogsResult.kind === "ok" ? rawLogsResult.data : [];
+  const settings = settingsResult.kind === "ok" ? settingsResult.data : mapToAppSettings([]);
 
   const sortedRaw = [...rawLogs].sort((a, b) => a.log_date.localeCompare(b.log_date));
   const latestRawLogDate = sortedRaw[sortedRaw.length - 1]?.log_date ?? null;
@@ -172,6 +177,19 @@ export default async function TdeePage() {
   return (
     <main className="min-h-screen bg-gray-50 p-6">
       <h1 className="mb-6 text-xl font-bold text-gray-800">TDEE・代謝分析</h1>
+
+      {/* Read error banners — graceful degradation: コンテンツはブロックしない */}
+      {rawLogsResult.kind === "error" && (
+        <div className="mb-5 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+          ログデータの取得中にエラーが発生しました。ページを再読み込みしてください。
+          グラフ・表は取得エラー前のデータを表示しています。
+        </div>
+      )}
+      {settingsResult.kind === "error" && (
+        <div className="mb-5 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+          設定データの取得中にエラーが発生しました。理論 TDEE の計算に設定値を使用できません。
+        </div>
+      )}
 
       {/* enriched_logs の状態バナー（コンテンツはブロックしない） */}
       {enrichedAvailability.status === "error" && (

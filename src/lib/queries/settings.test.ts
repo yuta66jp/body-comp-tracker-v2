@@ -21,7 +21,7 @@ jest.mock("@/lib/supabase/server", () => ({
 describe("fetchSettings", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("正常系: value_num があるキーは AppSettings の数値フィールドとして返る", async () => {
+  it("正常系: kind=ok で value_num があるキーを AppSettings として返す", async () => {
     const rows = [
       { key: "goal_weight",   value_num: 72.5, value_str: null },
       { key: "contest_date",  value_num: null,  value_str: "2026-10-01" },
@@ -31,50 +31,67 @@ describe("fetchSettings", () => {
     mockFrom.mockReturnValue({ select: selectFn });
 
     const result = await fetchSettings();
-    expect(result.targetWeight).toBe(72.5);
-    expect(result.contestDate).toBe("2026-10-01");
-    expect(result.currentPhase).toBe("Cut");
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.data.targetWeight).toBe(72.5);
+      expect(result.data.contestDate).toBe("2026-10-01");
+      expect(result.data.currentPhase).toBe("Cut");
+    }
   });
 
-  it("正常系: データが空のとき全フィールドが null の AppSettings を返す", async () => {
+  it("正常系: データが空のとき kind=ok で全フィールドが null の AppSettings を返す", async () => {
     const selectFn = jest.fn().mockResolvedValue({ data: [], error: null });
     mockFrom.mockReturnValue({ select: selectFn });
     const result = await fetchSettings();
-    expect(result.targetWeight).toBeNull();
-    expect(result.contestDate).toBeNull();
-    expect(result.currentPhase).toBeNull();
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.data.targetWeight).toBeNull();
+      expect(result.data.contestDate).toBeNull();
+      expect(result.data.currentPhase).toBeNull();
+    }
   });
 
-  it("正常系: データが null のとき全フィールドが null の AppSettings を返す", async () => {
+  it("正常系: データが null のとき kind=ok で全フィールドが null の AppSettings を返す", async () => {
     const selectFn = jest.fn().mockResolvedValue({ data: null, error: null });
     mockFrom.mockReturnValue({ select: selectFn });
     const result = await fetchSettings();
-    expect(result.targetWeight).toBeNull();
-    expect(result.contestDate).toBeNull();
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.data.targetWeight).toBeNull();
+      expect(result.data.contestDate).toBeNull();
+    }
   });
 
-  it("value_num が 0 (falsy) のとき 0 を返す", async () => {
+  it("value_num が 0 (falsy) のとき kind=ok で 0 を返す", async () => {
     const rows = [{ key: "activity_factor", value_num: 0, value_str: null }];
     const selectFn = jest.fn().mockResolvedValue({ data: rows, error: null });
     mockFrom.mockReturnValue({ select: selectFn });
     const result = await fetchSettings();
-    expect(result.activityFactor).toBe(0);
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.data.activityFactor).toBe(0);
+    }
   });
 
-  it("value_num も value_str も null のとき該当フィールドは null を返す", async () => {
+  it("value_num も value_str も null のとき kind=ok で該当フィールドは null を返す", async () => {
     const rows = [{ key: "goal_weight", value_num: null, value_str: null }];
     const selectFn = jest.fn().mockResolvedValue({ data: rows, error: null });
     mockFrom.mockReturnValue({ select: selectFn });
     const result = await fetchSettings();
-    expect(result.targetWeight).toBeNull();
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.data.targetWeight).toBeNull();
+    }
   });
 
-  it("DB エラーのとき全フィールドが null の AppSettings を返す", async () => {
-    const selectFn = jest.fn().mockResolvedValue({ data: null, error: { message: "DB error" } });
+  it("DB エラーのとき kind=error を返す", async () => {
+    const selectFn = jest.fn().mockResolvedValue({ data: null, error: { message: "DB error", code: "PGRST000" } });
     mockFrom.mockReturnValue({ select: selectFn });
     const result = await fetchSettings();
-    expect(result.targetWeight).toBeNull();
-    expect(result.contestDate).toBeNull();
+    expect(result.kind).toBe("error");
+    if (result.kind === "error") {
+      expect(result.message).toBe("DB error");
+    }
   });
 });
 

@@ -48,27 +48,36 @@ function setupChain(result: ChainResult) {
 describe("fetchDailyLogs", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("正常系: DailyLog[] を返す", async () => {
+  it("正常系: kind=ok で DailyLog[] を返す", async () => {
     const rows = [
       { log_date: "2026-03-01", weight: 72.5, calories: 2000 },
       { log_date: "2026-03-02", weight: 72.3, calories: 1900 },
     ];
     setupChain({ data: rows, error: null });
     const result = await fetchDailyLogs();
-    expect(result).toHaveLength(2);
-    expect(result[0].log_date).toBe("2026-03-01");
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.data).toHaveLength(2);
+      expect(result.data[0].log_date).toBe("2026-03-01");
+    }
   });
 
-  it("正常系: データが null のとき空配列を返す", async () => {
+  it("正常系: データが null のとき kind=ok で空配列を返す", async () => {
     setupChain({ data: null, error: null });
     const result = await fetchDailyLogs();
-    expect(result).toEqual([]);
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.data).toEqual([]);
+    }
   });
 
-  it("異常系: DB エラーのとき空配列を返す", async () => {
-    setupChain({ data: null, error: { message: "connection error" } });
+  it("異常系: DB エラーのとき kind=error を返す", async () => {
+    setupChain({ data: null, error: { message: "connection error", code: "PGRST000" } });
     const result = await fetchDailyLogs();
-    expect(result).toEqual([]);
+    expect(result.kind).toBe("error");
+    if (result.kind === "error") {
+      expect(result.message).toBe("connection error");
+    }
   });
 });
 
