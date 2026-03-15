@@ -37,7 +37,11 @@ export type SettingKey = NumericSettingKey | StringSettingKey;
 
 /**
  * 保存対象の設定値 (入力値は文字列で渡ってくることを前提)。
- * 全フィールドが省略可能 — 部分更新をサポートする。
+ *
+ * 全フィールドが省略可能だが、省略したフィールドは parseSettings() 内で
+ * null として扱われ DB に上書きされる。
+ * これは部分更新インターフェースではなく、全項目一括保存を前提とした入力型である。
+ * 一部キーだけを渡すと、残りのキーが null で消えるため注意すること。
  */
 export interface SettingsInput {
   // 数値系 (文字列として渡し、schema 側で number に変換する)
@@ -133,10 +137,15 @@ function isValidDate(s: string): boolean {
 /**
  * SettingsInput を検証・変換して DB upsert 用の SettingRecord[] を返す。
  *
- * - 空文字列・null・undefined のフィールドは「未設定」とみなし value_num/value_str を null で保存する。
- * - 部分更新対応: 省略されたフィールドもキーを含めて null upsert する（上書き）。
- *   呼び出し側が「渡したいキーだけ SettingsInput に含める」ことで選択的更新を行えるが、
- *   現状の UI は全キー一括保存のため全フィールドを渡す。
+ * 【全項目保存関数】
+ * この関数は常に全設定キー (NUMERIC_SETTING_KEYS + STRING_SETTING_KEYS) の
+ * レコードを生成する。省略・null・空文字のフィールドは value_num/value_str = null
+ * として records に積まれ、DB で上書きされる。
+ *
+ * partial update（一部キーのみ更新）には対応していない。
+ * 一部キーだけ渡すと、残りキーが null で消えるため、必ず全フィールドを渡すこと。
+ * 現状の唯一の caller (saveSettings) は SettingsForm から全フィールドを受け取って渡す。
+ *
  * - バリデーションエラーがひとつでもあれば ok: false を返す（保存は行わない）。
  */
 export function parseSettings(input: SettingsInput): ParseSettingsResult {
