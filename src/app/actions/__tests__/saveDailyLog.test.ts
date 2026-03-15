@@ -466,6 +466,80 @@ describe("saveDailyLog — 連続保存シナリオ（体重→macro）", () => 
   });
 });
 
+describe("saveDailyLog — log_date バリデーション", () => {
+  // 正常系
+  test("通常の日付 → ok: true", async () => {
+    makeClientMock(null);
+    const result = await saveDailyLog({ log_date: "2026-03-13", weight: 70.0 });
+    expect(result.ok).toBe(true);
+  });
+
+  test("うるう年 2月29日 (2024) → ok: true", async () => {
+    makeClientMock(null);
+    const result = await saveDailyLog({ log_date: "2024-02-29", weight: 70.0 });
+    expect(result.ok).toBe(true);
+  });
+
+  test("月末 1月31日 → ok: true", async () => {
+    makeClientMock(null);
+    const result = await saveDailyLog({ log_date: "2026-01-31", weight: 70.0 });
+    expect(result.ok).toBe(true);
+  });
+
+  test("月末 4月30日 → ok: true", async () => {
+    makeClientMock(null);
+    const result = await saveDailyLog({ log_date: "2026-04-30", weight: 70.0 });
+    expect(result.ok).toBe(true);
+  });
+
+  // 異常系: フォーマット不正
+  test("スラッシュ区切り (2026/03/13) → ok: false", async () => {
+    const result = await saveDailyLog({ log_date: "2026/03/13", weight: 70.0 });
+    expect(result.ok).toBe(false);
+  });
+
+  test("空文字 → ok: false", async () => {
+    const result = await saveDailyLog({ log_date: "", weight: 70.0 });
+    expect(result.ok).toBe(false);
+  });
+
+  test("数字のみ (20260313) → ok: false", async () => {
+    const result = await saveDailyLog({ log_date: "20260313", weight: 70.0 });
+    expect(result.ok).toBe(false);
+  });
+
+  test("任意文字列 ('abc') → ok: false", async () => {
+    const result = await saveDailyLog({ log_date: "abc", weight: 70.0 });
+    expect(result.ok).toBe(false);
+  });
+
+  // 異常系: 実在しない日付
+  test("非うるう年 2月29日 (2026) → ok: false", async () => {
+    const result = await saveDailyLog({ log_date: "2026-02-29", weight: 70.0 });
+    expect(result.ok).toBe(false);
+  });
+
+  test("存在しない日 4月31日 → ok: false", async () => {
+    const result = await saveDailyLog({ log_date: "2026-04-31", weight: 70.0 });
+    expect(result.ok).toBe(false);
+  });
+
+  test("存在しない月 13月 → ok: false", async () => {
+    const result = await saveDailyLog({ log_date: "2026-13-01", weight: 70.0 });
+    expect(result.ok).toBe(false);
+  });
+
+  test("0月 → ok: false", async () => {
+    const result = await saveDailyLog({ log_date: "2026-00-01", weight: 70.0 });
+    expect(result.ok).toBe(false);
+  });
+
+  test("0日 → ok: false", async () => {
+    const result = await saveDailyLog({ log_date: "2026-01-00", weight: 70.0 });
+    expect(result.ok).toBe(false);
+  });
+});
+
 describe("saveDailyLog — Phase 2.5 バリデーション", () => {
   test("sleep_hours が 25 → ok: false", async () => {
     const result = await saveDailyLog({ log_date: "2026-03-13", sleep_hours: 25 });

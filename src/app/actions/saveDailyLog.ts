@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isValidTrainingType, isValidWorkMode } from "@/lib/utils/trainingType";
 import { buildUpdatePayload } from "./buildUpdatePayload";
+import { parseLocalDateStr } from "@/lib/utils/date";
 
 /**
  * フィールドの意味:
@@ -46,16 +47,13 @@ export type SaveDailyLogResult =
   | { ok: true }
   | { ok: false; message: string };
 
-/** ISO 8601 日付文字列 (YYYY-MM-DD) かどうか */
-function isValidDate(s: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s));
-}
-
 export async function saveDailyLog(
   input: SaveDailyLogInput
 ): Promise<SaveDailyLogResult> {
   // --- サーバー側バリデーション ---
-  if (!isValidDate(input.log_date)) {
+  // parseLocalDateStr は形式・月範囲・実在日付をローカル解釈で厳密検証する。
+  // Date.parse は環境依存・実在日未検証のため使用しない。
+  if (parseLocalDateStr(input.log_date) === null) {
     return { ok: false, message: "日付の形式が正しくありません" };
   }
 
