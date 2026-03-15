@@ -12,7 +12,7 @@
 
 import type { DailyLog } from "@/lib/supabase/types";
 import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "./dayTags";
-import { formatConditionSummary } from "./trainingType";
+import { formatConditionSummary, isValidTrainingType, isValidWorkMode, TRAINING_TYPE_LABELS, WORK_MODE_LABELS } from "./trainingType";
 
 // ── 型定義 ──────────────────────────────────────────────────────────────────
 
@@ -36,9 +36,68 @@ export interface CalendarDayData {
   dayTags: CalendarDayTagInfo[];
   /**
    * 便通・トレーニング種別・勤務形態の一行整形テキスト。
-   * 表示項目がない場合は null。
+   * 後方互換用。新規表示は conditionTags を使う。
    */
   conditionSummary: string | null;
+  /**
+   * 便通・トレーニング種別・勤務形態を個別タグとして表現したリスト。
+   * カレンダーセル内のタグ表示に使用する。
+   */
+  conditionTags: CalendarDayTagInfo[];
+}
+
+// ── コンディションタグ ────────────────────────────────────────────────────────
+
+/** 勤務モード別バッジカラー */
+const WORK_MODE_COLOR: Record<string, string> = {
+  off:    "bg-amber-100 text-amber-700",
+  office: "bg-slate-100 text-slate-600",
+  remote: "bg-cyan-100 text-cyan-700",
+  active: "bg-orange-100 text-orange-700",
+  travel: "bg-purple-100 text-purple-700",
+  other:  "bg-slate-100 text-slate-500",
+};
+
+/**
+ * 便通・training_type・work_mode をタグリストに変換する。
+ *
+ * - had_bowel_movement: null/undefined は除外。false は「便通なし」タグ。
+ * - training_type / work_mode: 有効 enum 値のみ表示。
+ */
+export function buildConditionTags(params: {
+  had_bowel_movement: boolean | null | undefined;
+  training_type: string | null | undefined;
+  work_mode: string | null | undefined;
+}): CalendarDayTagInfo[] {
+  const tags: CalendarDayTagInfo[] = [];
+
+  if (params.had_bowel_movement !== null && params.had_bowel_movement !== undefined) {
+    tags.push({
+      key:        "bowel",
+      label:      params.had_bowel_movement ? "便通" : "便通なし",
+      colorClass: params.had_bowel_movement
+        ? "bg-green-100 text-green-700"
+        : "bg-slate-100 text-slate-500",
+    });
+  }
+
+  if (params.training_type != null && isValidTrainingType(params.training_type)) {
+    tags.push({
+      key:        "training",
+      label:      TRAINING_TYPE_LABELS[params.training_type],
+      colorClass: "bg-indigo-100 text-indigo-700",
+    });
+  }
+
+  if (params.work_mode != null && isValidWorkMode(params.work_mode)) {
+    tags.push({
+      key:        "work",
+      label:      WORK_MODE_LABELS[params.work_mode],
+      colorClass: WORK_MODE_COLOR[params.work_mode] ?? "bg-slate-100 text-slate-500",
+    });
+  }
+
+  return tags;
 }
 
 // ── 主要関数 ──────────────────────────────────────────────────────────────
@@ -86,14 +145,23 @@ export function buildCalendarDayMap(logs: DailyLog[]): Map<string, CalendarDayDa
         colorClass: DAY_TAG_BADGE_COLORS[tag],
       }));
 
-    // コンディション情報
+    // コンディション情報（後方互換用テキスト）
     const conditionSummary = formatConditionSummary({
       had_bowel_movement: log.had_bowel_movement as boolean | null,
       training_type:      log.training_type,
       work_mode:          log.work_mode,
     });
 
-    map.set(log.log_date, { log, weightDelta, calDelta, dayTags, conditionSummary });
+    // コンディション情報（タグ形式）
+    const conditionTags = buildConditionTags({
+      had_bowel_movement: log.had_bowel_movement as boolean | null,
+      training_type:      log.training_type,
+      work_mode:          log.work_mode,
+    });
+
+    map.set(log.log_date, {
+      log, weightDelta, calDelta, dayTags, conditionSummary, conditionTags,
+    });
   }
 
   return map;
