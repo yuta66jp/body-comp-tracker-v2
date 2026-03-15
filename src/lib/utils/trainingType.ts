@@ -34,9 +34,6 @@ export const WORK_MODES = [
   "off",
   "office",
   "remote",
-  "active",
-  "travel",
-  "other",
 ] as const;
 
 export type WorkMode = typeof WORK_MODES[number];
@@ -45,9 +42,6 @@ export const WORK_MODE_LABELS: Record<WorkMode, string> = {
   off:    "休日",
   office: "出社",
   remote: "在宅",
-  active: "活動",
-  travel: "遠征",
-  other:  "その他",
 };
 
 // ── leg_flag 導出 ─────────────────────────────────────────────────────────────

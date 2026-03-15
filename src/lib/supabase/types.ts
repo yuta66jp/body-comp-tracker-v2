@@ -160,7 +160,7 @@ export type Database = {
           had_bowel_movement: boolean | null;
           /** 値: 'chest' | 'back' | 'shoulders' | 'glutes_hamstrings' | 'quads' */
           training_type: string | null;
-          /** 値: 'off' | 'office' | 'remote' | 'active' | 'travel' | 'other' */
+          /** 値: 'off' | 'office' | 'remote' */
           work_mode: string | null;
           /** training_type から導出 (quads/glutes_hamstrings → true, それ以外 → false, 未入力 → null) */
           leg_flag: boolean | null;
