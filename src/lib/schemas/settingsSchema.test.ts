@@ -24,7 +24,9 @@ describe("parseSettings — 正常系", () => {
     expect(rec!.value_str).toBeNull();
   });
 
-  it("全フィールド省略でも通る（部分更新対応）", () => {
+  it("全フィールド省略でも通る（全キーが null レコードとして生成される）", () => {
+    // parseSettings は部分更新関数ではなく全項目保存関数。
+    // 省略フィールドは null として records に積まれ DB で上書きされる。
     const result = parseSettings({});
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -35,6 +37,24 @@ describe("parseSettings — 正常系", () => {
       expect(rec.value_num).toBeNull();
       expect(rec.value_str).toBeNull();
     }
+  });
+
+  it("一部キーだけ渡しても残りのキーは null レコードとして生成される（全キー上書き）", () => {
+    // 「goal_weight だけ更新したい」と思って一部キーだけ渡しても、
+    // 他の全キーが null で upsert され既存値が消えることを明示するテスト。
+    // parseSettings は partial update ではなく full-save 関数である。
+    const result = parseSettings({ goal_weight: "65.0" });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // goal_weight は正しく設定される
+    const gw = result.records.find((r) => r.key === "goal_weight");
+    expect(gw!.value_num).toBe(65.0);
+    // 渡していない contest_date は null レコードとして生成されている（上書き対象になる）
+    const cd = result.records.find((r) => r.key === "contest_date");
+    expect(cd!.value_str).toBeNull();
+    // 渡していない height_cm も null レコードとして生成されている
+    const hc = result.records.find((r) => r.key === "height_cm");
+    expect(hc!.value_num).toBeNull();
   });
 
   it("空文字列フィールドは null として保存される", () => {
