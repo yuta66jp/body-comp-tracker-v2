@@ -44,7 +44,7 @@ body-comp-tracker-v2/
 │   │   │   └── buildUpdatePayload.ts
 │   │   └── api/export/route.ts     # CSV エクスポート
 │   ├── components/                 # UIコンポーネント
-│   │   ├── dashboard/              # KpiCards, GoalNavigator, WeeklyReviewCard
+│   │   ├── dashboard/              # KpiCards, GoalNavigator, WeeklyReviewCard, LogsAndSummaryTabs, MonthlyCalendar
 │   │   ├── charts/                 # ForecastChart, FactorAnalysis
 │   │   ├── tdee/                   # TdeeKpiCard, TdeeDetailChart, TdeeDailyTable
 │   │   ├── macro/                  # MacroKpiCards, MacroPfcSummary, MacroStackedChart
@@ -71,10 +71,13 @@ body-comp-tracker-v2/
 │   │   ├── hooks/                  # Client-side hooks (useDailyLogs 等)
 │   │   └── utils/                  # 計算ヘルパー
 │   │       ├── date.ts             # JST 日付ユーティリティ (parseLocalDateStr, calcDaysLeft 等)
+│   │       ├── calendarUtils.ts    # 月間カレンダー表示用データ変換 (buildCalendarDayMap)
 │   │       ├── calcReadiness.ts    # ReadinessMetrics 計算 (ペース分析・ゴールステータス)
 │   │       ├── calcWeeklyReview.ts # 週次レビュー + 停滞検知
 │   │       ├── calcTdee.ts         # 理論 TDEE / 信頼度 / 解釈補助
 │   │       ├── calcMacro.ts        # Macro KPI 集計
+│   │       ├── featureLabels.ts    # AI 因子分析の特徴量表示ラベル・説明 (ACTIVE_FEATURE_NAMES など)
+│   │       ├── factorAnalysisUtils.ts # 因子分析結果の型定義・表示整形ユーティリティ
 │   │       └── ...                 # その他計算ヘルパー
 │   └── styles/
 │       └── globals.css             # Tailwind base
@@ -102,6 +105,7 @@ body-comp-tracker-v2/
 - **Framework**: Next.js 15 (App Router, TypeScript)
 - **Styling**: Tailwind CSS 4
 - **Charts**: Recharts
+- **Calendar**: react-day-picker v9 (月間カレンダー)
 - **DB Client**: @supabase/supabase-js v2
 - **Icons**: Lucide React
 
@@ -136,6 +140,14 @@ body-comp-tracker-v2/
 - Supabase read 系ロジックは `src/lib/queries/` に集約する
 - `page.tsx` から直接 `supabase.from().select()` を書かない
 - query 関数は pure な async 関数として書き、テスト可能にする
+- **主要クエリは `QueryResult<T>` で状態を明示する**:
+  - `kind: "ok"` / `kind: "error"` の discriminated union で DB エラーと正常な空状態を型レベルで分離
+  - 対象: `fetchDailyLogs` / `fetchDailyLogsForSettings` / `fetchCareerLogs` / `fetchSettings` / `fetchSettingsRows`
+  - 各ページで `kind: "error"` 時に error banner を表示し、graceful degradation を維持する
+- **補助クエリはベストエフォート（空配列フォールバック）**:
+  - 対象: `fetchWeightLogs` / `fetchCareerLogsForDashboard` / `fetchPredictions` / `fetchMacroTargets`
+  - エラー時は空配列 / null を返し、ページ全体はブロックしない
+  - 意図（なぜ QueryResult 化しないか）を各関数の JSDoc に明記する
 
 ### 設定 (settings)
 - 保存: `src/app/settings/actions.ts` の Server Action を通じて行う
@@ -171,6 +183,10 @@ body-comp-tracker-v2/
   - 残り日数 / 残り週数 / 大会日付は KpiCards に集約し GoalNavigator に再掲しない
 - **WeeklyReview**: 直近7暦日の実績振り返り（体重・栄養・エネルギーバランス・停滞検知）
 - 3 パネルで同じ意味の数値が重複しないように設計する
+- **LogsAndSummaryTabs** (下部タブ): 「直近ログ」「カレンダー」「月別サマリー」の 3 タブ切替
+  - カレンダータブ: `MonthlyCalendar` コンポーネント（react-day-picker v9 ベース）
+  - 体重・差分・カロリー・特殊日タグ・コンディションタグを月単位で俯瞰
+  - 日曜始まり・土日祝セル色分け・祝日名表示・今日のリング表示
 
 ### UI / 分析表示
 - Macro / TDEE は「記録確認」ではなく「調整判断」画面として扱う
@@ -190,6 +206,11 @@ body-comp-tracker-v2/
 - キャッシュ: stale / unavailable の状態定義（`analytics_cache` の `status` 区分）を崩さない
   - `AnalyticsAvailability` 型 (`src/lib/analytics/status.ts`) が状態の単一定義源
 - nullable / 三状態の意味論（未操作 / 明示値 / 明示クリア）を後退させない
+- **feature_registry.py が特徴量定義の単一ソース**。`analyze.py` は `active_feature_cols()` / `active_feature_labels()` / `active_feature_names()` を呼ぶ。FEATURE_COLS / FEATURE_LABELS の直書き禁止
+- **featureLabels.ts との同期は `TestActiveFeatureNamesSync`（`test_feature_registry.py`）で自動検知**
+  - Python 側 `active_feature_names()` と TS 側 `ACTIVE_FEATURE_NAMES` の一致を pytest が検証する
+  - active 特徴量を変更したときは両ファイルを同時に更新しないとテストが失敗する
+- `compute_meta()` は `feature_names` / `feature_labels` を payload に含めてフロントの fallback を担保する
 
 ## 非目標
 - 予測モデルの大規模刷新を前提にしない
@@ -209,11 +230,15 @@ body-comp-tracker-v2/
   - 現時点ではサンプル不足・欠損率・カテゴリ偏りにより解釈が不安定
   - データが十分に蓄積された段階で `active=True` に変更し、`featureLabels.ts` の
     `ACTIVE_FEATURE_NAMES` / `ACTIVE_FEATURE_EXPLANATIONS` に追記して段階投入する
+  - `TestActiveFeatureNamesSync` により変更漏れはテストで検知される
 
 ### SHAP 移行（将来課題）
-- 現在は XGBoost の `feature_importances_`（重要度の大きさのみ）を使用
+- 現在は XGBoost の `feature_importances_`（重要度の大きさのみ）を使用。**SHAP は未実装**
 - SHAP 移行時は `analyze.py` の `run_importance()` を差し替える想定
-  `feature_registry.py` の `encoder_hint` に前処理方針を記載済みで、registry 自体は変更不要な設計
+- `feature_registry.py` の `encoder_hint` に前処理方針を記載済みで、registry 自体は変更不要な設計
+
+### read projection / window 最適化（現時点では保留）
+- `fetchDailyLogs()` 等は現在全カラム・全期間取得。個人利用規模で問題が出るまでは最適化しない
 
 ### その他残課題
 - `supabase gen types` で `types.ts` を実スキーマから再生成

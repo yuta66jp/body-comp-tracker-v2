@@ -21,6 +21,10 @@ DB は `BOOLEAN DEFAULT NULL` に移行済み。
 
 ### ダッシュボード
 
+上部 3 パネル（KpiCards / GoalNavigator / WeeklyReview）と、下部タブ切替セクションで構成される。
+
+**上部 3 パネル**
+
 - **KPI カード**: 現在体重・残り日数（週数）・目標到達予定日
 - **GoalNavigator**: 「このままで間に合うか」の判断パネル
   - 体重進捗（現在 / 目標 / 残り kg）
@@ -28,6 +32,48 @@ DB は `BOOLEAN DEFAULT NULL` に移行済み。
   - 調整提案（推奨カロリー調整 + 理由の一行説明）
 - **WeeklyReview**: 直近7暦日の実績振り返り（体重・栄養・エネルギーバランス・停滞検知）
 - 3 パネルの役割は分離しており、同じ意味の数値が重複して表示されない
+
+**下部タブ: 直近ログ / カレンダー / 月別サマリー**
+
+- **直近ログ**: 日次ログの一覧表示
+- **カレンダー**: 月間カレンダー形式で当月のログを俯瞰（後述）
+- **月別サマリー**: 月単位の集計サマリー
+
+### 月間カレンダー
+
+react-day-picker v9 ベースの月間カレンダー。当月をデフォルト表示し、前月 / 翌月への切替が可能。
+
+各日セルに表示される情報（縦方向優先順）:
+
+1. 日付（左上）/ 祝日名（右端、補助テキスト）
+2. 体重（太字）
+3. 体重前日差分（色付き）
+4. 摂取カロリー
+5. カロリー差分（補助行）
+6. 特殊日タグ（チートデイ・リフィード等）
+7. コンディションタグ（トレーニング種別・睡眠等、sm 以上）
+
+土日祝の表示:
+
+- 土曜: 日付テキスト `text-sky-600` / セル `bg-sky-50`
+- 日曜・祝日: 日付テキスト `text-rose-600` / セル `bg-rose-50`
+- 今日: `ring-2 ring-inset ring-blue-400` でリング表示
+- 祝日判定: `japanese-holidays` パッケージ。祝日名を日付行右端に補助表示
+- 開始曜日: 日曜始まり
+
+差分計算は `buildCalendarDayMap`（`lib/utils/calendarUtils.ts`）に委譲。欠損日を跨いだ直前ログとの差分を表示する。
+
+### 体重推移・予測チャート
+
+ForecastChart（`src/components/charts/ForecastChart.tsx`）は 3 タブ（7日 / 31日 / 全体）で切替表示する。
+
+- **月次目標体重ライン**: 3 タブすべてに表示。`monthlyTarget` を ReferenceLine として描画
+- **縦軸ラベル**: 整数表示（`Math.floor`）に統一
+  - 7日タブ: 1 kg 刻み
+  - 31日タブ: 2 kg 刻み
+  - 全体タブ: Recharts 自動（刻み幅指定なし）
+- **目標体重ライン・大会日縦線**: 全体タブのみ表示
+- **予測ライン（NeuralProphet）**: 全体タブのみ表示。7日 / 31日タブでは実績ログのみを描画
 
 ### Macro 画面
 
@@ -106,7 +152,7 @@ DB は `BOOLEAN DEFAULT NULL` に移行済み。
 | 項目 | 内容 |
 |---|---|
 | feature registry | `ml-pipeline/feature_registry.py` が特徴量定義の単一ソース。analyze.py は `active_feature_cols()` / `active_feature_labels()` を呼ぶ。FEATURE_COLS / FEATURE_LABELS の直書き廃止 |
-| featureLabels.ts 同期 | `ACTIVE_FEATURE_NAMES as const` + `ACTIVE_FEATURE_EXPLANATIONS` で TypeScript がコンパイル時に説明マップの完全性を保証 |
+| featureLabels.ts 同期 | `ACTIVE_FEATURE_NAMES as const` + `ACTIVE_FEATURE_EXPLANATIONS` で TypeScript がコンパイル時に説明マップの完全性を保証。`test_feature_registry.py` の `TestActiveFeatureNamesSync` が Python 側 `active_feature_names()` と TS 側 `ACTIVE_FEATURE_NAMES` の一致をテストで自動検知 |
 | backtest 実験基盤 | `backtest.py` が CLI オプション（`--series-type` / `--max-origins` / `--origin-step-days` / `--horizons` / `--feature-set`）で実験条件を制御可能。デフォルト設定を変えずに条件比較できる |
 | TDEE batch canonical | フロント再計算を廃止。`enrich.py` が算出した値を canonical として表示 |
 | 読み取りエラー区別 | `QueryResult<T>` discriminated union（`kind: "ok"` / `kind: "error"`）で、DB エラーと正常な空状態を型レベルで分離。主要クエリ（daily_logs / career_logs / settings 系）に適用し、各ページで error banner を表示しつつ graceful degradation を維持する |
