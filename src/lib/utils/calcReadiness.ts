@@ -283,6 +283,78 @@ export function calcGoalStatus(
   return "behind";
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// KPI 目標到達予定日計算（7日平均 + 14暦日回帰ベース）
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * KPI 目標到達予定の計算結果。
+ *
+ * - no_data   : 7日平均または目標体重が取得できない
+ * - achieved  : |7日平均 − 目標体重| < 0.1 kg
+ * - stalled   : 到達方向へ進んでいない、またはデータ不足でペース不明
+ * - projected : 到達予定日が推定できた
+ */
+export interface GoalReachResult {
+  status: "achieved" | "stalled" | "projected" | "no_data";
+  /** 到達予定日 (YYYY-MM-DD)。status="projected" 時のみ非 null */
+  date: string | null;
+  /** 表示ラベル ("MM-DD" / "達成済み ✓" / "停滞中" / "—") */
+  label: string;
+}
+
+/**
+ * KPI の「目標到達予定日」を 7日平均 + 14暦日回帰ペースから算出する。
+ *
+ * - 現在地: weight7dAvg（生体重ノイズを除いた安定した基準点）
+ * - 進行速度: slopePerDay（直近14暦日の線形回帰 kg/day）
+ * - 到達日数: (現在地 − 目標体重) / (-slopePerDay)
+ *
+ * KPI 主表示に AI 予測は採用しない。
+ * AI 予測はダッシュボードのチャート（ForecastChart）で参考表示する。
+ *
+ * @param weight7dAvg  直近7暦日の体重平均 (kg)。null ならラベル "—" を返す
+ * @param slopePerDay  直近14暦日の線形回帰 slope (kg/day)。null なら停滞中扱い
+ * @param goalWeight   目標体重 (kg)。null ならラベル "—" を返す
+ * @param today        基準日 (YYYY-MM-DD)
+ */
+export function calcGoalReachDate(
+  weight7dAvg: number | null,
+  slopePerDay: number | null,
+  goalWeight: number | null,
+  today: string
+): GoalReachResult {
+  if (weight7dAvg === null || goalWeight === null) {
+    return { status: "no_data", date: null, label: "—" };
+  }
+
+  const gap = weight7dAvg - goalWeight; // 正=まだ上 (Cut), 負=下回った (Bulk)
+
+  if (Math.abs(gap) < 0.1) {
+    return { status: "achieved", date: null, label: "達成済み ✓" };
+  }
+
+  // 停滞中: ペース不明 / ゼロ / 到達方向と逆
+  if (
+    slopePerDay === null ||
+    slopePerDay === 0 ||
+    (gap > 0 && slopePerDay >= 0) || // Cut: 減量必要なのに増減なし or 増量中
+    (gap < 0 && slopePerDay <= 0)    // Bulk: 増量必要なのに増減なし or 減量中
+  ) {
+    return { status: "stalled", date: null, label: "停滞中" };
+  }
+
+  const daysNeeded = gap / (-slopePerDay);
+  if (daysNeeded <= 0 || daysNeeded >= 730) {
+    return { status: "stalled", date: null, label: "停滞中" };
+  }
+
+  const date = addDaysStr(today, Math.round(daysNeeded));
+  if (!date) return { status: "stalled", date: null, label: "停滞中" };
+
+  return { status: "projected", date, label: date.slice(5) }; // MM-DD
+}
+
 /**
  * 実績ペースを必要ペースに合わせるための 1日あたりカロリー調整量 (kcal)。
  * 負 = 摂取量を減らす、正 = 増やす。50 kcal 単位に丸め。

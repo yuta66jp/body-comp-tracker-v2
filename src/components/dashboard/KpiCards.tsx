@@ -4,7 +4,8 @@ import { TrendingDown, TrendingUp, Minus, Weight, CalendarClock, Target } from "
 import type { DailyLog } from "@/lib/supabase/types";
 import type { AppSettings } from "@/lib/domain/settings";
 import { calcWeightTrend } from "@/lib/utils/calcTrend";
-import { toJstDateStr, calcDaysLeft, addDaysStr } from "@/lib/utils/date";
+import { toJstDateStr, calcDaysLeft, addDaysStr, dateRangeStr } from "@/lib/utils/date";
+import { calcGoalReachDate } from "@/lib/utils/calcReadiness";
 
 interface KpiCardsProps {
   logs: DailyLog[];
@@ -57,7 +58,8 @@ export function KpiCards({ logs, settings, avgTdee: _avgTdee }: KpiCardsProps) {
   const sorted = [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date));
   const latest = sorted[sorted.length - 1];
 
-  // --- 現在体重 ---
+  // --- 現在体重（最新の生体重。目標到達予定の計算には使わない）---
+  const currentWeight = latest?.weight ?? null;
   const weightData = sorted.slice(-14)
     .filter((d) => d.weight !== null)
     .map((d) => ({ date: d.log_date, weight: d.weight! }));
@@ -83,30 +85,31 @@ export function KpiCards({ logs, settings, avgTdee: _avgTdee }: KpiCardsProps) {
   const weeksLeft =
     daysLeft !== null && daysLeft > 0 ? (daysLeft / 7).toFixed(1) : null;
 
-  // --- 目標到達予定日（線形トレンドから算出）---
+  // --- 目標到達予定日（7日平均 + 14暦日回帰ベース）---
+  // 現在地: 直近7暦日の体重平均（生体重ノイズに強い安定した基準点）
+  // 速度  : 直近14暦日の線形回帰 slope（短期トレンドを捉えつつ単日値への依存を下げる）
+  // AI 予測（NeuralProphet）はチャート側の参考表示に留め、KPI 主表示には採用しない
   const goalWeight = settings.targetWeight;
-  const currentWeight = latest?.weight ?? null;
-  const slopePerDay = trend.slope; // kg/day
 
-  let goalReachDate: string | null = null;
-  let goalReachLabel = "—";
+  const d7Start = addDaysStr(todayStr, -6) ?? todayStr;
+  const d14Start = addDaysStr(todayStr, -13) ?? todayStr;
+  const logByDate = new Map(sorted.map((l) => [l.log_date, l]));
 
-  if (goalWeight !== null && currentWeight !== null) {
-    const gap0 = currentWeight - goalWeight;
-    if (Math.abs(gap0) < 0.1) {
-      goalReachLabel = "達成済み ✓";
-    } else if (slopePerDay === 0 || (gap0 > 0 && slopePerDay >= 0) || (gap0 < 0 && slopePerDay <= 0)) {
-      goalReachLabel = "停滞中";
-    } else {
-      const daysNeeded = gap0 / (-slopePerDay);
-      if (daysNeeded > 0 && daysNeeded < 730) {
-        goalReachDate = addDaysStr(todayStr, Math.round(daysNeeded));
-        goalReachLabel = goalReachDate ? goalReachDate.slice(5) : "停滞中"; // MM-DD
-      } else {
-        goalReachLabel = "停滞中";
-      }
-    }
-  }
+  // 7暦日平均
+  const w7 = dateRangeStr(d7Start, todayStr)
+    .map((d) => logByDate.get(d)?.weight ?? null)
+    .filter((v): v is number => v !== null);
+  const weight_7d_avg = w7.length > 0 ? w7.reduce((a, b) => a + b, 0) / w7.length : null;
+
+  // 14暦日回帰 slope (kg/day)
+  const trend14Data = dateRangeStr(d14Start, todayStr)
+    .map((d) => ({ date: d, weight: logByDate.get(d)?.weight ?? null }))
+    .filter((p): p is { date: string; weight: number } => p.weight !== null);
+  const slopePerDay14 = trend14Data.length >= 2 ? calcWeightTrend(trend14Data).slope : null;
+
+  const goalReachResult = calcGoalReachDate(weight_7d_avg, slopePerDay14, goalWeight, todayStr);
+  const goalReachDate = goalReachResult.date;
+  const goalReachLabel = goalReachResult.label;
 
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -159,7 +162,7 @@ export function KpiCards({ logs, settings, avgTdee: _avgTdee }: KpiCardsProps) {
         </div>
         {goalReachDate && goalWeight !== null && (
           <p className="mt-2 text-xs text-slate-400">
-            {goalWeight.toFixed(1)} kg 到達の推定日
+            {goalWeight.toFixed(1)} kg 到達の推定日（7日平均ベース）
           </p>
         )}
         {!goalWeight && (
