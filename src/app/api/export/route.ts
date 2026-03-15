@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 
     const columns = [
       "log_date", "weight", "calories", "protein", "fat", "carbs", "note",
-      "is_cheat_day", "is_refeed_day", "is_eating_out", "is_poor_sleep",
+      "is_cheat_day", "is_refeed_day", "is_eating_out", "is_travel_day", "is_poor_sleep",
       "sleep_hours", "had_bowel_movement", "training_type", "work_mode", "leg_flag",
     ];
     const csv = toCSV((data ?? []) as Record<string, unknown>[], columns);

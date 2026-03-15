@@ -21,6 +21,7 @@ function makeLog(overrides: Partial<DailyLog> & { log_date: string }): DailyLog 
     is_cheat_day:       overrides.is_cheat_day       ?? false,
     is_refeed_day:      overrides.is_refeed_day      ?? false,
     is_eating_out:      overrides.is_eating_out      ?? false,
+    is_travel_day:      overrides.is_travel_day      ?? false,
     is_poor_sleep:      overrides.is_poor_sleep      ?? false,
     sleep_hours:        overrides.sleep_hours        ?? null,
     had_bowel_movement: overrides.had_bowel_movement ?? null,
@@ -171,6 +172,20 @@ describe("buildCalendarDayMap", () => {
       const keys = map.get("2026-03-10")!.dayTags.map((t) => t.key);
       expect(keys).toContain("is_cheat_day");
       expect(keys).toContain("is_eating_out");
+    });
+
+    it("is_travel_day=true のとき dayTags に旅行が含まれる", () => {
+      const logs = [makeLog({ log_date: "2026-03-10", is_travel_day: true })];
+      const map = buildCalendarDayMap(logs);
+      const tags = map.get("2026-03-10")!.dayTags;
+      expect(tags.some((t) => t.key === "is_travel_day")).toBe(true);
+      expect(tags.find((t) => t.key === "is_travel_day")!.label).toBe("旅行");
+    });
+
+    it("is_travel_day=false のとき dayTags に含まれない", () => {
+      const logs = [makeLog({ log_date: "2026-03-10", is_travel_day: false })];
+      const map = buildCalendarDayMap(logs);
+      expect(map.get("2026-03-10")!.dayTags).toHaveLength(0);
     });
   });
 

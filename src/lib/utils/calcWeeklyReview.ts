@@ -84,6 +84,7 @@ export interface SpecialDaySummary {
   cheatDays: number;
   refeedDays: number;
   eatingOutDays: number;
+  travelDays: number;
   poorSleepDays: number;
   /** いずれかのタグが付いた日数 */
   totalTaggedDays: number;
@@ -308,6 +309,7 @@ function generateFindings(
     if (specialDays.cheatDays   > 0) parts.push(`${DAY_TAG_LABELS.is_cheat_day} ${specialDays.cheatDays} 日`);
     if (specialDays.refeedDays  > 0) parts.push(`${DAY_TAG_LABELS.is_refeed_day} ${specialDays.refeedDays} 日`);
     if (specialDays.eatingOutDays > 0) parts.push(`${DAY_TAG_LABELS.is_eating_out} ${specialDays.eatingOutDays} 日`);
+    if (specialDays.travelDays  > 0) parts.push(`${DAY_TAG_LABELS.is_travel_day} ${specialDays.travelDays} 日`);
     if (specialDays.poorSleepDays > 0) parts.push(`${DAY_TAG_LABELS.is_poor_sleep} ${specialDays.poorSleepDays} 日`);
     findings.push(`今週の特殊日: ${parts.join("、")}。体重変動の一因として参考にしてください`);
 
@@ -467,14 +469,16 @@ export function calcWeeklyReview(
   const cheatDays     = windowLogs.filter((l) => l.is_cheat_day).length;
   const refeedDays    = windowLogs.filter((l) => l.is_refeed_day).length;
   const eatingOutDays = windowLogs.filter((l) => l.is_eating_out).length;
+  const travelDays    = windowLogs.filter((l) => l.is_travel_day).length;
   const poorSleepDays = windowLogs.filter((l) => l.is_poor_sleep).length;
   const specialDays: SpecialDaySummary = {
     cheatDays,
     refeedDays,
     eatingOutDays,
+    travelDays,
     poorSleepDays,
     totalTaggedDays: windowLogs.filter(
-      (l) => l.is_cheat_day || l.is_refeed_day || l.is_eating_out || l.is_poor_sleep
+      (l) => l.is_cheat_day || l.is_refeed_day || l.is_eating_out || l.is_travel_day || l.is_poor_sleep
     ).length,
   };
 

@@ -152,6 +152,7 @@ export type Database = {
           is_cheat_day: boolean;
           is_refeed_day: boolean;
           is_eating_out: boolean;
+          is_travel_day: boolean;
           /** @deprecated UIからの入力を廃止。既存データ互換のため型は残す。sleep_hours を使用すること。 */
           is_poor_sleep: boolean;
           // ── Phase 2.5 追加カラム ──
@@ -176,6 +177,7 @@ export type Database = {
           is_cheat_day?: boolean;
           is_refeed_day?: boolean;
           is_eating_out?: boolean;
+          is_travel_day?: boolean;
           is_poor_sleep?: boolean;
           sleep_hours?: number | null;
           had_bowel_movement?: boolean | null;
@@ -194,6 +196,7 @@ export type Database = {
           is_cheat_day?: boolean;
           is_refeed_day?: boolean;
           is_eating_out?: boolean;
+          is_travel_day?: boolean;
           is_poor_sleep?: boolean;
           sleep_hours?: number | null;
           had_bowel_movement?: boolean | null;
