@@ -163,6 +163,13 @@ describe("buildUpdatePayload — Phase 2.5 新規フィールド", () => {
     expect("had_bowel_movement" in payload).toBe(false);
   });
 
+  test("training_type: 'off' → leg_flag: false (オフ日 = 非レッグ日と確定)", () => {
+    // off は「トレーニングなしと明示した日」。null (未記録) とは区別する。
+    const payload = buildUpdatePayload({ training_type: "off" });
+    expect(payload.training_type).toBe("off");
+    expect(payload.leg_flag).toBe(false);
+  });
+
   test("training_type: 'chest' → leg_flag: false が同時に設定される", () => {
     const payload = buildUpdatePayload({ training_type: "chest" });
     expect(payload.training_type).toBe("chest");
@@ -581,6 +588,14 @@ describe("saveDailyLog — Phase 2.5 バリデーション", () => {
     const result = await saveDailyLog({ log_date: "2026-03-13", sleep_hours: 0 });
     expect(result.ok).toBe(true);
     expect(capture.p_fields?.sleep_hours).toBe(0);
+  });
+
+  test("training_type: 'off' → ok: true (有効値)", async () => {
+    const capture = makeRpcMock();
+    const result = await saveDailyLog({ log_date: "2026-03-13", training_type: "off" });
+    expect(result.ok).toBe(true);
+    expect(capture.p_fields?.training_type).toBe("off");
+    expect(capture.p_fields?.leg_flag).toBe(false);
   });
 
   test("training_type が不正な値 → ok: false", async () => {

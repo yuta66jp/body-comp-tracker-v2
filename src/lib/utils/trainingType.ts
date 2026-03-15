@@ -11,6 +11,7 @@
 // ── training_type ────────────────────────────────────────────────────────────
 
 export const TRAINING_TYPES = [
+  "off",
   "chest",
   "back",
   "shoulders",
@@ -21,6 +22,7 @@ export const TRAINING_TYPES = [
 export type TrainingType = typeof TRAINING_TYPES[number];
 
 export const TRAINING_TYPE_LABELS: Record<TrainingType, string> = {
+  off:               "オフ",
   chest:             "胸",
   back:              "背中",
   shoulders:         "肩",
@@ -50,9 +52,12 @@ export const WORK_MODE_LABELS: Record<WorkMode, string> = {
  * training_type から leg_flag を導出する。
  *
  * ルール:
- *   - quads または glutes_hamstrings → true (レッグ日)
- *   - chest / back / shoulders      → false (非レッグ日)
- *   - null / undefined (未入力)     → null (未判定 ≠ false)
+ *   - quads または glutes_hamstrings → true  (レッグ日)
+ *   - chest / back / shoulders / off → false (非レッグ日)
+ *   - null / undefined (未入力)      → null  (未判定 ≠ false)
+ *
+ * off は「トレーニングなしと明示した日」であり、脚トレをしていないことが確定するため false。
+ * null は「training_type 未記録」であり、脚トレの有無が不明なため null (≠ false)。
  *
  * ユーザーが leg_flag を直接編集する UI は作らない。
  * この関数が leg_flag の唯一の定義源。

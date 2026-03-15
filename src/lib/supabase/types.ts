@@ -159,7 +159,7 @@ export type Database = {
           sleep_hours: number | null;
           /** null=未記録, true=便通あり, false=便通なし */
           had_bowel_movement: boolean | null;
-          /** 値: 'chest' | 'back' | 'shoulders' | 'glutes_hamstrings' | 'quads' */
+          /** 値: 'off' | 'chest' | 'back' | 'shoulders' | 'glutes_hamstrings' | 'quads' */
           training_type: string | null;
           /** 値: 'off' | 'office' | 'remote' */
           work_mode: string | null;
