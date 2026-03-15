@@ -121,7 +121,10 @@ body-comp-tracker-v2/
   sleep_hours, had_bowel_movement, training_type, work_mode
   - `had_bowel_movement` は `BOOLEAN DEFAULT NULL`（三状態: null=未記録 / false=便通なし / true=便通あり）
   - leg_flag は派生値（deriveLegFlag のみ定義源）。直接書き込まない
-  - is_poor_sleep は UI から除去済み
+  - `is_poor_sleep` は UI 入力を廃止済み。睡眠評価は `sleep_hours`（時間）に移行している。
+    過去データに存在した `FALSE` 値は未記録由来の誤解を生むため `NULL` に補正済み。
+    現時点では分析対象（active feature）として扱わない。
+    再導入する場合は `NULL`=未記録 / `TRUE`=睡眠不足あり / `FALSE`=睡眠不足なし の三状態で設計すること。
 - `food_master` — name(PK), protein, fat, carbs, calories, category
 - `menu_master` — name(PK), recipe(JSONB)
 - `settings` — key(PK), value_num, value_str
