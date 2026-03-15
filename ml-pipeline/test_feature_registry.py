@@ -5,6 +5,9 @@ test_feature_registry.py — feature_registry.py の単体テスト
 依存: 標準ライブラリのみ（pandas / xgboost 不要）
 """
 
+import pathlib
+import re
+
 import pytest
 
 from feature_registry import (
@@ -15,6 +18,7 @@ from feature_registry import (
     TargetType,
     active_feature_cols,
     active_feature_labels,
+    active_feature_names,
     active_features,
     all_feature_labels,
 )
@@ -228,3 +232,88 @@ class TestAllFeatureLabels:
 
     def test_count_matches_registry(self):
         assert len(all_feature_labels()) == len(FEATURE_REGISTRY)
+
+
+# ── active_feature_names のテスト ─────────────────────────────────────────────
+
+class TestActiveFeatureNames:
+    def test_returns_list_of_strings(self):
+        result = active_feature_names()
+        assert isinstance(result, list)
+        assert all(isinstance(n, str) for n in result)
+
+    def test_equals_active_feature_cols(self):
+        """active_feature_names() は active_feature_cols() と同じ値を返す。"""
+        assert active_feature_names() == active_feature_cols()
+
+    def test_contains_current_xgboost_features(self):
+        names = active_feature_names()
+        for expected in ["cal_lag1", "rolling_cal_7", "p_lag1", "f_lag1", "c_lag1"]:
+            assert expected in names
+
+    def test_no_inactive_features_included(self):
+        names = set(active_feature_names())
+        for f in FEATURE_REGISTRY:
+            if not f.active:
+                assert f.name not in names
+
+
+# ── featureLabels.ts との同期確認テスト ───────────────────────────────────────
+
+_FEATURE_LABELS_TS = (
+    pathlib.Path(__file__).parent.parent
+    / "src" / "lib" / "utils" / "featureLabels.ts"
+)
+
+
+def _parse_active_feature_names_from_ts() -> list[str]:
+    """featureLabels.ts から ACTIVE_FEATURE_NAMES 配列の要素を正規表現で抽出する。"""
+    text = _FEATURE_LABELS_TS.read_text(encoding="utf-8")
+    # ACTIVE_FEATURE_NAMES = [ ... ] as const; ブロックを抽出
+    block_match = re.search(
+        r"export const ACTIVE_FEATURE_NAMES\s*=\s*\[(.*?)\]\s*as const",
+        text,
+        re.DOTALL,
+    )
+    if not block_match:
+        raise ValueError("ACTIVE_FEATURE_NAMES not found in featureLabels.ts")
+    block = block_match.group(1)
+    # "..." 形式の文字列リテラルを全て抽出
+    return re.findall(r'"([^"]+)"', block)
+
+
+class TestActiveFeatureNamesSync:
+    """Python feature_registry と TypeScript featureLabels.ts の同期を検証する。
+
+    特徴量を追加・削除したとき、両ファイルを同時に更新しないと
+    このテストが失敗して変更漏れを検知できる。
+    """
+
+    def test_featurelabels_ts_exists(self):
+        """featureLabels.ts がリポジトリに存在する。"""
+        assert _FEATURE_LABELS_TS.exists(), f"not found: {_FEATURE_LABELS_TS}"
+
+    def test_active_feature_names_match_ts(self):
+        """Python の active_feature_names() と TS の ACTIVE_FEATURE_NAMES が一致する。"""
+        py_names = sorted(active_feature_names())
+        ts_names = sorted(_parse_active_feature_names_from_ts())
+        assert py_names == ts_names, (
+            f"Python と TypeScript のアクティブ特徴量が不一致。\n"
+            f"  Python (feature_registry.py): {py_names}\n"
+            f"  TypeScript (featureLabels.ts): {ts_names}\n"
+            f"両ファイルを同期させてください。"
+        )
+
+    def test_no_extra_names_in_ts(self):
+        """TS の ACTIVE_FEATURE_NAMES に Python 側にない名前が含まれない。"""
+        py_names = set(active_feature_names())
+        ts_names = set(_parse_active_feature_names_from_ts())
+        extra = ts_names - py_names
+        assert not extra, f"TS にのみ存在する特徴量名: {extra}"
+
+    def test_no_missing_names_in_ts(self):
+        """Python の active_feature_names() が TS の ACTIVE_FEATURE_NAMES を完全に含む。"""
+        py_names = set(active_feature_names())
+        ts_names = set(_parse_active_feature_names_from_ts())
+        missing = py_names - ts_names
+        assert not missing, f"TS に追加が必要な特徴量名: {missing}"
