@@ -27,6 +27,7 @@ from backtest import (
     compute_actual_sma7,
     compute_metrics,
     log_summary,
+    make_neuralprophet_predictor,
     predict_linear,
     predict_ma7,
     predict_naive,
@@ -375,3 +376,98 @@ class TestBaselinePredictors:
         pred = predict_linear(train, 7)
         # 最後の点は 70 + 0.1 * 29 = 72.9、7日後は 72.9 + 0.1 * 7 = 73.6
         assert abs(pred - 73.6) < 0.1  # 線形回帰の誤差を許容
+
+
+# ── NeuralProphet PyTorch 2.6+ patch ──────────────────────────────────────────
+
+class TestNeuralProphetPyTorchPatch:
+    """make_neuralprophet_predictor の PyTorch 2.6+ weights_only 互換 patch を検証する。
+
+    torch / neuralprophet は CI 環境に存在しないため sys.modules をモックして検証する。
+    """
+
+    def _make_mock_modules(self, torch_version: str):
+        """torch / neuralprophet のモックを返す。"""
+        import sys
+        from unittest.mock import MagicMock
+
+        mock_torch = MagicMock()
+        mock_torch.__version__ = torch_version
+        original_load = MagicMock(name="original_load")
+        mock_torch.load = original_load
+
+        mock_np_instance = MagicMock()
+        # forecast["yhat1"].iloc[-1] が float を返すよう設定
+        forecast_df = pd.DataFrame({"yhat1": [74.0] * 10})
+        mock_np_instance.predict.return_value = forecast_df
+        mock_np_instance.make_future_dataframe.return_value = pd.DataFrame({"ds": []})
+
+        mock_neuralprophet = MagicMock()
+        mock_neuralprophet.NeuralProphet.return_value = mock_np_instance
+
+        return mock_torch, mock_neuralprophet, original_load
+
+    def test_torch_load_patched_for_torch26(self):
+        """torch >= 2.6 では torch.load が weights_only=False patch に差し替えられること。"""
+        import sys
+        from unittest.mock import patch as mock_patch
+
+        mock_torch, mock_neuralprophet, original_load = self._make_mock_modules("2.6.0")
+        config = BacktestConfig(np_epochs=1)
+        predict_fn = make_neuralprophet_predictor(config)
+        train = make_df(35)
+
+        with mock_patch.dict(sys.modules, {
+            "torch": mock_torch,
+            "neuralprophet": mock_neuralprophet,
+        }):
+            predict_fn(train, 7)
+
+        assert mock_torch.load is not original_load, (
+            "torch >= 2.6 では torch.load は weights_only=False patch に差し替えられるべき"
+        )
+
+    def test_torch_load_not_patched_for_torch25(self):
+        """torch < 2.6 では torch.load が変更されないこと。"""
+        import sys
+        from unittest.mock import patch as mock_patch
+
+        mock_torch, mock_neuralprophet, original_load = self._make_mock_modules("2.5.1")
+        config = BacktestConfig(np_epochs=1)
+        predict_fn = make_neuralprophet_predictor(config)
+        train = make_df(35)
+
+        with mock_patch.dict(sys.modules, {
+            "torch": mock_torch,
+            "neuralprophet": mock_neuralprophet,
+        }):
+            predict_fn(train, 7)
+
+        assert mock_torch.load is original_load, (
+            "torch < 2.6 では torch.load は変更されるべきでない"
+        )
+
+    def test_patch_applied_only_once(self):
+        """複数回呼ばれても patch は一度だけ適用されること (二重 wrap 防止)。"""
+        import sys
+        from unittest.mock import patch as mock_patch
+
+        mock_torch, mock_neuralprophet, original_load = self._make_mock_modules("2.6.0")
+        config = BacktestConfig(np_epochs=1)
+        predict_fn = make_neuralprophet_predictor(config)
+        train = make_df(35)
+
+        with mock_patch.dict(sys.modules, {
+            "torch": mock_torch,
+            "neuralprophet": mock_neuralprophet,
+        }):
+            predict_fn(train, 7)
+            patched_load_after_first = mock_torch.load  # patch 適用後の load
+
+            predict_fn(train, 14)
+            patched_load_after_second = mock_torch.load  # 2回目呼び出し後
+
+        # 2回目呼び出しで torch.load がさらに差し替えられていないこと
+        assert patched_load_after_first is patched_load_after_second, (
+            "patch は一度だけ適用されるべき (二重 wrap になっていないこと)"
+        )
