@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, Check } from "lucide-react";
 import { useFoodList } from "@/lib/hooks/useFoodList";
 import { MenuPicker } from "./MenuPicker";
 import type { FoodMaster } from "@/lib/supabase/types";
@@ -19,6 +19,20 @@ export function FoodPicker({ onAdd, onAddSet }: FoodPickerProps) {
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("single");
   const [category, setCategory] = useState<string>("すべて");
+  // 追加済み一時フィードバック: food.name → true の Set（1.2秒後に自動解除）
+  const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
+
+  const handleAdd = (food: FoodMaster) => {
+    onAdd(food);
+    setRecentlyAdded((prev) => new Set([...prev, food.name]));
+    setTimeout(() => {
+      setRecentlyAdded((prev) => {
+        const next = new Set(prev);
+        next.delete(food.name);
+        return next;
+      });
+    }, 1200);
+  };
 
   // food_master に登録されているカテゴリを動的に取得
   const categories = useMemo(() => {
@@ -114,11 +128,15 @@ export function FoodPicker({ onAdd, onAddSet }: FoodPickerProps) {
                     </p>
                   </div>
                   <button
-                    onClick={() => onAdd(food)}
-                    className="ml-3 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600"
-                    aria-label={`${food.name}を追加`}
+                    onClick={() => handleAdd(food)}
+                    className={`ml-3 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-white transition-colors ${
+                      recentlyAdded.has(food.name)
+                        ? "bg-green-500"
+                        : "bg-blue-500 hover:bg-blue-600"
+                    }`}
+                    aria-label={recentlyAdded.has(food.name) ? `${food.name}を追加済み` : `${food.name}を追加`}
                   >
-                    <Plus size={14} />
+                    {recentlyAdded.has(food.name) ? <Check size={14} /> : <Plus size={14} />}
                   </button>
                 </li>
               ))}
