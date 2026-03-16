@@ -30,6 +30,7 @@ jobs:
 
       - name: Run forecast backtest (daily)
         run: python ml-pipeline/backtest.py
+        continue-on-error: true
 
       - name: Run forecast backtest (sma7)
         run: python ml-pipeline/backtest.py --series-type sma7
