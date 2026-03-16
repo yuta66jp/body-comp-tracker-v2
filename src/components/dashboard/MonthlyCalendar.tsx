@@ -12,12 +12,10 @@
  *
  *   情報の縦方向優先順位:
  *     1. 日付（補助・小・左上）
- *     2. 体重（主・太字）
- *     3. 体重前日差分（色付き）
- *     4. 摂取カロリー（値）
- *     5. カロリー差分（補助・別行）
- *     6. 特殊日タグ
- *     7. コンディションタグ（sm 以上）
+ *     2. 体重 + 前日差分（近接表示: 71.2kg (+0.3)）
+ *     3. カロリー + 差分（近接表示: 1984k (+65)）
+ *     4. 特殊日タグ
+ *     5. コンディションタグ（sm 以上）
  *
  * 土日祝:
  *   - 土曜: 日付テキスト text-sky-600 / セル bg-sky-50
@@ -133,63 +131,59 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
           )}
         </div>
 
-        {/* ② 体重（主情報） */}
-        <div className="mt-1 flex items-baseline gap-0.5 leading-none">
+        {/* ② 体重 + 前日差分（近接表示: 71.2kg (+0.3)） */}
+        <div className="mt-1 flex items-baseline gap-0.5 leading-none flex-wrap">
           {data?.log.weight != null ? (
             <>
               <span className="text-xs sm:text-sm font-bold text-slate-800 leading-none">
                 {data.log.weight.toFixed(1)}
               </span>
               <span className="text-[9px] text-slate-400">kg</span>
+              {data?.weightDelta != null && (
+                <span className={`text-[9px] font-medium leading-none ${
+                  data.weightDelta > 0
+                    ? "text-rose-500"
+                    : data.weightDelta < 0
+                    ? "text-blue-500"
+                    : "text-slate-300"
+                }`}>
+                  ({data.weightDelta > 0 ? "+" : ""}{data.weightDelta.toFixed(1)})
+                </span>
+              )}
             </>
           ) : (
             <span className="text-[10px] leading-none text-slate-200">—</span>
           )}
         </div>
 
-        {/* ③ 体重前日差分 */}
-        {data?.weightDelta != null && (
-          <div className={`mt-0.5 text-[10px] font-medium leading-none ${
-            data.weightDelta > 0
-              ? "text-rose-500"
-              : data.weightDelta < 0
-              ? "text-blue-500"
-              : "text-slate-300"
-          }`}>
-            {data.weightDelta > 0 ? "+" : ""}{data.weightDelta.toFixed(1)}
-          </div>
-        )}
-
-        {/* ④ 摂取カロリー */}
+        {/* ③ カロリー + 差分（近接表示: 1984k (+65)） */}
         {data?.log.calories != null && (
-          <div className="mt-0.5 flex items-baseline gap-0.5 leading-none">
+          <div className="mt-0.5 flex items-baseline gap-0.5 leading-none flex-wrap">
             <span className="text-[10px] font-medium text-slate-600">
               {data.log.calories.toLocaleString()}
             </span>
             <span className="text-[8px] text-slate-400">k</span>
+            {data?.calDelta != null && (
+              <span className={`text-[9px] font-medium leading-none ${
+                data.calDelta > 0
+                  ? "text-blue-400"
+                  : data.calDelta < 0
+                  ? "text-rose-400"
+                  : "text-slate-300"
+              }`}>
+                ({data.calDelta > 0 ? "+" : ""}{data.calDelta})
+              </span>
+            )}
           </div>
         )}
 
-        {/* ⑤ カロリー差分（補助・別行） */}
-        {data?.calDelta != null && (
-          <div className={`text-[9px] font-medium leading-none ${
-            data.calDelta > 0
-              ? "text-blue-400"
-              : data.calDelta < 0
-              ? "text-rose-400"
-              : "text-slate-300"
-          }`}>
-            {data.calDelta > 0 ? "+" : ""}{data.calDelta}
-          </div>
-        )}
-
-        {/* ⑥ 特殊日タグ */}
+        {/* ④ 特殊日タグ */}
         {data?.dayTags && data.dayTags.length > 0 && (
           <div className="mt-0.5 flex flex-wrap gap-0.5">
             {data.dayTags.map((tag) => (
               <span
                 key={tag.key}
-                className={`rounded-full px-1 py-0 text-[8px] font-semibold leading-4 ${tag.colorClass}`}
+                className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none ${tag.colorClass}`}
               >
                 {tag.label}
               </span>
@@ -197,13 +191,13 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
           </div>
         )}
 
-        {/* ⑦ コンディションタグ（sm 以上） */}
+        {/* ⑤ コンディションタグ（sm 以上） */}
         {data?.conditionTags && data.conditionTags.length > 0 && (
           <div className="mt-0.5 hidden flex-wrap gap-0.5 sm:flex">
             {data.conditionTags.map((tag) => (
               <span
                 key={tag.key}
-                className={`rounded-full px-1 py-0 text-[8px] font-semibold leading-4 ${tag.colorClass}`}
+                className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none ${tag.colorClass}`}
               >
                 {tag.label}
               </span>
