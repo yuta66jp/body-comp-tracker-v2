@@ -28,5 +28,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r ml-pipeline/requirements.txt
 
-      - name: Run forecast backtest
+      - name: Run forecast backtest (daily)
         run: python ml-pipeline/backtest.py
+
+      - name: Run forecast backtest (sma7)
+        run: python ml-pipeline/backtest.py --series-type sma7
