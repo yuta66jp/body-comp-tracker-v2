@@ -193,14 +193,45 @@ def make_neuralprophet_predictor(config: BacktestConfig) -> Callable:
     CLI で --np-epochs を変えれば再学習コストを調整できる。
     """
     np_epochs = config.np_epochs
+    _pytorch26_patched = False  # torch.load patch を一度だけ適用するためのフラグ
 
     def _predict(train: pd.DataFrame, horizon: int) -> Optional[float]:
         """NeuralProphet: 学習データで再訓練し horizon 日先を予測する。
 
         訓練失敗時は None を返し、その起点をスキップする。
+
+        torch 2.6+ の weights_only=True デフォルト変更への対応:
+          predict.py と同じ torch.load patch を適用する。
+          このプロセス内で生成した checkpoint のみ読み込む (trusted) ため
+          weights_only=False は安全。patch は初回呼び出し時に一度だけ適用する
+          (複数起点で繰り返し呼ばれるため、二重 wrap による連鎖を防ぐ)。
         """
+        nonlocal _pytorch26_patched
         try:
+            import torch as _torch  # noqa: PLC0415
             from neuralprophet import NeuralProphet  # noqa: PLC0415
+
+            # torch 2.6+ changed weights_only default to True, which breaks
+            # NeuralProphet's checkpoint restore (Unsupported global:
+            # neuralprophet.configure.ConfigSeasonality).
+            # This pipeline only loads checkpoints it wrote itself (trusted),
+            # so overriding weights_only=False is safe here.
+            if not _pytorch26_patched and (
+                tuple(int(x) for x in _torch.__version__.split(".")[:2]) >= (2, 6)
+            ):
+                _orig_load = _torch.load
+
+                def _trusted_load(
+                    f, map_location=None, pickle_module=None, weights_only=None,
+                    mmap=None, **kw
+                ):
+                    return _orig_load(f, map_location=map_location, weights_only=False, **kw)
+
+                _torch.load = _trusted_load
+                _pytorch26_patched = True
+                log.debug(
+                    "PyTorch 2.6+ 互換 patch を適用 (backtest, weights_only=False)"
+                )
 
             df_np = train[["log_date", "weight"]].rename(
                 columns={"log_date": "ds", "weight": "y"}
@@ -460,7 +491,7 @@ def save_results(
         for horizon, records in horizon_data.items():
             if not records:
                 log.warning(
-                    "  %s h=%dd: 有効な予測なし。データ不足の可能性。スキップ。",
+                    "  %s h=%dd: 有効な予測なし (モデル失敗またはデータ不足)。スキップ。",
                     model_name, horizon,
                 )
                 continue
@@ -533,7 +564,7 @@ def log_summary(results: BacktestResults, config: BacktestConfig) -> None:
         for horizon in config.horizons:
             records = results[model_name].get(horizon, [])
             if not records:
-                log.info("  %-20s h=%2dd  データ不足のためスキップ", model_name, horizon)
+                log.info("  %-20s h=%2dd  有効な予測なし (モデル失敗またはデータ不足)", model_name, horizon)
                 continue
             errors  = [r[0] for r in records]
             actuals = [r[1] for r in records]
