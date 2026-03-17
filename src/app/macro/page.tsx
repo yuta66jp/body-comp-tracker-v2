@@ -11,15 +11,16 @@ import {
 } from "@/lib/utils/calcMacro";
 import type { MacroTargets } from "@/lib/utils/calcMacro";
 import { fetchDailyLogs } from "@/lib/queries/dailyLogs";
-import { fetchMacroTargets } from "@/lib/queries/settings";
+import { fetchMacroTargets, fetchSettings } from "@/lib/queries/settings";
 import { fetchFactorAnalysis } from "@/lib/queries/analytics";
 
 export const revalidate = 3600;
 
 export default async function MacroPage() {
-  const [logsResult, targetsResult] = await Promise.all([
+  const [logsResult, targetsResult, settingsResult] = await Promise.all([
     fetchDailyLogs(),
     fetchMacroTargets(),
+    fetchSettings(),
   ]);
 
   if (logsResult.kind === "error") {
@@ -52,6 +53,7 @@ export default async function MacroPage() {
   const factorResult = await fetchFactorAnalysis(latestRawLogUpdatedAt);
 
   const { calTarget, ...targets }: MacroTargets & { calTarget: number | null } = targetsResult;
+  const currentPhase = settingsResult.kind === "ok" ? settingsResult.data.currentPhase : null;
   const kpi = calcMacroKpi(logs);
   const dailyData = calcDailyMacro(logs, 60);
   const diff = calcMacroDiff(kpi.weekly, targets);
@@ -62,7 +64,7 @@ export default async function MacroPage() {
       <h1 className="mb-6 text-xl font-bold text-gray-800">栄養分析</h1>
       <div className="space-y-6">
         {/* 上段: kcal / PFC 目標差分・前週比サマリー */}
-        <MacroKpiCards kpi={kpi} targets={targets} diff={diff} />
+        <MacroKpiCards kpi={kpi} targets={targets} diff={diff} phase={currentPhase} />
 
         {/* 中段: 今週の PFC kcal 比率 */}
         <MacroPfcSummary ratio={pfcRatio} />
