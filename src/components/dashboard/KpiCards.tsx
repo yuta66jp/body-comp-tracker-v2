@@ -60,16 +60,6 @@ export function KpiCards({ logs, settings, avgTdee: _avgTdee }: KpiCardsProps) {
 
   // --- 現在体重（最新の生体重。目標到達予定の計算には使わない）---
   const currentWeight = latest?.weight ?? null;
-  const weightData = sorted.slice(-14)
-    .filter((d) => d.weight !== null)
-    .map((d) => ({ date: d.log_date, weight: d.weight! }));
-  const trend = calcWeightTrend(weightData);
-  const slopePerWeek = trend.slope * 7;
-  const trendDir: "up" | "down" | "flat" =
-    Math.abs(slopePerWeek) < 0.05 ? "flat" : slopePerWeek > 0 ? "up" : "down";
-  const trendLabel = Math.abs(slopePerWeek) < 0.05
-    ? "横ばい"
-    : `${slopePerWeek > 0 ? "+" : ""}${slopePerWeek.toFixed(2)} kg/週`;
 
   // --- 基準日 (todayStr) ---
   // 以降の全暦日計算で共通して使う。JST 固定で UTC サーバー上でもズレない。
@@ -107,6 +97,14 @@ export function KpiCards({ logs, settings, avgTdee: _avgTdee }: KpiCardsProps) {
     .filter((p): p is { date: string; weight: number } => p.weight !== null);
   const slopePerDay14 = trend14Data.length >= 2 ? calcWeightTrend(trend14Data).slope : null;
 
+  // 週あたり変化率: 14暦日回帰 slope × 7 — 週次レビューの weekly_rate_kg と同一ロジック
+  const slopePerWeek = slopePerDay14 !== null ? slopePerDay14 * 7 : null;
+  const trendDir: "up" | "down" | "flat" =
+    slopePerWeek === null || Math.abs(slopePerWeek) < 0.05 ? "flat" : slopePerWeek > 0 ? "up" : "down";
+  const trendLabel = slopePerWeek === null || Math.abs(slopePerWeek) < 0.05
+    ? "横ばい"
+    : `${slopePerWeek > 0 ? "+" : ""}${slopePerWeek.toFixed(2)} kg/週`;
+
   const goalReachResult = calcGoalReachDate(weight_7d_avg, slopePerDay14, goalWeight, todayStr);
   const goalReachDate = goalReachResult.date;
   const goalReachLabel = goalReachResult.label;
@@ -118,11 +116,11 @@ export function KpiCards({ logs, settings, avgTdee: _avgTdee }: KpiCardsProps) {
         label="現在体重"
         value={currentWeight !== null ? currentWeight.toFixed(1) : "—"}
         unit="kg"
-        sub={weightData.length >= 2 ? trendLabel : undefined}
+        sub={slopePerWeek !== null ? trendLabel : undefined}
         icon={<Weight size={18} />}
         accent="bg-blue-50"
         iconColor="text-blue-600"
-        trendDir={weightData.length >= 2 ? trendDir : undefined}
+        trendDir={slopePerWeek !== null ? trendDir : undefined}
         trendPositive="down"
       />
 
