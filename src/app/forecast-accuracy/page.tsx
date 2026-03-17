@@ -1,5 +1,6 @@
 import { BacktestResults } from "@/components/charts/BacktestResults";
 import { BacktestComparison } from "@/components/charts/BacktestComparison";
+import { ForecastAccuracyRefreshButton } from "@/components/charts/ForecastAccuracyRefreshButton";
 import { BarChart2 } from "lucide-react";
 import { fetchLatestRuns, fetchMetrics } from "@/lib/queries/backtest";
 
@@ -17,6 +18,7 @@ export default async function ForecastAccuracyPage() {
         <div className="flex items-center gap-2 mb-6">
           <BarChart2 size={20} className="text-blue-600" />
           <h1 className="text-xl font-bold text-gray-800">予測精度評価</h1>
+          <ForecastAccuracyRefreshButton />
         </div>
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center">
           <p className="text-sm font-medium text-slate-500">
@@ -52,9 +54,8 @@ export default async function ForecastAccuracyPage() {
       <div className="flex items-center gap-2 mb-6">
         <BarChart2 size={20} className="text-blue-600" />
         <h1 className="text-xl font-bold text-gray-800">予測精度評価</h1>
-        <span className="ml-auto text-xs text-slate-400">
-          データは週次バッチで更新されます
-        </span>
+        <span className="text-xs text-slate-400">データは週次バッチで更新されます</span>
+        <ForecastAccuracyRefreshButton />
       </div>
 
       <div className="space-y-6">
