@@ -1,13 +1,20 @@
 /**
- * WeeklyReviewCard — 週次レビュー表示
+ * WeeklyReviewCard — 直近7日サマリー表示
  *
  * Server Component (状態・イベントなし)
  * props は page.tsx で計算済みの WeeklyReviewData を受け取る。
  *
+ * 【役割】
+ *   - 「今日を含む直近7暦日」のローリング集計サマリー
+ *   - 固定暦週（月〜日など）ではなく、常に今日起点で動く
+ *   - ダッシュボードでは「今どうか」「次に何を見るか」に絞る
+ *   - 詳細な栄養・TDEEバランスは各専用ページへ委譲する
+ *   - 将来の固定週レビュー（確定週レビュー）は別コンポーネントで導入する想定
+ *
  * レイアウト:
  *   ヘッダー: タイトル / 期間 / 停滞バッジ
- *   本体 2列: 左=数値統計、右=所見箇条書き
- *   フッター: データ品質スコア / 注記
+ *   本体 2列: 左=数値統計（体重・カロリー・バランス差のみ）、右=所見箇条書き
+ *   フッター: データ品質スコア / ローリング集計の注記
  */
 
 import {
@@ -172,8 +179,8 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
       <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3">
         <div className="flex items-center gap-2">
           <ClipboardList size={15} className="text-slate-500" />
-          <span className="text-sm font-bold text-slate-700">週次レビュー</span>
-          <span className="hidden text-xs text-slate-400 sm:inline">{data.weekLabel}</span>
+          <span className="text-sm font-bold text-slate-700">直近7日サマリー</span>
+          <span className="text-xs text-slate-400">{data.weekLabel}</span>
         </div>
         <div className="flex items-center gap-2">
           <span
@@ -203,7 +210,6 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
             </SectionLabel>
             <div className="space-y-0.5">
               <StatRow label="今週平均" value={fmt1(weight.avg)} unit="kg" />
-              <StatRow label="前週平均" value={fmt1(weight.prevAvg)} unit="kg" />
               <StatRow
                 label="前週比"
                 value={`${fmtSigned1(weight.change)} kg`}
@@ -225,7 +231,7 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
             </div>
           </div>
 
-          {/* 栄養 */}
+          {/* 栄養 (カロリー・タンパク質のみ。詳細は栄養ページ) */}
           <div>
             <SectionLabel icon={<Flame size={12} className="text-orange-400" />}>
               栄養 ({data.nutrition.daysLogged} 日分)
@@ -233,10 +239,9 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
             <div className="space-y-0.5">
               <StatRow label="カロリー" value={fmt0(nutrition.avgCalories)} unit="kcal" />
               <StatRow
-                label="タンパク質"
-                value={fmt0(nutrition.avgProtein)}
-                unit="g"
-                sub={nutrition.proteinRatioPct !== null ? `(${nutrition.proteinRatioPct.toFixed(0)}%)` : undefined}
+                label="タンパク質比"
+                value={nutrition.proteinRatioPct !== null ? `${nutrition.proteinRatioPct.toFixed(0)}%` : "—"}
+                sub={nutrition.avgProtein !== null ? `(${fmt0(nutrition.avgProtein)}g)` : undefined}
                 valueColor={
                   nutrition.proteinRatioPct !== null
                     ? nutrition.proteinRatioPct >= 25
@@ -245,21 +250,18 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
                     : undefined
                 }
               />
-              <StatRow label="脂質" value={fmt0(nutrition.avgFat)} unit="g" />
-              <StatRow label="炭水化物" value={fmt0(nutrition.avgCarbs)} unit="g" />
             </div>
+            <p className="mt-1 text-[10px] text-slate-400">PFC 詳細は栄養ページで確認できます</p>
           </div>
 
-          {/* TDEE バランス */}
+          {/* エネルギーバランス (差のみ。詳細は TDEE ページ) */}
           <div>
             <SectionLabel icon={<Beef size={12} className="text-violet-400" />}>
               エネルギーバランス
             </SectionLabel>
             <div className="space-y-0.5">
-              <StatRow label="摂取" value={fmt0(nutrition.avgCalories)} unit="kcal" />
-              <StatRow label="推定 TDEE" value={fmt0(tdee.avgEstimated)} unit="kcal" />
               <StatRow
-                label="差 (摂取 − TDEE)"
+                label="摂取 − 推定TDEE"
                 value={`${fmtSignedKcal(tdee.balancePerDay)} kcal/日`}
                 valueColor={balanceColor}
               />
@@ -272,6 +274,7 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
                 />
               </div>
             )}
+            <p className="mt-1 text-[10px] text-slate-400">摂取・TDEE の詳細は TDEE ページで確認できます</p>
           </div>
 
           {/* 特殊日サマリー */}
@@ -335,7 +338,7 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
 
       {/* ── フッター ── */}
       <div className="flex items-center justify-between border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400">
-        <span>体重は直近7暦日の移動平均 / トレンドは直近14暦日の線形回帰 / 栄養は直近7暦日の記録平均 / あくまで推定値です</span>
+        <span>ローリング集計（今日を含む直近7暦日）/ トレンドは直近14暦日の線形回帰 / あくまで推定値</span>
         <span className={`font-semibold ${qualityScoreColor(quality.score)}`}>
           品質 {quality.score}/100
         </span>
