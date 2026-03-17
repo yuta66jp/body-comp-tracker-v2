@@ -32,6 +32,8 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
   const [addAmount, setAddAmount] = useState("100");
   const [addCategory, setAddCategory] = useState("すべて");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const foodMap = useMemo(() => new Map(foods.map((f) => [f.name, f])), [foods]);
@@ -51,11 +53,13 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
   function startNew() {
     setEditing({ originalName: null, name: "", items: [] });
     setSaveError(null);
+    setSaveSuccess(false);
   }
 
   function startEdit(menu: MenuEntry) {
     setEditing({ originalName: menu.name, name: menu.name, items: [...menu.recipe] });
     setSaveError(null);
+    setSaveSuccess(false);
   }
 
   function addItemToEditing() {
@@ -87,6 +91,9 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
     if (!editing.name.trim()) return setSaveError("セット名は必須です");
     if (editing.items.length === 0) return setSaveError("1品以上追加してください");
 
+    setIsSaving(true);
+    setSaveError(null);
+
     const supabase = createClient();
     const nextName = editing.name.trim();
     const payload = { name: nextName, recipe: editing.items };
@@ -100,6 +107,8 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
         .update(payload as never)
         .eq("name", editing.originalName as never));
     }
+
+    setIsSaving(false);
     if (error) return setSaveError(error.message);
 
     setMenus((prev) => {
@@ -108,8 +117,13 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
         a.name.localeCompare(b.name)
       );
     });
-    setEditing(null);
-    setSaveError(null);
+    setSaveSuccess(true);
+    // 成功メッセージを表示してから閉じる
+    setTimeout(() => {
+      setEditing(null);
+      setSaveError(null);
+      setSaveSuccess(false);
+    }, 1200);
   }
 
   function handleDelete(name: string) {
@@ -198,25 +212,35 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
             </button>
           </div>
 
-          {/* レシピ一覧 */}
+          {/* レシピ一覧（カロリー降順で表示）*/}
           {editing.items.length > 0 && (
             <ul className="rounded-lg border border-gray-100 bg-white divide-y divide-gray-50">
-              {editing.items.map((ri, idx) => {
-                const food = foodMap.get(ri.name);
-                const kcal = food ? Math.round((food.calories * ri.amount) / 100) : 0;
-                return (
-                  <li key={idx} className="flex items-center justify-between px-3 py-2 text-sm">
-                    <span className="text-gray-800">{ri.name}</span>
-                    <div className="flex items-center gap-3 text-xs text-gray-400">
-                      <span>{ri.amount}g</span>
-                      <span className="text-gray-600 font-medium">{kcal} kcal</span>
-                      <button onClick={() => removeItemFromEditing(idx)} className="text-gray-300 hover:text-rose-500">
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
+              {[...editing.items]
+                .sort((a, b) => {
+                  const fa = foodMap.get(a.name);
+                  const fb = foodMap.get(b.name);
+                  const ka = fa ? Math.round((fa.calories * a.amount) / 100) : 0;
+                  const kb = fb ? Math.round((fb.calories * b.amount) / 100) : 0;
+                  return kb - ka;
+                })
+                .map((ri) => {
+                  const food = foodMap.get(ri.name);
+                  const kcal = food ? Math.round((food.calories * ri.amount) / 100) : 0;
+                  // 削除は元の items 配列のインデックスで行う
+                  const originalIdx = editing.items.findIndex((i) => i.name === ri.name);
+                  return (
+                    <li key={ri.name} className="flex items-center justify-between px-3 py-2 text-sm">
+                      <span className="text-gray-800">{ri.name}</span>
+                      <div className="flex items-center gap-3 text-xs text-gray-400">
+                        <span>{ri.amount}g</span>
+                        <span className="text-gray-600 font-medium">{kcal} kcal</span>
+                        <button onClick={() => removeItemFromEditing(originalIdx)} className="text-gray-300 hover:text-rose-500">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
               <li className="px-3 py-2 text-right text-xs font-semibold text-gray-700">
                 計 {calcRecipeKcal(editing.items, foodMap)} kcal
               </li>
@@ -225,13 +249,17 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
 
           {saveError && <p className="text-xs text-rose-500">{saveError}</p>}
 
-          <div className="flex justify-end">
+          <div className="flex items-center justify-end gap-3">
+            {saveSuccess && (
+              <p className="text-xs font-medium text-emerald-600">✓ セットを保存しました</p>
+            )}
             <button
               onClick={handleSave}
-              className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
+              disabled={isSaving || saveSuccess}
+              className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Save size={14} />
-              保存
+              {isSaving ? "保存中..." : "保存"}
             </button>
           </div>
         </div>
