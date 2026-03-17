@@ -46,6 +46,10 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<NewFood>(EMPTY_FOOD);
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  /** true のとき新規カテゴリ名をテキスト入力、false のとき既存から選択 */
+  const [newCategoryMode, setNewCategoryMode] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const categories = useMemo(() => {
@@ -79,6 +83,15 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
     }
   }
 
+  function closeForm() {
+    setShowForm(false);
+    setForm(EMPTY_FOOD);
+    setError(null);
+    setIsSaving(false);
+    setSaveSuccess(false);
+    setNewCategoryMode(false);
+  }
+
   async function handleAdd() {
     if (!form.name.trim()) return setError("食品名は必須です");
 
@@ -100,6 +113,9 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
       }
     }
 
+    setIsSaving(true);
+    setError(null);
+
     const payload: FoodMaster = {
       name: form.name.trim(),
       calories: parseFloat(form.calories),
@@ -110,11 +126,21 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
     };
     const supabase = createClient();
     const { error: err } = await supabase.from("food_master").insert(payload as never);
+
+    setIsSaving(false);
     if (err) return setError(err.message);
+
+    // 成功パス: リストを更新し、成功を表示してから1.2秒後に閉じる
     setFoods((prev) => [...prev, payload].sort((a, b) => a.name.localeCompare(b.name)));
-    setForm(EMPTY_FOOD);
-    setShowForm(false);
-    setError(null);
+    setSaveSuccess(true);
+    setTimeout(() => {
+      setShowForm(false);
+      setForm(EMPTY_FOOD);
+      setError(null);
+      setIsSaving(false);
+      setSaveSuccess(false);
+      setNewCategoryMode(false);
+    }, 1200);
   }
 
   function handleDelete(name: string) {
@@ -145,7 +171,9 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
           />
         </div>
         <button
-          onClick={() => { setShowForm((v) => !v); setError(null); }}
+          onClick={() => {
+            if (showForm) { closeForm(); } else { setShowForm(true); setError(null); }
+          }}
           className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
         >
           <Plus size={15} />
@@ -177,13 +205,14 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
         <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
           <p className="mb-3 text-sm font-semibold text-slate-700">新規食品を追加 (100g あたり)</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {(["name", "calories", "protein", "fat", "carbs", "category"] as const).map((field) => (
+            {/* 数値フィールド（食品名・栄養素） */}
+            {(["name", "calories", "protein", "fat", "carbs"] as const).map((field) => (
               <div key={field}>
                 <label className="mb-1 block text-xs font-medium text-slate-500">
-                  {{ name: "食品名", calories: "kcal", protein: "P (g)", fat: "F (g)", carbs: "C (g)", category: "カテゴリ" }[field]}
+                  {{ name: "食品名", calories: "kcal", protein: "P (g)", fat: "F (g)", carbs: "C (g)" }[field]}
                 </label>
                 <input
-                  type={field === "name" || field === "category" ? "text" : "number"}
+                  type={field === "name" ? "text" : "number"}
                   step="0.1"
                   min="0"
                   value={form[field]}
@@ -192,20 +221,68 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
                 />
               </div>
             ))}
+
+            {/* カテゴリ（既存から選択 or 新規入力） */}
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-500">カテゴリ</label>
+              {!newCategoryMode ? (
+                <select
+                  value={form.category}
+                  onChange={(e) => {
+                    if (e.target.value === "__NEW__") {
+                      setNewCategoryMode(true);
+                      setForm((prev) => ({ ...prev, category: "" }));
+                    } else {
+                      setForm((prev) => ({ ...prev, category: e.target.value }));
+                    }
+                  }}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-blue-400"
+                >
+                  <option value="">なし</option>
+                  {categories.filter((c) => c !== "すべて").map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                  <option value="__NEW__">＋ 新規カテゴリ...</option>
+                </select>
+              ) : (
+                <div className="flex gap-1">
+                  <input
+                    type="text"
+                    placeholder="新しいカテゴリ名"
+                    value={form.category}
+                    autoFocus
+                    onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
+                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-blue-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setNewCategoryMode(false); setForm((prev) => ({ ...prev, category: "" })); }}
+                    className="shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-500 hover:bg-slate-50"
+                    title="既存から選択に戻る"
+                  >
+                    戻る
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           {error && <p className="mt-2 text-xs text-rose-500">{error}</p>}
-          <div className="mt-3 flex justify-end gap-2">
+          <div className="mt-3 flex items-center justify-end gap-2">
+            {saveSuccess && (
+              <p className="text-xs font-medium text-emerald-600">✓ 保存しました</p>
+            )}
             <button
-              onClick={() => { setShowForm(false); setForm(EMPTY_FOOD); setError(null); }}
+              onClick={closeForm}
               className="rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-sm hover:bg-slate-50"
             >
               キャンセル
             </button>
             <button
               onClick={handleAdd}
-              className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"
+              disabled={isSaving || saveSuccess}
+              className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              保存
+              {isSaving ? "保存中..." : "保存"}
             </button>
           </div>
         </div>
