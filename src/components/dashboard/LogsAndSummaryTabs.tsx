@@ -3,15 +3,21 @@
 import { useState } from "react";
 import { RecentLogsTable } from "./RecentLogsTable";
 import { MonthlyCalendar } from "./MonthlyCalendar";
+import { MonthlyGoalTable } from "./MonthlyGoalTable";
 import { SeasonSummary } from "@/components/history/SeasonSummary";
 import type { DailyLog } from "@/lib/supabase/types";
 import type { MonthStats } from "@/components/history/SeasonSummary";
+import type { MonthlyGoalSummaryRow } from "@/lib/utils/monthlyGoalVisualization";
 
 interface LogsAndSummaryTabsProps {
   logs: DailyLog[];
   monthStats: MonthStats[];
   seasonMap?: Map<string, string>;
   currentSeason?: string | null;
+  /** 月次計画 vs 実績の比較行 (buildMonthlyGoalSummaryRows の結果) */
+  monthlyGoalSummaryRows?: MonthlyGoalSummaryRow[];
+  /** "Cut" | "Bulk" — MonthlyGoalTable の差分色分けに使用 */
+  phase?: string;
 }
 
 type Tab = "logs" | "calendar" | "monthly";
@@ -22,7 +28,7 @@ const TAB_LABELS: Record<Tab, string> = {
   monthly:  "月別サマリー",
 };
 
-export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason }: LogsAndSummaryTabsProps) {
+export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason, monthlyGoalSummaryRows, phase }: LogsAndSummaryTabsProps) {
   const [tab, setTab] = useState<Tab>("logs");
 
   return (
@@ -51,9 +57,17 @@ export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason 
           <MonthlyCalendar logs={logs} />
         )}
         {tab === "monthly" && (
-          monthStats.length > 0
-            ? <SeasonSummary stats={monthStats} />
-            : <p className="py-6 text-center text-sm text-slate-400">データがありません</p>
+          <>
+            {monthlyGoalSummaryRows && monthlyGoalSummaryRows.length > 0 && (
+              <MonthlyGoalTable rows={monthlyGoalSummaryRows} phase={phase ?? "Cut"} />
+            )}
+            {monthStats.length > 0
+              ? <SeasonSummary stats={monthStats} />
+              : !monthlyGoalSummaryRows?.length && (
+                  <p className="py-6 text-center text-sm text-slate-400">データがありません</p>
+                )
+            }
+          </>
         )}
       </div>
     </div>

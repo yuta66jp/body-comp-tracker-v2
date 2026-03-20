@@ -15,6 +15,8 @@ import {
 import type { TooltipValueType } from "recharts";
 import type { DailyLog, Prediction } from "@/lib/supabase/types";
 import { toJstDateStr, addDaysStr, dateRangeStr } from "@/lib/utils/date";
+import type { MonthlyGoalEntry } from "@/lib/utils/monthlyGoalPlan";
+import { buildMonthlyGoalDateMap } from "@/lib/utils/monthlyGoalVisualization";
 
 interface ForecastChartProps {
   logs: DailyLog[];
@@ -23,6 +25,8 @@ interface ForecastChartProps {
   goalWeight?: number;
   monthlyTarget?: number;
   contestDate?: string;
+  /** #101 の plan entries。渡すと月次目標ステップラインを描画し monthlyTarget は非表示になる */
+  monthlyGoalEntries?: MonthlyGoalEntry[];
 }
 
 interface ChartPoint {
@@ -30,6 +34,7 @@ interface ChartPoint {
   actual?: number;
   forecast?: number;
   sma7?: number;
+  monthlyGoalTarget?: number;
 }
 
 type RangeTab = "default" | "7d" | "31d";
@@ -47,6 +52,7 @@ export function ForecastChart({
   goalWeight,
   monthlyTarget,
   contestDate,
+  monthlyGoalEntries,
 }: ForecastChartProps) {
   const [rangeTab, setRangeTab] = useState<RangeTab>("default");
 
@@ -87,11 +93,18 @@ export function ForecastChart({
 
   const allDates = dateRangeStr(viewStartStr, viewEndStr);
 
+  // 月次目標ステップ系列 (plan entries がある場合のみ)
+  const monthlyGoalDateMap =
+    monthlyGoalEntries && monthlyGoalEntries.length > 0
+      ? buildMonthlyGoalDateMap(monthlyGoalEntries, allDates)
+      : new Map<string, number>();
+
   const data: ChartPoint[] = allDates.map((date) => ({
     date,
     actual: actualMap.get(date),
     sma7: sma7Map.get(date),
     forecast: rangeTab === "default" ? forecastMap.get(date) : undefined,
+    monthlyGoalTarget: monthlyGoalDateMap.get(date),
   }));
 
   // Y 軸範囲
@@ -101,11 +114,15 @@ export function ForecastChart({
   const visibleForecast = rangeTab === "default"
     ? allDates.map((d) => forecastMap.get(d)).filter((v): v is number => v !== undefined)
     : [];
+  // 月次目標ステップの Y 軸範囲への反映 (plan がある場合)
+  const visibleMonthlyGoalTargets = [...monthlyGoalDateMap.values()];
   const rangeWeights = [
     ...visibleActual,
     ...visibleForecast,
+    ...visibleMonthlyGoalTargets,
     ...(goalWeight && rangeTab === "default" ? [goalWeight] : []),
-    ...(monthlyTarget && monthlyTarget > 0 ? [monthlyTarget] : []),
+    // plan entries がない場合のフォールバック: monthlyTarget 単値
+    ...(!monthlyGoalDateMap.size && monthlyTarget && monthlyTarget > 0 ? [monthlyTarget] : []),
   ];
 
   // タブごとのパディング（7日は±1.5kg、31日は±2.5kg、全体は広め）
@@ -168,9 +185,10 @@ export function ForecastChart({
           <Tooltip
             formatter={(value: TooltipValueType | undefined, name: number | string | undefined) => {
               const labels: Record<string, string> = {
-                actual: "実測",
-                sma7: "7日平均",
-                forecast: "AI予測",
+                actual:             "実測",
+                sma7:               "7日平均",
+                forecast:           "AI予測",
+                monthlyGoalTarget:  "月次目標",
               };
               const nameStr = String(name ?? "");
               return [
@@ -183,9 +201,10 @@ export function ForecastChart({
           <Legend
             formatter={(value: string) => {
               const labels: Record<string, string> = {
-                actual: "実測",
-                sma7: "7日平均",
-                forecast: "AI予測 (NeuralProphet)",
+                actual:             "実測",
+                sma7:               "7日平均",
+                forecast:           "AI予測 (NeuralProphet)",
+                monthlyGoalTarget:  "月次目標",
               };
               return labels[value] ?? value;
             }}
@@ -200,7 +219,8 @@ export function ForecastChart({
               label={{ value: "Goal", fontSize: 10, fill: "#ef4444" }}
             />
           )}
-          {monthlyTarget && monthlyTarget > 0 && (
+          {/* monthlyTarget 参照線: plan entries がない場合のフォールバック */}
+          {!monthlyGoalDateMap.size && monthlyTarget && monthlyTarget > 0 && (
             <ReferenceLine
               y={monthlyTarget}
               stroke="#f97316"
@@ -250,6 +270,21 @@ export function ForecastChart({
               strokeWidth={3}
               dot={false}
               connectNulls
+            />
+          )}
+          {/* 月次目標ステップライン (plan entries がある場合のみ)
+              type="stepAfter": 現在点の値を次点の x まで保持し、月境界で垂直に段差が生じる。
+              月内フラット・月ごとに変わるステップ表現を実現する。 */}
+          {monthlyGoalDateMap.size > 0 && (
+            <Line
+              type="stepAfter"
+              dataKey="monthlyGoalTarget"
+              stroke="#8b5cf6"
+              strokeWidth={1.5}
+              strokeDasharray="5 3"
+              dot={false}
+              connectNulls={false}
+              legendType="line"
             />
           )}
         </ComposedChart>
