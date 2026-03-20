@@ -11,7 +11,6 @@
 /** value_num に保存する数値系キー */
 export const NUMERIC_SETTING_KEYS = [
   "goal_weight",
-  "monthly_target",
   "activity_factor",
   "height_cm",
   "age",
@@ -47,7 +46,6 @@ export type SettingKey = NumericSettingKey | StringSettingKey;
 export interface SettingsInput {
   // 数値系 (文字列として渡し、schema 側で number に変換する)
   goal_weight?: string | null;
-  monthly_target?: string | null;
   activity_factor?: string | null;
   height_cm?: string | null;
   age?: string | null;
@@ -95,7 +93,6 @@ interface NumericRule {
 
 const NUMERIC_RULES: Record<NumericSettingKey, NumericRule> = {
   goal_weight:          { min: 20,  max: 200,  label: "目標体重" },
-  monthly_target:       { min: 20,  max: 200,  label: "月次目標体重" },
   activity_factor:      { min: 1.2, max: 2.5,  label: "活動係数" },
   height_cm:            { min: 100, max: 250,  label: "身長" },
   age:                  { min: 1,   max: 120,  label: "年齢" },

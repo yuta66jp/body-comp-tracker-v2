@@ -26,8 +26,6 @@ export interface AppSettings {
   // 数値系 (value_num)
   /** 目標体重 (kg) */
   targetWeight: number | null;
-  /** 月次目標体重 (kg) */
-  monthlyTarget: number | null;
   /** 目標カロリー (kcal/day) — settingsSchema: target_calories_kcal */
   goalCalories: number | null;
   /** 目標タンパク質 (g/day) */
@@ -89,7 +87,6 @@ export function mapToAppSettings(rows: SettingsRow[]): AppSettings {
 
     // 数値系 — value_num を参照
     targetWeight:   getNum("goal_weight"),
-    monthlyTarget:  getNum("monthly_target"),
     goalCalories:   getNum("target_calories_kcal"),
     proteinTarget:  getNum("target_protein_g"),
     fatTarget:      getNum("target_fat_g"),

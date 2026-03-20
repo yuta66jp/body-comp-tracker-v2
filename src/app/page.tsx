@@ -113,7 +113,6 @@ export default async function DashboardPage() {
     .at(-1)?.tdee_estimated ?? null;
 
   const goalWeight = settings.targetWeight ?? undefined;
-  const monthlyTarget = settings.monthlyTarget ?? undefined;
   const contestDate = settings.contestDate ?? undefined;
   const currentSeason = settings.currentSeason;
 
@@ -225,7 +224,6 @@ export default async function DashboardPage() {
               predictions={predictions}
               sma7={sma7}
               goalWeight={goalWeight}
-              monthlyTarget={monthlyTarget}
               contestDate={contestDate}
               monthlyGoalEntries={
                 monthlyGoalPlan?.isValid && monthlyGoalPlan.entries.length > 0

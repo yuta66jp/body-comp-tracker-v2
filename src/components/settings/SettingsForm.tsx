@@ -29,7 +29,6 @@ const FIELDS: Record<string, FieldMeta> = {
   current_phase:     { label: "現在のフェーズ", type: "select", options: ["Cut", "Bulk"] },
   sex:               { label: "性別", type: "select", options: ["male", "female"], optionLabels: ["男性", "女性"] },
   goal_weight:       { label: "目標体重", unit: "kg", type: "number", placeholder: "58.5" },
-  monthly_target:    { label: "月次目標体重", unit: "kg", type: "number", placeholder: "62.0" },
   contest_date:      { label: "コンテスト日", type: "date" },
   activity_factor:   { label: "活動係数", unit: "1.2〜1.9", type: "number", placeholder: "1.55" },
   height_cm:         { label: "身長", unit: "cm", type: "number", placeholder: "170" },
@@ -116,7 +115,6 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
 
     const result = await saveSettings({
       goal_weight:             values["goal_weight"] ?? "",
-      monthly_target:          values["monthly_target"] ?? "",
       activity_factor:         values["activity_factor"] ?? "",
       height_cm:               values["height_cm"] ?? "",
       age:                     values["age"] ?? "",

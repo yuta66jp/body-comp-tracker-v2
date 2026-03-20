@@ -23,7 +23,6 @@ interface ForecastChartProps {
   predictions: Prediction[];
   sma7: Array<{ date: string; value: number }>;
   goalWeight?: number;
-  monthlyTarget?: number;
   contestDate?: string;
   /** #101 の plan entries。渡すと月次目標ステップラインを描画し monthlyTarget は非表示になる */
   monthlyGoalEntries?: MonthlyGoalEntry[];
@@ -50,7 +49,6 @@ export function ForecastChart({
   predictions,
   sma7,
   goalWeight,
-  monthlyTarget,
   contestDate,
   monthlyGoalEntries,
 }: ForecastChartProps) {
@@ -121,8 +119,6 @@ export function ForecastChart({
     ...visibleForecast,
     ...visibleMonthlyGoalTargets,
     ...(goalWeight && rangeTab === "default" ? [goalWeight] : []),
-    // plan entries がない場合のフォールバック: monthlyTarget 単値
-    ...(!monthlyGoalDateMap.size && monthlyTarget && monthlyTarget > 0 ? [monthlyTarget] : []),
   ];
 
   // タブごとのパディング（7日は±1.5kg、31日は±2.5kg、全体は広め）
@@ -217,15 +213,6 @@ export function ForecastChart({
               stroke="#ef4444"
               strokeDasharray="4 2"
               label={{ value: "Goal", fontSize: 10, fill: "#ef4444" }}
-            />
-          )}
-          {/* monthlyTarget 参照線: plan entries がない場合のフォールバック */}
-          {!monthlyGoalDateMap.size && monthlyTarget && monthlyTarget > 0 && (
-            <ReferenceLine
-              y={monthlyTarget}
-              stroke="#f97316"
-              strokeDasharray="6 3"
-              label={{ value: "Monthly", fontSize: 10, fill: "#f97316" }}
             />
           )}
           <ReferenceLine

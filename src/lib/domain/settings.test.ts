@@ -9,7 +9,6 @@ const fullRows = [
   { key: "current_phase",       value_num: null,   value_str: "Cut" },
   { key: "sex",                 value_num: null,   value_str: "male" },
   { key: "goal_weight",         value_num: 70.5,   value_str: null },
-  { key: "monthly_target",      value_num: 72.0,   value_str: null },
   { key: "target_calories_kcal",value_num: 2200,   value_str: null },
   { key: "target_protein_g",    value_num: 160,    value_str: null },
   { key: "target_fat_g",        value_num: 60,     value_str: null },
@@ -34,7 +33,6 @@ describe("mapToAppSettings — 正常系", () => {
     expect(result.currentPhase).toBe("Cut");
     expect(result.gender).toBe("male");
     expect(result.targetWeight).toBe(70.5);
-    expect(result.monthlyTarget).toBe(72.0);
     expect(result.goalCalories).toBe(2200);
     expect(result.proteinTarget).toBe(160);
     expect(result.fatTarget).toBe(60);
@@ -74,7 +72,6 @@ describe("mapToAppSettings — 欠損系", () => {
     expect(result.currentSeason).toBeNull();
     expect(result.currentPhase).toBeNull();
     expect(result.gender).toBeNull();
-    expect(result.monthlyTarget).toBeNull();
     expect(result.goalCalories).toBeNull();
     expect(result.proteinTarget).toBeNull();
     expect(result.fatTarget).toBeNull();
