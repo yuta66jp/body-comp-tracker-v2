@@ -10,6 +10,8 @@ import { calcReadiness } from "@/lib/utils/calcReadiness";
 import { calcWeeklyReview } from "@/lib/utils/calcWeeklyReview";
 import { calcMonthlyGoalProgress } from "@/lib/utils/calcMonthlyGoalProgress";
 import { toJstDateStr } from "@/lib/utils/date";
+import { buildMonthlyGoalPlan } from "@/lib/utils/monthlyGoalPlan";
+import { buildMonthlyGoalSummaryRows } from "@/lib/utils/monthlyGoalVisualization";
 import { fetchDailyLogs, fetchPredictions, fetchCareerLogsForDashboard } from "@/lib/queries/dailyLogs";
 import { fetchSettings } from "@/lib/queries/settings";
 import { fetchEnrichedLogs } from "@/lib/queries/analytics";
@@ -146,6 +148,8 @@ export default async function DashboardPage() {
     phase,
   });
 
+  const today = toJstDateStr();
+
   // 今月目標に対する進捗。GoalNavigator の refWeight と同一の比較値を使う。
   const comparisonWeight = readinessMetrics.weight_7d_avg ?? readinessMetrics.current_weight;
   const monthlyGoalProgress = calcMonthlyGoalProgress({
@@ -153,9 +157,28 @@ export default async function DashboardPage() {
     targetWeight: goalWeight ?? null,
     monthlyPlanOverrides: settings.monthlyPlanOverrides,
     comparisonWeight,
-    today: toJstDateStr(),
+    today,
     phase,
   });
+
+  // 月次計画 (#101) を構築して可視化用データを生成する。
+  // comparisonWeight が null (体重記録なし) の場合はプランを構築しない。
+  const monthlyGoalPlan =
+    contestDate && goalWeight !== undefined && comparisonWeight !== null
+      ? buildMonthlyGoalPlan({
+          currentWeight: comparisonWeight,
+          today,
+          finalGoalWeight: goalWeight,
+          goalDeadlineDate: contestDate,
+          monthlyActuals: [],
+          overrides: settings.monthlyPlanOverrides ?? [],
+        })
+      : null;
+
+  const monthlyGoalSummaryRows =
+    monthlyGoalPlan?.isValid && monthlyGoalPlan.entries.length > 0
+      ? buildMonthlyGoalSummaryRows(monthlyGoalPlan, logs, today)
+      : [];
 
   return (
     <DashboardLayout>
@@ -204,9 +227,21 @@ export default async function DashboardPage() {
               goalWeight={goalWeight}
               monthlyTarget={monthlyTarget}
               contestDate={contestDate}
+              monthlyGoalEntries={
+                monthlyGoalPlan?.isValid && monthlyGoalPlan.entries.length > 0
+                  ? monthlyGoalPlan.entries
+                  : undefined
+              }
             />
           )}
-          <LogsAndSummaryTabs logs={logs} monthStats={monthStats} seasonMap={seasonMap} currentSeason={currentSeason} />
+          <LogsAndSummaryTabs
+            logs={logs}
+            monthStats={monthStats}
+            seasonMap={seasonMap}
+            currentSeason={currentSeason}
+            monthlyGoalSummaryRows={monthlyGoalSummaryRows}
+            phase={phase}
+          />
         </>
       ) : (
         <p className="rounded-2xl border border-slate-100 bg-white p-8 text-center text-sm text-slate-400 shadow-sm">
