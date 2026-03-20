@@ -51,8 +51,15 @@ KPI カードの `kg/週` 表示と直近7日サマリーの「14日トレンド
 - **直近ログ**: 日次ログの一覧表示
 - **カレンダー**: 月間カレンダー形式で当月のログを俯瞰（後述）
 - **月別サマリー**: 月単位の集計サマリー＋月次計画 vs 実績比較表（`MonthlyGoalTable`）
-  - `buildMonthlyGoalPlan` の plan entries と daily_logs を結合し、月ごとに「月初体重 / 月末目標 / 実績月末 / 差分 / 翌月必要変化量」を一覧表示
+  - `buildMonthlyGoalPlan` の plan entries と daily_logs を結合し、月ごとに以下の列を表示
+    - 月初体重 / 月末目標 / 実績月末 / 差分 / 状態 / 累積ズレ / 翌月必要変化量
+  - **状態** (`progressState`): Cut/Bulk フェーズを考慮した月ごとの進捗判定（先行 / 計画内 / 遅れ / 未確定）
+    - Cut: diffKg < −0.2 kg → 先行、> +0.2 kg → 遅れ
+    - Bulk: diffKg > +0.2 kg → 先行、< −0.2 kg → 遅れ
+    - 当月 partial / 未来月 / データなしは「未確定（—）」
+  - **累積ズレ** (`cumulativeGapKg`): 過去完全実績月の diffKg の累積合計。データ欠損月はスキップ（累積はリセットしない）
   - 当月は直近実測値を表示（`*` 注記付き）、未来月は空欄
+  - モバイル表示: 月初体重・翌月必要変化量は sm 以上でのみ表示（`hidden sm:table-cell`）
 
 ### 月間カレンダー
 
@@ -148,7 +155,11 @@ ForecastChart（`src/components/charts/ForecastChart.tsx`）は 3 タブ（7日 
 - 保存は Server Action + shared schema（zod）で一元処理
 - 読み取りは typed domain model（AppSettings）に変換して利用
 - UI integration test（jsdom）で保存導線・fallback 導線を自動検証
-- **月次目標計画セクション（MonthlyGoalPlanSection）**: `buildMonthlyGoalPlan` を使い、大会日・目標体重から月末目標を自動配分してプレビュー表示。各月を手動 override すると以降の月が再配分される。override は `monthly_plan_overrides`（JSON 配列）として DB に保存
+- **月次目標計画セクション（MonthlyGoalPlanSection）**: `buildMonthlyGoalPlan` を使い、大会日・目標体重から月末目標を自動配分してプレビュー表示
+  - 各月を手動 override すると、その月の目標体重が固定され、残余 kg が後続月に線形再配分される
+  - override 済み月には「解除」ボタンを表示。解除すると override 配列から削除され `buildMonthlyGoalPlan` が再計算する
+  - override は upsert 方式で管理: 既存 override を上書きし、他月の override を消さない
+  - `monthly_plan_overrides`（JSON 配列）として DB の settings テーブルに保存
 
 ### fallback 表示
 

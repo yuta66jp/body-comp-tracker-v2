@@ -78,6 +78,9 @@ body-comp-tracker-v2/
 │   │       ├── calcMacro.ts        # Macro KPI 集計
 │   │       ├── featureLabels.ts    # AI 因子分析の特徴量表示ラベル・説明 (ACTIVE_FEATURE_NAMES など)
 │   │       ├── factorAnalysisUtils.ts # 因子分析結果の型定義・表示整形ユーティリティ
+│   │       ├── monthlyGoalPlan.ts  # buildMonthlyGoalPlan — 月次目標計画の canonical 計算ロジック
+│   │       ├── calcMonthlyGoalProgress.ts # calcMonthlyGoalProgress — 当月進捗ゲージ用計算
+│   │       ├── monthlyGoalVisualization.ts # 月次計画 vs 実績の表示用 adapter / selector
 │   │       └── ...                 # その他計算ヘルパー
 │   └── styles/
 │       └── globals.css             # Tailwind base
@@ -191,6 +194,22 @@ body-comp-tracker-v2/
   - コンポーネントは `AppSettings` を受け取る（raw DB rows を直接扱わない）
 - settings に変更を加える場合は schema / mapper / action / domain の整合を保つ
 
+### 月次計画 (monthlyGoalPlan)
+- `buildMonthlyGoalPlan` が月次目標計画の canonical 計算ロジック（`monthlyGoalPlan.ts`）
+  - 大会日 / 目標体重 / 手動 override 配列を受け取り、月ごとの `targetWeight` / `requiredDeltaKg` を算出
+  - anchor 月（手動 override）を基点に線形補間する。再配分ロジックを UI 側に書かない
+- **override は upsert 方式**で管理する（`MonthlyGoalPlanSection.tsx`）
+  - 手動確定: `upsertOverride(overrides, { month, targetWeight })` で該当月だけ差し替え、他月は保持
+  - 解除: override 配列から該当月エントリーを削除 → `buildMonthlyGoalPlan` が自動再計算
+  - `redistributeMonthlyGoals` は廃止済み。UI から plan 再計算ロジックを呼ばない
+- override は `monthly_plan_overrides`（JSON 配列, `value_str`）として settings テーブルに保存
+- `calcMonthlyGoalProgress` が GoalNavigator の当月進捗ゲージ用計算を担う（`calcMonthlyGoalProgress.ts`）
+- `monthlyGoalVisualization.ts` が表示用 adapter / selector 層
+  - `buildMonthlyGoalSummaryRows`: plan × logs → `MonthlyGoalSummaryRow[]`
+  - `buildMonthlyGoalComparisonRows`: `MonthlyGoalSummaryRow[]` + phase → `MonthlyGoalComparisonRow[]`（progressState / cumulativeGapKg を付与）
+  - `buildMonthlyGoalDateMap`: ForecastChart 向けに日付 → 月末目標体重をマップ
+  - UI 側でこれらの計算を再実装しない
+
 ### 保存まわり (daily_logs)
 - `daily_logs` の部分更新安全性を維持する（未操作フィールドを上書きしない）
 - `undefined` / `null` / 明示値の意味を混同しない
@@ -220,6 +239,12 @@ body-comp-tracker-v2/
   - カレンダータブ: `MonthlyCalendar` コンポーネント（react-day-picker v9 ベース）
   - 体重・差分・カロリー・特殊日タグ・コンディションタグを月単位で俯瞰
   - 日曜始まり・土日祝セル色分け・祝日名表示・今日のリング表示
+  - 月別サマリータブ: `MonthlyGoalTable` + `SeasonSummary` で構成
+    - `MonthlyGoalTable`: `buildMonthlyGoalComparisonRows`（`monthlyGoalVisualization.ts`）の出力を受け取り表示
+      - 列: 月 / 月初体重 / 月末目標 / 実績月末 / 差分 / 状態 / 累積ズレ / 翌月必要（月初体重・翌月必要は `hidden sm:table-cell`）
+      - 状態バッジ: `progressState` (先行 / 計画内 / 遅れ / 未確定) を Cut/Bulk 考慮で表示
+      - 累積ズレ: 過去完全実績月の diffKg 累積。データ欠損月はスキップしリセットしない
+    - UI 側に計画ロジックを持たない。`page.tsx` が `buildMonthlyGoalComparisonRows` を呼んで props を渡す
 
 ### UI / 分析表示
 - Macro / TDEE は「記録確認」ではなく「調整判断」画面として扱う
