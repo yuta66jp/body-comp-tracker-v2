@@ -1,9 +1,9 @@
 "use client";
 
-import type { MonthlyGoalSummaryRow } from "@/lib/utils/monthlyGoalVisualization";
+import type { MonthlyGoalComparisonRow, MonthlyPlanProgressState } from "@/lib/utils/monthlyGoalVisualization";
 
 interface MonthlyGoalTableProps {
-  rows: MonthlyGoalSummaryRow[];
+  rows: MonthlyGoalComparisonRow[];
   /** "Cut" | "Bulk" — 差分の色付け方向を決定する */
   phase: string;
 }
@@ -17,6 +17,33 @@ function diffColor(diffKg: number | null, isCut: boolean): string {
   if (Math.abs(diffKg) < 0.05) return "text-slate-500";
   const isBehind = isCut ? diffKg > 0 : diffKg < 0;
   return isBehind ? "text-rose-500" : "text-emerald-600";
+}
+
+/** progressState のバッジ表示 */
+function ProgressBadge({ state }: { state: MonthlyPlanProgressState }) {
+  if (state === "pending") {
+    return <span className="text-slate-300">—</span>;
+  }
+  if (state === "on_track") {
+    return (
+      <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500">
+        計画内
+      </span>
+    );
+  }
+  if (state === "ahead") {
+    return (
+      <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-600">
+        先行
+      </span>
+    );
+  }
+  // "behind"
+  return (
+    <span className="rounded-full bg-rose-50 px-1.5 py-0.5 text-[9px] font-semibold text-rose-500">
+      遅れ
+    </span>
+  );
 }
 
 export function MonthlyGoalTable({ rows, phase }: MonthlyGoalTableProps) {
@@ -35,11 +62,15 @@ export function MonthlyGoalTable({ rows, phase }: MonthlyGoalTableProps) {
           <thead>
             <tr className="border-b border-slate-100 text-left">
               <th className="pb-2 pr-3 text-xs font-semibold uppercase tracking-wide text-slate-400">月</th>
-              <th className="pb-2 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">月初体重</th>
+              {/* 月初体重: sm 以上のみ表示 */}
+              <th className="hidden sm:table-cell pb-2 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">月初体重</th>
               <th className="pb-2 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">月末目標</th>
               <th className="pb-2 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">実績月末</th>
               <th className="pb-2 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">差分</th>
-              <th className="pb-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">翌月必要</th>
+              <th className="pb-2 pr-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">状態</th>
+              <th className="pb-2 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">累積ズレ</th>
+              {/* 翌月必要: sm 以上のみ表示 */}
+              <th className="hidden sm:table-cell pb-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">翌月必要</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
@@ -58,8 +89,8 @@ export function MonthlyGoalTable({ rows, phase }: MonthlyGoalTableProps) {
                       </span>
                     )}
                   </td>
-                  {/* 月初体重 */}
-                  <td className="py-2 pr-3 text-right text-xs text-slate-500">
+                  {/* 月初体重 (sm 以上) */}
+                  <td className="hidden sm:table-cell py-2 pr-3 text-right text-xs text-slate-500">
                     {row.monthStartWeight !== null
                       ? `${row.monthStartWeight.toFixed(1)} kg`
                       : "—"}
@@ -89,8 +120,18 @@ export function MonthlyGoalTable({ rows, phase }: MonthlyGoalTableProps) {
                       ? `${row.diffKg > 0 ? "+" : ""}${row.diffKg.toFixed(2)}`
                       : "—"}
                   </td>
-                  {/* 翌月必要変化量 */}
-                  <td className="py-2 text-right text-xs tabular-nums text-slate-500">
+                  {/* 状態 */}
+                  <td className="py-2 pr-3 text-center text-xs">
+                    <ProgressBadge state={row.progressState} />
+                  </td>
+                  {/* 累積ズレ */}
+                  <td className={`py-2 pr-3 text-right text-xs tabular-nums ${diffColor(row.cumulativeGapKg, isCut)}`}>
+                    {row.cumulativeGapKg !== null
+                      ? `${row.cumulativeGapKg > 0 ? "+" : ""}${row.cumulativeGapKg.toFixed(2)}`
+                      : "—"}
+                  </td>
+                  {/* 翌月必要変化量 (sm 以上) */}
+                  <td className="hidden sm:table-cell py-2 text-right text-xs tabular-nums text-slate-500">
                     {row.nextRequiredDeltaKg !== null
                       ? `${row.nextRequiredDeltaKg > 0 ? "+" : ""}${row.nextRequiredDeltaKg.toFixed(1)} kg`
                       : "—"}

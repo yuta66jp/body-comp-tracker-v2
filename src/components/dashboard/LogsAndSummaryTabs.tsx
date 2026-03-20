@@ -7,15 +7,15 @@ import { MonthlyGoalTable } from "./MonthlyGoalTable";
 import { SeasonSummary } from "@/components/history/SeasonSummary";
 import type { DailyLog } from "@/lib/supabase/types";
 import type { MonthStats } from "@/components/history/SeasonSummary";
-import type { MonthlyGoalSummaryRow } from "@/lib/utils/monthlyGoalVisualization";
+import type { MonthlyGoalComparisonRow } from "@/lib/utils/monthlyGoalVisualization";
 
 interface LogsAndSummaryTabsProps {
   logs: DailyLog[];
   monthStats: MonthStats[];
   seasonMap?: Map<string, string>;
   currentSeason?: string | null;
-  /** 月次計画 vs 実績の比較行 (buildMonthlyGoalSummaryRows の結果) */
-  monthlyGoalSummaryRows?: MonthlyGoalSummaryRow[];
+  /** 月次計画 vs 実績の比較行 (buildMonthlyGoalComparisonRows の結果) */
+  monthlyGoalSummaryRows?: MonthlyGoalComparisonRow[];
   /** "Cut" | "Bulk" — MonthlyGoalTable の差分色分けに使用 */
   phase?: string;
 }
