@@ -131,6 +131,36 @@ body-comp-tracker-v2/
 - `predictions` — id, ds(DATE), yhat(FLOAT), model_version(TEXT), created_at
 - `analytics_cache` — metric_type(PK), payload(JSONB), updated_at
 
+## Supabase クライアント / 権限設計
+
+### 前提: 認証なし・個人運用
+- このアプリは Supabase Auth（ユーザー認証）を **導入していない**
+- **anon key のみ**を使用する（service_role key はフロントエンド・Server Components・Server Actions いずれにも渡さない）
+- 権限制御の唯一の層は **RLS ポリシー**（`supabase/migrations/` で定義）
+- 非公開 URL + anon key の組み合わせが現在の運用上の保護手段
+
+### クライアント生成の使い分け
+
+| ファイル | 使用箇所 | 備考 |
+|---|---|---|
+| `src/lib/supabase/client.ts` | Browser client / SWR hooks / Client Components | anon key ベース、RLS 適用 |
+| `src/lib/supabase/server.ts` | Server Components / Server Actions / Route Handlers | anon key ベース、RLS 適用 |
+
+- Server Components で使うからといって service_role key を使わない
+- anon key で実現できない操作が必要になった場合は、RLS ポリシーを拡張するか、設計を見直す
+- `@supabase/ssr` はインストールしていない（シンプルさ優先）
+
+### RLS ポリシーの方針
+- 全テーブルに `ENABLE ROW LEVEL SECURITY` を適用する
+- anon ロールに対して必要最低限の操作（`SELECT` / `INSERT` / `UPDATE` / `DELETE`）を許可する
+- ポリシーはすべて `supabase/migrations/` で管理し、手動 Console 操作で追加しない
+
+### 将来のマルチユーザー化について
+- Auth 導入時は `auth.uid()` を使う RLS ポリシーへの差し替えが必要
+- `daily_logs` 等に `user_id` カラムを追加し、RLS で `user_id = auth.uid()` を条件にする
+- フロントのクライアント生成コードは `@supabase/ssr` の `createBrowserClient` / `createServerClient` への移行が推奨される
+- 詳細は `README.md`「アクセス制御の前提」を参照
+
 ## 実装原則
 
 ### 一般原則
