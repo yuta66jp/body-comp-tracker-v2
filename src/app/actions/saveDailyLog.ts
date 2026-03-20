@@ -96,15 +96,16 @@ export async function saveDailyLog(
   // undefined フィールドを除去したペイロードを構築
   const payload = buildUpdatePayload(input);
 
-  // 開発時のみ: 更新対象フィールド名を出力（生データは含まない）
-  if (process.env.NODE_ENV !== "production") {
-    console.log("[saveDailyLog]", input.log_date, "fields:", Object.keys(payload).join(", "));
-  }
-
   // 保存する値が何もない場合は弾く
   // (全フィールド undefined = プログラムバグまたは空送信)
   if (Object.keys(payload).length === 0) {
     return { ok: false, message: "保存するデータがありません" };
+  }
+
+  // 開発時のみ: 実際に保存処理へ進むケースだけログを出す（空 payload の早期 return 後）
+  // 生データは含まず、更新対象フィールド名のみ出力する
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[saveDailyLog]", input.log_date, "fields:", Object.keys(payload).join(", "));
   }
 
   // --- Supabase: RPC で atomic save ---
