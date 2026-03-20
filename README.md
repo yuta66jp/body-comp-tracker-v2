@@ -36,6 +36,7 @@ DB は `BOOLEAN DEFAULT NULL` に移行済み。
   - 体重進捗（現在 / 目標 / 残り kg）
   - ペース分析（必要ペース vs 実績ペース、単位: kg/2週）
   - 調整提案（推奨カロリー調整 + 理由の一行説明）
+  - 月次計画進捗: `buildMonthlyGoalPlan` が算出した当月末目標に対し、現在の 7 日平均体重がどの位置にあるかをゲージ＋差分で表示
 - **直近7日サマリー（WeeklyReview）**: 「今日を含む直近7暦日」のローリング集計。固定週ではなく常に今日起点で動く
   - 体重（14暦日トレンド含む）・カロリー・タンパク質比・エネルギーバランス差・停滞検知を表示
   - 栄養 PFC の詳細は Macro ページ、TDEE 詳細は TDEE ページに委譲。ダッシュボードでは要約に寄せている
@@ -49,7 +50,9 @@ KPI カードの `kg/週` 表示と直近7日サマリーの「14日トレンド
 
 - **直近ログ**: 日次ログの一覧表示
 - **カレンダー**: 月間カレンダー形式で当月のログを俯瞰（後述）
-- **月別サマリー**: 月単位の集計サマリー
+- **月別サマリー**: 月単位の集計サマリー＋月次計画 vs 実績比較表（`MonthlyGoalTable`）
+  - `buildMonthlyGoalPlan` の plan entries と daily_logs を結合し、月ごとに「月初体重 / 月末目標 / 実績月末 / 差分 / 翌月必要変化量」を一覧表示
+  - 当月は直近実測値を表示（`*` 注記付き）、未来月は空欄
 
 ### 月間カレンダー
 
@@ -145,6 +148,7 @@ ForecastChart（`src/components/charts/ForecastChart.tsx`）は 3 タブ（7日 
 - 保存は Server Action + shared schema（zod）で一元処理
 - 読み取りは typed domain model（AppSettings）に変換して利用
 - UI integration test（jsdom）で保存導線・fallback 導線を自動検証
+- **月次目標計画セクション（MonthlyGoalPlanSection）**: `buildMonthlyGoalPlan` を使い、大会日・目標体重から月末目標を自動配分してプレビュー表示。各月を手動 override すると以降の月が再配分される。override は `monthly_plan_overrides`（JSON 配列）として DB に保存
 
 ### fallback 表示
 
