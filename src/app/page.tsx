@@ -11,7 +11,7 @@ import { calcWeeklyReview } from "@/lib/utils/calcWeeklyReview";
 import { calcMonthlyGoalProgress } from "@/lib/utils/calcMonthlyGoalProgress";
 import { toJstDateStr } from "@/lib/utils/date";
 import { buildMonthlyGoalPlan } from "@/lib/utils/monthlyGoalPlan";
-import { buildMonthlyGoalSummaryRows } from "@/lib/utils/monthlyGoalVisualization";
+import { buildMonthlyGoalSummaryRows, buildMonthlyGoalComparisonRows } from "@/lib/utils/monthlyGoalVisualization";
 import { fetchDailyLogs, fetchPredictions, fetchCareerLogsForDashboard } from "@/lib/queries/dailyLogs";
 import { fetchSettings } from "@/lib/queries/settings";
 import { fetchEnrichedLogs } from "@/lib/queries/analytics";
@@ -176,7 +176,10 @@ export default async function DashboardPage() {
 
   const monthlyGoalSummaryRows =
     monthlyGoalPlan?.isValid && monthlyGoalPlan.entries.length > 0
-      ? buildMonthlyGoalSummaryRows(monthlyGoalPlan, logs, today)
+      ? buildMonthlyGoalComparisonRows(
+          buildMonthlyGoalSummaryRows(monthlyGoalPlan, logs, today),
+          phase
+        )
       : [];
 
   return (

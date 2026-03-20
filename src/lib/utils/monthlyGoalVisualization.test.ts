@@ -9,6 +9,9 @@
 import {
   buildMonthlyGoalDateMap,
   buildMonthlyGoalSummaryRows,
+  classifyMonthlyPlanGap,
+  buildMonthlyGoalComparisonRows,
+  PLAN_GAP_THRESHOLD_KG,
 } from "./monthlyGoalVisualization";
 import type { MonthlyGoalSummaryRow } from "./monthlyGoalVisualization";
 import type { MonthlyGoalPlan } from "./monthlyGoalPlan";
@@ -399,5 +402,238 @@ describe("buildMonthlyGoalSummaryRows — buildMonthlyGoalPlan との統合", ()
     expect(plan.isValid).toBe(false);
     const rows = buildMonthlyGoalSummaryRows(plan, [], "2026-07-15");
     expect(rows).toHaveLength(0);
+  });
+});
+
+// ─── classifyMonthlyPlanGap ──────────────────────────────────────────────────
+
+describe("classifyMonthlyPlanGap", () => {
+  it("PLAN_GAP_THRESHOLD_KG が 0.2 kg", () => {
+    expect(PLAN_GAP_THRESHOLD_KG).toBe(0.2);
+  });
+
+  describe("pending ケース", () => {
+    it("diffKg = null → pending", () => {
+      expect(classifyMonthlyPlanGap(null, true, false, false)).toBe("pending");
+    });
+    it("isPartialActual = true → pending", () => {
+      expect(classifyMonthlyPlanGap(0.5, true, true, false)).toBe("pending");
+    });
+    it("isFutureMonth = true → pending", () => {
+      expect(classifyMonthlyPlanGap(0.5, true, false, true)).toBe("pending");
+    });
+  });
+
+  describe("on_track ケース (|diffKg| <= threshold)", () => {
+    it("diffKg = 0.0 → on_track", () => {
+      expect(classifyMonthlyPlanGap(0.0, true, false, false)).toBe("on_track");
+    });
+    it("diffKg = 0.2 → on_track (境界値)", () => {
+      expect(classifyMonthlyPlanGap(0.2, true, false, false)).toBe("on_track");
+    });
+    it("diffKg = -0.2 → on_track (境界値)", () => {
+      expect(classifyMonthlyPlanGap(-0.2, true, false, false)).toBe("on_track");
+    });
+  });
+
+  describe("Cut フェーズ", () => {
+    it("diffKg = -0.5 → ahead (目標より軽い)", () => {
+      expect(classifyMonthlyPlanGap(-0.5, true, false, false)).toBe("ahead");
+    });
+    it("diffKg = 0.5 → behind (目標より重い)", () => {
+      expect(classifyMonthlyPlanGap(0.5, true, false, false)).toBe("behind");
+    });
+    it("diffKg = 0.21 → behind (閾値超え)", () => {
+      expect(classifyMonthlyPlanGap(0.21, true, false, false)).toBe("behind");
+    });
+  });
+
+  describe("Bulk フェーズ", () => {
+    it("diffKg = 0.5 → ahead (目標より重い)", () => {
+      expect(classifyMonthlyPlanGap(0.5, false, false, false)).toBe("ahead");
+    });
+    it("diffKg = -0.5 → behind (目標より軽い)", () => {
+      expect(classifyMonthlyPlanGap(-0.5, false, false, false)).toBe("behind");
+    });
+  });
+});
+
+// ─── buildMonthlyGoalComparisonRows ─────────────────────────────────────────
+
+describe("buildMonthlyGoalComparisonRows — 基本動作", () => {
+  it("空配列を渡すと空配列を返す", () => {
+    expect(buildMonthlyGoalComparisonRows([], "Cut")).toHaveLength(0);
+  });
+
+  it("元の MonthlyGoalSummaryRow フィールドが保持される", () => {
+    const plan = makePlan([entry("2026-07", 73.8), entry("2026-08", 72.5)]);
+    const summaryRows = buildMonthlyGoalSummaryRows(plan, [], "2026-07-15");
+    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
+    expect(rows[0]!.month).toBe("2026-07");
+    expect(rows[0]!.monthEndTarget).toBeCloseTo(73.8);
+    expect(rows[1]!.month).toBe("2026-08");
+  });
+
+  it("progressState フィールドが追加される", () => {
+    const plan = makePlan([entry("2026-07", 73.8)]);
+    const summaryRows = buildMonthlyGoalSummaryRows(plan, [], "2026-07-15");
+    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
+    expect(rows[0]).toHaveProperty("progressState");
+  });
+
+  it("cumulativeGapKg フィールドが追加される", () => {
+    const plan = makePlan([entry("2026-07", 73.8)]);
+    const summaryRows = buildMonthlyGoalSummaryRows(plan, [], "2026-07-15");
+    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
+    expect(rows[0]).toHaveProperty("cumulativeGapKg");
+  });
+});
+
+describe("buildMonthlyGoalComparisonRows — progressState", () => {
+  it("当月 (partial) → progressState = pending", () => {
+    const plan = makePlan([entry("2026-07", 73.8)]);
+    const logs = [log("2026-07-15", 74.0)];
+    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-07-15");
+    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
+    expect(rows[0]!.progressState).toBe("pending");
+  });
+
+  it("未来月 → progressState = pending", () => {
+    const plan = makePlan([entry("2026-07", 73.8), entry("2026-08", 72.5)]);
+    const summaryRows = buildMonthlyGoalSummaryRows(plan, [], "2026-07-15");
+    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
+    expect(rows[1]!.progressState).toBe("pending"); // 2026-08 は未来月
+  });
+
+  it("Cut 過去月: 実績 < 目標 → ahead", () => {
+    // today = 2026-08-01 → 2026-07 は過去月
+    // diff = 73.0 - 73.8 = -0.8 (目標より軽い = Cut で先行)
+    const plan = makePlan([entry("2026-07", 73.8), entry("2026-08", 72.5)]);
+    const logs = [log("2026-07-31", 73.0)];
+    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-08-01");
+    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
+    expect(rows[0]!.progressState).toBe("ahead");
+  });
+
+  it("Cut 過去月: 実績 > 目標 → behind", () => {
+    // diff = 74.5 - 73.8 = 0.7 (目標より重い = Cut で遅れ)
+    const plan = makePlan([entry("2026-07", 73.8), entry("2026-08", 72.5)]);
+    const logs = [log("2026-07-31", 74.5)];
+    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-08-01");
+    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
+    expect(rows[0]!.progressState).toBe("behind");
+  });
+
+  it("Cut 過去月: |diff| <= 0.2 → on_track", () => {
+    // diff = 73.9 - 73.8 = 0.1 (閾値内)
+    const plan = makePlan([entry("2026-07", 73.8), entry("2026-08", 72.5)]);
+    const logs = [log("2026-07-31", 73.9)];
+    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-08-01");
+    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
+    expect(rows[0]!.progressState).toBe("on_track");
+  });
+
+  it("Bulk 過去月: 実績 > 目標 → ahead", () => {
+    // diff = 77.0 - 76.5 = 0.5 (目標より重い = Bulk で先行)
+    const plan = makePlan([entry("2026-07", 76.5, +1.5)]);
+    const logs = [log("2026-07-31", 77.0)];
+    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-08-01");
+    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Bulk");
+    expect(rows[0]!.progressState).toBe("ahead");
+  });
+
+  it("Bulk 過去月: 実績 < 目標 → behind", () => {
+    // diff = 75.8 - 76.5 = -0.7 (目標より軽い = Bulk で遅れ)
+    const plan = makePlan([entry("2026-07", 76.5, +1.5)]);
+    const logs = [log("2026-07-31", 75.8)];
+    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-08-01");
+    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Bulk");
+    expect(rows[0]!.progressState).toBe("behind");
+  });
+});
+
+describe("buildMonthlyGoalComparisonRows — cumulativeGapKg", () => {
+  it("当月 (partial) → cumulativeGapKg = null", () => {
+    const plan = makePlan([entry("2026-07", 73.8)]);
+    const logs = [log("2026-07-15", 74.0)];
+    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-07-15");
+    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
+    expect(rows[0]!.cumulativeGapKg).toBeNull();
+  });
+
+  it("未来月 → cumulativeGapKg = null", () => {
+    const plan = makePlan([entry("2026-07", 73.8), entry("2026-08", 72.5)]);
+    const summaryRows = buildMonthlyGoalSummaryRows(plan, [], "2026-07-15");
+    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
+    expect(rows[1]!.cumulativeGapKg).toBeNull();
+  });
+
+  it("過去月: データなし → cumulativeGapKg = null", () => {
+    const plan = makePlan([entry("2026-07", 73.8), entry("2026-08", 72.5)]);
+    const summaryRows = buildMonthlyGoalSummaryRows(plan, [], "2026-08-10");
+    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
+    expect(rows[0]!.cumulativeGapKg).toBeNull();
+  });
+
+  it("過去月 1 ヶ月: diffKg = 0.2 → cumulativeGapKg = 0.2", () => {
+    // 74.0 - 73.8 = 0.2
+    const plan = makePlan([entry("2026-07", 73.8), entry("2026-08", 72.5)]);
+    const logs = [log("2026-07-31", 74.0)];
+    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-08-10");
+    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
+    expect(rows[0]!.cumulativeGapKg).toBeCloseTo(0.2, 2);
+  });
+
+  it("過去月 2 ヶ月: 累積が正しく積算される", () => {
+    // today = 2026-09-01 → 2026-07, 2026-08 が過去月
+    const plan = makePlan([
+      entry("2026-07", 73.8, -1.2),
+      entry("2026-08", 72.5, -1.3),
+      entry("2026-09", 71.5, -1.0),
+    ]);
+    const logs = [
+      log("2026-07-31", 74.0), // diff = 74.0 - 73.8 = +0.2
+      log("2026-08-31", 73.0), // diff = 73.0 - 72.5 = +0.5
+    ];
+    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-09-01");
+    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
+    expect(rows[0]!.cumulativeGapKg).toBeCloseTo(0.2, 2);  // month1 のみ
+    expect(rows[1]!.cumulativeGapKg).toBeCloseTo(0.7, 2);  // 0.2 + 0.5
+    expect(rows[2]!.cumulativeGapKg).toBeNull();            // 当月は null
+  });
+
+  it("データなし月を挟んでも後続月は累積を継続する", () => {
+    // today = 2026-09-01 → 2026-07 はデータなし、2026-08 はデータあり
+    const plan = makePlan([
+      entry("2026-07", 73.8, -1.2),
+      entry("2026-08", 72.5, -1.3),
+      entry("2026-09", 71.5, -1.0),
+    ]);
+    const logs = [
+      // 2026-07 のログはなし
+      log("2026-08-31", 73.0), // diff = 73.0 - 72.5 = +0.5
+    ];
+    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-09-01");
+    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
+    expect(rows[0]!.cumulativeGapKg).toBeNull();           // データなし
+    expect(rows[1]!.cumulativeGapKg).toBeCloseTo(0.5, 2); // 0.5 (07 は null なので加算対象外)
+    expect(rows[2]!.cumulativeGapKg).toBeNull();           // 当月
+  });
+
+  it("負の diffKg (先行) は累積から引かれる", () => {
+    // today = 2026-09-01
+    const plan = makePlan([
+      entry("2026-07", 73.8, -1.2),
+      entry("2026-08", 72.5, -1.3),
+      entry("2026-09", 71.5, -1.0),
+    ]);
+    const logs = [
+      log("2026-07-31", 74.0), // diff = +0.2 (遅れ)
+      log("2026-08-31", 72.0), // diff = 72.0 - 72.5 = -0.5 (先行)
+    ];
+    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-09-01");
+    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
+    expect(rows[0]!.cumulativeGapKg).toBeCloseTo(0.2, 2);   // +0.2
+    expect(rows[1]!.cumulativeGapKg).toBeCloseTo(-0.3, 2);  // 0.2 + (-0.5) = -0.3
   });
 });

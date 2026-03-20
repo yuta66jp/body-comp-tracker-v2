@@ -10,6 +10,15 @@
 
 import type { MonthlyGoalEntry, MonthlyGoalPlan } from "@/lib/utils/monthlyGoalPlan";
 
+// ─── 比較表示用定数 ────────────────────────────────────────────────────────────
+
+/**
+ * 月次計画の進捗判定閾値 (kg)。
+ * 差分の絶対値がこの値以内なら「計画内」とみなす。
+ * 月レベルの計画管理として 0.2 kg を許容範囲に設定。
+ */
+export const PLAN_GAP_THRESHOLD_KG = 0.2;
+
 // ─── 入力型 ──────────────────────────────────────────────────────────────────
 
 /** buildMonthlyGoalSummaryRows が必要とする最小限の log フィールド */
@@ -69,6 +78,40 @@ export interface MonthlyGoalSummaryRow {
    * 最終月または次月エントリーが存在しない場合は null。
    */
   nextRequiredDeltaKg: number | null;
+}
+
+// ─── 型定義 (比較表示) ────────────────────────────────────────────────────────
+
+/**
+ * 月次計画の進捗状態。
+ * - "ahead"    : 計画より先行 (Cut: 体重が目標より軽い / Bulk: 目標より重い)
+ * - "on_track" : 計画内 (±PLAN_GAP_THRESHOLD_KG 以内)
+ * - "behind"   : 計画より遅れ
+ * - "pending"  : 未確定 (当月 partial / 未来月 / データなし)
+ */
+export type MonthlyPlanProgressState =
+  | "ahead"
+  | "on_track"
+  | "behind"
+  | "pending";
+
+/**
+ * 月次計画 vs 実績の比較行。
+ * MonthlyGoalSummaryRow を extends し、状態・累積ズレを追加する。
+ */
+export interface MonthlyGoalComparisonRow extends MonthlyGoalSummaryRow {
+  /**
+   * 月ごとの進捗状態。
+   * diffKg = null / isPartialActual / isFutureMonth の場合は "pending"。
+   */
+  progressState: MonthlyPlanProgressState;
+  /**
+   * 過去完全実績月の diffKg の累積合計 (0.01 kg 丸め)。
+   * - 過去完全実績月かつ diffKg が non-null: 累積合計を返す
+   * - 過去完全実績月かつ diffKg が null (データなし): null を返す (累積に加算しない)
+   * - 当月 partial / 未来月: null
+   */
+  cumulativeGapKg: number | null;
 }
 
 // ─── プライベートヘルパー ─────────────────────────────────────────────────────
@@ -207,5 +250,72 @@ export function buildMonthlyGoalSummaryRows(
       diffKg,
       nextRequiredDeltaKg,
     };
+  });
+}
+
+// ─── 比較表示 adapter ─────────────────────────────────────────────────────────
+
+/**
+ * classifyMonthlyPlanGap
+ *
+ * diffKg から月ごとの進捗状態を分類する純粋関数。
+ *
+ * - diffKg = null / isPartialActual / isFutureMonth → "pending"
+ * - |diffKg| <= PLAN_GAP_THRESHOLD_KG → "on_track"
+ * - Cut:  diffKg < 0 → "ahead" (目標より軽い), diffKg > 0 → "behind"
+ * - Bulk: diffKg > 0 → "ahead" (目標より重い), diffKg < 0 → "behind"
+ */
+export function classifyMonthlyPlanGap(
+  diffKg: number | null,
+  isCut: boolean,
+  isPartialActual: boolean,
+  isFutureMonth: boolean
+): MonthlyPlanProgressState {
+  if (isPartialActual || isFutureMonth || diffKg === null) return "pending";
+  if (Math.abs(diffKg) <= PLAN_GAP_THRESHOLD_KG) return "on_track";
+  const isAhead = isCut ? diffKg < 0 : diffKg > 0;
+  return isAhead ? "ahead" : "behind";
+}
+
+/**
+ * buildMonthlyGoalComparisonRows
+ *
+ * MonthlyGoalSummaryRow[] に progressState と cumulativeGapKg を付与する adapter。
+ * UI 側でロジックを散らさないための selector 層。
+ *
+ * - progressState: Cut/Bulk を考慮した月ごとの状態分類
+ * - cumulativeGapKg: 過去完全実績月の diffKg の累積合計
+ *   - データなし月 (diffKg=null) は累積に加算しない。その月は null を返す。
+ *   - 当月 partial / 未来月は null
+ *
+ * @param rows  - buildMonthlyGoalSummaryRows の戻り値
+ * @param phase - "Cut" | "Bulk"
+ */
+export function buildMonthlyGoalComparisonRows(
+  rows: MonthlyGoalSummaryRow[],
+  phase: string
+): MonthlyGoalComparisonRow[] {
+  const isCut = phase !== "Bulk";
+  let runningSum = 0;
+
+  return rows.map((row) => {
+    const progressState = classifyMonthlyPlanGap(
+      row.diffKg,
+      isCut,
+      row.isPartialActual,
+      row.isFutureMonth
+    );
+
+    let cumulativeGapKg: number | null = null;
+    if (!row.isPartialActual && !row.isFutureMonth) {
+      if (row.diffKg !== null) {
+        runningSum += row.diffKg;
+        cumulativeGapKg = Math.round(runningSum * 100) / 100;
+      }
+      // diffKg === null: データなし。runningSum は変えず、null を返す。
+    }
+    // 当月 partial / 未来月: null のまま
+
+    return { ...row, progressState, cumulativeGapKg };
   });
 }
