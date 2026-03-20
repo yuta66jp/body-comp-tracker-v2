@@ -51,6 +51,7 @@ lightning_logs/
 
 # Supabase local dev
 .supabase/
+supabase/.temp/
 
 # Vercel
 .vercel
