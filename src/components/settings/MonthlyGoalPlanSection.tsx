@@ -185,8 +185,12 @@ function PlanContent({
     [currentWeight, today, goalWeight, contestDate, overrides]
   );
 
-  // 月リストが変わったときにインプット値を同期する
-  const monthKeys = plan.entries.map((e) => e.month).join(",");
+  // plan.entries の month + targetWeight の両方を含む signature を作成する。
+  // 月構造が変わった場合だけでなく、goalWeight / contestDate / currentWeight の変更で
+  // targetWeight が再計算された場合も inputValues を再同期する必要があるため。
+  const planSignature = plan.entries
+    .map((e) => `${e.month}:${e.targetWeight}`)
+    .join(",");
 
   const [inputValues, setInputValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
@@ -200,9 +204,9 @@ function PlanContent({
         plan.entries.map((e) => [e.month, e.targetWeight.toFixed(1)])
       )
     );
-    // monthKeys が変わったときだけ実行 (月の構造が変わったとき)
+    // planSignature が変わったとき (月構造変化 or targetWeight 変化) に再同期する
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [monthKeys]);
+  }, [planSignature]);
 
   // プランに errors がある場合はエラー表示
   if (!plan.isValid) {
