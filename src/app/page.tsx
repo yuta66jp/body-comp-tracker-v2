@@ -8,6 +8,8 @@ import { WeeklyReviewCard } from "@/components/dashboard/WeeklyReviewCard";
 import { calcDataQuality } from "@/lib/utils/calcDataQuality";
 import { calcReadiness } from "@/lib/utils/calcReadiness";
 import { calcWeeklyReview } from "@/lib/utils/calcWeeklyReview";
+import { calcMonthlyGoalProgress } from "@/lib/utils/calcMonthlyGoalProgress";
+import { toJstDateStr } from "@/lib/utils/date";
 import { fetchDailyLogs, fetchPredictions, fetchCareerLogsForDashboard } from "@/lib/queries/dailyLogs";
 import { fetchSettings } from "@/lib/queries/settings";
 import { fetchEnrichedLogs } from "@/lib/queries/analytics";
@@ -144,6 +146,17 @@ export default async function DashboardPage() {
     phase,
   });
 
+  // 今月目標に対する進捗。GoalNavigator の refWeight と同一の比較値を使う。
+  const comparisonWeight = readinessMetrics.weight_7d_avg ?? readinessMetrics.current_weight;
+  const monthlyGoalProgress = calcMonthlyGoalProgress({
+    contestDate: contestDate ?? null,
+    targetWeight: goalWeight ?? null,
+    monthlyPlanOverrides: settings.monthlyPlanOverrides,
+    comparisonWeight,
+    today: toJstDateStr(),
+    phase,
+  });
+
   return (
     <DashboardLayout>
       {/* Read error banners — graceful degradation: コンテンツはブロックしない */}
@@ -179,6 +192,7 @@ export default async function DashboardPage() {
             goalWeight={goalWeight ?? null}
             contestDate={contestDate ?? null}
             avgTdee={latestTdee}
+            monthlyGoalProgress={monthlyGoalProgress}
           />
           <WeeklyReviewCard data={weeklyReview} phase={phase} enrichedAvailability={enrichedAvailability} />
           <DataQualityBadge report={qualityReport} />
