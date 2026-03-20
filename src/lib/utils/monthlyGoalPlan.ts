@@ -109,6 +109,7 @@ export type MonthlyGoalErrorCode =
   | "INVALID_DEADLINE"            // goalDeadlineDate が不正な日付形式
   | "INVALID_CURRENT_WEIGHT"      // currentWeight が数値でない / 範囲外
   | "INVALID_GOAL_WEIGHT"         // finalGoalWeight が数値でない / 範囲外
+  | "INVALID_OVERRIDE_WEIGHT"     // overrides[].targetWeight が数値でない / 範囲外
   | "DEADLINE_IN_PAST"            // 期限月が currentMonth より過去
   | "NO_MONTHS"                   // 計画対象月が 0 件 (内部エラー)
   | "OVERRIDE_MONTH_OUT_OF_RANGE"; // override が計画期間外の月を指している
@@ -213,6 +214,16 @@ function validateInput(input: MonthlyGoalPlanInput): MonthlyGoalError[] {
     input.finalGoalWeight > 300
   ) {
     errors.push({ code: "INVALID_GOAL_WEIGHT" });
+  }
+
+  // overrides の targetWeight も個別に検証する。
+  // currentWeight / finalGoalWeight と同じ範囲制約を適用し、
+  // 不正値が計算に混入するのをロジック層で防ぐ。
+  const hasInvalidOverride = input.overrides.some(
+    (o) => !isFinite(o.targetWeight) || o.targetWeight <= 0 || o.targetWeight > 300
+  );
+  if (hasInvalidOverride) {
+    errors.push({ code: "INVALID_OVERRIDE_WEIGHT" });
   }
 
   if (errors.length > 0) return errors;
@@ -360,13 +371,15 @@ export function buildMonthlyGoalPlan(
  * @param editedMonth 編集した月 "YYYY-MM"
  * @param newTargetWeight 編集月の新しい月末目標体重 (kg)
  * @param finalGoalWeight 最終目標体重 (kg)
+ * @param currentWeight 現在体重 (kg)。先頭月編集時の requiredDeltaKg 基準に使用。
  * @returns 再配分後の新しいエントリーリスト。editedMonth が見つからない場合は元のリストをそのまま返す。
  */
 export function redistributeMonthlyGoals(
   entries: MonthlyGoalEntry[],
   editedMonth: string,
   newTargetWeight: number,
-  finalGoalWeight: number
+  finalGoalWeight: number,
+  currentWeight: number
 ): MonthlyGoalEntry[] {
   const editedIdx = entries.findIndex((e) => e.month === editedMonth);
   if (editedIdx === -1) return entries;
@@ -375,8 +388,10 @@ export function redistributeMonthlyGoals(
   if (editedIdx === entries.length - 1) return entries;
 
   const before = entries.slice(0, editedIdx);
+  // 先頭月 (editedIdx === 0) は currentWeight を基準とする。
+  // 「初月は currentWeight 比」という requiredDeltaKg の定義に合わせるため。
   const prevWeight =
-    editedIdx > 0 ? entries[editedIdx - 1]!.targetWeight : newTargetWeight;
+    editedIdx > 0 ? entries[editedIdx - 1]!.targetWeight : currentWeight;
 
   const editedEntry: MonthlyGoalEntry = {
     ...entries[editedIdx]!,

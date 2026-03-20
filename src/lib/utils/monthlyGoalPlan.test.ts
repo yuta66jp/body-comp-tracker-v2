@@ -233,6 +233,42 @@ describe("buildMonthlyGoalPlan", () => {
       );
     });
 
+    test("override の targetWeight が 0 → INVALID_OVERRIDE_WEIGHT", () => {
+      const plan = buildMonthlyGoalPlan(
+        makeInput({
+          overrides: [{ month: "2026-04", targetWeight: 0 }],
+        })
+      );
+      expect(plan.isValid).toBe(false);
+      expect(plan.errors.some((e) => e.code === "INVALID_OVERRIDE_WEIGHT")).toBe(
+        true
+      );
+    });
+
+    test("override の targetWeight が NaN → INVALID_OVERRIDE_WEIGHT", () => {
+      const plan = buildMonthlyGoalPlan(
+        makeInput({
+          overrides: [{ month: "2026-04", targetWeight: NaN }],
+        })
+      );
+      expect(plan.isValid).toBe(false);
+      expect(plan.errors.some((e) => e.code === "INVALID_OVERRIDE_WEIGHT")).toBe(
+        true
+      );
+    });
+
+    test("override の targetWeight が 300 超 → INVALID_OVERRIDE_WEIGHT", () => {
+      const plan = buildMonthlyGoalPlan(
+        makeInput({
+          overrides: [{ month: "2026-04", targetWeight: 301 }],
+        })
+      );
+      expect(plan.isValid).toBe(false);
+      expect(plan.errors.some((e) => e.code === "INVALID_OVERRIDE_WEIGHT")).toBe(
+        true
+      );
+    });
+
     test("override が計画期間外の月を指している → OVERRIDE_MONTH_OUT_OF_RANGE", () => {
       const plan = buildMonthlyGoalPlan(
         makeInput({
@@ -294,7 +330,8 @@ describe("redistributeMonthlyGoals", () => {
       baseEntries,
       "2026-03",
       77.0,
-      72.0
+      72.0,
+      78.0
     );
     expect(result[0]!.targetWeight).toBe(77.0);
     expect(result[0]!.source).toBe("manual");
@@ -311,7 +348,8 @@ describe("redistributeMonthlyGoals", () => {
       baseEntries,
       "2026-04",
       76.0,
-      72.0
+      72.0,
+      78.0
     );
     expect(result[0]!.targetWeight).toBe(76.5); // Mar 変わらず
     expect(result[1]!.targetWeight).toBe(76.0); // Apr manual
@@ -326,7 +364,8 @@ describe("redistributeMonthlyGoals", () => {
       baseEntries,
       "2026-05",
       74.0,
-      72.0
+      72.0,
+      78.0
     );
     expect(result[2]!.targetWeight).toBe(74.0);
     expect(result[2]!.source).toBe("manual");
@@ -340,7 +379,8 @@ describe("redistributeMonthlyGoals", () => {
       baseEntries,
       "2026-06",
       70.0,
-      72.0
+      72.0,
+      78.0
     );
     expect(result).toEqual(baseEntries);
   });
@@ -350,25 +390,24 @@ describe("redistributeMonthlyGoals", () => {
       baseEntries,
       "2026-09",
       75.0,
-      72.0
+      72.0,
+      78.0
     );
     expect(result).toEqual(baseEntries);
   });
 
   test("requiredDeltaKg が再配分後に正しく更新される", () => {
-    // Mar を 77.0 に編集 (prevWeight = 78.0 だが entries[0] の前は currentWeight)
-    // Mar.requiredDeltaKg = 77.0 - 76.5 ... ではなく、前エントリーとの差
-    // 先頭エントリーなので prevWeight は entries[-1] がないため自分自身の前が不明
-    // redistributeMonthlyGoals は editedIdx>0 の場合のみ prevWeight が前エントリー
-    // editedIdx=0 の場合は prevWeight = newTargetWeight (delta=0 になる設計)
+    // Mar を 77.0 に編集。先頭月なので prevWeight = currentWeight = 78.0
+    // Mar.requiredDeltaKg = 77.0 - 78.0 = -1.0
     const result = redistributeMonthlyGoals(
       baseEntries,
       "2026-03",
       77.0,
-      72.0
+      72.0,
+      78.0
     );
-    // editedIdx=0: prevWeight=77.0 (newTargetWeight), requiredDeltaKg=0
-    expect(result[0]!.requiredDeltaKg).toBe(0);
+    // editedIdx=0: prevWeight = currentWeight = 78.0, requiredDeltaKg = 77.0 - 78.0 = -1.0
+    expect(result[0]!.requiredDeltaKg).toBe(-1.0);
     // Apr: 75.3 - 77.0 = -1.7
     expect(result[1]!.requiredDeltaKg).toBeCloseTo(-1.7, 1);
   });
@@ -380,7 +419,8 @@ describe("redistributeMonthlyGoals", () => {
       baseEntries,
       "2026-04",
       76.0,
-      72.0
+      72.0,
+      78.0
     );
     expect(result[1]!.requiredDeltaKg).toBeCloseTo(-0.5, 2);
     // May: 74.0 - 76.0 = -2.0
@@ -395,7 +435,8 @@ describe("redistributeMonthlyGoals", () => {
       entriesWithActual,
       "2026-03",
       77.0,
-      72.0
+      72.0,
+      78.0
     );
     expect(result[1]!.actualWeight).toBe(74.8);
   });
@@ -725,7 +766,8 @@ describe("buildMonthlyGoalPlan + redistributeMonthlyGoals 統合", () => {
       plan.entries,
       "2026-04",
       76.0,
-      72.0
+      72.0,
+      78.0
     );
 
     expect(updated[0]!.targetWeight).toBe(76.5); // Mar: 変わらず
