@@ -65,8 +65,15 @@ export function ForecastChart({
     logs.filter((d) => d.weight !== null).map((d) => [d.log_date, d.weight!])
   );
   const sma7Map = new Map(sma7.map((d) => [d.date, d.value]));
+  // 最終実測日より後の予測のみ表示する。
+  // `>= today` ではなく `> latestLogDate` を使う理由:
+  //   バッチは daily_logs の最終日付翌日から予測を生成するため、ユーザーが数日
+  //   ログを記録しなかった場合に「最終実測 〜 今日」の区間に予測が存在するが、
+  //   `>= today` フィルタだとその区間の予測が非表示になり、グラフで実測と予測
+  //   の間にギャップが生じ「予測が追随していない」と見える。
+  //   `> latestLogDate` にすることで、実測がない日は予測で埋めて視覚的に接続する。
   const forecastMap = new Map(
-    predictions.filter((p) => p.ds >= today).map((p) => [p.ds, p.yhat])
+    predictions.filter((p) => p.ds > latestLogDate).map((p) => [p.ds, p.yhat])
   );
 
   // タブごとの表示範囲
