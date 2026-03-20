@@ -4,11 +4,14 @@
 -- 数値は value_num、文字列は value_str に格納する。
 --
 -- 代表的な key 一覧（参考）:
---   target_weight   : 目標体重 (kg) — value_num
---   contest_date    : 大会日 (YYYY-MM-DD) — value_str
---   monthly_target  : 月次目標体重変化 (kg) — value_num
---   current_phase   : 現在フェーズ ("Cut" | "Maintain" | "Bulk") — value_str
---   current_season  : 現在シーズン名 — value_str
+--   goal_weight           : 目標体重 (kg) — value_num
+--   contest_date          : 大会日 (YYYY-MM-DD) — value_str
+--   monthly_plan_overrides: 月次目標 override リスト (JSON) — value_str  ← #101
+--   current_phase         : 現在フェーズ ("Cut" | "Bulk") — value_str
+--   current_season        : 現在シーズン名 — value_str
+--
+-- 廃止済み key:
+--   monthly_target : アプリ廃止 (#132)。DB 上の残存行は #134 migration で削除済み。
 
 CREATE TABLE IF NOT EXISTS settings (
   key       TEXT    PRIMARY KEY,
