@@ -6,8 +6,11 @@
  * Settings 画面に埋め込む月次目標体重計画の表示・編集セクション。
  *
  * - buildMonthlyGoalPlan (#101 ロジック) でプランを表示
- * - 各月 (最終月以外) の目標体重をインライン編集可
- * - 編集時に redistributeMonthlyGoals で翌月以降をリアルタイム再配分
+ * - 当月・将来月 (最終月以外) の目標体重をインライン編集可
+ * - 編集時は override 配列を upsert し、buildMonthlyGoalPlan で全体を再構築する
+ *   (UI 側で再配分ロジックを持たない。redistributeMonthlyGoals は使用しない)
+ * - 複数月 override (anchor) を同時に持てる
+ * - 手動月に「解除」ボタンを表示し、解除するとその月が auto に戻る
  * - 警告・エラーを表示
  *
  * 今日の日付は today プロップから受け取る (テスト容易性のため)。
@@ -15,13 +18,9 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { AlertTriangle, Info } from "lucide-react";
-import {
-  buildMonthlyGoalPlan,
-  redistributeMonthlyGoals,
-} from "@/lib/utils/monthlyGoalPlan";
+import { buildMonthlyGoalPlan } from "@/lib/utils/monthlyGoalPlan";
 import type {
   MonthlyGoalOverride,
-  MonthlyGoalEntry,
   MonthlyGoalErrorCode,
   MonthlyGoalWarningCode,
   MonthlyGoalWarning,
@@ -79,6 +78,19 @@ function fmtMonth(ym: string): string {
 function fmtDelta(kg: number): string {
   if (kg > 0) return `+${kg.toFixed(1)}`;
   return kg.toFixed(1);
+}
+
+/**
+ * overrides 配列に override を upsert する (同月があれば更新、なければ追加)。
+ * 既存の他月の override はすべて保持する。
+ */
+function upsertOverride(
+  overrides: MonthlyGoalOverride[],
+  override: MonthlyGoalOverride
+): MonthlyGoalOverride[] {
+  const idx = overrides.findIndex((o) => o.month === override.month);
+  if (idx === -1) return [...overrides, override];
+  return overrides.map((o, i) => (i === idx ? override : o));
 }
 
 // ─── スタイル定数 ─────────────────────────────────────────────────────────────
@@ -172,6 +184,7 @@ function PlanContent({
   onOverridesChange,
 }: PlanContentProps) {
   // プランを overrides + 他パラメータから算出
+  // override 配列が source of truth。buildMonthlyGoalPlan が全体を再構築する。
   const plan = useMemo(
     () =>
       buildMonthlyGoalPlan({
@@ -231,6 +244,11 @@ function PlanContent({
     setInputValues((prev) => ({ ...prev, [month]: val }));
   }
 
+  /**
+   * 月の編集をコミットする。
+   * override 配列に upsert し、親に通知する。
+   * buildMonthlyGoalPlan が全体を再構築するため、他月の manual override は保持される。
+   */
   function handleCommit(month: string) {
     const raw = inputValues[month] ?? "";
     const parsed = parseFloat(raw);
@@ -247,23 +265,18 @@ function PlanContent({
       return;
     }
 
-    const newEntries = redistributeMonthlyGoals(
-      plan.entries,
-      month,
-      parsed,
-      goalWeight,
-      currentWeight
-    );
+    // override 配列に upsert する (他月の override はすべて保持)
+    const newOverrides = upsertOverride(overrides, { month, targetWeight: parsed });
+    onOverridesChange(newOverrides);
+    // inputValues は planSignature 変化で useEffect により再同期される
+  }
 
-    // 再配分後の manual エントリーを overrides として親に通知
-    const newOverrides: MonthlyGoalOverride[] = newEntries
-      .filter((e): e is MonthlyGoalEntry & { source: "manual" } => e.source === "manual")
-      .map((e) => ({ month: e.month, targetWeight: e.targetWeight }));
-
-    // インプット値を再配分後の値に同期
-    setInputValues(
-      Object.fromEntries(newEntries.map((e) => [e.month, e.targetWeight.toFixed(1)]))
-    );
+  /**
+   * 月の手動 override を解除する。
+   * override 配列からその月を削除し、buildMonthlyGoalPlan が auto に戻す。
+   */
+  function handleReset(month: string) {
+    const newOverrides = overrides.filter((o) => o.month !== month);
     onOverridesChange(newOverrides);
   }
 
@@ -285,6 +298,7 @@ function PlanContent({
             {plan.entries.map((entry, idx) => {
               const isLast = idx === plan.entries.length - 1;
               const isCurrent = entry.month === today_month;
+              const isManual = entry.source === "manual";
 
               return (
                 <tr
@@ -357,10 +371,20 @@ function PlanContent({
                       <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-600">
                         終点
                       </span>
-                    ) : entry.source === "manual" ? (
-                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
-                        手動
-                      </span>
+                    ) : isManual ? (
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                          手動
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleReset(entry.month)}
+                          className="text-[9px] text-slate-400 underline hover:text-rose-500"
+                          aria-label={`${fmtMonth(entry.month)} 手動設定を解除`}
+                        >
+                          解除
+                        </button>
+                      </div>
                     ) : (
                       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-400">
                         自動
@@ -400,7 +424,7 @@ function PlanContent({
 
       {/* 補足説明 */}
       <p className="mt-2 text-xs text-slate-400">
-        目標体重欄を編集して Enter / フォーカスアウトすると翌月以降が再配分されます。設定画面上部の「保存」で確定します。
+        目標体重欄を編集して Enter / フォーカスアウトで確定。複数月を手動設定すると各月が anchor として扱われ、間の月が自動配分されます。「解除」で自動に戻せます。設定画面上部の「保存」で確定します。
       </p>
     </div>
   );

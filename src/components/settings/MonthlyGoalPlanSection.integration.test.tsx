@@ -3,14 +3,16 @@
  *
  * テスト戦略:
  * - today を固定値 "2026-03-20" でプロップとして渡す (toJstDateStr() のモック不要)
- * - buildMonthlyGoalPlan / redistributeMonthlyGoals は実装ごとテストする
+ * - buildMonthlyGoalPlan は実装ごとテストする
  * - lucide-react アイコンはシンプルな span に差し替える
  *
  * 検証内容:
  * 1. 前提条件未設定時にエラーメッセージが表示される
  * 2. 有効な設定時に月別テーブルが表示される
  * 3. 月を編集してコミットすると onOverridesChange が呼ばれる
- * 4. 警告メッセージが表示される
+ * 4. 複数月 override が両方保持される (anchor が保たれる)
+ * 5. 手動月の「解除」ボタンで override が削除される
+ * 6. 警告メッセージが表示される
  */
 
 // @jest-environment jest-environment-jsdom
@@ -171,9 +173,9 @@ describe("MonthlyGoalPlanSection — 月別テーブル表示", () => {
   });
 });
 
-// ─── シナリオ 3: インライン編集と再配分 ────────────────────────────────────
+// ─── シナリオ 3: インライン編集 ─────────────────────────────────────────────
 
-describe("MonthlyGoalPlanSection — インライン編集と再配分", () => {
+describe("MonthlyGoalPlanSection — インライン編集", () => {
   it("月を編集して blur すると onOverridesChange が呼ばれる", async () => {
     const onOverridesChange = jest.fn();
 
@@ -263,9 +265,195 @@ describe("MonthlyGoalPlanSection — インライン編集と再配分", () => {
       expect(parseFloat(apr.value)).toBeCloseTo(72.0, 1);
     });
   });
+
+  it("将来月 (2026-05) も編集可能で onOverridesChange が呼ばれる", async () => {
+    const onOverridesChange = jest.fn();
+
+    render(
+      <ControlledSection
+        goalWeight={70}
+        contestDate="2026-06-30"
+        currentWeight={75}
+        onOverridesChange={onOverridesChange}
+      />
+    );
+
+    const input = screen.getByRole("spinbutton", { name: "2026年5月 目標体重" });
+    fireEvent.change(input, { target: { value: "71" } });
+    fireEvent.blur(input);
+
+    await waitFor(() => {
+      expect(onOverridesChange).toHaveBeenCalledTimes(1);
+    });
+
+    const called = onOverridesChange.mock.calls[0][0] as MonthlyGoalOverride[];
+    expect(called.some((o) => o.month === "2026-05" && o.targetWeight === 71)).toBe(true);
+  });
 });
 
-// ─── シナリオ 4: 警告表示 ───────────────────────────────────────────────────
+// ─── シナリオ 4: 複数月 override (anchor 保持) ───────────────────────────────
+
+describe("MonthlyGoalPlanSection — 複数月 override", () => {
+  it("2ヶ月に manual を設定しても両方の override が保持される", async () => {
+    const onOverridesChange = jest.fn();
+
+    render(
+      <ControlledSection
+        goalWeight={70}
+        contestDate="2026-06-30"
+        currentWeight={75}
+        onOverridesChange={onOverridesChange}
+      />
+    );
+
+    // 1回目: 2026-03 を 73 kg に設定
+    const mar = screen.getByRole("spinbutton", { name: "2026年3月 目標体重" });
+    fireEvent.change(mar, { target: { value: "73" } });
+    fireEvent.blur(mar);
+
+    await waitFor(() => expect(onOverridesChange).toHaveBeenCalledTimes(1));
+
+    // 2回目: 2026-05 を 71 kg に設定
+    const may = screen.getByRole("spinbutton", { name: "2026年5月 目標体重" });
+    fireEvent.change(may, { target: { value: "71" } });
+    fireEvent.blur(may);
+
+    await waitFor(() => expect(onOverridesChange).toHaveBeenCalledTimes(2));
+
+    // 最後の呼び出しで両方の override が含まれている
+    const lastCall = onOverridesChange.mock.calls[1][0] as MonthlyGoalOverride[];
+    expect(lastCall.some((o) => o.month === "2026-03" && o.targetWeight === 73)).toBe(true);
+    expect(lastCall.some((o) => o.month === "2026-05" && o.targetWeight === 71)).toBe(true);
+  });
+
+  it("ある月を再編集しても他の月の override は保持される", async () => {
+    const onOverridesChange = jest.fn();
+
+    render(
+      <ControlledSection
+        goalWeight={70}
+        contestDate="2026-06-30"
+        currentWeight={75}
+        // 2026-03 を 73, 2026-05 を 71 で初期化
+        initialOverrides={[
+          { month: "2026-03", targetWeight: 73 },
+          { month: "2026-05", targetWeight: 71 },
+        ]}
+        onOverridesChange={onOverridesChange}
+      />
+    );
+
+    // 2026-03 を 72 に変更
+    const mar = screen.getByRole("spinbutton", { name: "2026年3月 目標体重" });
+    fireEvent.change(mar, { target: { value: "72" } });
+    fireEvent.blur(mar);
+
+    await waitFor(() => expect(onOverridesChange).toHaveBeenCalledTimes(1));
+
+    const called = onOverridesChange.mock.calls[0][0] as MonthlyGoalOverride[];
+    // 2026-03 が更新されている
+    expect(called.some((o) => o.month === "2026-03" && o.targetWeight === 72)).toBe(true);
+    // 2026-05 は変わっていない
+    expect(called.some((o) => o.month === "2026-05" && o.targetWeight === 71)).toBe(true);
+  });
+
+  it("複数 override がある場合、手動月に「手動」バッジが複数表示される", async () => {
+    render(
+      <ControlledSection
+        goalWeight={70}
+        contestDate="2026-06-30"
+        currentWeight={75}
+        initialOverrides={[
+          { month: "2026-03", targetWeight: 73 },
+          { month: "2026-05", targetWeight: 71 },
+        ]}
+      />
+    );
+
+    const manualBadges = screen.getAllByText("手動");
+    expect(manualBadges).toHaveLength(2);
+  });
+});
+
+// ─── シナリオ 5: override 解除 ──────────────────────────────────────────────
+
+describe("MonthlyGoalPlanSection — override 解除", () => {
+  it("「解除」ボタンを押すと onOverridesChange が呼ばれ override が削除される", async () => {
+    const onOverridesChange = jest.fn();
+
+    render(
+      <ControlledSection
+        goalWeight={70}
+        contestDate="2026-06-30"
+        currentWeight={75}
+        initialOverrides={[{ month: "2026-03", targetWeight: 73 }]}
+        onOverridesChange={onOverridesChange}
+      />
+    );
+
+    // 「手動」バッジの下の「解除」ボタンを押す
+    const resetBtn = screen.getByRole("button", { name: "2026年3月 手動設定を解除" });
+    fireEvent.click(resetBtn);
+
+    await waitFor(() => expect(onOverridesChange).toHaveBeenCalledTimes(1));
+
+    const called = onOverridesChange.mock.calls[0][0] as MonthlyGoalOverride[];
+    // override が空になる
+    expect(called).toHaveLength(0);
+  });
+
+  it("解除後は「手動」バッジが消え「自動」バッジに戻る", async () => {
+    render(
+      <ControlledSection
+        goalWeight={70}
+        contestDate="2026-06-30"
+        currentWeight={75}
+        initialOverrides={[{ month: "2026-03", targetWeight: 73 }]}
+      />
+    );
+
+    // 解除前: 「手動」バッジが存在する
+    expect(screen.getByText("手動")).toBeInTheDocument();
+
+    const resetBtn = screen.getByRole("button", { name: "2026年3月 手動設定を解除" });
+    fireEvent.click(resetBtn);
+
+    // 解除後: 「手動」バッジが消え、3月が「自動」に戻る
+    await waitFor(() => {
+      expect(screen.queryByText("手動")).not.toBeInTheDocument();
+    });
+  });
+
+  it("一方の override を解除しても他方の override は残る", async () => {
+    const onOverridesChange = jest.fn();
+
+    render(
+      <ControlledSection
+        goalWeight={70}
+        contestDate="2026-06-30"
+        currentWeight={75}
+        initialOverrides={[
+          { month: "2026-03", targetWeight: 73 },
+          { month: "2026-05", targetWeight: 71 },
+        ]}
+        onOverridesChange={onOverridesChange}
+      />
+    );
+
+    // 2026-03 のみ解除
+    const resetBtn = screen.getByRole("button", { name: "2026年3月 手動設定を解除" });
+    fireEvent.click(resetBtn);
+
+    await waitFor(() => expect(onOverridesChange).toHaveBeenCalledTimes(1));
+
+    const called = onOverridesChange.mock.calls[0][0] as MonthlyGoalOverride[];
+    // 2026-05 は残っている
+    expect(called).toHaveLength(1);
+    expect(called[0]).toMatchObject({ month: "2026-05", targetWeight: 71 });
+  });
+});
+
+// ─── シナリオ 6: 警告表示 ───────────────────────────────────────────────────
 
 describe("MonthlyGoalPlanSection — 警告表示", () => {
   it("DEADLINE_TOO_CLOSE 警告が表示される (今月のみの期間)", () => {
