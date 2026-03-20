@@ -6,7 +6,7 @@ import { saveDailyLog } from "@/app/actions/saveDailyLog";
 import { FoodPicker } from "./FoodPicker";
 import { Cart, calcCartTotals } from "./Cart";
 import type { CartItem } from "./Cart";
-import type { FoodMaster } from "@/lib/supabase/types";
+import type { FoodMaster, DailyLog } from "@/lib/supabase/types";
 import { toJstDateStr } from "@/lib/utils/date";
 import {
   type DayTag,
@@ -23,6 +23,7 @@ import {
   type TrainingType,
   type WorkMode,
 } from "@/lib/utils/trainingType";
+import { useDailyLogs } from "@/lib/hooks/useDailyLogs";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -33,11 +34,14 @@ function todayStr() {
 /** hasContent 判定のための純粋関数（テスト容易性のために抽出） */
 export interface HasContentInput {
   weight: string | null;          // null = 明示的クリア予定
+  weightTouched: boolean;         // ユーザーが weight を操作したか（hydrate のみでは false）
   cartItems: CartItem[];
   cartEverHadItems: boolean;      // カートに一度でもアイテムが追加されたか
   note: string | null;            // null = 明示的クリア予定
+  noteTouched: boolean;           // ユーザーが note を操作したか
   touchedTags: Set<DayTag>;
   sleepHours: string | null;      // null = 明示的クリア予定
+  sleepHoursTouched: boolean;     // ユーザーが sleepHours を操作したか
   hadBowelMovementTouched: boolean; // ボタンを一度でも操作したか
   trainingTypeTouched: boolean;
   workModeTouched: boolean;
@@ -45,13 +49,15 @@ export interface HasContentInput {
 
 export function computeHasContent(input: HasContentInput): boolean {
   return (
-    // null !== "" → true なので、明示的クリア状態も「保存すべき内容あり」として扱う
-    input.weight !== "" ||
+    // touched フラグで「ユーザーが操作した」ことを判定する。
+    // hydrate のみの場合は touched=false のため hasContent=false になり、
+    // 保存ボタンが有効にならず、不要な更新も送信されない。
+    input.weightTouched ||
     input.cartItems.length > 0 ||
     input.cartEverHadItems ||       // カートを空にした場合も null 送信のため有効化
-    input.note !== "" ||
+    input.noteTouched ||
     input.touchedTags.size > 0 ||
-    input.sleepHours !== "" ||
+    input.sleepHoursTouched ||
     input.hadBowelMovementTouched || // touched なら null 送信も含め有効化
     input.trainingTypeTouched ||
     input.workModeTouched
@@ -63,11 +69,20 @@ interface MealLoggerProps {
 }
 
 export function MealLogger({ sidebar = false }: MealLoggerProps) {
+  // 既存ログ（SWR キャッシュ。日付変更時の hydrate に使用）
+  const { data: logs, mutate: mutateLogs } = useDailyLogs();
+
+  // hydrate 元のログ（null = 新規入力）
+  const [hydratedLog, setHydratedLog] = useState<DailyLog | null>(null);
+
   // ── 既存フィールド ──
   const [date, setDate] = useState(todayStr);
   // string | null: "" = 未入力, "70.5" = 入力値, null = 明示的クリア予定（null 送信）
   const [weight, setWeight] = useState<string | null>("");
+  // weightTouched=true → ユーザーが weight を操作した（hydrate のみでは false）
+  const [weightTouched, setWeightTouched] = useState(false);
   const [note, setNote] = useState<string | null>("");
+  const [noteTouched, setNoteTouched] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   // カートに一度でもアイテムが追加されたか（空カートでも null 送信させるためのフラグ）
   const [cartEverHadItems, setCartEverHadItems] = useState(false);
@@ -80,6 +95,7 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
   // ── Phase 2.5 新規フィールド ──
   // string | null: "" = 未入力, "7.5" = 入力値, null = 明示的クリア予定
   const [sleepHours, setSleepHours] = useState<string | null>("");
+  const [sleepHoursTouched, setSleepHoursTouched] = useState(false);
   // had_bowel_movement: null=未記録（未選択）, true=便通あり, false=便通なし
   // hadBowelMovementTouched=true のとき: null→null 送信（明示クリア=未記録），true/false→値送信
   // hadBowelMovementTouched=false のとき: undefined 送信（既存値を保持）
@@ -91,6 +107,60 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
   // work_mode: 同上
   const [workMode, setWorkMode] = useState<WorkMode | null>(null);
   const [workModeTouched, setWorkModeTouched] = useState(false);
+
+  /**
+   * 日付変更時にフォームを hydrate または空リセットする。
+   * hydrate = 既存値の「初期表示」であり、touched フラグは立てない。
+   * つまり hydrate 後に Save しても、ユーザーが操作していないフィールドは
+   * payload に含まれず、partial update の安全性を維持する。
+   */
+  function hydrateForm(newDate: string) {
+    const existingLog = logs?.find((l) => l.log_date === newDate) ?? null;
+    setHydratedLog(existingLog);
+
+    // touched フラグをすべてリセット（hydrate は「未編集」として扱う）
+    setWeightTouched(false);
+    setNoteTouched(false);
+    setSleepHoursTouched(false);
+    setHadBowelMovementTouched(false);
+    setTrainingTypeTouched(false);
+    setWorkModeTouched(false);
+    setTouchedTags(new Set());
+
+    // カートはマクロ値から復元不可のためリセット
+    setCartItems([]);
+    setCartEverHadItems(false);
+
+    if (existingLog) {
+      // 既存値をフォームへ表示（touched は立てない）
+      setWeight(existingLog.weight !== null ? String(existingLog.weight) : "");
+      setNote(existingLog.note ?? "");
+      setSleepHours(existingLog.sleep_hours !== null ? String(existingLog.sleep_hours) : "");
+      setHadBowelMovement(existingLog.had_bowel_movement ?? null);
+      setTrainingType((existingLog.training_type as TrainingType) ?? null);
+      setWorkMode((existingLog.work_mode as WorkMode) ?? null);
+      setTags({
+        is_cheat_day:  existingLog.is_cheat_day  ?? false,
+        is_refeed_day: existingLog.is_refeed_day ?? false,
+        is_eating_out: existingLog.is_eating_out ?? false,
+        is_travel_day: existingLog.is_travel_day ?? false,
+      });
+    } else {
+      // 新規日付: 空フォームにリセット
+      setWeight("");
+      setNote("");
+      setSleepHours("");
+      setHadBowelMovement(null);
+      setTrainingType(null);
+      setWorkMode(null);
+      setTags(emptyTagState());
+    }
+  }
+
+  function handleDateChange(newDate: string) {
+    setDate(newDate);
+    hydrateForm(newDate);
+  }
 
   function toggleTag(tag: DayTag) {
     setTags((prev) => ({ ...prev, [tag]: !(prev as Record<DayTag, boolean>)[tag] }));
@@ -148,17 +218,24 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
 
     const result = await saveDailyLog({
       log_date: date,
-      // null = 明示的クリア（null 送信）/ "" = 未入力（undefined 送信、既存値保持）
-      weight:   weight === null   ? null   : (weight   !== "" ? parseFloat(weight)   : undefined),
+      // touched=true かつユーザーが操作した場合のみ送信。
+      // touched=false (hydrate のみ) は undefined → 既存値を保持。
+      weight:   weightTouched
+        ? (weight === null   ? null   : (weight   !== "" ? parseFloat(weight)   : undefined))
+        : undefined,
       // カートに一度でも追加後に空にした → null 送信（マクロをクリア）
       calories: cartItems.length > 0 ? totals.calories : (cartEverHadItems ? null : undefined),
       protein:  cartItems.length > 0 ? totals.protein  : (cartEverHadItems ? null : undefined),
       fat:      cartItems.length > 0 ? totals.fat      : (cartEverHadItems ? null : undefined),
       carbs:    cartItems.length > 0 ? totals.carbs    : (cartEverHadItems ? null : undefined),
-      note:     note === null     ? null   : (note     !== "" ? note                 : undefined),
+      note:     noteTouched
+        ? (note === null     ? null   : (note     !== "" ? note                 : undefined))
+        : undefined,
       ...tagPayload,
       // Phase 2.5 新規フィールド
-      sleep_hours:        sleepHours === null ? null : (sleepHours !== "" ? parseFloat(sleepHours) : undefined),
+      sleep_hours: sleepHoursTouched
+        ? (sleepHours === null ? null : (sleepHours !== "" ? parseFloat(sleepHours) : undefined))
+        : undefined,
       // ルール: touched=true → hadBowelMovement の値をそのまま送信
       //           null  = 明示クリア（未記録に戻す）
       //           true  = 便通あり
@@ -176,27 +253,35 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
       setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
     } else {
       setStatus("saved");
-      // フォームをリセット
+      // フォームをリセット（保存後は空フォームに戻す）
+      setHydratedLog(null);
       setCartItems([]);
       setCartEverHadItems(false);
-      setNote("");
       setWeight("");
+      setWeightTouched(false);
+      setNote("");
+      setNoteTouched(false);
       setTags(emptyTagState());
       setTouchedTags(new Set());
       setSleepHours("");
+      setSleepHoursTouched(false);
       setHadBowelMovement(null);
       setHadBowelMovementTouched(false);
       setTrainingType(null);
       setTrainingTypeTouched(false);
       setWorkMode(null);
       setWorkModeTouched(false);
+      // SWR キャッシュを更新して次回 hydrate に最新ログを反映させる
+      void mutateLogs();
       setTimeout(() => setStatus("idle"), 2000);
     }
   }
 
   const hasContent = computeHasContent({
-    weight, cartItems, cartEverHadItems, note, touchedTags,
-    sleepHours, hadBowelMovementTouched, trainingTypeTouched, workModeTouched,
+    weight, weightTouched, cartItems, cartEverHadItems,
+    note, noteTouched, touchedTags,
+    sleepHours, sleepHoursTouched,
+    hadBowelMovementTouched, trainingTypeTouched, workModeTouched,
   });
 
   const inputCls =
@@ -218,7 +303,13 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
       <div className={`grid gap-3 ${sidebar ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-3"}`}>
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">日付</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+          <input type="date" value={date} onChange={(e) => handleDateChange(e.target.value)} className={inputCls} />
+          {/* 既存ログあり / 新規入力 バッジ */}
+          {hydratedLog ? (
+            <p className="mt-1 text-xs font-medium text-amber-600">既存ログあり — 差分のみ編集できます</p>
+          ) : (
+            <p className="mt-1 text-xs text-slate-400">新規入力</p>
+          )}
         </div>
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">体重 (kg)</label>
@@ -227,16 +318,25 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
               <input type="number" disabled placeholder="削除予定" className={`${inputClearedCls} pr-8`} />
             ) : (
               <input type="number" step="0.1" min="0" placeholder="70.5" value={weight}
-                onChange={(e) => setWeight(e.target.value)} className={`${inputCls} ${weight !== "" ? "pr-8" : ""}`} />
+                onChange={(e) => { setWeight(e.target.value); setWeightTouched(true); }}
+                className={`${inputCls} ${weight !== "" ? "pr-8" : ""}`} />
             )}
             {weight !== "" && weight !== null && (
-              <button type="button" onClick={() => setWeight(null)} title="null 保存（クリア）"
+              <button type="button" onClick={() => { setWeight(null); setWeightTouched(true); }} title="null 保存（クリア）"
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-400 transition-colors">
                 <X size={13} />
               </button>
             )}
             {weight === null && (
-              <button type="button" onClick={() => setWeight("")} title="クリアを取り消す"
+              <button type="button"
+                onClick={() => {
+                  // 既存ログがある場合は hydrated 値に戻す。なければ空フォームに戻す。
+                  setWeight(hydratedLog?.weight !== null && hydratedLog?.weight !== undefined
+                    ? String(hydratedLog.weight)
+                    : "");
+                  setWeightTouched(false);
+                }}
+                title="クリアを取り消す"
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-rose-400 hover:text-slate-500 transition-colors">
                 <Undo2 size={13} />
               </button>
@@ -250,16 +350,22 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
               <input type="text" disabled placeholder="削除予定" className={`${inputClearedCls} pr-8`} />
             ) : (
               <input type="text" placeholder="任意" value={note}
-                onChange={(e) => setNote(e.target.value)} className={`${inputCls} ${note !== "" ? "pr-8" : ""}`} />
+                onChange={(e) => { setNote(e.target.value); setNoteTouched(true); }}
+                className={`${inputCls} ${note !== "" ? "pr-8" : ""}`} />
             )}
             {note !== "" && note !== null && (
-              <button type="button" onClick={() => setNote(null)} title="null 保存（クリア）"
+              <button type="button" onClick={() => { setNote(null); setNoteTouched(true); }} title="null 保存（クリア）"
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-400 transition-colors">
                 <X size={13} />
               </button>
             )}
             {note === null && (
-              <button type="button" onClick={() => setNote("")} title="クリアを取り消す"
+              <button type="button"
+                onClick={() => {
+                  setNote(hydratedLog?.note ?? "");
+                  setNoteTouched(false);
+                }}
+                title="クリアを取り消す"
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-rose-400 hover:text-slate-500 transition-colors">
                 <Undo2 size={13} />
               </button>
@@ -267,6 +373,18 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
           </div>
         </div>
       </div>
+
+      {/* 既存ログのマクロ表示（カートで復元不可なため参照用に表示） */}
+      {hydratedLog && (hydratedLog.calories !== null || hydratedLog.protein !== null) && (
+        <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          <span className="font-semibold">記録済みマクロ:</span>{" "}
+          {hydratedLog.calories !== null && <span>{hydratedLog.calories} kcal</span>}
+          {hydratedLog.protein  !== null && <span> / P {hydratedLog.protein}g</span>}
+          {hydratedLog.fat      !== null && <span> / F {hydratedLog.fat}g</span>}
+          {hydratedLog.carbs    !== null && <span> / C {hydratedLog.carbs}g</span>}
+          <span className="ml-1 text-amber-500">（更新する場合はカートから追加）</span>
+        </div>
+      )}
 
       {/* 特殊日タグ (is_cheat_day / is_refeed_day / is_eating_out / is_travel_day) */}
       <div>
@@ -302,17 +420,24 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
               ) : (
                 <input type="number" step="0.5" min="0" max="24" placeholder="7.5"
                   value={sleepHours}
-                  onChange={(e) => setSleepHours(e.target.value)}
+                  onChange={(e) => { setSleepHours(e.target.value); setSleepHoursTouched(true); }}
                   className={`${inputCls} ${sleepHours !== "" ? "pr-8" : ""}`} />
               )}
               {sleepHours !== "" && sleepHours !== null && (
-                <button type="button" onClick={() => setSleepHours(null)} title="null 保存（クリア）"
+                <button type="button" onClick={() => { setSleepHours(null); setSleepHoursTouched(true); }} title="null 保存（クリア）"
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-400 transition-colors">
                   <X size={13} />
                 </button>
               )}
               {sleepHours === null && (
-                <button type="button" onClick={() => setSleepHours("")} title="クリアを取り消す"
+                <button type="button"
+                  onClick={() => {
+                    setSleepHours(hydratedLog?.sleep_hours !== null && hydratedLog?.sleep_hours !== undefined
+                      ? String(hydratedLog.sleep_hours)
+                      : "");
+                    setSleepHoursTouched(false);
+                  }}
+                  title="クリアを取り消す"
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-rose-400 hover:text-slate-500 transition-colors">
                   <Undo2 size={13} />
                 </button>

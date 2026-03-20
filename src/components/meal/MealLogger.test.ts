@@ -2,11 +2,14 @@ import { computeHasContent } from "./MealLogger";
 
 const base = {
   weight: "" as string | null,
+  weightTouched: false,
   cartItems: [] as Parameters<typeof computeHasContent>[0]["cartItems"],
   cartEverHadItems: false,
   note: "" as string | null,
+  noteTouched: false,
   touchedTags: new Set<import("@/lib/utils/dayTags").DayTag>(),
   sleepHours: "" as string | null,
+  sleepHoursTouched: false,
   hadBowelMovementTouched: false,
   trainingTypeTouched: false,
   workModeTouched: false,
@@ -18,9 +21,22 @@ describe("computeHasContent", () => {
     expect(computeHasContent({ ...base })).toBe(false);
   });
 
-  // ── 体重・食事・メモ（通常入力） ──
-  it("体重が入力されている場合は true", () => {
-    expect(computeHasContent({ ...base, weight: "65.5" })).toBe(true);
+  // ── hydrate のみ（touched なし）の場合 ──
+  it("hydrate で weight が表示されているだけ（touched=false）の場合は false", () => {
+    expect(computeHasContent({ ...base, weight: "65.5", weightTouched: false })).toBe(false);
+  });
+
+  it("hydrate で note が表示されているだけ（touched=false）の場合は false", () => {
+    expect(computeHasContent({ ...base, note: "調子良い", noteTouched: false })).toBe(false);
+  });
+
+  it("hydrate で sleepHours が表示されているだけ（touched=false）の場合は false", () => {
+    expect(computeHasContent({ ...base, sleepHours: "7.5", sleepHoursTouched: false })).toBe(false);
+  });
+
+  // ── 体重・食事・メモ（ユーザー操作あり） ──
+  it("体重が入力されている（touched=true）場合は true", () => {
+    expect(computeHasContent({ ...base, weight: "65.5", weightTouched: true })).toBe(true);
   });
 
   it("カートにアイテムがある場合は true", () => {
@@ -28,21 +44,30 @@ describe("computeHasContent", () => {
     expect(computeHasContent({ ...base, cartItems: [item] })).toBe(true);
   });
 
-  it("メモが入力されている場合は true", () => {
-    expect(computeHasContent({ ...base, note: "調子良い" })).toBe(true);
+  it("メモが入力されている（touched=true）場合は true", () => {
+    expect(computeHasContent({ ...base, note: "調子良い", noteTouched: true })).toBe(true);
   });
 
   // ── 明示的クリア（null 状態） ──
-  it("weight が null（明示クリア）のとき true", () => {
-    expect(computeHasContent({ ...base, weight: null })).toBe(true);
+  it("weight が null（明示クリア）かつ touched=true のとき true", () => {
+    expect(computeHasContent({ ...base, weight: null, weightTouched: true })).toBe(true);
   });
 
-  it("note が null（明示クリア）のとき true", () => {
-    expect(computeHasContent({ ...base, note: null })).toBe(true);
+  it("weight が null でも touched=false のとき false（hydrate 後の未操作クリア状態）", () => {
+    // このケースは通常 UI では発生しないが、念のため検証
+    expect(computeHasContent({ ...base, weight: null, weightTouched: false })).toBe(false);
   });
 
-  it("sleepHours が null（明示クリア）のとき true", () => {
-    expect(computeHasContent({ ...base, sleepHours: null })).toBe(true);
+  it("note が null（明示クリア）かつ touched=true のとき true", () => {
+    expect(computeHasContent({ ...base, note: null, noteTouched: true })).toBe(true);
+  });
+
+  it("sleepHours が null（明示クリア）かつ touched=true のとき true", () => {
+    expect(computeHasContent({ ...base, sleepHours: null, sleepHoursTouched: true })).toBe(true);
+  });
+
+  it("sleepHours が入力されている（touched=true）場合は true", () => {
+    expect(computeHasContent({ ...base, sleepHours: "7.5", sleepHoursTouched: true })).toBe(true);
   });
 
   it("cartEverHadItems=true（カートを追加後に空にした）のとき true", () => {
@@ -70,10 +95,6 @@ describe("computeHasContent", () => {
   });
 
   // ── コンディション系 ──
-  it("睡眠時間が入力されている場合は true", () => {
-    expect(computeHasContent({ ...base, sleepHours: "7.5" })).toBe(true);
-  });
-
   it("hadBowelMovementTouched が true（ボタン操作あり）の場合は true", () => {
     expect(computeHasContent({ ...base, hadBowelMovementTouched: true })).toBe(true);
   });
@@ -96,12 +117,18 @@ describe("computeHasContent", () => {
     expect(computeHasContent({ ...base, touchedTags })).toBe(true);
   });
 
-  it("タグ変更 + 体重入力の複合でも true", () => {
+  it("タグ変更 + 体重入力（touched=true）の複合でも true", () => {
     const touchedTags = new Set<import("@/lib/utils/dayTags").DayTag>(["is_cheat_day"]);
-    expect(computeHasContent({ ...base, weight: "64.0", touchedTags })).toBe(true);
+    expect(computeHasContent({ ...base, weight: "64.0", weightTouched: true, touchedTags })).toBe(true);
   });
 
   it("weight null かつ cartEverHadItems=true の複合でも true", () => {
-    expect(computeHasContent({ ...base, weight: null, cartEverHadItems: true })).toBe(true);
+    expect(computeHasContent({ ...base, weight: null, weightTouched: true, cartEverHadItems: true })).toBe(true);
+  });
+
+  // ── hydrate 後に過去日タグを触った場合 ──
+  it("hydrate で weight が表示されているがタグだけ変更した場合は true", () => {
+    const touchedTags = new Set<import("@/lib/utils/dayTags").DayTag>(["is_cheat_day"]);
+    expect(computeHasContent({ ...base, weight: "70.5", weightTouched: false, touchedTags })).toBe(true);
   });
 });
