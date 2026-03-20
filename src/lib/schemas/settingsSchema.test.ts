@@ -221,8 +221,8 @@ describe("parseSettings — DB レコード構造", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const keys = result.records.map((r) => r.key);
-    // 数値系 9 キー + 文字列系 5 キー (monthly_plan_overrides 追加) = 14 キー
-    expect(keys).toHaveLength(14);
+    // 数値系 8 キー + 文字列系 5 キー = 13 キー
+    expect(keys).toHaveLength(13);
     expect(keys).toContain("goal_weight");
     expect(keys).toContain("contest_date");
     expect(keys).toContain("current_phase");

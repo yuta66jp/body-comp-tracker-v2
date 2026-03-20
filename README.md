@@ -79,7 +79,7 @@ react-day-picker v9 ベースの月間カレンダー。当月をデフォルト
 
 ForecastChart（`src/components/charts/ForecastChart.tsx`）は 3 タブ（7日 / 31日 / 全体）で切替表示する。
 
-- **月次目標体重ライン**: 3 タブすべてに表示。`monthlyTarget` を ReferenceLine として描画
+- **月次目標ステップライン**: plan entries がある場合のみ表示。`buildMonthlyGoalPlan` の entries を `stepAfter` 折れ線で描画（月内フラット・月境界で段差）
 - **縦軸ラベル**: 整数表示（`Math.floor`）に統一
   - 7日タブ: 1 kg 刻み
   - 31日タブ: 2 kg 刻み
