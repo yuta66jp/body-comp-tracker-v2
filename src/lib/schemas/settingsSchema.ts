@@ -27,6 +27,7 @@ export const STRING_SETTING_KEYS = [
   "current_phase",
   "sex",
   "contest_date",
+  "monthly_plan_overrides",
 ] as const;
 
 export type NumericSettingKey = (typeof NUMERIC_SETTING_KEYS)[number];
@@ -59,6 +60,8 @@ export interface SettingsInput {
   current_phase?: string | null;
   sex?: string | null;
   contest_date?: string | null;
+  /** JSON 文字列化した MonthlyGoalOverride[] */
+  monthly_plan_overrides?: string | null;
 }
 
 /**
@@ -207,6 +210,13 @@ export function parseSettings(input: SettingsInput): ParseSettingsResult {
     } else {
       records.push({ key: "contest_date", value_num: null, value_str: raw !== "" ? raw : null });
     }
+  }
+
+  // ── monthly_plan_overrides ────────────────────────────────────────────────
+  // JSON 文字列として保持する。内容バリデーションは MonthlyGoalPlanSection 側で完結している。
+  {
+    const raw = (input.monthly_plan_overrides ?? "").trim();
+    records.push({ key: "monthly_plan_overrides", value_num: null, value_str: raw !== "" ? raw : null });
   }
 
   if (errors.length > 0) return { ok: false, errors };

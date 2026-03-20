@@ -19,6 +19,10 @@ export default async function SettingsPage() {
   const logs = logsResult.kind === "ok" ? logsResult.data : [];
   const qualityReport = calcDataQuality(logs);
 
+  // 最新の記録体重 (最新 log_date のもの)。月次目標計画の起点体重として使用。
+  const currentWeight =
+    [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date)).at(-1)?.weight ?? null;
+
   return (
     <main className="min-h-screen bg-gray-50 p-6">
       <h1 className="mb-6 text-xl font-bold text-gray-800">設定</h1>
@@ -36,7 +40,7 @@ export default async function SettingsPage() {
       )}
 
       <div className="space-y-6">
-        <SettingsForm initialSettings={settingsRows} />
+        <SettingsForm initialSettings={settingsRows} currentWeight={currentWeight} />
         <DataQualityPanel report={qualityReport} />
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <ExportSection />

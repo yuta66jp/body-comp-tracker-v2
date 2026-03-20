@@ -30,6 +30,11 @@ jest.mock("lucide-react", () => ({
   Loader2: () => <span data-testid="icon-loader" />,
 }));
 
+// MonthlyGoalPlanSection はこのテストのスコープ外なのでモックする
+jest.mock("@/components/settings/MonthlyGoalPlanSection", () => ({
+  MonthlyGoalPlanSection: () => null,
+}));
+
 import { saveSettings } from "@/app/settings/actions";
 import { SettingsForm } from "@/components/settings/SettingsForm";
 import type { SaveSettingsResult } from "@/app/settings/actions";

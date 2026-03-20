@@ -8,6 +8,8 @@
  * canonical source: src/lib/schemas/settingsSchema.ts (NUMERIC_SETTING_KEYS / STRING_SETTING_KEYS)
  */
 
+import type { MonthlyGoalOverride } from "@/lib/utils/monthlyGoalPlan";
+
 // ─── AppSettings 型 ──────────────────────────────────────────────────────────
 
 export interface AppSettings {
@@ -40,6 +42,8 @@ export interface AppSettings {
   height: number | null;
   /** 活動係数 */
   activityFactor: number | null;
+  /** 月次目標体重の手動 override リスト。DB: monthly_plan_overrides (value_str に JSON 格納) */
+  monthlyPlanOverrides: MonthlyGoalOverride[] | null;
 }
 
 // ─── mapper ──────────────────────────────────────────────────────────────────
@@ -93,5 +97,18 @@ export function mapToAppSettings(rows: SettingsRow[]): AppSettings {
     age:            getNum("age"),
     height:         getNum("height_cm"),
     activityFactor: getNum("activity_factor"),
+
+    // JSON 配列文字列 — value_str を JSON.parse して返す
+    monthlyPlanOverrides: (() => {
+      const raw = getStr("monthly_plan_overrides");
+      if (!raw) return null;
+      try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return null;
+        return parsed as MonthlyGoalOverride[];
+      } catch {
+        return null;
+      }
+    })(),
   };
 }
