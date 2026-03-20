@@ -54,7 +54,7 @@ function KpiCard({ label, value, unit, sub, icon, accent, iconColor, trendDir, t
   );
 }
 
-export function KpiCards({ logs, settings, avgTdee: _avgTdee }: KpiCardsProps) {
+export function KpiCards({ logs, settings }: KpiCardsProps) {
   const sorted = [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date));
   const latest = sorted[sorted.length - 1];
 

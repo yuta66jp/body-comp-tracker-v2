@@ -352,7 +352,7 @@ export function FactorAnalysis({ data, updatedAt, meta, analyticsAvailability }:
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
           <XAxis type="number" tick={{ fontSize: 11 }} unit="%" domain={[0, 100]} />
           <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={130} />
-          <Tooltip formatter={(v: TooltipValueType | undefined, _: number | string | undefined) => [`${v ?? ""}%`, "重要度（相対値）"]} />
+          <Tooltip formatter={(v: TooltipValueType | undefined) => [`${v ?? ""}%`, "重要度（相対値）"]} />
           <Bar dataKey="pct" radius={[0, 4, 4, 0]}>
             <LabelList dataKey="pct" position="right" formatter={(v: RenderableText) => `${v ?? ""}%`} style={{ fontSize: 11, fill: "#6b7280" }} />
             {chartData.map((_, i) => (

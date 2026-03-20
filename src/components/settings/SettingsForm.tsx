@@ -41,7 +41,6 @@ const MACRO_TARGET_FIELDS: Record<string, FieldMeta> = {
 
 const FIELD_KEYS = Object.keys(FIELDS);
 const MACRO_TARGET_KEYS = Object.keys(MACRO_TARGET_FIELDS);
-const ALL_FIELD_KEYS = [...FIELD_KEYS, ...MACRO_TARGET_KEYS];
 
 /** PFC由来kcal = P×4 + F×9 + C×4 。いずれか未入力なら null */
 function calcPfcDerivedKcal(values: Record<string, string>): number | null {

@@ -172,7 +172,6 @@ export function GoalNavigator({
   metrics,
   phase,
   goalWeight,
-  contestDate,
   avgTdee,
 }: GoalNavigatorProps) {
   const isCut = phase !== "Bulk";
