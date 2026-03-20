@@ -17,6 +17,7 @@ import type { DailyLog, Prediction } from "@/lib/supabase/types";
 import { toJstDateStr, addDaysStr, dateRangeStr } from "@/lib/utils/date";
 import type { MonthlyGoalEntry } from "@/lib/utils/monthlyGoalPlan";
 import { buildMonthlyGoalDateMap } from "@/lib/utils/monthlyGoalVisualization";
+import { buildForecastMap } from "@/lib/utils/forecastUtils";
 
 interface ForecastChartProps {
   logs: DailyLog[];
@@ -65,9 +66,7 @@ export function ForecastChart({
     logs.filter((d) => d.weight !== null).map((d) => [d.log_date, d.weight!])
   );
   const sma7Map = new Map(sma7.map((d) => [d.date, d.value]));
-  const forecastMap = new Map(
-    predictions.filter((p) => p.ds >= today).map((p) => [p.ds, p.yhat])
-  );
+  const forecastMap = buildForecastMap(predictions, latestLogDate);
 
   // タブごとの表示範囲
   const lastForecastDate = predictions.length > 0
