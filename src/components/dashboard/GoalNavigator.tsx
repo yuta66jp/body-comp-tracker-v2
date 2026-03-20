@@ -24,9 +24,11 @@ import {
   CheckCircle2,
   CircleDot,
   HelpCircle,
+  CalendarDays,
 } from "lucide-react";
 import type { ReadinessMetrics } from "@/lib/utils/calcReadiness";
 import { calcGoalStatus, calcKcalCorrection } from "@/lib/utils/calcReadiness";
+import type { MonthlyGoalProgress } from "@/lib/utils/calcMonthlyGoalProgress";
 
 interface GoalNavigatorProps {
   metrics: ReadinessMetrics;
@@ -36,6 +38,8 @@ interface GoalNavigatorProps {
   contestDate: string | null;
   /** 直近の推定 TDEE (kcal). 表示参考値として利用 */
   avgTdee: number | null;
+  /** 今月目標に対する進捗 (calcMonthlyGoalProgress の結果) */
+  monthlyGoalProgress: MonthlyGoalProgress;
 }
 
 // ─── ステータス表示マップ ──────────────────────────────────────────────────
@@ -77,6 +81,16 @@ const STATUS_CONFIG = {
     bg: "bg-slate-50 border-slate-200",
     icon: HelpCircle,
   },
+} as const;
+
+// ─── 今月目標進捗 状態表示マップ ─────────────────────────────────────────────
+
+const MONTHLY_STATE_CONFIG = {
+  achieved:           { label: "今月達成済", color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200" },
+  on_track:           { label: "計画内",     color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200" },
+  slightly_behind:    { label: "やや遅れ",   color: "text-amber-600",   bg: "bg-amber-50 border-amber-200"   },
+  replan_recommended: { label: "再計画推奨", color: "text-rose-600",    bg: "bg-rose-50 border-rose-200"     },
+  unavailable:        { label: "データ不足", color: "text-slate-400",   bg: "bg-slate-50 border-slate-200"   },
 } as const;
 
 // ─── ヘルパー関数 ────────────────────────────────────────────────────────────
@@ -173,6 +187,7 @@ export function GoalNavigator({
   phase,
   goalWeight,
   avgTdee,
+  monthlyGoalProgress,
 }: GoalNavigatorProps) {
   const isCut = phase !== "Bulk";
 
@@ -411,6 +426,78 @@ export function GoalNavigator({
           </div>
         </div>
       </div>
+
+      {/* ── 今月目標進捗 ── */}
+      {monthlyGoalProgress.state !== "unavailable" && (
+        <div className="border-t border-slate-100 px-5 py-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            {/* セクションラベル + 状態バッジ */}
+            <div className="flex items-center gap-2 shrink-0">
+              <CalendarDays size={12} className="text-slate-400" />
+              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                今月目標進捗
+              </span>
+              <span
+                className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                  MONTHLY_STATE_CONFIG[monthlyGoalProgress.state].color
+                } ${MONTHLY_STATE_CONFIG[monthlyGoalProgress.state].bg}`}
+              >
+                {MONTHLY_STATE_CONFIG[monthlyGoalProgress.state].label}
+              </span>
+            </div>
+
+            {/* 今月末目標 */}
+            <span className="text-xs text-slate-500">
+              今月末目標:{" "}
+              <span className="font-semibold text-slate-700 tabular-nums">
+                {monthlyGoalProgress.monthlyTargetWeight?.toFixed(1) ?? "—"} kg
+              </span>
+            </span>
+
+            {/* 差分 */}
+            {monthlyGoalProgress.deltaKg !== null && (
+              <span className="text-xs text-slate-500">
+                差分:{" "}
+                <span
+                  className={`font-semibold tabular-nums ${
+                    monthlyGoalProgress.state === "achieved"
+                      ? "text-emerald-600"
+                      : Math.abs(monthlyGoalProgress.deltaKg) < 0.5
+                      ? "text-slate-700"
+                      : isCut && monthlyGoalProgress.deltaKg > 0
+                      ? "text-rose-600"
+                      : !isCut && monthlyGoalProgress.deltaKg < 0
+                      ? "text-amber-600"
+                      : "text-slate-700"
+                  }`}
+                >
+                  {monthlyGoalProgress.deltaKg > 0 ? "+" : ""}
+                  {monthlyGoalProgress.deltaKg.toFixed(2)} kg
+                </span>
+              </span>
+            )}
+
+            {/* 残必要ペース */}
+            {monthlyGoalProgress.requiredPaceKgPerWeek !== null && (
+              <span className="text-xs text-slate-500">
+                残必要ペース:{" "}
+                <span className="font-semibold tabular-nums text-slate-700">
+                  {monthlyGoalProgress.requiredPaceKgPerWeek > 0 ? "+" : ""}
+                  {monthlyGoalProgress.requiredPaceKgPerWeek.toFixed(2)} kg/週
+                </span>
+                <span className="ml-1 text-[10px] text-slate-400">
+                  (残{monthlyGoalProgress.daysToMonthEnd}日)
+                </span>
+              </span>
+            )}
+
+            {/* 警告あり補足 */}
+            {monthlyGoalProgress.hasWarnings && (
+              <span className="text-[10px] text-amber-500">⚠ 計画に警告あり</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── フッター注記 ── */}
       <div className="border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400">
