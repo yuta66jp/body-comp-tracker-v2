@@ -272,10 +272,12 @@ export function ForecastChart({
               connectNulls
             />
           )}
-          {/* 月次目標ステップライン (plan entries がある場合のみ) */}
+          {/* 月次目標ステップライン (plan entries がある場合のみ)
+              type="stepAfter": 現在点の値を次点の x まで保持し、月境界で垂直に段差が生じる。
+              月内フラット・月ごとに変わるステップ表現を実現する。 */}
           {monthlyGoalDateMap.size > 0 && (
             <Line
-              type="monotone"
+              type="stepAfter"
               dataKey="monthlyGoalTarget"
               stroke="#8b5cf6"
               strokeWidth={1.5}
