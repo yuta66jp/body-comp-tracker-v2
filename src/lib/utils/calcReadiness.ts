@@ -304,17 +304,19 @@ export interface GoalReachResult {
 }
 
 /**
- * KPI の「目標到達予定日」を 7日平均 + 14暦日回帰ペースから算出する。
+ * KPI の「目標到達予定日」を 7日平均 + 30暦日回帰ペースから算出する。
  *
  * - 現在地: weight7dAvg（生体重ノイズを除いた安定した基準点）
- * - 進行速度: slopePerDay（直近14暦日の線形回帰 kg/day）
+ * - 進行速度: slopePerDay（直近30暦日の線形回帰 kg/day）
+ *   14日回帰より短期局面の影響を受けにくく、安定した着地見通しを示す。
  * - 到達日数: (現在地 − 目標体重) / (-slopePerDay)
  *
  * KPI 主表示に AI 予測は採用しない。
  * AI 予測はダッシュボードのチャート（ForecastChart）で参考表示する。
+ * 直近トレンドの短期補助線は ForecastChart の EW Linear Trend 線を参照する。
  *
  * @param weight7dAvg  直近7暦日の体重平均 (kg)。null ならラベル "—" を返す
- * @param slopePerDay  直近14暦日の線形回帰 slope (kg/day)。null なら停滞中扱い
+ * @param slopePerDay  直近30暦日の線形回帰 slope (kg/day)。null なら停滞中扱い
  * @param goalWeight   目標体重 (kg)。null ならラベル "—" を返す
  * @param today        基準日 (YYYY-MM-DD)
  */

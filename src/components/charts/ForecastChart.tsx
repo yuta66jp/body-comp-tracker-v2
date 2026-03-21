@@ -17,7 +17,7 @@ import type { DailyLog, Prediction } from "@/lib/supabase/types";
 import { toJstDateStr, addDaysStr, dateRangeStr } from "@/lib/utils/date";
 import type { MonthlyGoalEntry } from "@/lib/utils/monthlyGoalPlan";
 import { buildMonthlyGoalDateMap } from "@/lib/utils/monthlyGoalVisualization";
-import { buildForecastMap } from "@/lib/utils/forecastUtils";
+import { buildForecastMap, calcEwLinearForecast } from "@/lib/utils/forecastUtils";
 
 interface ForecastChartProps {
   logs: DailyLog[];
@@ -34,6 +34,7 @@ interface ChartPoint {
   actual?: number;
   forecast?: number;
   sma7?: number;
+  ewTrend?: number;
   monthlyGoalTarget?: number;
 }
 
@@ -68,10 +69,17 @@ export function ForecastChart({
   const sma7Map = new Map(sma7.map((d) => [d.date, d.value]));
   const forecastMap = buildForecastMap(predictions, latestLogDate);
 
+  // EW Linear Trend: SMA7 ベース指数加重線形回帰の短期補助線 (最終実測日翌日〜14日先)
+  // #155 の predict_ew_linear() と同一設計 (SMA7入力 + alpha=0.9)
+  const ewForecastPoints = calcEwLinearForecast(sma7, latestLogDate, 14);
+  const ewTrendMap = new Map(ewForecastPoints.map((p) => [p.date, p.value]));
+
   // タブごとの表示範囲
   const lastForecastDate = predictions.length > 0
     ? [...predictions].sort((a, b) => b.ds.localeCompare(a.ds))[0].ds
     : today;
+  // EW 補助線の最終日 (latestLogDate + 14 日、点がなければ今日)
+  const lastEwDate = ewForecastPoints.at(-1)?.date ?? today;
 
   let viewStartStr: string;
   let viewEndStr: string;
@@ -83,9 +91,11 @@ export function ForecastChart({
     viewStartStr = addDaysStr(latestLogDate, -30) ?? today; // 最新測定日を含む31日間
     viewEndStr = latestLogDate;
   } else {
-    // default: 45日前〜大会日（または最後の予測日）
+    // default: 45日前〜 contestDate / lastForecastDate / lastEwDate の最大
     viewStartStr = addDaysStr(today, -45) ?? today;
-    viewEndStr = contestDate && contestDate > lastForecastDate ? contestDate : lastForecastDate;
+    viewEndStr = [lastForecastDate, lastEwDate, contestDate ?? ""]
+      .filter(Boolean)
+      .reduce((a, b) => (a > b ? a : b));
   }
 
   const allDates = dateRangeStr(viewStartStr, viewEndStr);
@@ -101,6 +111,8 @@ export function ForecastChart({
     actual: actualMap.get(date),
     sma7: sma7Map.get(date),
     forecast: rangeTab === "default" ? forecastMap.get(date) : undefined,
+    // EW補助線は全体ビューのみ (14日先まで) — 7d/31d は latestLogDate 以前しか表示しないため自然に非表示
+    ewTrend: rangeTab === "default" ? ewTrendMap.get(date) : undefined,
     monthlyGoalTarget: monthlyGoalDateMap.get(date),
   }));
 
@@ -111,11 +123,15 @@ export function ForecastChart({
   const visibleForecast = rangeTab === "default"
     ? allDates.map((d) => forecastMap.get(d)).filter((v): v is number => v !== undefined)
     : [];
+  const visibleEwTrend = rangeTab === "default"
+    ? allDates.map((d) => ewTrendMap.get(d)).filter((v): v is number => v !== undefined)
+    : [];
   // 月次目標ステップの Y 軸範囲への反映 (plan がある場合)
   const visibleMonthlyGoalTargets = [...monthlyGoalDateMap.values()];
   const rangeWeights = [
     ...visibleActual,
     ...visibleForecast,
+    ...visibleEwTrend,
     ...visibleMonthlyGoalTargets,
     ...(goalWeight && rangeTab === "default" ? [goalWeight] : []),
   ];
@@ -184,6 +200,7 @@ export function ForecastChart({
                 actual:             "実測",
                 sma7:               "7日平均",
                 forecast:           "AI予測",
+                ewTrend:            "直近トレンド",
                 monthlyGoalTarget:  "月次目標",
               };
               const nameStr = String(name ?? "");
@@ -200,6 +217,7 @@ export function ForecastChart({
                 actual:             "実測",
                 sma7:               "7日平均",
                 forecast:           "AI予測 (NeuralProphet)",
+                ewTrend:            "直近トレンド予測",
                 monthlyGoalTarget:  "月次目標",
               };
               return labels[value] ?? value;
@@ -255,6 +273,20 @@ export function ForecastChart({
               dataKey="forecast"
               stroke="rgba(255,136,0,0.9)"
               strokeWidth={3}
+              dot={false}
+              connectNulls
+            />
+          )}
+          {/* EW Linear Trend 補助線（全体ビューのみ・最終実測日翌日〜14日先）
+              SMA7入力 + 指数加重線形回帰。直近変化の短期参考線。
+              主線 (NeuralProphet) より細く破線で補助線として扱う。 */}
+          {rangeTab === "default" && ewForecastPoints.length > 0 && (
+            <Line
+              type="monotone"
+              dataKey="ewTrend"
+              stroke="#10b981"
+              strokeWidth={1.5}
+              strokeDasharray="5 3"
               dot={false}
               connectNulls
             />

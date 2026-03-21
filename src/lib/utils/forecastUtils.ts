@@ -5,6 +5,8 @@
  * Recharts / React に依存しないため単体テストが容易。
  */
 
+import { addDaysStr } from "./date";
+
 /**
  * buildForecastMap
  *
@@ -20,6 +22,70 @@
  * @param predictions  predictions テーブルのレコード列
  * @param latestLogDate  体重あり最終ログ日 ("YYYY-MM-DD")。なければ今日の JST 日付
  */
+/**
+ * calcEwLinearForecast
+ *
+ * SMA7 平滑化系列に対して指数加重線形回帰を適用し、
+ * latestLogDate 翌日から horizonDays 日先までの予測系列を返す。
+ *
+ * #155 の Python predict_ew_linear() と同一の設計方針:
+ *   - 入力: SMA7 系列（生体重ではなく平滑化済み）→ 単日ノイズ (水分変動) を除去
+ *   - 加重: alpha=0.9/日。直近ほど重み大 (最新=1.0, 1日前=0.9, ..., 29日前≈0.05)
+ *   - 外挿: 加重最小二乗線形回帰の slope から horizon 日先を線形延長
+ *
+ * ForecastChart での用途: 短期補助線（14日先まで）
+ *   - NeuralProphet (中期主線) とは役割が異なる
+ *   - 直近の体重変化方向・加速度を直感的に可視化する
+ *
+ * @param sma7         SMA7 系列 (date: YYYY-MM-DD, value: kg)。順不同でよい
+ * @param latestLogDate 実測値のある最終日 (YYYY-MM-DD)。翌日から予測を開始する
+ * @param horizonDays  予測期間 (日数)。デフォルト 14
+ * @returns            予測点の配列 (日付昇順)。SMA7 が 2 件未満の場合は空配列
+ */
+export function calcEwLinearForecast(
+  sma7: Array<{ date: string; value: number }>,
+  latestLogDate: string,
+  horizonDays: number = 14
+): Array<{ date: string; value: number }> {
+  // SMA7 を日付昇順でソートし直近30件を使う (Python の train.tail(30) に相当)
+  const sorted = [...sma7]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-30);
+  const n = sorted.length;
+  if (n < 2) return [];
+
+  const alpha = 0.9;
+  const ys = sorted.map((d) => d.value);
+
+  // 加重最小二乗回帰 (正規方程式)
+  // w_i = alpha^(n-1-i): i=0 (最古) が最小, i=n-1 (最新) = 1.0
+  let sw = 0, swx = 0, swy = 0, swxx = 0, swxy = 0;
+  for (let i = 0; i < n; i++) {
+    const w = Math.pow(alpha, n - 1 - i);
+    sw   += w;
+    swx  += w * i;
+    swy  += w * ys[i];
+    swxx += w * i * i;
+    swxy += w * i * ys[i];
+  }
+
+  const denom = sw * swxx - swx * swx;
+  if (denom === 0) return [];
+
+  const slope     = (sw * swxy - swx * swy) / denom;
+  const intercept = (swy - slope * swx) / sw;
+
+  // latestLogDate 翌日から horizonDays 日先まで外挿
+  // x = n-1 が直近 SMA7 点に対応するため、h 日後は x = n-1+h
+  const result: Array<{ date: string; value: number }> = [];
+  for (let h = 1; h <= horizonDays; h++) {
+    const date = addDaysStr(latestLogDate, h);
+    if (!date) continue;
+    result.push({ date, value: slope * (n - 1 + h) + intercept });
+  }
+  return result;
+}
+
 export function buildForecastMap(
   predictions: Array<{ ds: string; yhat: number }>,
   latestLogDate: string

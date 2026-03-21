@@ -1,4 +1,83 @@
-import { buildForecastMap } from "./forecastUtils";
+import { buildForecastMap, calcEwLinearForecast } from "./forecastUtils";
+
+// ─── calcEwLinearForecast ─────────────────────────────────────────────────────
+
+/** n 点の SMA7 系列を生成する (slope kg/日, latestDate が最終日) */
+function makeSma7(n: number, latestDate: string, valueAtLatest: number, slope: number): Array<{ date: string; value: number }> {
+  // 日付を latestDate から逆算してローカル Date を使わず文字列操作で生成
+  const result: Array<{ date: string; value: number }> = [];
+  for (let i = 0; i < n; i++) {
+    // latestDate - (n-1-i) 日
+    const daysBack = n - 1 - i;
+    const [y, m, d] = latestDate.split("-").map(Number);
+    const dt = new Date(y, m - 1, d - daysBack);
+    const date = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+    result.push({ date, value: valueAtLatest + slope * (i - (n - 1)) });
+  }
+  return result;
+}
+
+describe("calcEwLinearForecast", () => {
+  const latestLogDate = "2026-03-15";
+
+  it("SMA7 が 1 件以下のとき空配列を返す", () => {
+    expect(calcEwLinearForecast([], latestLogDate)).toEqual([]);
+    const single = [{ date: latestLogDate, value: 70.0 }];
+    expect(calcEwLinearForecast(single, latestLogDate)).toEqual([]);
+  });
+
+  it("デフォルトで 14 件の予測を返す", () => {
+    const sma7 = makeSma7(20, latestLogDate, 70.0, 0.0);
+    const result = calcEwLinearForecast(sma7, latestLogDate);
+    expect(result).toHaveLength(14);
+  });
+
+  it("horizonDays を指定した件数の予測を返す", () => {
+    const sma7 = makeSma7(20, latestLogDate, 70.0, 0.0);
+    expect(calcEwLinearForecast(sma7, latestLogDate, 7)).toHaveLength(7);
+  });
+
+  it("latestLogDate の翌日から始まる", () => {
+    const sma7 = makeSma7(20, latestLogDate, 70.0, 0.0);
+    const result = calcEwLinearForecast(sma7, latestLogDate);
+    expect(result[0].date).toBe("2026-03-16");
+  });
+
+  it("14 件目が latestLogDate + 14 日の日付になる", () => {
+    const sma7 = makeSma7(20, latestLogDate, 70.0, 0.0);
+    const result = calcEwLinearForecast(sma7, latestLogDate);
+    expect(result[13].date).toBe("2026-03-29");
+  });
+
+  it("一定 SMA7 では一定値を予測する", () => {
+    const sma7 = makeSma7(20, latestLogDate, 70.0, 0.0);
+    const result = calcEwLinearForecast(sma7, latestLogDate);
+    for (const p of result) {
+      expect(p.value).toBeCloseTo(70.0, 4);
+    }
+  });
+
+  it("下降トレンドでは予測値が latestLogDate 時点の SMA7 より低くなる", () => {
+    // slope = -0.05 kg/日 の下降トレンド
+    const sma7 = makeSma7(20, latestLogDate, 70.0, -0.05);
+    const result = calcEwLinearForecast(sma7, latestLogDate, 7);
+    expect(result[6].value).toBeLessThan(70.0);
+  });
+
+  it("上昇トレンドでは予測値が latestLogDate 時点の SMA7 より高くなる", () => {
+    const sma7 = makeSma7(20, latestLogDate, 70.0, 0.05);
+    const result = calcEwLinearForecast(sma7, latestLogDate, 7);
+    expect(result[6].value).toBeGreaterThan(70.0);
+  });
+
+  it("SMA7 が 30 件を超える場合でも直近 30 件を使って予測できる", () => {
+    const sma7 = makeSma7(50, latestLogDate, 70.0, -0.02);
+    const result = calcEwLinearForecast(sma7, latestLogDate);
+    expect(result).toHaveLength(14);
+    // 下降トレンドなので予測値が下がっていること
+    expect(result[13].value).toBeLessThan(70.0);
+  });
+});
 
 describe("buildForecastMap", () => {
   const predictions = [
