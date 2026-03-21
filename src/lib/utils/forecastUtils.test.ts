@@ -175,13 +175,11 @@ describe("buildYAxisConfig", () => {
     }
   });
 
-  it("60d: 5 の倍数のみラベルを返し、それ以外は空文字", () => {
-    const { formatter } = buildYAxisConfig("60d", 63.0, 73.0);
-    expect(formatter(65)).toBe("65kg");
-    expect(formatter(70)).toBe("70kg");
-    expect(formatter(64)).toBe("");
-    expect(formatter(66)).toBe("");
-    expect(formatter(69)).toBe("");
+  it("60d: 全 tick でラベルを返す（空文字なし）", () => {
+    const { ticks, formatter } = buildYAxisConfig("60d", 63.0, 73.0);
+    for (const t of ticks) {
+      expect(formatter(t)).not.toBe("");
+    }
   });
 
   it("default: 5 の倍数のみラベルを返し、それ以外は空文字", () => {

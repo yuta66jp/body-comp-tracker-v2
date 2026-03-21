@@ -95,7 +95,8 @@ export type RangeTab = "default" | "7d" | "31d" | "60d";
  *
  * - 7d:      0.5kg 刻み、全ラベル表示
  * - 31d:     1kg 刻み、全ラベル表示
- * - 60d/default: 1kg 刻み、5kg 倍数のみラベル表示（密度抑制）
+ * - 60d:     1kg 刻み、全ラベル表示
+ * - default: 1kg 刻み、5kg 倍数のみラベル表示（密度抑制）
  */
 export function buildYAxisConfig(
   rangeTab: RangeTab,
@@ -103,7 +104,7 @@ export function buildYAxisConfig(
   yMax: number
 ): { ticks: number[]; formatter: (v: number) => string } {
   const step = rangeTab === "7d" ? 0.5 : 1;
-  const labelEvery = rangeTab === "7d" || rangeTab === "31d" ? 0 : 5;
+  const labelEvery = rangeTab === "default" ? 5 : 0;
 
   const tickStart = Math.round(Math.ceil(yMin / step) * step * 10) / 10;
   const ticks: number[] = [];
