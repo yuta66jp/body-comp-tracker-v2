@@ -9,7 +9,9 @@
  *   error              — "取得エラー" (DB 接続失敗・認証エラー等)
  *
  * この型を使用する関数 (空状態と取得エラーを区別すべき主要クエリ):
- *   - fetchDailyLogs            (daily_logs 全件)
+ *   - fetchDashboardDailyLogs   (daily_logs 16列 — Dashboard 専用)
+ *   - fetchMacroDailyLogs       (daily_logs 6列 LIMIT 60 — Macro 専用)
+ *   - fetchTdeeDailyLogs        (daily_logs 3列 LIMIT 30 — TDEE 専用)
  *   - fetchDailyLogsForSettings (daily_logs — settings ページ用)
  *   - fetchCareerLogs           (career_logs — history ページ主データ)
  *   - fetchSettings             (settings → AppSettings 変換)

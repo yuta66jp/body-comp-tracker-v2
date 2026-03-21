@@ -371,6 +371,24 @@ export type DailyLog = Database["public"]["Tables"]["daily_logs"]["Row"];
  */
 export type DashboardDailyLog = Omit<DailyLog, "note" | "leg_flag">;
 
+/**
+ * Macro ページ専用の daily_logs projection 型。
+ * fetchMacroDailyLogs() が取得する 6 列に対応する。
+ *
+ * 除外列: is_* フラグ / sleep_hours / had_bowel_movement / training_type / work_mode /
+ *         note / leg_flag / updated_at — Macro 計算で不要なため除外。
+ */
+export type MacroDailyLog = Pick<DailyLog, "log_date" | "weight" | "calories" | "protein" | "fat" | "carbs">;
+
+/**
+ * TDEE ページ専用の daily_logs projection 型。
+ * fetchTdeeDailyLogs() が取得する 3 列に対応する。
+ *
+ * 除外列: protein / fat / carbs / is_* フラグ / sleep_hours / had_bowel_movement /
+ *         training_type / work_mode / note / leg_flag / updated_at — TDEE 計算で不要なため除外。
+ */
+export type TdeeDailyLog = Pick<DailyLog, "log_date" | "weight" | "calories">;
+
 export type FoodMaster = Database["public"]["Tables"]["food_master"]["Row"];
 export type MenuMaster = Database["public"]["Tables"]["menu_master"]["Row"];
 export type Setting = Database["public"]["Tables"]["settings"]["Row"];

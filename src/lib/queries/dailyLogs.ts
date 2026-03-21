@@ -5,25 +5,19 @@
  *
  * | 関数 | 取得列 | 用途 | 戻り値型 |
  * |---|---|---|---|
- * | fetchDashboardDailyLogs()   | 16列（note・leg_flag 除く） | Dashboard 専用 (#165)       | QueryResult |
- * | fetchDailyLogs()            | 全列 (*)                   | Macro / TDEE 暫定共用 (#166/#167 で廃止予定) | QueryResult |
- * | fetchWeightLogs()           | log_date, weight           | History ページ補助          | ベストエフォート |
- * | fetchDailyLogsForSettings() | log_date, weight, calories | Settings DataQuality 計算  | QueryResult |
- *
- * ## 後続 Issue での分割方針（#164 設計整理済み）
- *
- * - #165 (Dashboard): fetchDashboardDailyLogs() を新設。全期間・16列。
- * - #166 (Macro): fetchMacroDailyLogs(60)  — 6列・DESC LIMIT 60
- * - #167 (TDEE) : fetchRecentDailyLogs(14) — 3列・DESC LIMIT 14
- * - 両画面の stale 判定: fetchLatestUpdatedAt() — MAX(updated_at) のみ
- * - #166/#167 完了後、fetchDailyLogs() は削除予定
+ * | fetchDashboardDailyLogs()   | 16列（note・leg_flag 除く） | Dashboard 専用 (#165)          | QueryResult |
+ * | fetchMacroDailyLogs(days)   | 6列・DESC LIMIT days        | Macro 専用 (#166)              | QueryResult |
+ * | fetchTdeeDailyLogs(limit)   | 3列・DESC LIMIT limit       | TDEE raw fallback 専用 (#166)  | QueryResult |
+ * | fetchLatestUpdatedAt()      | updated_at 1行              | stale 判定用（Macro/TDEE共用） | ベストエフォート |
+ * | fetchWeightLogs()           | log_date, weight            | History ページ補助             | ベストエフォート |
+ * | fetchDailyLogsForSettings() | log_date, weight, calories  | Settings DataQuality 計算      | QueryResult |
  *
  * 詳細: docs/daily-logs-read-inventory.md
  *
  * ## write 系・UI 固有文言はここに含めない
  */
 import { createClient } from "@/lib/supabase/server";
-import type { DailyLog, DashboardDailyLog, CareerLog, Prediction } from "@/lib/supabase/types";
+import type { DailyLog, DashboardDailyLog, MacroDailyLog, TdeeDailyLog, CareerLog, Prediction } from "@/lib/supabase/types";
 import type { DataQualityLog } from "@/lib/utils/calcDataQuality";
 import type { QueryResult } from "./queryResult";
 
@@ -86,27 +80,96 @@ export async function fetchDashboardDailyLogs(): Promise<QueryResult<DashboardDa
 }
 
 /**
- * daily_logs を全カラム・日付昇順で取得する。
+ * Macro ページ専用: 直近 days 日分の daily_logs を 6 列で取得する。
  *
- * @deprecated Dashboard は fetchDashboardDailyLogs() を使用すること。
- * このクエリは Macro / TDEE の暫定共用クエリとして残しており、
- * #166 (Macro) / #167 (TDEE) の専用クエリ実装後に削除予定。
+ * 取得列: log_date, weight, calories, protein, fat, carbs
+ * 並び順: 日付降順で LIMIT {days} 取得後、昇順に並び直して返す。
+ *
+ * stale 判定: updated_at は取得しない。stale 判定が必要な場合は fetchLatestUpdatedAt() を別途呼ぶこと。
  *
  * 戻り値:
  *   kind: "ok"    — 取得成功。data が空配列 = ログ未入力（正常な空状態）。
  *   kind: "error" — DB フェッチ失敗。呼び出し側で error banner を表示すること。
  */
-export async function fetchDailyLogs(): Promise<QueryResult<DailyLog[]>> {
+export async function fetchMacroDailyLogs(days = 60): Promise<QueryResult<MacroDailyLog[]>> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("daily_logs")
-    .select("*")
-    .order("log_date", { ascending: true });
+    .select("log_date, weight, calories, protein, fat, carbs")
+    .order("log_date", { ascending: false })
+    .limit(days);
   if (error) {
-    console.error("[fetchDailyLogs] daily_logs fetch error:", error.message, { code: error.code });
+    console.error("[fetchMacroDailyLogs] daily_logs fetch error:", error.message, { code: error.code });
     return { kind: "error", message: error.message };
   }
-  return { kind: "ok", data: (data as DailyLog[]) ?? [] };
+  const sorted = ((data as unknown as MacroDailyLog[]) ?? []).reverse();
+  return { kind: "ok", data: sorted };
+}
+
+/**
+ * TDEE ページ専用: 直近 limit 行の daily_logs を 3 列で取得する。
+ *
+ * 取得列: log_date, weight, calories
+ * 並び順: 日付降順で LIMIT {limit} 取得後、昇順に並び直して返す。
+ *
+ * ## デフォルト値 180 の根拠
+ * enriched_logs が unavailable（ML バッチ未実行）の場合、グラフは raw ログを
+ * fallback として直接描画する。TDEE 推移は「約 6 か月の体重推移」として
+ * 引き続き表示されることが要件のため、約 6 か月 ≈ 180 日を確保する。
+ * enriched が fresh / stale の場合は enrichedRows が主軸となるため
+ * 余分な取得は KPI / table の slice 範囲にのみ影響し、機能面への影響はない。
+ *
+ * ## page.tsx 側での切り出し方針
+ *   - fallback グラフ: 取得全体（最大 180 行）を使う
+ *   - KPI（直近 7 / 14 日集計）: sortedRaw.slice(-14) / slice(-7) で切り出す
+ *   - テーブル（直近 14 日）: sortedRaw.slice(-14) で切り出す
+ *   - latestWeight: weight != null の末尾行を使う
+ *
+ * stale 判定: updated_at は取得しない。stale 判定が必要な場合は fetchLatestUpdatedAt() を別途呼ぶこと。
+ *
+ * 戻り値:
+ *   kind: "ok"    — 取得成功。data が空配列 = ログ未入力（正常な空状態）。
+ *   kind: "error" — DB フェッチ失敗。呼び出し側で graceful degradation すること。
+ */
+export async function fetchTdeeDailyLogs(limit = 180): Promise<QueryResult<TdeeDailyLog[]>> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("daily_logs")
+    .select("log_date, weight, calories")
+    .order("log_date", { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.error("[fetchTdeeDailyLogs] daily_logs fetch error:", error.message, { code: error.code });
+    return { kind: "error", message: error.message };
+  }
+  const sorted = ((data as unknown as TdeeDailyLog[]) ?? []).reverse();
+  return { kind: "ok", data: sorted };
+}
+
+/**
+ * daily_logs の最終更新日時を取得する。
+ *
+ * Macro / TDEE ページの analytics_cache stale 判定用。
+ * MAX(log_date) ではなく MAX(updated_at) を使うことで、
+ * 過去日ログの更新でも正しく stale を検知できる。
+ *
+ * フォールバック: エラー時は null を返す（ベストエフォート）。
+ * stale 判定が null になると fetchEnrichedLogs / fetchFactorAnalysis が
+ * キャッシュを常に fresh とみなすため、最悪ケースでも表示は崩れない。
+ */
+export async function fetchLatestUpdatedAt(): Promise<string | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("daily_logs")
+    .select("updated_at")
+    .order("updated_at", { ascending: false })
+    .limit(1);
+  if (error) {
+    console.error("[fetchLatestUpdatedAt] daily_logs fetch error:", error.message);
+    return null;
+  }
+  const row = (data as { updated_at: string }[] | null)?.[0];
+  return row?.updated_at ?? null;
 }
 
 /**

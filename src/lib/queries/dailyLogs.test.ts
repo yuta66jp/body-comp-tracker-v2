@@ -5,7 +5,9 @@
  */
 
 import {
-  fetchDailyLogs,
+  fetchMacroDailyLogs,
+  fetchTdeeDailyLogs,
+  fetchLatestUpdatedAt,
   fetchWeightLogs,
   fetchDailyLogsForSettings,
   fetchCareerLogs,
@@ -13,11 +15,12 @@ import {
   fetchPredictions,
 } from "./dailyLogs";
 
-// fetchDailyLogs, fetchDailyLogsForSettings, fetchCareerLogs は QueryResult<T> を返す。
-// fetchWeightLogs, fetchCareerLogsForDashboard, fetchPredictions はベストエフォートで空配列を返す。
+// fetchMacroDailyLogs, fetchTdeeDailyLogs, fetchDailyLogsForSettings, fetchCareerLogs は QueryResult<T> を返す。
+// fetchLatestUpdatedAt, fetchWeightLogs, fetchCareerLogsForDashboard, fetchPredictions はベストエフォートで null/空配列を返す。
 
 // ── Mock ──────────────────────────────────────────────────────────────────────
 
+const mockLimit = jest.fn();
 const mockOrder = jest.fn();
 const mockNot = jest.fn();
 const mockSelect = jest.fn();
@@ -33,7 +36,7 @@ type ChainResult = { data: unknown; error: unknown };
 
 /**
  * .from().select().order() または .from().select().not().order() チェーンの
- * 最終 await 値を設定する。
+ * 最終 await 値を設定する。order() が直接 await される（limit なし）クエリ用。
  */
 function setupChain(result: ChainResult) {
   const terminal = Promise.resolve(result);
@@ -46,18 +49,69 @@ function setupChain(result: ChainResult) {
   mockFrom.mockReturnValue({ select: mockSelect });
 }
 
-// ── fetchDailyLogs ────────────────────────────────────────────────────────────
+/**
+ * .from().select().order().limit() チェーンの最終 await 値を設定する。
+ * fetchMacroDailyLogs / fetchTdeeDailyLogs / fetchLatestUpdatedAt 用。
+ */
+function setupLimitChain(result: ChainResult) {
+  const terminal = Promise.resolve(result);
+  mockLimit.mockReturnValue(terminal);
+  mockOrder.mockReturnValue({ limit: mockLimit });
+  mockSelect.mockReturnValue({ order: mockOrder });
+  mockFrom.mockReturnValue({ select: mockSelect });
+}
 
-describe("fetchDailyLogs", () => {
+// ── fetchMacroDailyLogs ───────────────────────────────────────────────────────
+
+describe("fetchMacroDailyLogs", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("正常系: kind=ok で DailyLog[] を返す", async () => {
+  it("正常系: kind=ok で MacroDailyLog[] を昇順で返す", async () => {
+    // DESC LIMIT で返ってくるデータ（降順）を渡す → 関数内で昇順に reverse される
     const rows = [
-      { log_date: "2026-03-01", weight: 72.5, calories: 2000 },
-      { log_date: "2026-03-02", weight: 72.3, calories: 1900 },
+      { log_date: "2026-03-02", weight: 72.3, calories: 1900, protein: 150, fat: 60, carbs: 200 },
+      { log_date: "2026-03-01", weight: 72.5, calories: 2000, protein: 155, fat: 65, carbs: 210 },
     ];
-    setupChain({ data: rows, error: null });
-    const result = await fetchDailyLogs();
+    setupLimitChain({ data: rows, error: null });
+    const result = await fetchMacroDailyLogs(60);
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.data).toHaveLength(2);
+      expect(result.data[0].log_date).toBe("2026-03-01"); // reverse 後は昇順
+    }
+  });
+
+  it("正常系: データが null のとき kind=ok で空配列を返す", async () => {
+    setupLimitChain({ data: null, error: null });
+    const result = await fetchMacroDailyLogs();
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.data).toEqual([]);
+    }
+  });
+
+  it("異常系: DB エラーのとき kind=error を返す", async () => {
+    setupLimitChain({ data: null, error: { message: "connection error", code: "PGRST000" } });
+    const result = await fetchMacroDailyLogs();
+    expect(result.kind).toBe("error");
+    if (result.kind === "error") {
+      expect(result.message).toBe("connection error");
+    }
+  });
+});
+
+// ── fetchTdeeDailyLogs ────────────────────────────────────────────────────────
+
+describe("fetchTdeeDailyLogs", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("正常系: kind=ok で TdeeDailyLog[] を昇順で返す", async () => {
+    const rows = [
+      { log_date: "2026-03-02", weight: 72.3, calories: 1900 },
+      { log_date: "2026-03-01", weight: 72.5, calories: 2000 },
+    ];
+    setupLimitChain({ data: rows, error: null });
+    const result = await fetchTdeeDailyLogs(30);
     expect(result.kind).toBe("ok");
     if (result.kind === "ok") {
       expect(result.data).toHaveLength(2);
@@ -66,8 +120,8 @@ describe("fetchDailyLogs", () => {
   });
 
   it("正常系: データが null のとき kind=ok で空配列を返す", async () => {
-    setupChain({ data: null, error: null });
-    const result = await fetchDailyLogs();
+    setupLimitChain({ data: null, error: null });
+    const result = await fetchTdeeDailyLogs();
     expect(result.kind).toBe("ok");
     if (result.kind === "ok") {
       expect(result.data).toEqual([]);
@@ -75,12 +129,37 @@ describe("fetchDailyLogs", () => {
   });
 
   it("異常系: DB エラーのとき kind=error を返す", async () => {
-    setupChain({ data: null, error: { message: "connection error", code: "PGRST000" } });
-    const result = await fetchDailyLogs();
+    setupLimitChain({ data: null, error: { message: "DB error", code: "PGRST000" } });
+    const result = await fetchTdeeDailyLogs();
     expect(result.kind).toBe("error");
     if (result.kind === "error") {
-      expect(result.message).toBe("connection error");
+      expect(result.message).toBe("DB error");
     }
+  });
+});
+
+// ── fetchLatestUpdatedAt ──────────────────────────────────────────────────────
+
+describe("fetchLatestUpdatedAt", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("正常系: updated_at 文字列を返す", async () => {
+    const rows = [{ updated_at: "2026-03-21T10:00:00Z" }];
+    setupLimitChain({ data: rows, error: null });
+    const result = await fetchLatestUpdatedAt();
+    expect(result).toBe("2026-03-21T10:00:00Z");
+  });
+
+  it("正常系: データが空のとき null を返す", async () => {
+    setupLimitChain({ data: [], error: null });
+    const result = await fetchLatestUpdatedAt();
+    expect(result).toBeNull();
+  });
+
+  it("異常系: DB エラーのとき null を返す", async () => {
+    setupLimitChain({ data: null, error: { message: "DB error" } });
+    const result = await fetchLatestUpdatedAt();
+    expect(result).toBeNull();
   });
 });
 

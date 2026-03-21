@@ -16,7 +16,7 @@ import {
   calcTdeeConfidence,
   buildTdeeInterpretation,
 } from "@/lib/utils/calcTdee";
-import { fetchDailyLogs } from "@/lib/queries/dailyLogs";
+import { fetchTdeeDailyLogs, fetchLatestUpdatedAt } from "@/lib/queries/dailyLogs";
 import { fetchSettings } from "@/lib/queries/settings";
 import { fetchEnrichedLogs } from "@/lib/queries/analytics";
 import { mapToAppSettings } from "@/lib/domain/settings";
@@ -25,25 +25,20 @@ import type { CurrentPhase } from "@/lib/utils/energyBalance";
 export const revalidate = 3600;
 
 export default async function TdeePage() {
-  const [rawLogsResult, settingsResult] = await Promise.all([
-    fetchDailyLogs(),
+  const [rawLogsResult, settingsResult, latestUpdatedAt] = await Promise.all([
+    fetchTdeeDailyLogs(180),
     fetchSettings(),
+    fetchLatestUpdatedAt(),
   ]);
 
   // QueryResult を展開。エラー時はフォールバック値で graceful degradation を維持する。
   const rawLogs = rawLogsResult.kind === "ok" ? rawLogsResult.data : [];
   const settings = settingsResult.kind === "ok" ? settingsResult.data : mapToAppSettings([]);
 
-  const sortedRaw = [...rawLogs].sort((a, b) => a.log_date.localeCompare(b.log_date));
+  // fetchTdeeDailyLogs は昇順ソート済みで返すため、ここで再ソートは不要。
+  const sortedRaw = rawLogs;
 
-  // MAX(updated_at) を使って stale 判定する。
-  // MAX(log_date) ではなく MAX(updated_at) を使うことで、過去日の行修正でも stale を正しく検知できる。
-  const latestRawLogUpdatedAt = rawLogs.reduce<string | null>((max, l) => {
-    if (!l.updated_at) return max;
-    return max === null || l.updated_at > max ? l.updated_at : max;
-  }, null);
-
-  const enrichedResult = await fetchEnrichedLogs(latestRawLogUpdatedAt);
+  const enrichedResult = await fetchEnrichedLogs(latestUpdatedAt);
   const enrichedRows = enrichedResult.rows;
   const enrichedAvailability = enrichedResult.availability;
 
