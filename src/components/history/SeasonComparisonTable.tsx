@@ -137,7 +137,7 @@ export function SeasonComparisonTable({
         <table className="w-full min-w-[480px] text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              <th className="sticky left-0 bg-slate-50 px-4 py-2.5 text-left">
+              <th className="sticky left-0 bg-slate-50 px-4 py-2.5 text-left whitespace-nowrap">
                 基準点
               </th>
               {/* 過去シーズン (古い順, グレー系) */}
@@ -180,7 +180,7 @@ export function SeasonComparisonTable({
                   }`}
                 >
                   {/* 基準点ラベル */}
-                  <td className="sticky left-0 bg-white px-4 py-2.5 text-slate-600 hover:bg-slate-50/70">
+                  <td className="sticky left-0 bg-white px-4 py-2.5 text-slate-600 hover:bg-slate-50/70 whitespace-nowrap">
                     {label}
                     {isFinisher && (
                       <span className="ml-1.5 text-[10px] font-normal text-slate-400">
