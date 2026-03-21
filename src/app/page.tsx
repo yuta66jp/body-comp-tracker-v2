@@ -193,25 +193,20 @@ export default async function DashboardPage() {
       : [];
 
   return (
-    <DashboardLayout>
-      {/* Read error banners — graceful degradation: コンテンツはブロックしない */}
-      {logsResult.kind === "error" && (
-        <div className="mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
-          ログデータの取得中にエラーが発生しました。ページを再読み込みしてください。
-        </div>
-      )}
-      {settingsResult.kind === "error" && (
-        <div className="mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
-          設定データの取得中にエラーが発生しました。一部の表示がデフォルト値になります。
-        </div>
-      )}
-
-      {logsResult.kind === "error" ? (
-        <p className="rounded-2xl border border-slate-100 bg-white p-8 text-center text-sm text-slate-400 shadow-sm">
-          データを取得できませんでした。
-        </p>
-      ) : logs.length > 0 ? (
+    <DashboardLayout
+      header={
         <>
+          {/* Read error banners — graceful degradation: コンテンツはブロックしない */}
+          {logsResult.kind === "error" && (
+            <div className="rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+              ログデータの取得中にエラーが発生しました。ページを再読み込みしてください。
+            </div>
+          )}
+          {settingsResult.kind === "error" && (
+            <div className="rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+              設定データの取得中にエラーが発生しました。一部の表示がデフォルト値になります。
+            </div>
+          )}
           {/* シーズンバッジ */}
           {currentSeason && (
             <div className="flex items-center gap-2">
@@ -220,6 +215,15 @@ export default async function DashboardPage() {
               </span>
             </div>
           )}
+        </>
+      }
+    >
+      {logsResult.kind === "error" ? (
+        <p className="rounded-2xl border border-slate-100 bg-white p-8 text-center text-sm text-slate-400 shadow-sm">
+          データを取得できませんでした。
+        </p>
+      ) : logs.length > 0 ? (
+        <>
           <KpiCards logs={logs} settings={settings} avgTdee={latestTdee} />
           <GoalNavigator
             metrics={readinessMetrics}

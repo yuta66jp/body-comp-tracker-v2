@@ -6,13 +6,21 @@ import { MealLogger } from "@/components/meal/MealLogger";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
+  /** 左右カラムの上に全幅で表示するコンテンツ（シーズンバッジ・エラーバナーなど） */
+  header?: React.ReactNode;
 }
 
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout({ children, header }: DashboardLayoutProps) {
   const [open, setOpen] = useState(true);
 
   return (
-    <div className="flex min-h-screen gap-0 bg-slate-50 py-6">
+    <div className="flex flex-col min-h-screen bg-slate-50 py-6 gap-4">
+      {/* 全幅ヘッダー（シーズンバッジ・エラーバナーなど） */}
+      {header && <div>{header}</div>}
+
+      {/* 左右カラムレイアウト（aside + main） */}
+      <div className="flex flex-1 gap-0">
+
       {/* サイドバー（lg 以上のみ）
           open=true : w-80 でフル表示。カードヘッダーに「食事ログ + 閉じるボタン」を統合。
           open=false: w-8 に縮小し、PanelLeftOpen アイコンのみ表示（スタンドアロン行を作らない）。 */}
@@ -73,6 +81,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
         {children}
       </main>
+      </div>
     </div>
   );
 }
