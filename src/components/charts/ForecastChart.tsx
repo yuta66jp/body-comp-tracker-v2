@@ -78,6 +78,8 @@ export function ForecastChart({
   const lastForecastDate = predictions.length > 0
     ? [...predictions].sort((a, b) => b.ds.localeCompare(a.ds))[0].ds
     : today;
+  // EW 補助線の最終日 (latestLogDate + 14 日、点がなければ今日)
+  const lastEwDate = ewForecastPoints.at(-1)?.date ?? today;
 
   let viewStartStr: string;
   let viewEndStr: string;
@@ -89,9 +91,11 @@ export function ForecastChart({
     viewStartStr = addDaysStr(latestLogDate, -30) ?? today; // 最新測定日を含む31日間
     viewEndStr = latestLogDate;
   } else {
-    // default: 45日前〜大会日（または最後の予測日）
+    // default: 45日前〜 contestDate / lastForecastDate / lastEwDate の最大
     viewStartStr = addDaysStr(today, -45) ?? today;
-    viewEndStr = contestDate && contestDate > lastForecastDate ? contestDate : lastForecastDate;
+    viewEndStr = [lastForecastDate, lastEwDate, contestDate ?? ""]
+      .filter(Boolean)
+      .reduce((a, b) => (a > b ? a : b));
   }
 
   const allDates = dateRangeStr(viewStartStr, viewEndStr);
