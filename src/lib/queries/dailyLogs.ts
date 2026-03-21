@@ -1,14 +1,25 @@
 /**
  * daily_logs テーブルの read 責務を集約する。
  *
- * - fetchDailyLogs()           : 全カラム・昇順。Dashboard / TDEE / Macro ページ用
- * - fetchWeightLogs()          : log_date + weight のみ。重みの軽いクエリが必要な場面用
- * - fetchDailyLogsForSettings(): log_date + weight + calories のみ。DataQuality 計算用
- * - fetchCareerLogs()          : career_logs テーブル取得。History / Dashboard ページ用
- * - fetchPredictions()         : predictions テーブル取得。Dashboard ページ用
+ * ## 現行クエリ一覧
  *
- * write 系（upsert / insert / update）はここに含めない。
- * UI 固有の表示文言はここに含めない。
+ * | 関数 | 取得列 | 用途 | 戻り値型 |
+ * |---|---|---|---|
+ * | fetchDailyLogs()            | 全列 (*)              | Dashboard / TDEE / Macro 共用 | QueryResult |
+ * | fetchWeightLogs()           | log_date, weight      | History ページ補助            | ベストエフォート |
+ * | fetchDailyLogsForSettings() | log_date, weight, calories | Settings DataQuality 計算 | QueryResult |
+ *
+ * ## 後続 Issue での分割方針（#164 設計整理済み）
+ *
+ * 現在 fetchDailyLogs() は全件・全列取得だが、以下の分割が検討されている:
+ * - #166 (Macro): fetchMacroDailyLogs(60)  — 6列・DESC LIMIT 60
+ * - #167 (TDEE) : fetchRecentDailyLogs(14) — 3列・DESC LIMIT 14
+ * - 両画面の stale 判定: fetchLatestUpdatedAt() — MAX(updated_at) のみ
+ * - Dashboard は全期間・全列が必要なため fetchDailyLogs() を継続利用
+ *
+ * 詳細: docs/daily-logs-read-inventory.md
+ *
+ * ## write 系・UI 固有文言はここに含めない
  */
 import { createClient } from "@/lib/supabase/server";
 import type { DailyLog, CareerLog, Prediction } from "@/lib/supabase/types";
@@ -17,7 +28,11 @@ import type { QueryResult } from "./queryResult";
 
 /**
  * daily_logs を全カラム・日付昇順で取得する。
- * Dashboard / TDEE / Macro ページで最もよく使われる形式。
+ *
+ * 利用画面:
+ *   - Dashboard: 全期間・全列が必要（月次計画・ForecastChart・calcReadiness 等）
+ *   - Macro: 現状全件取得だが #166 で fetchMacroDailyLogs(60) に分離予定
+ *   - TDEE:  現状全件取得だが #167 で fetchRecentDailyLogs(14) に分離予定
  *
  * 戻り値:
  *   kind: "ok"    — 取得成功。data が空配列 = ログ未入力（正常な空状態）。
@@ -38,7 +53,9 @@ export async function fetchDailyLogs(): Promise<QueryResult<DailyLog[]>> {
 
 /**
  * daily_logs から log_date と weight のみを取得する。
- * 体重のみが必要な軽量クエリ用（history ページの currentLogs）。
+ *
+ * 利用画面: History ページ専用（currentLogs → currentAsCareer 変換用補助クエリ）。
+ * 他画面への流用禁止（用途が混在するとクエリ責務が不明確になる）。
  * weight が null のレコードは除外する。
  *
  * フォールバック: エラー時は空配列を返す（ベストエフォート）。
@@ -60,7 +77,9 @@ export async function fetchWeightLogs(): Promise<Pick<DailyLog, "log_date" | "we
 
 /**
  * daily_logs から log_date / weight / calories のみを取得する。
- * DataQuality 計算（settings ページ）用の軽量クエリ。
+ *
+ * 利用画面: Settings ページ専用（DataQuality 計算 + currentWeight 取得）。
+ * 他画面への流用禁止（用途が混在するとクエリ責務が不明確になる）。
  *
  * 戻り値型は DataQualityLog[] (= Pick<DailyLog, "log_date" | "weight" | "calories">[])
  * で実取得列に一致させてある。未取得列を呼び出し側が参照すると型エラーになる。
