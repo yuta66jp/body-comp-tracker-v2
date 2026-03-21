@@ -41,9 +41,22 @@ export default async function SettingsPage() {
       <div className="space-y-6">
         <SettingsForm initialSettings={settingsRows} currentWeight={currentWeight} />
         <DataQualityPanel report={qualityReport} />
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <ExportSection />
-          <ImportSection />
+
+        {/* データ操作セクション: エクスポート / インポート */}
+        <div>
+          <div className="mb-3 flex items-center gap-3">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              データ操作
+            </span>
+            <div className="flex-1 border-t border-slate-100" />
+            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-600">
+              既存データに影響します
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <ExportSection />
+            <ImportSection />
+          </div>
         </div>
       </div>
     </PageShell>
