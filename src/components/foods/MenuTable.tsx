@@ -137,10 +137,13 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-gray-700">セットメニュー</h2>
+        <div>
+          <h2 className="text-sm font-semibold text-slate-700">セットメニュー</h2>
+          <p className="text-xs text-slate-400">複数食品をまとめてログ登録</p>
+        </div>
         <button
           onClick={startNew}
-          className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600"
+          className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600"
         >
           <Plus size={15} />
           新規セット
