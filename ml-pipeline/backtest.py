@@ -256,30 +256,42 @@ def make_neuralprophet_predictor(config: BacktestConfig) -> Callable:
 
 
 def predict_ew_linear(train: pd.DataFrame, horizon: int) -> float:
-    """EW Linear Trend: 指数加重線形回帰で horizon 日先を外挿する。
+    """EW Linear Trend: SMA7 平滑化系列に指数加重線形回帰を適用し horizon 日先を外挿する。
 
-    直近30日に指数加重 (alpha=0.9/日) を適用した加重最小二乗線形回帰。
-    LinearTrend30d との違い: 古いデータを指数的に小さく重み付けすることで
-    直近のトレンド変化により敏感に反応する。
+    入力の平滑化:
+      train["weight"] 全体に 7日移動平均 (min_periods=4) を適用した SMA7 系列を作り、
+      その直近30件に対して指数加重線形回帰を行う。
+      - 単日体重ノイズ (水分変動 ±0.5〜1.5 kg) を吸収
+      - 直近のトレンド変化には追随 (alpha=0.9 の指数加重で最近を重視)
+
+    LinearTrend30d との違い:
+      - 入力が生体重 → SMA7 平滑化体重 (ノイズ抑制)
+      - 等重み最小二乗 → 指数加重最小二乗 (直近を重視)
 
     alpha=0.9 の選択根拠:
       - 1日前の重みが 0.9、7日前は ~0.48、30日前は ~0.04
       - 短期トレンドと中期トレンドのバランスを取る実用的な値
+
+    フォールバック:
+      SMA7 有効データが 2 件未満の場合は生体重の最終値を返す (データ不足初期)。
     """
-    window = train.tail(30)
-    n = len(window)
+    # SMA7 を訓練データ全体で計算し、有効値の直近30件を取る
+    # (window 先頭で計算した SMA7 は精度が低いため全体での計算が正確)
+    sma7 = train["weight"].rolling(7, min_periods=4).mean()
+    sma7_vals = sma7.dropna().tail(30).values.astype(float)
+
+    n = len(sma7_vals)
     if n < 2:
-        return float(window["weight"].iloc[-1])
+        return float(train["weight"].iloc[-1])
 
     x = np.arange(n, dtype=float)
-    y = window["weight"].values.astype(float)
 
     # 指数加重: 直近ほど重い (最新 = alpha^0 = 1.0, 1日前 = 0.9, ...)
     alpha = 0.9
     weights = np.array([alpha ** (n - 1 - i) for i in range(n)])
 
     # 加重線形回帰 (numpy polyfit は w パラメータで重みをサポート)
-    slope, intercept = np.polyfit(x, y, 1, w=weights)
+    slope, intercept = np.polyfit(x, sma7_vals, 1, w=weights)
 
     # horizon 日先のインデックス = 最後のインデックス + horizon
     return float(slope * (n - 1 + horizon) + intercept)
