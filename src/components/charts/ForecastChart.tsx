@@ -38,12 +38,13 @@ interface ChartPoint {
   monthlyGoalTarget?: number;
 }
 
-type RangeTab = "default" | "7d" | "31d";
+type RangeTab = "default" | "7d" | "31d" | "90d";
 
 const RANGE_TABS: { key: RangeTab; label: string }[] = [
   { key: "default", label: "全体" },
   { key: "7d",      label: "7日" },
   { key: "31d",     label: "31日" },
+  { key: "90d",     label: "90日" },
 ];
 
 export function ForecastChart({
@@ -90,6 +91,11 @@ export function ForecastChart({
   } else if (rangeTab === "31d") {
     viewStartStr = addDaysStr(latestLogDate, -30) ?? today; // 最新測定日を含む31日間
     viewEndStr = latestLogDate;
+  } else if (rangeTab === "90d") {
+    // 90d: 30日前を起点に固定90日窓（start + 90日で終端固定）
+    // 「直近1ヶ月の実績 + 近未来予測」を一定スパンで確認できるビュー
+    viewStartStr = addDaysStr(latestLogDate, -30) ?? today;
+    viewEndStr = addDaysStr(viewStartStr, 90) ?? today;
   } else {
     // default: 45日前〜 contestDate / lastForecastDate / lastEwDate の最大
     viewStartStr = addDaysStr(today, -45) ?? today;
@@ -110,9 +116,9 @@ export function ForecastChart({
     date,
     actual: actualMap.get(date),
     sma7: sma7Map.get(date),
-    forecast: rangeTab === "default" ? forecastMap.get(date) : undefined,
-    // EW補助線は全体ビューのみ (14日先まで) — 7d/31d は latestLogDate 以前しか表示しないため自然に非表示
-    ewTrend: rangeTab === "default" ? ewTrendMap.get(date) : undefined,
+    // forecast/ewTrend は 全体・90日ビューで表示（7d/31d は実測期間のみのため非表示）
+    forecast: rangeTab === "default" || rangeTab === "90d" ? forecastMap.get(date) : undefined,
+    ewTrend: rangeTab === "default" || rangeTab === "90d" ? ewTrendMap.get(date) : undefined,
     monthlyGoalTarget: monthlyGoalDateMap.get(date),
   }));
 
@@ -120,10 +126,11 @@ export function ForecastChart({
   const visibleActual = allDates
     .map((d) => actualMap.get(d))
     .filter((v): v is number => v !== undefined);
-  const visibleForecast = rangeTab === "default"
+  const showFutureSeries = rangeTab === "default" || rangeTab === "90d";
+  const visibleForecast = showFutureSeries
     ? allDates.map((d) => forecastMap.get(d)).filter((v): v is number => v !== undefined)
     : [];
-  const visibleEwTrend = rangeTab === "default"
+  const visibleEwTrend = showFutureSeries
     ? allDates.map((d) => ewTrendMap.get(d)).filter((v): v is number => v !== undefined)
     : [];
   // 月次目標ステップの Y 軸範囲への反映 (plan がある場合)
@@ -133,21 +140,21 @@ export function ForecastChart({
     ...visibleForecast,
     ...visibleEwTrend,
     ...visibleMonthlyGoalTargets,
-    ...(goalWeight && rangeTab === "default" ? [goalWeight] : []),
+    ...(goalWeight && showFutureSeries ? [goalWeight] : []),
   ];
 
-  // タブごとのパディング（7日は±1.5kg、31日は±2.5kg、全体は広め）
+  // タブごとのパディング（7日は±1.5kg、31日は±2.5kg、全体/90日は広め）
   const yPad = rangeTab === "7d" ? 1.5 : rangeTab === "31d" ? 2.5 : 1;
   const dataMin = rangeWeights.length > 0 ? Math.min(...rangeWeights) : 55;
   const dataMax = rangeWeights.length > 0 ? Math.max(...rangeWeights) : 80;
-  const yMin = rangeTab === "default"
+  const yMin = showFutureSeries
     ? Math.min(55, Math.floor(dataMin - yPad))
     : Math.floor((dataMin - yPad) * 10) / 10;
   const yMax = Math.ceil((dataMax + yPad) * 10) / 10;
 
-  // Y軸 tick 配列（7日: 1kg刻み、31日: 2kg刻み、全体: Recharts 自動）
+  // Y軸 tick 配列（7日: 1kg刻み、31日: 2kg刻み、全体/90日: Recharts 自動）
   const yTicks: number[] | undefined = (() => {
-    if (rangeTab === "default") return undefined;
+    if (showFutureSeries) return undefined;
     const step = rangeTab === "7d" ? 1 : 2;
     const start = Math.ceil(yMin / step) * step;
     const ticks: number[] = [];
@@ -178,14 +185,14 @@ export function ForecastChart({
         </div>
       </div>
 
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" height={380}>
         <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis
             dataKey="date"
             tick={{ fontSize: 11 }}
             tickFormatter={(v: string) => v.slice(5)}
-            minTickGap={rangeTab === "7d" ? 0 : 30}
+            minTickGap={rangeTab === "7d" ? 0 : rangeTab === "90d" ? 20 : 30}
           />
           <YAxis
             domain={[yMin, yMax]}
@@ -224,8 +231,8 @@ export function ForecastChart({
             }}
           />
 
-          {/* 参照線（全体ビューのみ） */}
-          {rangeTab === "default" && goalWeight && (
+          {/* 参照線（全体・90日ビュー） */}
+          {showFutureSeries && goalWeight && (
             <ReferenceLine
               y={goalWeight}
               stroke="#ef4444"
@@ -239,7 +246,7 @@ export function ForecastChart({
             strokeDasharray="4 4"
             label={{ value: "今日", fontSize: 10, fill: "#94a3b8" }}
           />
-          {rangeTab === "default" && contestDate && (
+          {showFutureSeries && contestDate && (
             <ReferenceLine
               x={contestDate}
               stroke="#ef4444"
@@ -266,8 +273,8 @@ export function ForecastChart({
             dot={false}
             connectNulls
           />
-          {/* AI予測（全体ビューのみ） */}
-          {rangeTab === "default" && (
+          {/* AI予測（全体・90日ビュー） */}
+          {showFutureSeries && (
             <Line
               type="monotone"
               dataKey="forecast"
@@ -277,10 +284,10 @@ export function ForecastChart({
               connectNulls
             />
           )}
-          {/* EW Linear Trend 補助線（全体ビューのみ・最終実測日翌日〜14日先）
+          {/* EW Linear Trend 補助線（全体・90日ビュー・最終実測日翌日〜14日先）
               SMA7入力 + 指数加重線形回帰。直近変化の短期参考線。
               主線 (NeuralProphet) より細く破線で補助線として扱う。 */}
-          {rangeTab === "default" && ewForecastPoints.length > 0 && (
+          {showFutureSeries && ewForecastPoints.length > 0 && (
             <Line
               type="monotone"
               dataKey="ewTrend"

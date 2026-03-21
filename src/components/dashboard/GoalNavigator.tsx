@@ -40,6 +40,8 @@ interface GoalNavigatorProps {
   avgTdee: number | null;
   /** 今月目標に対する進捗 (calcMonthlyGoalProgress の結果) */
   monthlyGoalProgress: MonthlyGoalProgress;
+  /** 当月内の最小実測体重 (kg) */
+  currentMonthMinWeight?: number | null;
 }
 
 // ─── ステータス表示マップ ──────────────────────────────────────────────────
@@ -188,6 +190,7 @@ export function GoalNavigator({
   goalWeight,
   avgTdee,
   monthlyGoalProgress,
+  currentMonthMinWeight,
 }: GoalNavigatorProps) {
   const isCut = phase !== "Bulk";
 
@@ -446,6 +449,26 @@ export function GoalNavigator({
               </span>
             </div>
 
+            {/* 現在体重 (最新実測値) */}
+            {monthlyGoalProgress.comparisonWeight !== null && (
+              <span className="text-xs text-slate-500">
+                現在:{" "}
+                <span className="font-semibold tabular-nums text-slate-700">
+                  {monthlyGoalProgress.comparisonWeight.toFixed(1)} kg
+                </span>
+              </span>
+            )}
+
+            {/* 当月最小体重 */}
+            {currentMonthMinWeight !== null && currentMonthMinWeight !== undefined && (
+              <span className="text-xs text-slate-500">
+                当月最小:{" "}
+                <span className="font-semibold tabular-nums text-slate-700">
+                  {currentMonthMinWeight.toFixed(1)} kg
+                </span>
+              </span>
+            )}
+
             {/* 今月末目標 */}
             <span className="text-xs text-slate-500">
               今月末目標:{" "}
@@ -501,7 +524,7 @@ export function GoalNavigator({
 
       {/* ── フッター注記 ── */}
       <div className="border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400">
-        体重は 7 日移動平均を基準値として使用 / ペースは 14 日線形回帰・kg/2週 表示 / 推定値のため目安としてご利用ください
+        体重進捗は 7 日移動平均ベース / 今月進捗は最新体重ベース / ペースは 14 日線形回帰・kg/2週 表示 / 推定値のため目安としてご利用ください
       </div>
     </div>
   );

@@ -182,21 +182,12 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
           <span className="text-sm font-bold text-slate-700">直近7日サマリー</span>
           <span className="text-xs text-slate-400">{data.weekLabel}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <span
-            className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-              isCut ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"
-            }`}
-          >
-            {phase}
-          </span>
-          <span
-            className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${stCfg.color} ${stCfg.bg}`}
-          >
-            <StIcon size={11} />
-            {stCfg.label}
-          </span>
-        </div>
+        <span
+          className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${stCfg.color} ${stCfg.bg}`}
+        >
+          <StIcon size={11} />
+          {stCfg.label}
+        </span>
       </div>
 
       {/* ── 本体 ── */}
@@ -251,7 +242,6 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
                 }
               />
             </div>
-            <p className="mt-1 text-[10px] text-slate-400">PFC 詳細は栄養ページで確認できます</p>
           </div>
 
           {/* エネルギーバランス (差のみ。詳細は TDEE ページ) */}
@@ -274,7 +264,6 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
                 />
               </div>
             )}
-            <p className="mt-1 text-[10px] text-slate-400">摂取・TDEE の詳細は TDEE ページで確認できます</p>
           </div>
 
           {/* 特殊日サマリー */}
