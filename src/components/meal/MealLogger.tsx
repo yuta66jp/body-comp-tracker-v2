@@ -395,6 +395,7 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
             <button
               key={tag}
               type="button"
+              aria-pressed={!!tags[tag as keyof typeof tags]}
               onClick={() => toggleTag(tag)}
               className={`rounded-xl border px-3 py-2 text-xs font-semibold transition-colors ${
                 tags[tag as keyof typeof tags]
@@ -451,6 +452,7 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
             <div className="flex gap-2">
               <button
                 type="button"
+                aria-pressed={hadBowelMovement === true}
                 onClick={() => {
                   setHadBowelMovementTouched(true);
                   setHadBowelMovement((prev) => (prev === true ? null : true));
@@ -461,6 +463,7 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
               </button>
               <button
                 type="button"
+                aria-pressed={hadBowelMovement === false}
                 onClick={() => {
                   setHadBowelMovementTouched(true);
                   setHadBowelMovement((prev) => (prev === false ? null : false));
@@ -482,6 +485,7 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
             <button
               key={type}
               type="button"
+              aria-pressed={trainingType === type}
               onClick={() => selectTrainingType(type)}
               className={chipCls(trainingType === type)}
             >
@@ -499,6 +503,7 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
             <button
               key={mode}
               type="button"
+              aria-pressed={workMode === mode}
               onClick={() => selectWorkMode(mode)}
               className={chipCls(workMode === mode)}
             >

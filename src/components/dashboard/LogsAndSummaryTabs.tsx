@@ -33,10 +33,14 @@ export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason,
 
   return (
     <div className="rounded-2xl border border-slate-100 bg-white shadow-sm">
-      <div className="flex border-b border-slate-100">
+      <div role="tablist" className="flex border-b border-slate-100">
         {(["logs", "calendar", "monthly"] as Tab[]).map((t) => (
           <button
             key={t}
+            id={`tab-${t}`}
+            role="tab"
+            aria-selected={tab === t}
+            aria-controls={`panel-${t}`}
             onClick={() => setTab(t)}
             className={`flex-1 px-3 py-3.5 text-sm font-semibold transition-colors ${
               tab === t
@@ -51,13 +55,17 @@ export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason,
 
       <div className="p-4 sm:p-5">
         {tab === "logs" && (
-          <RecentLogsTable logs={logs} embedded seasonMap={seasonMap} currentSeason={currentSeason} />
+          <div role="tabpanel" id="panel-logs" aria-labelledby="tab-logs">
+            <RecentLogsTable logs={logs} embedded seasonMap={seasonMap} currentSeason={currentSeason} />
+          </div>
         )}
         {tab === "calendar" && (
-          <MonthlyCalendar logs={logs} />
+          <div role="tabpanel" id="panel-calendar" aria-labelledby="tab-calendar">
+            <MonthlyCalendar logs={logs} />
+          </div>
         )}
         {tab === "monthly" && (
-          <>
+          <div role="tabpanel" id="panel-monthly" aria-labelledby="tab-monthly">
             {monthlyGoalSummaryRows && monthlyGoalSummaryRows.length > 0 && (
               <MonthlyGoalTable rows={monthlyGoalSummaryRows} phase={phase ?? "Cut"} />
             )}
@@ -67,7 +75,7 @@ export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason,
                   <p className="py-6 text-center text-sm text-slate-400">データがありません</p>
                 )
             }
-          </>
+          </div>
         )}
       </div>
     </div>
