@@ -66,15 +66,19 @@ export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason,
         )}
         {tab === "monthly" && (
           <div role="tabpanel" id="panel-monthly" aria-labelledby="tab-monthly">
-            {monthlyGoalSummaryRows && monthlyGoalSummaryRows.length > 0 && (
-              <MonthlyGoalTable rows={monthlyGoalSummaryRows} phase={phase ?? "Cut"} />
-            )}
+            {/* 過去の実績（昇順: 古い月から新しい月へ）*/}
             {monthStats.length > 0
-              ? <SeasonSummary stats={monthStats} />
+              ? <SeasonSummary stats={[...monthStats].reverse()} />
               : !monthlyGoalSummaryRows?.length && (
                   <p className="py-6 text-center text-sm text-slate-400">データがありません</p>
                 )
             }
+            {/* 月次計画 vs 実績 */}
+            {monthlyGoalSummaryRows && monthlyGoalSummaryRows.length > 0 && (
+              <div className="mt-5">
+                <MonthlyGoalTable rows={monthlyGoalSummaryRows} phase={phase ?? "Cut"} />
+              </div>
+            )}
           </div>
         )}
       </div>

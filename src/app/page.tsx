@@ -149,8 +149,18 @@ export default async function DashboardPage() {
 
   const today = toJstDateStr();
 
-  // 今月目標に対する進捗。GoalNavigator の refWeight と同一の比較値を使う。
-  const comparisonWeight = readinessMetrics.weight_7d_avg ?? readinessMetrics.current_weight;
+  // 今月目標進捗の比較値: 最新体重優先 (単日ノイズ込みの実測値で進捗を把握する)
+  // GoalNavigator のペース分析 (refWeight) は引き続き 7日平均優先のままとする
+  const comparisonWeight = readinessMetrics.current_weight ?? readinessMetrics.weight_7d_avg;
+
+  // 当月最小体重: 今月の実測ログから最小値を導出
+  const currentMonthPrefix = today.slice(0, 7);
+  const currentMonthWeights = logs
+    .filter((l) => l.log_date.startsWith(currentMonthPrefix) && l.weight !== null)
+    .map((l) => l.weight!);
+  const currentMonthMinWeight = currentMonthWeights.length > 0
+    ? Math.min(...currentMonthWeights)
+    : null;
   const monthlyGoalProgress = calcMonthlyGoalProgress({
     contestDate: contestDate ?? null,
     targetWeight: goalWeight ?? null,
@@ -218,6 +228,7 @@ export default async function DashboardPage() {
             contestDate={contestDate ?? null}
             avgTdee={latestTdee}
             monthlyGoalProgress={monthlyGoalProgress}
+            currentMonthMinWeight={currentMonthMinWeight}
           />
           <WeeklyReviewCard data={weeklyReview} phase={phase} enrichedAvailability={enrichedAvailability} />
           <DataQualityBadge report={qualityReport} />

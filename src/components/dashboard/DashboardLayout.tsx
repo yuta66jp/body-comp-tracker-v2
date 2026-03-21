@@ -28,22 +28,22 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* メインコンテンツ */}
       <main className="min-w-0 flex-1 space-y-6">
-        {/* モバイル用 MealLogger */}
-        <div className="lg:hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-          <MealLogger sidebar />
-        </div>
-
-        {/* トグルボタン（lg 以上） */}
-        <div className="hidden lg:flex items-center gap-2">
+        {/* モバイル用 MealLogger + トグルボタン（lg 以上）を同じ行にまとめる */}
+        <div className="flex items-center gap-3">
+          {/* トグルボタン（lg 以上のみ表示） */}
           <button
             onClick={() => setOpen((v) => !v)}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-700"
+            className="hidden lg:flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-700 shrink-0"
             title={open ? "サイドバーを閉じる" : "サイドバーを開く"}
           >
             {open
               ? <><PanelLeftClose size={14} /> 閉じる</>
               : <><PanelLeftOpen size={14} /> 食事入力</>}
           </button>
+          {/* モバイル用 MealLogger */}
+          <div className="lg:hidden flex-1 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+            <MealLogger sidebar />
+          </div>
         </div>
 
         {children}

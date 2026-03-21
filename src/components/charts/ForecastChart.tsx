@@ -38,12 +38,13 @@ interface ChartPoint {
   monthlyGoalTarget?: number;
 }
 
-type RangeTab = "default" | "7d" | "31d";
+type RangeTab = "default" | "7d" | "31d" | "90d";
 
 const RANGE_TABS: { key: RangeTab; label: string }[] = [
   { key: "default", label: "全体" },
   { key: "7d",      label: "7日" },
   { key: "31d",     label: "31日" },
+  { key: "90d",     label: "90日" },
 ];
 
 export function ForecastChart({
@@ -89,6 +90,9 @@ export function ForecastChart({
     viewEndStr = latestLogDate;
   } else if (rangeTab === "31d") {
     viewStartStr = addDaysStr(latestLogDate, -30) ?? today; // 最新測定日を含む31日間
+    viewEndStr = latestLogDate;
+  } else if (rangeTab === "90d") {
+    viewStartStr = addDaysStr(latestLogDate, -89) ?? today; // 最新測定日を含む90日間
     viewEndStr = latestLogDate;
   } else {
     // default: 45日前〜 contestDate / lastForecastDate / lastEwDate の最大
@@ -136,8 +140,8 @@ export function ForecastChart({
     ...(goalWeight && rangeTab === "default" ? [goalWeight] : []),
   ];
 
-  // タブごとのパディング（7日は±1.5kg、31日は±2.5kg、全体は広め）
-  const yPad = rangeTab === "7d" ? 1.5 : rangeTab === "31d" ? 2.5 : 1;
+  // タブごとのパディング（7日は±1.5kg、31日/90日は±2.5kg、全体は広め）
+  const yPad = rangeTab === "7d" ? 1.5 : rangeTab === "31d" || rangeTab === "90d" ? 2.5 : 1;
   const dataMin = rangeWeights.length > 0 ? Math.min(...rangeWeights) : 55;
   const dataMax = rangeWeights.length > 0 ? Math.max(...rangeWeights) : 80;
   const yMin = rangeTab === "default"
@@ -145,7 +149,7 @@ export function ForecastChart({
     : Math.floor((dataMin - yPad) * 10) / 10;
   const yMax = Math.ceil((dataMax + yPad) * 10) / 10;
 
-  // Y軸 tick 配列（7日: 1kg刻み、31日: 2kg刻み、全体: Recharts 自動）
+  // Y軸 tick 配列（7日: 1kg刻み、31日/90日: 2kg刻み、全体: Recharts 自動）
   const yTicks: number[] | undefined = (() => {
     if (rangeTab === "default") return undefined;
     const step = rangeTab === "7d" ? 1 : 2;
@@ -178,14 +182,14 @@ export function ForecastChart({
         </div>
       </div>
 
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" height={380}>
         <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis
             dataKey="date"
             tick={{ fontSize: 11 }}
             tickFormatter={(v: string) => v.slice(5)}
-            minTickGap={rangeTab === "7d" ? 0 : 30}
+            minTickGap={rangeTab === "7d" ? 0 : rangeTab === "90d" ? 20 : 30}
           />
           <YAxis
             domain={[yMin, yMax]}

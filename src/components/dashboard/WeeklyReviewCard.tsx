@@ -251,7 +251,6 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
                 }
               />
             </div>
-            <p className="mt-1 text-[10px] text-slate-400">PFC 詳細は栄養ページで確認できます</p>
           </div>
 
           {/* エネルギーバランス (差のみ。詳細は TDEE ページ) */}
@@ -274,7 +273,6 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
                 />
               </div>
             )}
-            <p className="mt-1 text-[10px] text-slate-400">摂取・TDEE の詳細は TDEE ページで確認できます</p>
           </div>
 
           {/* 特殊日サマリー */}
