@@ -91,20 +91,28 @@ export type RangeTab = "default" | "7d" | "31d" | "60d";
 /**
  * buildYAxisConfig
  *
- * rangeTab に応じた Y 軸 tick 配列とラベルフォーマッタを返す。
+ * rangeTab ごとに固定 step で tick 配列を生成し、全ラベル表示する。
+ * 空文字 formatter による間引きや動的 step 選択は行わない。
  *
- * - 7d:      0.5kg 刻み、全ラベル表示
- * - 31d:     1kg 刻み、全ラベル表示
- * - 60d:     1kg 刻み、全ラベル表示
- * - default: 1kg 刻み、レンジに応じた均一ラベル間隔（約5ラベルを目標に 1/2/3/5/10kg から選択）
- *            → 不規則な OR 条件を使わず、常に等間隔ラベルを保証
+ * | tab     | step  |
+ * |---------|-------|
+ * | 7d      | 0.5kg |
+ * | 31d     | 1kg   |
+ * | 60d     | 2kg   |
+ * | default | 3kg   |
  */
 export function buildYAxisConfig(
   rangeTab: RangeTab,
   yMin: number,
   yMax: number
 ): { ticks: number[]; formatter: (v: number) => string } {
-  const step = rangeTab === "7d" ? 0.5 : 1;
+  const stepMap: Record<RangeTab, number> = {
+    "7d":      0.5,
+    "31d":     1,
+    "60d":     2,
+    "default": 3,
+  };
+  const step = stepMap[rangeTab];
 
   const tickStart = Math.round(Math.ceil(yMin / step) * step * 10) / 10;
   const ticks: number[] = [];
@@ -112,20 +120,8 @@ export function buildYAxisConfig(
     ticks.push(v);
   }
 
-  // default タブ: レンジ ÷ 5 を目安に「人間が読みやすいキリの良い数値」へ丸める
-  // niceSteps から rawStep 以上の最小値を選ぶことで ~5 ラベルを確保しつつ均一間隔を保証
-  let labelStep = 0; // 0 = 全ラベル表示
-  if (rangeTab === "default") {
-    const range = yMax - yMin;
-    const rawStep = range / 5;
-    const niceSteps = [1, 2, 3, 5, 10];
-    labelStep = niceSteps.find((s) => s >= rawStep) ?? 10;
-  }
-
-  const formatter = (v: number): string => {
-    if (labelStep > 0 && Math.round(v) % labelStep !== 0) return "";
-    return v % 1 === 0 ? `${v}kg` : `${v.toFixed(1)}kg`;
-  };
+  const formatter = (v: number): string =>
+    v % 1 === 0 ? `${v}kg` : `${v.toFixed(1)}kg`;
 
   return { ticks, formatter };
 }
