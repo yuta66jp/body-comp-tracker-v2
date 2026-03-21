@@ -75,14 +75,15 @@ export function KpiCards({ logs, settings }: KpiCardsProps) {
   const weeksLeft =
     daysLeft !== null && daysLeft > 0 ? (daysLeft / 7).toFixed(1) : null;
 
-  // --- 目標到達予定日（7日平均 + 14暦日回帰ベース）---
+  // --- 目標到達予定日（7日平均 + 30暦日回帰ベース）---
   // 現在地: 直近7暦日の体重平均（生体重ノイズに強い安定した基準点）
-  // 速度  : 直近14暦日の線形回帰 slope（短期トレンドを捉えつつ単日値への依存を下げる）
+  // 速度  : 直近30暦日の線形回帰 slope（安定着地見通し用。14日回帰より短期局面の影響を受けにくい）
   // AI 予測（NeuralProphet）はチャート側の参考表示に留め、KPI 主表示には採用しない
   const goalWeight = settings.targetWeight;
 
-  const d7Start = addDaysStr(todayStr, -6) ?? todayStr;
+  const d7Start  = addDaysStr(todayStr, -6)  ?? todayStr;
   const d14Start = addDaysStr(todayStr, -13) ?? todayStr;
+  const d30Start = addDaysStr(todayStr, -29) ?? todayStr;
   const logByDate = new Map(sorted.map((l) => [l.log_date, l]));
 
   // 7暦日平均
@@ -91,13 +92,19 @@ export function KpiCards({ logs, settings }: KpiCardsProps) {
     .filter((v): v is number => v !== null);
   const weight_7d_avg = w7.length > 0 ? w7.reduce((a, b) => a + b, 0) / w7.length : null;
 
-  // 14暦日回帰 slope (kg/day)
+  // 14暦日回帰 slope (kg/day) — 現在体重カードの週次トレンド表示用（敏感さを残す）
   const trend14Data = dateRangeStr(d14Start, todayStr)
     .map((d) => ({ date: d, weight: logByDate.get(d)?.weight ?? null }))
     .filter((p): p is { date: string; weight: number } => p.weight !== null);
   const slopePerDay14 = trend14Data.length >= 2 ? calcWeightTrend(trend14Data).slope : null;
 
-  // 週あたり変化率: 14暦日回帰 slope × 7 — 週次レビューの weekly_rate_kg と同一ロジック
+  // 30暦日回帰 slope (kg/day) — 目標到達予定の安定着地計算用
+  const trend30Data = dateRangeStr(d30Start, todayStr)
+    .map((d) => ({ date: d, weight: logByDate.get(d)?.weight ?? null }))
+    .filter((p): p is { date: string; weight: number } => p.weight !== null);
+  const slopePerDay30 = trend30Data.length >= 2 ? calcWeightTrend(trend30Data).slope : null;
+
+  // 週あたり変化率: 14暦日回帰 slope × 7 — 現在体重カードの直近変化表示（感度優先）
   const slopePerWeek = slopePerDay14 !== null ? slopePerDay14 * 7 : null;
   const trendDir: "up" | "down" | "flat" =
     slopePerWeek === null || Math.abs(slopePerWeek) < 0.05 ? "flat" : slopePerWeek > 0 ? "up" : "down";
@@ -105,7 +112,7 @@ export function KpiCards({ logs, settings }: KpiCardsProps) {
     ? "横ばい"
     : `${slopePerWeek > 0 ? "+" : ""}${slopePerWeek.toFixed(2)} kg/週`;
 
-  const goalReachResult = calcGoalReachDate(weight_7d_avg, slopePerDay14, goalWeight, todayStr);
+  const goalReachResult = calcGoalReachDate(weight_7d_avg, slopePerDay30, goalWeight, todayStr);
   const goalReachDate = goalReachResult.date;
   const goalReachLabel = goalReachResult.label;
 
@@ -160,7 +167,7 @@ export function KpiCards({ logs, settings }: KpiCardsProps) {
         </div>
         {goalReachDate && goalWeight !== null && (
           <p className="mt-2 text-xs text-slate-400">
-            {goalWeight.toFixed(1)} kg 到達の推定日（7日平均ベース）
+            {goalWeight.toFixed(1)} kg 到達の推定日（7日平均 + 30日トレンド）
           </p>
         )}
         {!goalWeight && (
