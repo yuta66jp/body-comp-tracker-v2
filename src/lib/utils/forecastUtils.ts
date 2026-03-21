@@ -96,8 +96,8 @@ export type RangeTab = "default" | "7d" | "31d" | "60d";
  * - 7d:      0.5kg 刻み、全ラベル表示
  * - 31d:     1kg 刻み、全ラベル表示
  * - 60d:     1kg 刻み、全ラベル表示
- * - default: 1kg 刻み、5kg 倍数（主要目盛り）+ 3kg 倍数（補助目盛り）でラベル表示
- *            → ~3kg 間隔でラベルが並び「kg 表示が消える」レンジを防ぐ
+ * - default: 1kg 刻み、レンジに応じた均一ラベル間隔（約5ラベルを目標に 1/2/3/5/10kg から選択）
+ *            → 不規則な OR 条件を使わず、常に等間隔ラベルを保証
  */
 export function buildYAxisConfig(
   rangeTab: RangeTab,
@@ -112,12 +112,18 @@ export function buildYAxisConfig(
     ticks.push(v);
   }
 
+  // default タブ: レンジ ÷ 5 を目安に「人間が読みやすいキリの良い数値」へ丸める
+  // niceSteps から rawStep 以上の最小値を選ぶことで ~5 ラベルを確保しつつ均一間隔を保証
+  let labelStep = 0; // 0 = 全ラベル表示
+  if (rangeTab === "default") {
+    const range = yMax - yMin;
+    const rawStep = range / 5;
+    const niceSteps = [1, 2, 3, 5, 10];
+    labelStep = niceSteps.find((s) => s >= rawStep) ?? 10;
+  }
+
   const formatter = (v: number): string => {
-    if (rangeTab === "default") {
-      // 5kg 主要目盛り OR 3kg 補助目盛りのみラベル表示（~3kg 間隔を保証）
-      const vi = Math.round(v);
-      if (vi % 5 !== 0 && vi % 3 !== 0) return "";
-    }
+    if (labelStep > 0 && Math.round(v) % labelStep !== 0) return "";
     return v % 1 === 0 ? `${v}kg` : `${v.toFixed(1)}kg`;
   };
 

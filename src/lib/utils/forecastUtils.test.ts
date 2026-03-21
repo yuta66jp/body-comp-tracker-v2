@@ -182,32 +182,45 @@ describe("buildYAxisConfig", () => {
     }
   });
 
-  it("default: 5kg 倍数（主要）と 3kg 倍数（補助）にラベルを返す", () => {
-    const { formatter } = buildYAxisConfig("default", 55.0, 75.0);
-    // 主要目盛り (5kg倍数)
+  it("default: ラベルが均一間隔になる（OR 条件による不規則間隔なし）", () => {
+    // range=15kg → rawStep=3 → labelStep=3 → 3kg 均一
+    const { ticks, formatter } = buildYAxisConfig("default", 58.0, 73.0);
+    const labeled = ticks.filter((t) => formatter(t) !== "");
+    expect(labeled.length).toBeGreaterThanOrEqual(3);
+    const gaps = labeled.slice(1).map((v, i) => Math.round((v - labeled[i]) * 10) / 10);
+    // 全ての間隔が同じ値（均一）
+    expect(new Set(gaps).size).toBe(1);
+  });
+
+  it("default: 広いレンジ(55-75=20kg)では 5kg 均一間隔", () => {
+    const { ticks, formatter } = buildYAxisConfig("default", 55.0, 75.0);
+    const labeled = ticks.filter((t) => formatter(t) !== "");
+    // step=5 → 55,60,65,70,75
     expect(formatter(60)).toBe("60kg");
     expect(formatter(65)).toBe("65kg");
     expect(formatter(70)).toBe("70kg");
-    // 補助目盛り (3kg倍数)
-    expect(formatter(63)).toBe("63kg");
-    expect(formatter(66)).toBe("66kg");
-    expect(formatter(69)).toBe("69kg");
-    expect(formatter(72)).toBe("72kg");
-    // それ以外は空文字
-    expect(formatter(61)).toBe("");
     expect(formatter(62)).toBe("");
-    expect(formatter(64)).toBe("");
-    expect(formatter(67)).toBe("");
-    expect(formatter(68)).toBe("");
-    expect(formatter(71)).toBe("");
+    expect(formatter(63)).toBe("");
+    const gaps = labeled.slice(1).map((v, i) => v - labeled[i]);
+    expect(new Set(gaps).size).toBe(1); // 均一
+    expect(gaps[0]).toBe(5);
   });
 
-  it("default: 典型レンジ(58-73)で最大ラベル間隔が 3kg 以下になる", () => {
+  it("default: 中間レンジ(58-73=15kg)では 3kg 均一間隔", () => {
     const { ticks, formatter } = buildYAxisConfig("default", 58.0, 73.0);
     const labeled = ticks.filter((t) => formatter(t) !== "");
-    for (let i = 1; i < labeled.length; i++) {
-      expect(labeled[i] - labeled[i - 1]).toBeLessThanOrEqual(3);
-    }
+    const gaps = labeled.slice(1).map((v, i) => v - labeled[i]);
+    expect(new Set(gaps).size).toBe(1); // 均一
+    expect(gaps[0]).toBe(3);
+  });
+
+  it("default: 狭いレンジ(63-68=5kg)では 1kg 均一間隔", () => {
+    const { ticks, formatter } = buildYAxisConfig("default", 63.0, 68.0);
+    const labeled = ticks.filter((t) => formatter(t) !== "");
+    expect(labeled.length).toBeGreaterThanOrEqual(4);
+    const gaps = labeled.slice(1).map((v, i) => v - labeled[i]);
+    expect(new Set(gaps).size).toBe(1); // 均一
+    expect(gaps[0]).toBe(1);
   });
 
   it("yMin が step の倍数でない場合、切り上げた値から tick が始まる", () => {
