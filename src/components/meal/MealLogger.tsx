@@ -287,7 +287,7 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
 
   const inputCls =
     "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400";
-  // 明示的クリア状態（null）のときの入力欄スタイル
+  // 明示的クリア状態（null）のときの入力欄スタイル（pr-8 不要 — オーバーレイボタンは外に出す）
   const inputClearedCls =
     "w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-400 placeholder:text-rose-300 outline-none opacity-75 cursor-default";
 
@@ -316,62 +316,85 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">体重 (kg)</label>
           <div className="relative">
             {weight === null ? (
-              <input type="number" disabled placeholder="削除予定" className={`${inputClearedCls} pr-8`} />
+              <input type="number" disabled placeholder="削除予定" className={inputClearedCls} />
             ) : (
               <input type="number" step="0.1" min="0" placeholder="70.5" value={weight}
                 onChange={(e) => { setWeight(e.target.value); setWeightTouched(true); }}
                 className={`${inputCls} ${weight !== "" ? "pr-8" : ""}`} />
             )}
             {weight !== "" && weight !== null && (
-              <button type="button" onClick={() => { setWeight(null); setWeightTouched(true); }} title="null 保存（クリア）"
+              <button type="button"
+                onClick={() => { setWeight(null); setWeightTouched(true); }}
+                aria-label="体重を削除予定にする"
+                title="保存時にこの値を削除する"
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-400 transition-colors">
                 <X size={13} />
               </button>
             )}
-            {weight === null && (
-              <button type="button"
+          </div>
+          {weight === null && (
+            <p className="mt-1 flex items-center gap-1 text-xs text-rose-500">
+              <Undo2 size={11} className="shrink-0" />
+              <span>
+                {hydratedLog?.weight !== null && hydratedLog?.weight !== undefined
+                  ? `保存すると体重 (${hydratedLog.weight} kg) を削除します。`
+                  : "保存時に体重を空欄で送信します。"}
+              </span>
+              <button
+                type="button"
                 onClick={() => {
-                  // 既存ログがある場合は hydrated 値に戻す。なければ空フォームに戻す。
                   setWeight(hydratedLog?.weight !== null && hydratedLog?.weight !== undefined
                     ? String(hydratedLog.weight)
                     : "");
                   setWeightTouched(false);
                 }}
-                title="クリアを取り消す"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-rose-400 hover:text-slate-500 transition-colors">
-                <Undo2 size={13} />
+                className="underline font-medium"
+              >
+                元に戻す
               </button>
-            )}
-          </div>
+            </p>
+          )}
         </div>
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">メモ</label>
           <div className="relative">
             {note === null ? (
-              <input type="text" disabled placeholder="削除予定" className={`${inputClearedCls} pr-8`} />
+              <input type="text" disabled placeholder="削除予定" className={inputClearedCls} />
             ) : (
               <input type="text" placeholder="任意" value={note}
                 onChange={(e) => { setNote(e.target.value); setNoteTouched(true); }}
                 className={`${inputCls} ${note !== "" ? "pr-8" : ""}`} />
             )}
             {note !== "" && note !== null && (
-              <button type="button" onClick={() => { setNote(null); setNoteTouched(true); }} title="null 保存（クリア）"
+              <button type="button"
+                onClick={() => { setNote(null); setNoteTouched(true); }}
+                aria-label="メモを削除予定にする"
+                title="保存時にこの値を削除する"
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-400 transition-colors">
                 <X size={13} />
               </button>
             )}
-            {note === null && (
-              <button type="button"
+          </div>
+          {note === null && (
+            <p className="mt-1 flex items-center gap-1 text-xs text-rose-500">
+              <Undo2 size={11} className="shrink-0" />
+              <span>
+                {hydratedLog?.note
+                  ? "保存するとメモを削除します。"
+                  : "保存時にメモを空欄で送信します。"}
+              </span>
+              <button
+                type="button"
                 onClick={() => {
                   setNote(hydratedLog?.note ?? "");
                   setNoteTouched(false);
                 }}
-                title="クリアを取り消す"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-rose-400 hover:text-slate-500 transition-colors">
-                <Undo2 size={13} />
+                className="underline font-medium"
+              >
+                元に戻す
               </button>
-            )}
-          </div>
+            </p>
+          )}
         </div>
       </div>
 
@@ -418,7 +441,7 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
             <label className="mb-1.5 block text-xs font-medium text-slate-500">睡眠時間 (h)</label>
             <div className="relative">
               {sleepHours === null ? (
-                <input type="number" disabled placeholder="削除予定" className={`${inputClearedCls} pr-8`} />
+                <input type="number" disabled placeholder="削除予定" className={inputClearedCls} />
               ) : (
                 <input type="number" step="0.5" min="0" max="24" placeholder="7.5"
                   value={sleepHours}
@@ -426,25 +449,37 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
                   className={`${inputCls} ${sleepHours !== "" ? "pr-8" : ""}`} />
               )}
               {sleepHours !== "" && sleepHours !== null && (
-                <button type="button" onClick={() => { setSleepHours(null); setSleepHoursTouched(true); }} title="null 保存（クリア）"
+                <button type="button"
+                  onClick={() => { setSleepHours(null); setSleepHoursTouched(true); }}
+                  aria-label="睡眠時間を削除予定にする"
+                  title="保存時にこの値を削除する"
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-400 transition-colors">
                   <X size={13} />
                 </button>
               )}
-              {sleepHours === null && (
-                <button type="button"
+            </div>
+            {sleepHours === null && (
+              <p className="mt-1 flex items-center gap-1 text-xs text-rose-500">
+                <Undo2 size={11} className="shrink-0" />
+                <span>
+                  {hydratedLog?.sleep_hours !== null && hydratedLog?.sleep_hours !== undefined
+                    ? `保存すると睡眠時間 (${hydratedLog.sleep_hours} h) を削除します。`
+                    : "保存時に睡眠時間を空欄で送信します。"}
+                </span>
+                <button
+                  type="button"
                   onClick={() => {
                     setSleepHours(hydratedLog?.sleep_hours !== null && hydratedLog?.sleep_hours !== undefined
                       ? String(hydratedLog.sleep_hours)
                       : "");
                     setSleepHoursTouched(false);
                   }}
-                  title="クリアを取り消す"
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-rose-400 hover:text-slate-500 transition-colors">
-                  <Undo2 size={13} />
+                  className="underline font-medium"
+                >
+                  元に戻す
                 </button>
-              )}
-            </div>
+              </p>
+            )}
           </div>
           {/* 便通 */}
           <div>
