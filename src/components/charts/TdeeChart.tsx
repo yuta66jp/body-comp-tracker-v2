@@ -18,6 +18,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import type { TooltipValueType } from "recharts";
 import type { EnrichedLogPayloadRow } from "@/lib/supabase/types";
 
 // Re-export for convenience so other modules can import from here
@@ -77,8 +78,7 @@ export function TdeeChart({ enrichedRows, days = 60 }: TdeeChartProps) {
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={20} />
           <YAxis tick={{ fontSize: 11 }} width={52} unit="kcal" />
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <Tooltip formatter={(v: any, name: any) => [typeof v === "number" ? `${v.toLocaleString()} kcal` : String(v), name]} />
+          <Tooltip formatter={(v: TooltipValueType | undefined, name: number | string | undefined) => [typeof v === "number" ? `${v.toLocaleString()} kcal` : String(v), name ?? ""]} />
           <Legend />
           {avgTdeeDisplay !== null && (
             <ReferenceLine y={avgTdeeDisplay} stroke="#94a3b8" strokeDasharray="4 4" />
