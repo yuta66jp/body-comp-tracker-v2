@@ -144,11 +144,12 @@ export function ForecastChart({
       {/* ヘッダー + タブ */}
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-700">体重推移・予測</h2>
-        <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+        <div role="group" aria-label="表示期間" className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
           {RANGE_TABS.map(({ key, label }) => (
             <button
               key={key}
               onClick={() => setRangeTab(key)}
+              aria-pressed={rangeTab === key}
               className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                 rangeTab === key
                   ? "bg-white text-slate-800 shadow-sm"

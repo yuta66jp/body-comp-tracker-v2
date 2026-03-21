@@ -172,11 +172,12 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
               </label>
 
               {meta.type === "select" ? (
-                <div className="flex gap-2">
+                <div role="group" aria-label={meta.label} className="flex gap-2">
                   {meta.options!.map((opt, i) => (
                     <button
                       key={opt}
                       type="button"
+                      aria-pressed={values[key] === opt}
                       onClick={() => set(key, opt)}
                       className={`flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-all ${
                         values[key] === opt

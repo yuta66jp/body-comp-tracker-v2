@@ -58,10 +58,14 @@ export function FoodPicker({ onAdd, onAddSet }: FoodPickerProps) {
   return (
     <div className="flex flex-col gap-2">
       {/* 単品 / セット タブ */}
-      <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+      <div role="tablist" className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
         {(["single", "set"] as Tab[]).map((t) => (
           <button
             key={t}
+            id={`foodpicker-tab-${t}`}
+            role="tab"
+            aria-selected={tab === t}
+            aria-controls={`foodpicker-panel-${t}`}
             onClick={() => { setTab(t); setQuery(""); setCategory("すべて"); }}
             className={`flex-1 rounded-md py-1.5 text-xs font-medium transition-colors ${
               tab === t
@@ -75,8 +79,11 @@ export function FoodPicker({ onAdd, onAddSet }: FoodPickerProps) {
       </div>
 
       {tab === "set" ? (
-        <MenuPicker foods={foods} onAddSet={onAddSet} />
+        <div role="tabpanel" id="foodpicker-panel-set" aria-labelledby="foodpicker-tab-set">
+          <MenuPicker foods={foods} onAddSet={onAddSet} />
+        </div>
       ) : (
+        <div role="tabpanel" id="foodpicker-panel-single" aria-labelledby="foodpicker-tab-single">
         <>
           {/* 検索ボックス */}
           <div className="relative">
@@ -97,6 +104,7 @@ export function FoodPicker({ onAdd, onAddSet }: FoodPickerProps) {
                 <button
                   key={cat}
                   onClick={() => setCategory(cat)}
+                  aria-pressed={category === cat}
                   className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                     category === cat
                       ? "bg-blue-600 text-white"
@@ -143,6 +151,7 @@ export function FoodPicker({ onAdd, onAddSet }: FoodPickerProps) {
             </ul>
           )}
         </>
+        </div>
       )}
     </div>
   );
