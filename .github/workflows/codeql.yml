@@ -1,0 +1,53 @@
+name: CodeQL
+
+# PR および main への push で JavaScript/TypeScript と Python を静的解析する。
+# 結果は GitHub の Security → Code scanning alerts に表示され、PR 上でも確認できる。
+#
+# required check 化は GitHub Settings → Branches → Branch protection rules で
+# "CodeQL" または "Analyze (javascript-typescript)" / "Analyze (python)" を
+# Required status checks に追加することで実現できる（コード変更不要）。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # 毎週月曜 AM 9:00 JST (= UTC 00:00) に定期スキャン
+    - cron: "0 0 * * 1"
+
+permissions:
+  contents: read
+  security-events: write  # SARIF 結果を Code Scanning に送信するために必要
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language:
+          - javascript-typescript  # Next.js / TypeScript ソース全体
+          - python                 # ml-pipeline/ 配下の ML バッチスクリプト
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # デフォルトの query suite ("security-extended") を使用する。
+          # 将来 query-suite: security-and-quality に変更することで対象を広げられる。
+          query-suite: security-extended
+
+      # JavaScript/TypeScript と Python はインタープリタ言語のため autobuild は実質不要。
+      # ただし将来 compiled 言語を追加する場合や build エラーを明示したい場合は
+      # autobuild ステップを追加すること。
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"

@@ -127,6 +127,24 @@ permissions:
 
 ### Code Scanning
 
+CodeQL による静的解析を `.github/workflows/codeql.yml` で設定している。
+
+**対象言語:** `javascript-typescript` (Next.js / TypeScript) と `python` (ml-pipeline/)
+
+**実行タイミング:**
+- main への push
+- main への pull request
+- 毎週月曜定期スキャン
+
+**結果の確認方法:**
+- PR チェック: "Analyze (javascript-typescript)" / "Analyze (python)" として表示される
+- リポジトリの Security → Code scanning alerts でアラート一覧を確認できる
+
+**required check 化:**
+PR マージブロックにしたい場合は GitHub Settings → Branches → Branch protection rules の Required status checks に "Analyze (javascript-typescript)" / "Analyze (python)" を追加すること（コード変更不要のリポジトリ設定）。
+
+**アラート対応基準:**
+
 | Severity | Expected action |
 |---|---|
 | **Critical / High** | Address as a rule. If a fix is not immediately possible, leave a comment explaining the blocker. |
