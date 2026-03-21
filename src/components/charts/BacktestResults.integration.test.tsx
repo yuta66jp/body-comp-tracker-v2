@@ -50,12 +50,15 @@ import { BacktestComparison } from "@/components/charts/BacktestComparison";
 
 const MOCK_RUN: ForecastBacktestRun = {
   id: "run-1",
-  series_type: "daily",
   created_at: "2026-03-01T00:00:00Z",
+  model_name: "daily",
+  model_version: null,
+  horizons: [7, 14, 30],
   train_min_date: "2025-01-01",
   train_max_date: "2026-02-28",
   n_source_rows: 200,
   notes: null,
+  config: {},
 };
 
 function makeMetric(
@@ -73,6 +76,8 @@ function makeMetric(
     mape: mae * 5,
     bias: 0.01,
     n_predictions: 30,
+    computed_at: "2026-03-01T00:00:00Z",
+    extra: {},
   };
 }
 
