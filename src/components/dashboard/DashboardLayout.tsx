@@ -65,7 +65,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </aside>
 
       {/* メインコンテンツ */}
-      <main className="min-w-0 flex-1 space-y-6">
+      <main className="min-w-0 flex-1 flex flex-col gap-6">
         {/* モバイル用 MealLogger（lg 以上では非表示） */}
         <div className="lg:hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
           <MealLogger sidebar />
