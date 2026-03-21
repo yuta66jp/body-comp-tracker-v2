@@ -12,7 +12,7 @@ import { calcMonthlyGoalProgress } from "@/lib/utils/calcMonthlyGoalProgress";
 import { toJstDateStr } from "@/lib/utils/date";
 import { buildMonthlyGoalPlan } from "@/lib/utils/monthlyGoalPlan";
 import { buildMonthlyGoalSummaryRows, buildMonthlyGoalComparisonRows } from "@/lib/utils/monthlyGoalVisualization";
-import { fetchDailyLogs, fetchPredictions, fetchCareerLogsForDashboard } from "@/lib/queries/dailyLogs";
+import { fetchDashboardDailyLogs, fetchPredictions, fetchCareerLogsForDashboard } from "@/lib/queries/dailyLogs";
 import { fetchSettings } from "@/lib/queries/settings";
 import { fetchEnrichedLogs } from "@/lib/queries/analytics";
 import { mapToAppSettings } from "@/lib/domain/settings";
@@ -83,7 +83,7 @@ function buildMonthStats(logs: DailyLog[], months = 3): MonthStats[] {
 
 export default async function DashboardPage() {
   const [logsResult, predictions, settingsResult, careerLogs] = await Promise.all([
-    fetchDailyLogs(),
+    fetchDashboardDailyLogs(),
     fetchPredictions(),
     fetchSettings(),
     fetchCareerLogsForDashboard(),
