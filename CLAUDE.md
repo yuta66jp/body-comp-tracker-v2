@@ -220,6 +220,22 @@ body-comp-tracker-v2/
 - `leg_flag` は `deriveLegFlag` のみを定義源とし、保存 payload に直接含めない
 - CSV import は通常保存系と安易に混同しない
 
+### 削除予定状態 (delete-pending) の UX 規約
+- `MealLogger` の `weight` / `note` / `sleepHours` など、クリア操作で `null` になる clearable フィールドは「削除予定状態」を持つ
+- `null` 状態では `disabled` input を表示し、その**下に補助テキスト行**を表示する:
+  - 既存ログに値があった場合: `"保存すると○○ (値) を削除します。"` + `"元に戻す"` テキストリンク
+  - 新規ログ / 既存値なしの場合: `"保存時に○○を空欄で送信します。"` + `"元に戻す"` テキストリンク
+- Undo は `hydratedLog` の値へ復元し `touched = false` に戻す（「変更なし」状態に戻す意味）
+- 新しい clearable フィールドを追加する場合はこのパターンに揃えること
+
+### Cart の編集状態管理
+- `Cart.tsx` の grams 入力は「編集中 string」と「確定済み number」を分離している
+  - `editingGrams: Record<string, string>` をローカル state で保持（キーは `food.name`）
+  - `onChange` → string のまま `editingGrams` に保持（親 state を更新しない）
+  - `onBlur` → `normalizeGrams(raw, fallback)` で正規化 → 親 `onChange` を呼び `editingGrams` をクリア
+- キーに index ではなく `food.name` を使う理由: 行削除時の index ずれによる対応崩れを防ぐため（cart は food.name で重複排除するため一意）
+- `normalizeGrams` は `Cart.tsx` から export されており単体テスト可能
+
 ### 日付 / 集計
 - 日付は JST 基準で扱う
 - `new Date("YYYY-MM-DD")` は UTC 解釈になるため使用禁止 → `parseLocalDateStr()` を使う
@@ -324,6 +340,13 @@ body-comp-tracker-v2/
   - 保存導線 / fallback 導線を壊さないことが重要
   - flaky を避けるため、安定したモック方針（Server Action mock）を維持する
 - テスト実行: `node_modules/.bin/jest --no-coverage`
+
+### アクセシビリティ
+- タブ / トグル / チップの ARIA パターンを正しく区別する:
+  - **真のタブ**（クリックで異なるパネルが切り替わる）: コンテナに `role="tablist"`、ボタンに `role="tab"` + `aria-selected` + `aria-controls`、パネルに `role="tabpanel"` + `aria-labelledby`
+  - **セグメントコントロール / チップ**（対応パネルなし・状態トグル / フィルター）: ボタンに `aria-pressed`
+  - **相互排他的な単一選択**（ラジオボタン相当、Cut/Bulk・男性/女性など）: コンテナに `role="radiogroup"` + `aria-label`、ボタンに `role="radio"` + `aria-checked`
+- アイコンのみのボタンには必ず `aria-label` を付ける
 
 ### Python (ml-pipeline/)
 - 型ヒント必須 (`def predict(df: pd.DataFrame) -> pd.DataFrame:`)
