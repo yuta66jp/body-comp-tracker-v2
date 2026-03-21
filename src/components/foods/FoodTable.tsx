@@ -164,9 +164,21 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
   const visibleFoods = filtered.slice(0, visibleCount);
 
   return (
-    <div className="space-y-4">
-      {/* ── セクションヘッダー ── */}
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-4">
+      {/* ── 検索（mobile: 最上位 / desktop: 2番目）── */}
+      <div className="relative order-1 md:order-2">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+        <input
+          type="text"
+          placeholder="食品名で検索..."
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setVisibleCount(15); }}
+          className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+        />
+      </div>
+
+      {/* ── セクションヘッダー（mobile: 2番目 / desktop: 最上位）── */}
+      <div className="flex items-center justify-between order-2 md:order-1">
         <div>
           <h2 className="text-sm font-semibold text-slate-700">食品マスタ</h2>
           <p className="text-xs text-slate-400">100g あたりの栄養値</p>
@@ -182,21 +194,9 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
         </button>
       </div>
 
-      {/* ── 検索 ── */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-        <input
-          type="text"
-          placeholder="食品名で検索..."
-          value={query}
-          onChange={(e) => { setQuery(e.target.value); setVisibleCount(15); }}
-          className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-        />
-      </div>
-
       {/* ── カテゴリフィルター ── */}
       {categories.length > 1 && (
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 order-3">
           {categories.map((cat) => (
             <button
               key={cat}
@@ -215,7 +215,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
 
       {/* ── 追加フォーム ── */}
       {showForm && (
-        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 order-4">
           <p className="mb-3 text-sm font-semibold text-slate-700">新規食品を追加 (100g あたり)</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {(["name", "calories", "protein", "fat", "carbs"] as const).map((field) => (
@@ -301,7 +301,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
       )}
 
       {/* ── 食品リスト ── */}
-      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden order-5">
 
         {/* モバイル: カードリスト (md 未満) */}
         <div className="md:hidden divide-y divide-slate-50">

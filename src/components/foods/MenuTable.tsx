@@ -268,61 +268,125 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
         </div>
       )}
 
-      {/* メニュー一覧 */}
+      {/* ── メニュー一覧 ── */}
       {menus.length === 0 ? (
         <p className="rounded-2xl border border-gray-100 bg-white p-8 text-center text-sm text-gray-400">
           セットメニューが登録されていません
         </p>
       ) : (
-        <ul className="rounded-2xl border border-gray-100 bg-white shadow-sm divide-y divide-gray-50">
-          {menus.map((menu) => {
-            const kcal = calcRecipeKcal(menu.recipe, foodMap);
-            const isOpen = expandedMenu === menu.name;
-            return (
-              <li key={menu.name}>
-                <div className="flex items-center justify-between px-4 py-3">
-                  <button
-                    onClick={() => setExpandedMenu(isOpen ? null : menu.name)}
-                    className="flex flex-1 items-center gap-2 text-left"
-                  >
-                    {isOpen ? <ChevronUp size={15} className="text-gray-400" /> : <ChevronDown size={15} className="text-gray-400" />}
-                    <span className="text-sm font-medium text-gray-800">{menu.name}</span>
-                    <span className="text-xs text-gray-400">{menu.recipe.length} 品 / {kcal} kcal</span>
-                  </button>
-                  <div className="flex items-center gap-2">
+        <>
+          {/* モバイル: カードリスト (md 未満) */}
+          <div className="md:hidden space-y-2">
+            {menus.map((menu) => {
+              const kcal = calcRecipeKcal(menu.recipe, foodMap);
+              const isOpen = expandedMenu === menu.name;
+              return (
+                <div key={menu.name} className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+                  {/* カードヘッダー */}
+                  <div className="flex items-start gap-2 px-4 py-3">
                     <button
-                      onClick={() => startEdit(menu)}
-                      className="rounded px-2 py-1 text-xs text-blue-500 hover:bg-blue-50"
+                      onClick={() => setExpandedMenu(isOpen ? null : menu.name)}
+                      className="min-w-0 flex-1 text-left"
                     >
-                      編集
+                      <div className="text-sm font-semibold text-slate-800">{menu.name}</div>
+                      <div className="mt-0.5 flex items-baseline gap-1.5 text-xs text-slate-400">
+                        <span>{menu.recipe.length} 品</span>
+                        <span className="text-slate-300">·</span>
+                        <span className="tabular-nums text-base font-bold text-slate-700">{kcal}</span>
+                        <span>kcal</span>
+                        {isOpen
+                          ? <ChevronUp size={13} className="ml-1 text-slate-400" />
+                          : <ChevronDown size={13} className="ml-1 text-slate-400" />}
+                      </div>
                     </button>
-                    <button
-                      onClick={() => handleDelete(menu.name)}
-                      disabled={isPending}
-                      className="text-gray-300 hover:text-rose-500 disabled:opacity-40"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    <div className="flex flex-shrink-0 items-center gap-1">
+                      <button
+                        onClick={() => startEdit(menu)}
+                        className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-blue-500 hover:bg-blue-50"
+                      >
+                        編集
+                      </button>
+                      <button
+                        onClick={() => handleDelete(menu.name)}
+                        disabled={isPending}
+                        className="p-2 -mr-1 text-slate-300 hover:text-rose-500 disabled:opacity-40"
+                        aria-label={`${menu.name}を削除`}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
+                  {/* 展開: 食材リスト */}
+                  {isOpen && (
+                    <div className="border-t border-slate-50 bg-slate-50 px-4 py-3 space-y-1.5">
+                      {menu.recipe.map((ri, i) => {
+                        const food = foodMap.get(ri.name);
+                        const itemKcal = food ? Math.round((food.calories * ri.amount) / 100) : 0;
+                        return (
+                          <div key={i} className="flex justify-between text-xs text-slate-600">
+                            <span>{ri.name}</span>
+                            <span className="tabular-nums text-slate-400">{ri.amount}g · {itemKcal} kcal</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-                {isOpen && (
-                  <ul className="border-t border-gray-50 bg-gray-50 px-6 py-2 space-y-1">
-                    {menu.recipe.map((ri, i) => {
-                      const food = foodMap.get(ri.name);
-                      const kcal = food ? Math.round((food.calories * ri.amount) / 100) : 0;
-                      return (
-                        <li key={i} className="flex justify-between text-xs text-gray-600">
-                          <span>{ri.name}</span>
-                          <span>{ri.amount}g — {kcal} kcal</span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+              );
+            })}
+          </div>
+
+          {/* デスクトップ: リスト (md+) */}
+          <ul className="hidden md:block rounded-2xl border border-gray-100 bg-white shadow-sm divide-y divide-gray-50">
+            {menus.map((menu) => {
+              const kcal = calcRecipeKcal(menu.recipe, foodMap);
+              const isOpen = expandedMenu === menu.name;
+              return (
+                <li key={menu.name}>
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <button
+                      onClick={() => setExpandedMenu(isOpen ? null : menu.name)}
+                      className="flex flex-1 items-center gap-2 text-left"
+                    >
+                      {isOpen ? <ChevronUp size={15} className="text-gray-400" /> : <ChevronDown size={15} className="text-gray-400" />}
+                      <span className="text-sm font-medium text-gray-800">{menu.name}</span>
+                      <span className="text-xs text-gray-400">{menu.recipe.length} 品 / {kcal} kcal</span>
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => startEdit(menu)}
+                        className="rounded px-2 py-1 text-xs text-blue-500 hover:bg-blue-50"
+                      >
+                        編集
+                      </button>
+                      <button
+                        onClick={() => handleDelete(menu.name)}
+                        disabled={isPending}
+                        className="text-gray-300 hover:text-rose-500 disabled:opacity-40"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                  {isOpen && (
+                    <ul className="border-t border-gray-50 bg-gray-50 px-6 py-2 space-y-1">
+                      {menu.recipe.map((ri, i) => {
+                        const food = foodMap.get(ri.name);
+                        const itemKcal = food ? Math.round((food.calories * ri.amount) / 100) : 0;
+                        return (
+                          <li key={i} className="flex justify-between text-xs text-gray-600">
+                            <span>{ri.name}</span>
+                            <span>{ri.amount}g — {itemKcal} kcal</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
     </div>
   );
