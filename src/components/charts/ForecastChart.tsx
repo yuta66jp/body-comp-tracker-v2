@@ -17,7 +17,8 @@ import type { DashboardDailyLog, Prediction } from "@/lib/supabase/types";
 import { toJstDateStr, addDaysStr, dateRangeStr } from "@/lib/utils/date";
 import type { MonthlyGoalEntry } from "@/lib/utils/monthlyGoalPlan";
 import { buildMonthlyGoalDateMap } from "@/lib/utils/monthlyGoalVisualization";
-import { buildForecastMap, calcEwLinearForecast } from "@/lib/utils/forecastUtils";
+import { buildForecastMap, calcEwLinearForecast, buildYAxisConfig } from "@/lib/utils/forecastUtils";
+import type { RangeTab } from "@/lib/utils/forecastUtils";
 
 interface ForecastChartProps {
   logs: DashboardDailyLog[];
@@ -38,13 +39,11 @@ interface ChartPoint {
   monthlyGoalTarget?: number;
 }
 
-type RangeTab = "default" | "7d" | "31d" | "90d";
-
 const RANGE_TABS: { key: RangeTab; label: string }[] = [
   { key: "default", label: "全体" },
   { key: "7d",      label: "7日" },
   { key: "31d",     label: "31日" },
-  { key: "90d",     label: "90日" },
+  { key: "60d",     label: "60日" },
 ];
 
 export function ForecastChart({
@@ -70,9 +69,9 @@ export function ForecastChart({
   const sma7Map = new Map(sma7.map((d) => [d.date, d.value]));
   const forecastMap = buildForecastMap(predictions, latestLogDate);
 
-  // EW Linear Trend: SMA7 ベース指数加重線形回帰の短期補助線 (最終実測日翌日〜14日先)
+  // EW Linear Trend: SMA7 ベース指数加重線形回帰の短期補助線 (最終実測日翌日〜30日先)
   // #155 の predict_ew_linear() と同一設計 (SMA7入力 + alpha=0.9)
-  const ewForecastPoints = calcEwLinearForecast(sma7, latestLogDate, 14);
+  const ewForecastPoints = calcEwLinearForecast(sma7, latestLogDate, 30);
   const ewTrendMap = new Map(ewForecastPoints.map((p) => [p.date, p.value]));
 
   // タブごとの表示範囲
@@ -91,17 +90,16 @@ export function ForecastChart({
   } else if (rangeTab === "31d") {
     viewStartStr = addDaysStr(latestLogDate, -30) ?? today; // 最新測定日を含む31日間
     viewEndStr = latestLogDate;
-  } else if (rangeTab === "90d") {
-    // 90d: 30日前を起点に固定90日窓（start + 90日で終端固定）
+  } else if (rangeTab === "60d") {
+    // 60d: 30日前を起点に固定60日窓（start + 60日で終端固定）
     // 「直近1ヶ月の実績 + 近未来予測」を一定スパンで確認できるビュー
     viewStartStr = addDaysStr(latestLogDate, -30) ?? today;
-    viewEndStr = addDaysStr(viewStartStr, 90) ?? today;
+    viewEndStr = addDaysStr(viewStartStr, 60) ?? today;
   } else {
-    // default: 45日前〜 contestDate / lastForecastDate / lastEwDate の最大
+    // default: 45日前〜 contestDate+15 (なければ lastForecastDate / lastEwDate の最大)
     viewStartStr = addDaysStr(today, -45) ?? today;
-    viewEndStr = [lastForecastDate, lastEwDate, contestDate ?? ""]
-      .filter(Boolean)
-      .reduce((a, b) => (a > b ? a : b));
+    const preferredEnd = contestDate ? addDaysStr(contestDate, 15) ?? contestDate : null;
+    viewEndStr = preferredEnd ?? [lastForecastDate, lastEwDate].reduce((a, b) => (a > b ? a : b));
   }
 
   const allDates = dateRangeStr(viewStartStr, viewEndStr);
@@ -117,8 +115,8 @@ export function ForecastChart({
     actual: actualMap.get(date),
     sma7: sma7Map.get(date),
     // forecast/ewTrend は 全体・90日ビューで表示（7d/31d は実測期間のみのため非表示）
-    forecast: rangeTab === "default" || rangeTab === "90d" ? forecastMap.get(date) : undefined,
-    ewTrend: rangeTab === "default" || rangeTab === "90d" ? ewTrendMap.get(date) : undefined,
+    forecast: rangeTab === "default" || rangeTab === "60d" ? forecastMap.get(date) : undefined,
+    ewTrend: rangeTab === "default" || rangeTab === "60d" ? ewTrendMap.get(date) : undefined,
     monthlyGoalTarget: monthlyGoalDateMap.get(date),
   }));
 
@@ -126,7 +124,7 @@ export function ForecastChart({
   const visibleActual = allDates
     .map((d) => actualMap.get(d))
     .filter((v): v is number => v !== undefined);
-  const showFutureSeries = rangeTab === "default" || rangeTab === "90d";
+  const showFutureSeries = rangeTab === "default" || rangeTab === "60d";
   const visibleForecast = showFutureSeries
     ? allDates.map((d) => forecastMap.get(d)).filter((v): v is number => v !== undefined)
     : [];
@@ -143,7 +141,7 @@ export function ForecastChart({
     ...(goalWeight && showFutureSeries ? [goalWeight] : []),
   ];
 
-  // タブごとのパディング（7日は±1.5kg、31日は±2.5kg、全体/90日は広め）
+  // タブごとのパディング（7日は±1.5kg、31日は±2.5kg、全体/60日は広め）
   const yPad = rangeTab === "7d" ? 1.5 : rangeTab === "31d" ? 2.5 : 1;
   const dataMin = rangeWeights.length > 0 ? Math.min(...rangeWeights) : 55;
   const dataMax = rangeWeights.length > 0 ? Math.max(...rangeWeights) : 80;
@@ -152,15 +150,8 @@ export function ForecastChart({
     : Math.floor((dataMin - yPad) * 10) / 10;
   const yMax = Math.ceil((dataMax + yPad) * 10) / 10;
 
-  // Y軸 tick 配列（7日: 1kg刻み、31日: 2kg刻み、全体/90日: Recharts 自動）
-  const yTicks: number[] | undefined = (() => {
-    if (showFutureSeries) return undefined;
-    const step = rangeTab === "7d" ? 1 : 2;
-    const start = Math.ceil(yMin / step) * step;
-    const ticks: number[] = [];
-    for (let v = start; v <= yMax; v += step) ticks.push(v);
-    return ticks;
-  })();
+  // Y軸 tick 配列とラベルフォーマッタ（buildYAxisConfig に委譲）
+  const { ticks: yTicks, formatter: yTickFormatter } = buildYAxisConfig(rangeTab, yMin, yMax);
 
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -192,12 +183,12 @@ export function ForecastChart({
             dataKey="date"
             tick={{ fontSize: 11 }}
             tickFormatter={(v: string) => v.slice(5)}
-            minTickGap={rangeTab === "7d" ? 0 : rangeTab === "90d" ? 20 : 30}
+            minTickGap={rangeTab === "7d" ? 0 : rangeTab === "60d" ? 25 : 30}
           />
           <YAxis
             domain={[yMin, yMax]}
             tick={{ fontSize: 11 }}
-            tickFormatter={(v: number) => `${Math.floor(v)}kg`}
+            tickFormatter={yTickFormatter}
             ticks={yTicks}
             width={52}
           />
@@ -284,7 +275,7 @@ export function ForecastChart({
               connectNulls
             />
           )}
-          {/* EW Linear Trend 補助線（全体・90日ビュー・最終実測日翌日〜14日先）
+          {/* EW Linear Trend 補助線（全体・60日ビュー・最終実測日翌日〜30日先）
               SMA7入力 + 指数加重線形回帰。直近変化の短期参考線。
               主線 (NeuralProphet) より細く破線で補助線として扱う。 */}
           {showFutureSeries && ewForecastPoints.length > 0 && (

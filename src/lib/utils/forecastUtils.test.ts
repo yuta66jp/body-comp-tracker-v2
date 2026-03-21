@@ -1,4 +1,5 @@
-import { buildForecastMap, calcEwLinearForecast } from "./forecastUtils";
+import { buildForecastMap, calcEwLinearForecast, buildYAxisConfig } from "./forecastUtils";
+import type { RangeTab } from "./forecastUtils";
 
 // ─── calcEwLinearForecast ─────────────────────────────────────────────────────
 
@@ -35,6 +36,13 @@ describe("calcEwLinearForecast", () => {
   it("horizonDays を指定した件数の予測を返す", () => {
     const sma7 = makeSma7(20, latestLogDate, 70.0, 0.0);
     expect(calcEwLinearForecast(sma7, latestLogDate, 7)).toHaveLength(7);
+  });
+
+  it("horizonDays=30 で 30 件の予測を返す", () => {
+    const sma7 = makeSma7(20, latestLogDate, 70.0, 0.0);
+    const result = calcEwLinearForecast(sma7, latestLogDate, 30);
+    expect(result).toHaveLength(30);
+    expect(result[29].date).toBe("2026-04-14");
   });
 
   it("latestLogDate の翌日から始まる", () => {
@@ -121,5 +129,70 @@ describe("buildForecastMap", () => {
   it("predictions が空のとき空の Map を返す", () => {
     const map = buildForecastMap([], "2026-03-15");
     expect(map.size).toBe(0);
+  });
+});
+
+// ─── buildYAxisConfig ─────────────────────────────────────────────────────────
+
+describe("buildYAxisConfig", () => {
+  it("7d: 0.5kg 刻みの tick 配列を返す", () => {
+    const { ticks } = buildYAxisConfig("7d", 68.0, 71.0);
+    // 68.0, 68.5, 69.0, ... 71.0
+    expect(ticks[0]).toBeCloseTo(68.0);
+    expect(ticks[1]).toBeCloseTo(68.5);
+    // 隣接差が 0.5
+    for (let i = 1; i < ticks.length; i++) {
+      expect(ticks[i] - ticks[i - 1]).toBeCloseTo(0.5);
+    }
+  });
+
+  it("7d: 全 tick でラベルを返す（空文字なし）", () => {
+    const { ticks, formatter } = buildYAxisConfig("7d", 68.0, 70.0);
+    for (const t of ticks) {
+      expect(formatter(t)).not.toBe("");
+    }
+  });
+
+  it("7d: 0.5kg 刻みのラベル形式 (整数は kg、小数は .1f + kg)", () => {
+    const { formatter } = buildYAxisConfig("7d", 68.0, 69.0);
+    expect(formatter(68.0)).toBe("68kg");
+    expect(formatter(68.5)).toBe("68.5kg");
+    expect(formatter(69.0)).toBe("69kg");
+  });
+
+  it("31d: 1kg 刻みの tick 配列を返す", () => {
+    const { ticks } = buildYAxisConfig("31d", 67.0, 71.0);
+    expect(ticks[0]).toBeCloseTo(67.0);
+    for (let i = 1; i < ticks.length; i++) {
+      expect(ticks[i] - ticks[i - 1]).toBeCloseTo(1.0);
+    }
+  });
+
+  it("31d: 全 tick でラベルを返す（空文字なし）", () => {
+    const { ticks, formatter } = buildYAxisConfig("31d", 65.0, 72.0);
+    for (const t of ticks) {
+      expect(formatter(t)).not.toBe("");
+    }
+  });
+
+  it("60d: 全 tick でラベルを返す（空文字なし）", () => {
+    const { ticks, formatter } = buildYAxisConfig("60d", 63.0, 73.0);
+    for (const t of ticks) {
+      expect(formatter(t)).not.toBe("");
+    }
+  });
+
+  it("default: 5 の倍数のみラベルを返し、それ以外は空文字", () => {
+    const { formatter } = buildYAxisConfig("default", 55.0, 75.0);
+    expect(formatter(60)).toBe("60kg");
+    expect(formatter(65)).toBe("65kg");
+    expect(formatter(61)).toBe("");
+    expect(formatter(63)).toBe("");
+  });
+
+  it("yMin が step の倍数でない場合、切り上げた値から tick が始まる", () => {
+    // yMin=68.3, step=0.5 → 最初の tick は 68.5
+    const { ticks } = buildYAxisConfig("7d", 68.3, 70.0);
+    expect(ticks[0]).toBeCloseTo(68.5);
   });
 });
