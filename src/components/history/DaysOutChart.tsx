@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   LineChart,
   Line,
@@ -12,6 +13,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { TooltipValueType } from "recharts";
+
+const MAX_DEFAULT_PAST = 2; // デフォルトで表示する過去シーズン数
 
 interface DotRenderProps {
   cx?: number;
@@ -45,6 +48,8 @@ function lastNonNullDaysOut(
 }
 
 export function DaysOutChart({ data, seasons, currentSeason, todayDaysOut }: DaysOutChartProps) {
+  const [showAll, setShowAll] = useState(false);
+
   const sortedSeasons = [...seasons].sort((a, b) => {
     if (a === currentSeason) return 1;
     if (b === currentSeason) return -1;
@@ -52,10 +57,12 @@ export function DaysOutChart({ data, seasons, currentSeason, todayDaysOut }: Day
   });
 
   const pastSeasons = sortedSeasons.filter((s) => s !== currentSeason);
+  const displayedPastSeasons = showAll ? pastSeasons : pastSeasons.slice(-MAX_DEFAULT_PAST);
+  const hiddenCount = pastSeasons.length - displayedPastSeasons.length;
 
   // 各シーズンの最終 daysOut を事前計算（レンダリング中の再計算を避ける）
   const lastDaysOutMap = new Map<string, number | null>();
-  for (const season of sortedSeasons) {
+  for (const season of [...displayedPastSeasons, ...(currentSeason ? [currentSeason] : [])]) {
     lastDaysOutMap.set(season, lastNonNullDaysOut(data, season));
   }
 
@@ -101,7 +108,7 @@ export function DaysOutChart({ data, seasons, currentSeason, todayDaysOut }: Day
           )}
 
           {/* 過去シーズン（グレー系・末端ドット付き） */}
-          {pastSeasons.map((season, i) => {
+          {displayedPastSeasons.map((season, i) => {
             const color = PAST_COLORS[i % PAST_COLORS.length];
             const endDaysOut = lastDaysOutMap.get(season);
             return (
@@ -160,6 +167,21 @@ export function DaysOutChart({ data, seasons, currentSeason, todayDaysOut }: Day
           })()}
         </LineChart>
       </ResponsiveContainer>
+
+      {/* シーズン表示切替トグル */}
+      {(hiddenCount > 0 || (showAll && pastSeasons.length > MAX_DEFAULT_PAST)) && (
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+          >
+            {showAll
+              ? "シーズンを折りたたむ"
+              : `+ ${hiddenCount} シーズン前の比較を表示`}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

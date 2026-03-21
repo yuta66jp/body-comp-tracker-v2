@@ -1,6 +1,7 @@
 import { DaysOutChart } from "@/components/history/DaysOutChart";
 import { SeasonLowChart } from "@/components/history/SeasonLowChart";
 import { SeasonComparisonTable } from "@/components/history/SeasonComparisonTable";
+import { SeasonComparisonAccordion } from "@/components/history/SeasonComparisonAccordion";
 import { TodayWindowComparison } from "@/components/history/TodayWindowComparison";
 import {
   calcSeasonMeta,
@@ -125,14 +126,25 @@ export default async function HistoryPage() {
               todayDaysOut={todayDaysOut}
             />
 
-            {/* 全シーズン × マイルストーン 比較テーブル (詳細参照用) */}
-            <SeasonComparisonTable
-              milestoneRows={milestoneRows}
-              seasonMeta={allSeasonMeta}
-              seasons={allSeasons}
-              currentSeason={currentSeasonLabel}
-              isCut={isCut}
-            />
+            {/* 全シーズン × マイルストーン 比較: モバイルはアコーディオン / md+ はテーブル */}
+            <div className="md:hidden">
+              <SeasonComparisonAccordion
+                milestoneRows={milestoneRows}
+                seasonMeta={allSeasonMeta}
+                seasons={allSeasons}
+                currentSeason={currentSeasonLabel}
+                isCut={isCut}
+              />
+            </div>
+            <div className="hidden md:block">
+              <SeasonComparisonTable
+                milestoneRows={milestoneRows}
+                seasonMeta={allSeasonMeta}
+                seasons={allSeasons}
+                currentSeason={currentSeasonLabel}
+                isCut={isCut}
+              />
+            </div>
 
             {/* 仕上がり体重推移 */}
             {allSeasonMeta.length > 0 && (
