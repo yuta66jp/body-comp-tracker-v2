@@ -31,7 +31,7 @@ export function DashboardLayout({ children, header }: DashboardLayoutProps) {
       >
         {open ? (
           /* 展開時: 食事ログカード（ヘッダーに閉じるボタン統合） */
-          <div className="w-80 sticky top-20">
+          <div className="w-80 sticky top-0">
             <div className="rounded-2xl border border-slate-100 bg-white shadow-sm">
               {/* カードヘッダー: 食事ログタイトル + 閉じるボタン */}
               <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
@@ -59,7 +59,7 @@ export function DashboardLayout({ children, header }: DashboardLayoutProps) {
           </div>
         ) : (
           /* 折りたたみ時: アイコンのみの再オープンボタン */
-          <div className="sticky top-20">
+          <div className="sticky top-0">
             <button
               onClick={() => setOpen(true)}
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50"
