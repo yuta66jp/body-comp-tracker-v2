@@ -6,6 +6,7 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { NavBar } from "@/components/ui/NavBar";
 import { MobileBottomNav } from "@/components/ui/MobileBottomNav";
+import { BottomSpacer } from "@/components/ui/BottomSpacer";
 
 export const metadata: Metadata = {
   title: "Body Composition Tracker",
@@ -25,20 +26,8 @@ export default function RootLayout({
         <NavBar />
         <div className="mx-auto max-w-screen-xl px-4">
           {children}
-          {/*
-            モバイル向け下余白スペーサー。
-            タブバー高（--bottom-nav-height）+ Safe Area 分だけコンテンツを押し上げる。
-            CSS 変数を使うことで globals.css の値変更だけで追従できる。
-            md 以上では非表示のため desktop レイアウトに影響しない。
-          */}
-          <div
-            className="md:hidden"
-            aria-hidden="true"
-            style={{
-              height:
-                "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px))",
-            }}
-          />
+          {/* モバイル向け下余白スペーサー (BottomSpacer) */}
+          <BottomSpacer />
         </div>
         <MobileBottomNav />
       </body>

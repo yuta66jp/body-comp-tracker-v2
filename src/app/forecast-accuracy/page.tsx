@@ -3,8 +3,21 @@ import { BacktestComparison } from "@/components/charts/BacktestComparison";
 import { ForecastAccuracyRefreshButton } from "@/components/charts/ForecastAccuracyRefreshButton";
 import { BarChart2 } from "lucide-react";
 import { fetchLatestRuns, fetchMetrics } from "@/lib/queries/backtest";
+import { PageShell } from "@/components/ui/PageShell";
 
 export const revalidate = 3600; // 1時間キャッシュ (バッチは週1回)
+
+// ─── 共通タイトルスロット ────────────────────────────────────────────────────
+
+function ForecastTitle({ children }: { children?: React.ReactNode }) {
+  return (
+    <div className="mb-4 flex items-center gap-2 md:mb-6">
+      <BarChart2 size={20} className="text-blue-600" />
+      <h1 className="text-xl font-bold text-slate-800">予測精度評価</h1>
+      {children}
+    </div>
+  );
+}
 
 // ─── ページ ──────────────────────────────────────────────────────────────────
 
@@ -13,15 +26,11 @@ export default async function ForecastAccuracyPage() {
 
   if (runsResult.kind === "error") {
     return (
-      <main className="min-h-screen bg-gray-50 p-6">
-        <div className="flex items-center gap-2 mb-6">
-          <BarChart2 size={20} className="text-blue-600" />
-          <h1 className="text-xl font-bold text-gray-800">予測精度評価</h1>
-        </div>
+      <PageShell titleSlot={<ForecastTitle />}>
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           バックテストデータの取得に失敗しました。しばらく経ってから再度お試しください。
         </div>
-      </main>
+      </PageShell>
     );
   }
 
@@ -30,12 +39,7 @@ export default async function ForecastAccuracyPage() {
   // 両方ともデータなし
   if (!dailyRun && !sma7Run) {
     return (
-      <main className="min-h-screen bg-gray-50 p-6">
-        <div className="flex items-center gap-2 mb-6">
-          <BarChart2 size={20} className="text-blue-600" />
-          <h1 className="text-xl font-bold text-gray-800">予測精度評価</h1>
-          <ForecastAccuracyRefreshButton />
-        </div>
+      <PageShell titleSlot={<ForecastTitle><ForecastAccuracyRefreshButton /></ForecastTitle>}>
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center">
           <p className="text-sm font-medium text-slate-500">
             まだバックテストが実行されていません
@@ -55,7 +59,7 @@ export default async function ForecastAccuracyPage() {
             </code>
           </div>
         </div>
-      </main>
+      </PageShell>
     );
   }
 
@@ -69,14 +73,14 @@ export default async function ForecastAccuracyPage() {
   const sma7Metrics = sma7MetricsResult.kind === "ok" ? sma7MetricsResult.data : [];
 
   return (
-    <main className="min-h-screen bg-gray-50 p-6">
-      <div className="flex items-center gap-2 mb-6">
-        <BarChart2 size={20} className="text-blue-600" />
-        <h1 className="text-xl font-bold text-gray-800">予測精度評価</h1>
-        <span className="text-xs text-slate-400">データは週次バッチで更新されます</span>
-        <ForecastAccuracyRefreshButton />
-      </div>
-
+    <PageShell
+      titleSlot={
+        <ForecastTitle>
+          <span className="text-xs text-slate-400">データは週次バッチで更新されます</span>
+          <ForecastAccuracyRefreshButton />
+        </ForecastTitle>
+      }
+    >
       <div className="space-y-6">
         {/* ── 単日 vs 7日平均 比較 (新セクション) ── */}
         <BacktestComparison
@@ -141,6 +145,6 @@ export default async function ForecastAccuracyPage() {
           </div>
         )}
       </div>
-    </main>
+    </PageShell>
   );
 }

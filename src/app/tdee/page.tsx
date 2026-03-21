@@ -21,6 +21,8 @@ import { fetchSettings } from "@/lib/queries/settings";
 import { fetchEnrichedLogs } from "@/lib/queries/analytics";
 import { mapToAppSettings } from "@/lib/domain/settings";
 import type { CurrentPhase } from "@/lib/utils/energyBalance";
+import { PageShell } from "@/components/ui/PageShell";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 export const revalidate = 3600;
 
@@ -175,8 +177,7 @@ export default async function TdeePage() {
   }));
 
   return (
-    <main className="min-h-screen bg-gray-50 p-6">
-      <h1 className="mb-6 text-xl font-bold text-gray-800">TDEE・代謝分析</h1>
+    <PageShell title="TDEE・代謝分析">
 
       {/* Read error banners — graceful degradation: コンテンツはブロックしない */}
       {rawLogsResult.kind === "error" && (
@@ -226,13 +227,15 @@ export default async function TdeePage() {
           enrichedAvailability={enrichedAvailability}
         />
         <TdeeDetailChart data={chartData} avgTdee={avgTdee} />
-        <TdeeDailyTable data={tableData} phase={currentPhase} />
+        <TableScroll>
+          <TdeeDailyTable data={tableData} phase={currentPhase} />
+        </TableScroll>
         {!theoreticalTdee && (
           <p className="text-center text-xs text-gray-400">
             ※ 理論 TDEE を表示するには「設定」で身長・年齢・活動係数・性別を入力してください。
           </p>
         )}
       </div>
-    </main>
+    </PageShell>
   );
 }
