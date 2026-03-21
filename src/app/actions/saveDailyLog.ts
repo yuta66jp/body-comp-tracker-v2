@@ -1,7 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { revalidateAfterDailyLogMutation } from "@/lib/cache/revalidate";
 import { isValidTrainingType, isValidWorkMode } from "@/lib/utils/trainingType";
 import { buildUpdatePayload } from "./buildUpdatePayload";
 import { parseLocalDateStr } from "@/lib/utils/date";
@@ -130,10 +130,7 @@ export async function saveDailyLog(
   }
 
   // --- On-demand revalidation ---
-  revalidatePath("/");
-  revalidatePath("/history");
-  revalidatePath("/macro");
-  revalidatePath("/tdee");
+  revalidateAfterDailyLogMutation();
 
   return { ok: true };
 }
