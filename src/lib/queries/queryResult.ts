@@ -14,6 +14,10 @@
  *   - fetchCareerLogs           (career_logs — history ページ主データ)
  *   - fetchSettings             (settings → AppSettings 変換)
  *   - fetchSettingsRows         (settings 行配列 — SettingsForm 用)
+ *   - fetchFoods                (food_master — foods ページ主データ)
+ *   - fetchMenus                (menu_master — foods ページ主データ)
+ *   - fetchLatestRuns           (forecast_backtest_runs — 予測精度ページ主データ)
+ *   - fetchMetrics              (forecast_backtest_metrics — 予測精度ページ主データ)
  *
  * ベストエフォート (空配列フォールバックで graceful degradation が成立する補助クエリ):
  *   - fetchWeightLogs / fetchCareerLogsForDashboard / fetchPredictions
