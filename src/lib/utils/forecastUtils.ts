@@ -86,6 +86,39 @@ export function calcEwLinearForecast(
   return result;
 }
 
+export type RangeTab = "default" | "7d" | "31d" | "60d";
+
+/**
+ * buildYAxisConfig
+ *
+ * rangeTab に応じた Y 軸 tick 配列とラベルフォーマッタを返す。
+ *
+ * - 7d:      0.5kg 刻み、全ラベル表示
+ * - 31d:     1kg 刻み、全ラベル表示
+ * - 60d/default: 1kg 刻み、5kg 倍数のみラベル表示（密度抑制）
+ */
+export function buildYAxisConfig(
+  rangeTab: RangeTab,
+  yMin: number,
+  yMax: number
+): { ticks: number[]; formatter: (v: number) => string } {
+  const step = rangeTab === "7d" ? 0.5 : 1;
+  const labelEvery = rangeTab === "7d" || rangeTab === "31d" ? 0 : 5;
+
+  const tickStart = Math.round(Math.ceil(yMin / step) * step * 10) / 10;
+  const ticks: number[] = [];
+  for (let v = tickStart; v <= yMax + 0.001; v = Math.round((v + step) * 10) / 10) {
+    ticks.push(v);
+  }
+
+  const formatter = (v: number): string => {
+    if (labelEvery > 0 && Math.round(v) % labelEvery !== 0) return "";
+    return v % 1 === 0 ? `${v}kg` : `${v.toFixed(1)}kg`;
+  };
+
+  return { ticks, formatter };
+}
+
 export function buildForecastMap(
   predictions: Array<{ ds: string; yhat: number }>,
   latestLogDate: string
