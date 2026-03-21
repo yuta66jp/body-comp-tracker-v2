@@ -23,9 +23,22 @@ export default function RootLayout({
         className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
       >
         <NavBar />
-        {/* モバイル向け下部タブバー分の余白: タブバー高 56px + Safe Area 最大 ~40px = pb-24 で吸収 */}
-        <div className="mx-auto max-w-screen-xl px-4 pb-24 md:pb-0">
+        <div className="mx-auto max-w-screen-xl px-4">
           {children}
+          {/*
+            モバイル向け下余白スペーサー。
+            タブバー高（--bottom-nav-height）+ Safe Area 分だけコンテンツを押し上げる。
+            CSS 変数を使うことで globals.css の値変更だけで追従できる。
+            md 以上では非表示のため desktop レイアウトに影響しない。
+          */}
+          <div
+            className="md:hidden"
+            aria-hidden="true"
+            style={{
+              height:
+                "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px))",
+            }}
+          />
         </div>
         <MobileBottomNav />
       </body>

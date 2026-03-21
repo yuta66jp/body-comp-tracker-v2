@@ -163,6 +163,24 @@ describe("MobileBottomNav", () => {
     expect(settingsLink).toHaveAttribute("aria-current", "page");
   });
 
+  // ── prefix 一致（ネストルート）────────────────────────────────────────
+
+  it("/history/2026-03 のとき履歴タブが active になる", () => {
+    mockUsePathname.mockReturnValue("/history/2026-03");
+    render(<MobileBottomNav />);
+
+    const historyLink = screen.getByText("履歴").closest("a");
+    expect(historyLink).toHaveAttribute("aria-current", "page");
+  });
+
+  it("/settings/profile のとき「その他」ボタンが active 扱いになる", () => {
+    mockUsePathname.mockReturnValue("/settings/profile");
+    render(<MobileBottomNav />);
+
+    const moreBtn = screen.getByLabelText("その他のナビゲーションを開く");
+    expect(moreBtn.className).toContain("text-blue-700");
+  });
+
   // ── backdrop クリックで閉じる ───────────────────────────────────────────
 
   it("backdrop をクリックするとシートが閉じる", () => {

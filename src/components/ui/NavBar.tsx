@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { isActiveNav } from "@/lib/utils/nav";
 import {
   LayoutDashboard,
   CalendarDays,
@@ -37,7 +38,7 @@ export function NavBar() {
         </div>
 
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href;
+          const active = isActiveNav(pathname, href);
           return (
             <Link
               key={href}

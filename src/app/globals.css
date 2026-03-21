@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  --bottom-nav-height: 56px; /* MobileBottomNav の可視高さ。変更時は関連 CSS も自動追従する */
   --background: #f8fafc;
   --foreground: #0f172a;
   --card: #ffffff;

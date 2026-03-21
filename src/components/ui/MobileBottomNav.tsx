@@ -14,6 +14,7 @@ import {
   Database,
   Settings2,
 } from "lucide-react";
+import { isActiveNav } from "@/lib/utils/nav";
 
 const PRIMARY_TABS = [
   { href: "/",        label: "ホーム",  icon: LayoutDashboard },
@@ -28,14 +29,11 @@ const MORE_ITEMS = [
   { href: "/settings",          label: "設定",     icon: Settings2 },
 ] as const;
 
-/** タブバーの可視高さ (py-2 × 2 + icon 20px + gap + label 10px ≒ 56px) */
-const TAB_BAR_HEIGHT_PX = 56;
-
 export function MobileBottomNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const moreActive = MORE_ITEMS.some((item) => item.href === pathname);
+  const moreActive = MORE_ITEMS.some((item) => isActiveNav(pathname, item.href));
 
   return (
     <>
@@ -48,18 +46,19 @@ export function MobileBottomNav() {
             onClick={() => setMoreOpen(false)}
             aria-hidden="true"
           />
-          {/* sheet 本体 */}
+          {/* sheet 本体。タブバー高 + Safe Area 分だけ下から浮かせる */}
           <div
             role="menu"
             aria-label="その他のページ"
             className="fixed left-0 right-0 z-40 border-t border-slate-200 bg-white shadow-lg"
             style={{
-              bottom: `calc(${TAB_BAR_HEIGHT_PX}px + env(safe-area-inset-bottom, 0px))`,
+              bottom:
+                "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px))",
             }}
           >
             <div className="mx-auto flex max-w-screen-xl flex-col px-4 py-2">
               {MORE_ITEMS.map(({ href, label, icon: Icon }) => {
-                const active = pathname === href;
+                const active = isActiveNav(pathname, href);
                 return (
                   <Link
                     key={href}
@@ -92,7 +91,7 @@ export function MobileBottomNav() {
         <div className="mx-auto flex max-w-screen-xl items-stretch">
           {/* 主要タブ */}
           {PRIMARY_TABS.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href;
+            const active = isActiveNav(pathname, href);
             return (
               <Link
                 key={href}
