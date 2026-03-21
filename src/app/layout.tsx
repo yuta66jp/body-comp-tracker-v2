@@ -5,6 +5,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { NavBar } from "@/components/ui/NavBar";
+import { MobileBottomNav } from "@/components/ui/MobileBottomNav";
 
 export const metadata: Metadata = {
   title: "Body Composition Tracker",
@@ -22,9 +23,11 @@ export default function RootLayout({
         className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
       >
         <NavBar />
-        <div className="mx-auto max-w-screen-xl px-4">
+        {/* モバイル向け下部タブバー分の余白: タブバー高 56px + Safe Area 最大 ~40px = pb-24 で吸収 */}
+        <div className="mx-auto max-w-screen-xl px-4 pb-24 md:pb-0">
           {children}
         </div>
+        <MobileBottomNav />
       </body>
     </html>
   );
