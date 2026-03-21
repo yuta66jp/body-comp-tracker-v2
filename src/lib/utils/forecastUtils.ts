@@ -91,20 +91,28 @@ export type RangeTab = "default" | "7d" | "31d" | "60d";
 /**
  * buildYAxisConfig
  *
- * rangeTab に応じた Y 軸 tick 配列とラベルフォーマッタを返す。
+ * rangeTab ごとに固定 step で tick 配列を生成し、全ラベル表示する。
+ * 空文字 formatter による間引きや動的 step 選択は行わない。
  *
- * - 7d:      0.5kg 刻み、全ラベル表示
- * - 31d:     1kg 刻み、全ラベル表示
- * - 60d:     1kg 刻み、全ラベル表示
- * - default: 1kg 刻み、5kg 倍数（主要目盛り）+ 3kg 倍数（補助目盛り）でラベル表示
- *            → ~3kg 間隔でラベルが並び「kg 表示が消える」レンジを防ぐ
+ * | tab     | step  |
+ * |---------|-------|
+ * | 7d      | 0.5kg |
+ * | 31d     | 1kg   |
+ * | 60d     | 2kg   |
+ * | default | 3kg   |
  */
 export function buildYAxisConfig(
   rangeTab: RangeTab,
   yMin: number,
   yMax: number
 ): { ticks: number[]; formatter: (v: number) => string } {
-  const step = rangeTab === "7d" ? 0.5 : 1;
+  const stepMap: Record<RangeTab, number> = {
+    "7d":      0.5,
+    "31d":     1,
+    "60d":     2,
+    "default": 3,
+  };
+  const step = stepMap[rangeTab];
 
   const tickStart = Math.round(Math.ceil(yMin / step) * step * 10) / 10;
   const ticks: number[] = [];
@@ -112,14 +120,8 @@ export function buildYAxisConfig(
     ticks.push(v);
   }
 
-  const formatter = (v: number): string => {
-    if (rangeTab === "default") {
-      // 5kg 主要目盛り OR 3kg 補助目盛りのみラベル表示（~3kg 間隔を保証）
-      const vi = Math.round(v);
-      if (vi % 5 !== 0 && vi % 3 !== 0) return "";
-    }
-    return v % 1 === 0 ? `${v}kg` : `${v.toFixed(1)}kg`;
-  };
+  const formatter = (v: number): string =>
+    v % 1 === 0 ? `${v}kg` : `${v.toFixed(1)}kg`;
 
   return { ticks, formatter };
 }

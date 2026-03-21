@@ -151,6 +151,7 @@ export function ForecastChart({
   const yMax = Math.ceil((dataMax + yPad) * 10) / 10;
 
   // Y軸 tick 配列とラベルフォーマッタ（buildYAxisConfig に委譲）
+  // step: 7d=0.5kg / 31d=1kg / 60d=2kg / default=3kg（固定間隔・全ラベル表示）
   const { ticks: yTicks, formatter: yTickFormatter } = buildYAxisConfig(rangeTab, yMin, yMax);
 
   return (
