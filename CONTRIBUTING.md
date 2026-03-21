@@ -40,6 +40,61 @@ CI uses **Node 20 LTS** (`node-version: "20"` in `.github/workflows/ci.yml`).
 A `.nvmrc` is provided — run `nvm use` to switch automatically if you use nvm.
 `package.json` declares `engines: { "node": ">=20" }` as the minimum.
 
+## E2E Tests (Playwright)
+
+E2E テストは Playwright (Chromium) で実装している。
+
+### テスト種別
+
+| ファイル | 内容 | CI |
+|---|---|---|
+| `e2e/smoke.spec.ts` | 主要ページ表示確認 (読み取り専用) | 手動トリガー (`e2e.yml`) |
+| `e2e/write-flows.spec.ts` | 保存系フロー (日次ログ / 設定) | スキップ (要テスト環境) |
+
+### ローカル実行手順
+
+1. 初回のみ: Playwright ブラウザをインストール
+
+   ```bash
+   npx playwright install chromium
+   ```
+
+2. 開発サーバーが起動していることを確認 (未起動ならコマンドが自動起動する)
+
+3. Smoke tests を実行
+
+   ```bash
+   npm run e2e:smoke
+   # または全テスト
+   npm run e2e
+   ```
+
+4. UI モードで実行 (デバッグ向け)
+
+   ```bash
+   npm run e2e:ui
+   ```
+
+### Write tests の実行
+
+Write tests は本番 DB への書き込みを防ぐため**デフォルトでスキップ**する。
+
+実行するには、**テスト専用の Supabase プロジェクト**を用意し、そこを指す環境変数をセットした上で実行すること:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=<test-project-url> \
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<test-project-anon-key> \
+npm run e2e:write
+```
+
+テスト用の日付 (`2099-12-31`) を使ってレコードを作成し、テスト後に自動削除する。
+
+### CI での実行
+
+Smoke tests は `.github/workflows/e2e.yml` (`workflow_dispatch`) で手動実行できる。PR ゲートには含めない (ブラウザ起動コストのため)。
+
+---
+
 In addition, `ml-pipeline/test_analyze.py` runs as a separate `python-test` job on the same triggers.
 To run Python tests locally: `cd ml-pipeline && pytest test_analyze.py -v`
 Dependencies: `pip install -r ml-pipeline/requirements-ci.txt` (pandas / xgboost / scikit-learn / supabase / pytest — no torch required).
