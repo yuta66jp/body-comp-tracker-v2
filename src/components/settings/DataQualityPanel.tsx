@@ -2,6 +2,10 @@
  * DataQualityPanel — 設定ページ向け詳細品質パネル
  *
  * Server Component。props は settings/page.tsx で計算済みの report を受け取る。
+ *
+ * 表示構造:
+ *   - 常時表示: 総合スコアバッジ（7日 / 14日）
+ *   - <details>: 詳細ウィンドウ・異常値リスト（折りたたみ可能、JS 不要）
  */
 
 import type { DataQualityReport, QualityWindow } from "@/lib/utils/calcDataQuality";
@@ -26,6 +30,12 @@ function scoreBorder(score: number): string {
   if (score >= 90) return "border-emerald-200";
   if (score >= 70) return "border-amber-200";
   return "border-rose-200";
+}
+
+function scoreLabel(score: number): string {
+  if (score >= 90) return "良好";
+  if (score >= 70) return "注意";
+  return "要確認";
 }
 
 function WindowSection({ title, w }: { title: string; w: QualityWindow }) {
@@ -93,50 +103,89 @@ function WindowSection({ title, w }: { title: string; w: QualityWindow }) {
 }
 
 export function DataQualityPanel({ report }: Props) {
+  const minScore = Math.min(report.period7.score, report.period14.score);
+
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-      <h2 className="mb-1 text-base font-bold text-gray-800">データ品質レポート</h2>
-      <p className="mb-4 text-xs text-gray-500">
-        直近 7日 / 14日 ウィンドウの欠損・異常値を自動検出します。
-        閾値: 体重 ±{3.0} kg 超、カロリー {500}〜{8000} kcal 範囲外。
-      </p>
-
-      <div className="space-y-4">
-        <WindowSection title="直近 7 日" w={report.period7} />
-        <WindowSection title="直近 14 日" w={report.period14} />
-
-        {/* 重複日付 */}
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            重複日付
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-bold text-gray-800">データ品質レポート</h2>
+          <p className="mt-0.5 text-xs text-gray-500">
+            直近 7日 / 14日 ウィンドウの欠損・異常値を自動検出
           </p>
-          {report.duplicateDates.length === 0 ? (
-            <p className="text-sm text-emerald-600">なし</p>
-          ) : (
-            <ul className="flex flex-wrap gap-2">
-              {report.duplicateDates.map((d) => (
-                <li key={d} className="rounded bg-rose-100 px-2 py-0.5 text-xs font-mono text-rose-700">
-                  {d}
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
+        {/* 総合ステータスバッジ */}
+        <span className={`rounded-full px-3 py-1 text-xs font-bold ${scoreColor(minScore)} ${scoreBg(minScore)} border ${scoreBorder(minScore)}`}>
+          {scoreLabel(minScore)}
+        </span>
       </div>
 
-      {/* スコア凡例 */}
-      <div className="mt-4 flex flex-wrap gap-4 text-xs text-gray-400">
-        <span>
-          <span className="font-semibold text-emerald-600">90〜100</span>: 良好
-        </span>
-        <span>
-          <span className="font-semibold text-amber-600">70〜89</span>: 注意
-        </span>
-        <span>
-          <span className="font-semibold text-rose-600">0〜69</span>: 要確認
-        </span>
-        <span className="ml-auto">体重欠損 −10 / カロリー欠損 −5 / 異常値 −15</span>
+      {/* スコアサマリー行 — 常時表示 */}
+      <div className="mt-4 flex flex-wrap gap-3">
+        {([
+          { label: "直近 7 日", w: report.period7 },
+          { label: "直近 14 日", w: report.period14 },
+        ] as const).map(({ label, w }) => (
+          <div
+            key={label}
+            className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${scoreBg(w.score)} ${scoreBorder(w.score)}`}
+          >
+            <span className="text-xs text-gray-500">{label}</span>
+            <span className={`font-bold tabular-nums ${scoreColor(w.score)}`}>{w.score}<span className="text-xs font-normal">/100</span></span>
+            {w.weightMissingDays > 0 && (
+              <span className="text-xs text-amber-600">体重欠損 {w.weightMissingDays}日</span>
+            )}
+            {w.anomalies.length > 0 && (
+              <span className="text-xs text-rose-600">異常値 {w.anomalies.length}件</span>
+            )}
+          </div>
+        ))}
       </div>
+
+      {/* 詳細は <details> で折りたたみ（JS 不要） */}
+      <details className="mt-4 group">
+        <summary className="cursor-pointer select-none list-none text-xs font-medium text-slate-500 hover:text-slate-700">
+          <span className="group-open:hidden">詳細を見る ▸</span>
+          <span className="hidden group-open:inline">詳細を閉じる ▾</span>
+        </summary>
+
+        <div className="mt-4 space-y-4">
+          <WindowSection title="直近 7 日" w={report.period7} />
+          <WindowSection title="直近 14 日" w={report.period14} />
+
+          {/* 重複日付 */}
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              重複日付
+            </p>
+            {report.duplicateDates.length === 0 ? (
+              <p className="text-sm text-emerald-600">なし</p>
+            ) : (
+              <ul className="flex flex-wrap gap-2">
+                {report.duplicateDates.map((d) => (
+                  <li key={d} className="rounded bg-rose-100 px-2 py-0.5 text-xs font-mono text-rose-700">
+                    {d}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* スコア凡例 */}
+          <div className="flex flex-wrap gap-4 text-xs text-gray-400">
+            <span>
+              <span className="font-semibold text-emerald-600">90〜100</span>: 良好
+            </span>
+            <span>
+              <span className="font-semibold text-amber-600">70〜89</span>: 注意
+            </span>
+            <span>
+              <span className="font-semibold text-rose-600">0〜69</span>: 要確認
+            </span>
+            <span className="ml-auto">体重欠損 −10 / カロリー欠損 −5 / 異常値 −15</span>
+          </div>
+        </div>
+      </details>
     </div>
   );
 }

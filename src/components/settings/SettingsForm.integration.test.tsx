@@ -28,6 +28,7 @@ jest.mock("lucide-react", () => ({
   CheckCircle2: () => <span data-testid="icon-check" />,
   AlertCircle: () => <span data-testid="icon-alert" />,
   Loader2: () => <span data-testid="icon-loader" />,
+  ChevronDown: () => <span data-testid="icon-chevron-down" />,
 }));
 
 // MonthlyGoalPlanSection はこのテストのスコープ外なのでモックする
