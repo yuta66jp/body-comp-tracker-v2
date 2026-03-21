@@ -57,7 +57,7 @@ export async function fetchSettingsRows(): Promise<QueryResult<Setting[]>> {
  *
  * 取得キー: target_calories_kcal / target_protein_g / target_fat_g / target_carbs_g / goal_calories
  * フォールバック: エラー時は全 null を返す（ベストエフォート）。
- * macro/page.tsx では fetchDailyLogs が別途 QueryResult を返すため、
+ * macro/page.tsx では fetchMacroDailyLogs が別途 QueryResult を返すため、
  * 目標値が null のときは "目標未設定" として扱い、ページはブロックしない。
  */
 export async function fetchMacroTargets(): Promise<MacroTargets & { calTarget: number | null }> {

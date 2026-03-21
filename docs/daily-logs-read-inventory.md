@@ -1,12 +1,12 @@
 # daily_logs read API 利用箇所棚卸し
 
-> Issue: #164（設計整理）、#165（Dashboard read 実装）
-> 作成日: 2026-03-21 / #165 追記: 2026-03-21
+> Issue: #164（設計整理）、#165（Dashboard read 実装）、#166（Macro / TDEE read 整理）
+> 作成日: 2026-03-21 / #165 追記: 2026-03-21 / #166 追記: 2026-03-21
 > 目的: 後続 Issue (#165 #166 #167) が迷わず着手できる粒度での設計整理
 
 ---
 
-## 0. #165 実装サマリー（Dashboard read 整理）
+## 0a. #165 実装サマリー（Dashboard read 整理）
 
 #165 で以下を実施した:
 
@@ -15,7 +15,7 @@
   - 全期間・log_date ASC・QueryResult 返却
 - `src/app/page.tsx` を `fetchDashboardDailyLogs()` に切り替え
 - `fetchDailyLogs()` は Macro / TDEE の暫定共用として残存（`@deprecated` 付与）
-  - #166 / #167 完了後に削除予定
+  - #166 完了後に削除予定
 
 ### なぜ専用 query を作ったか
 
@@ -24,15 +24,46 @@ Dashboard は 18列中 16列を使用しており全列に近い。ただし:
 - `leg_flag` は `training_type` の派生値で、Dashboard では使われない
 - 専用 query として命名することで「Dashboard が daily_logs に依存する全列集合」が
   コードから一目でわかる状態になる（完了条件の主眼）
-- #166/#167 完了後 `fetchDailyLogs()` が削除されると、
-  `fetchDashboardDailyLogs()` が daily_logs の唯一の front read となり責務が明確になる
+- #166 完了後 `fetchDailyLogs()` が削除されると、
+  `fetchDashboardDailyLogs()` が daily_logs の唯一の「全期間」front read となり責務が明確になる
 
 ### なぜ全期間取得を維持したか（#164 の結論を踏襲）
 
 - `calcReadiness` のトレンド計算: 14日・30日平均で過去データが必要
 - `monthlyGoalVisualization`: 大会月まで全月の実績データが必要
 - `ForecastChart`: 全期間の体重プロットが必要
-- `stale 判定`: MAX(updated_at) を全ログ走査で算出している
+- `stale 判定`: `fetchLatestUpdatedAt()` が担当（#166 で新設）
+
+---
+
+## 0b. #166 実装サマリー（Macro / TDEE read 整理）
+
+#166 で以下を実施した:
+
+- `MacroDailyLog` 型を `src/lib/supabase/types.ts` に追加
+  - `Pick<DailyLog, "log_date" | "weight" | "calories" | "protein" | "fat" | "carbs">`
+- `TdeeDailyLog` 型を `src/lib/supabase/types.ts` に追加
+  - `Pick<DailyLog, "log_date" | "weight" | "calories">`
+- `fetchMacroDailyLogs(days=60)` を新設（`src/lib/queries/dailyLogs.ts`）
+  - SELECT: 6列、DESC LIMIT 60、クライアント側で昇順 reverse、QueryResult 返却
+- `fetchTdeeDailyLogs(limit=30)` を新設（`src/lib/queries/dailyLogs.ts`）
+  - SELECT: 3列、DESC LIMIT 30、クライアント側で昇順 reverse、QueryResult 返却
+- `fetchLatestUpdatedAt()` を新設（`src/lib/queries/dailyLogs.ts`）
+  - `updated_at DESC LIMIT 1` で MAX(updated_at) を取得、ベストエフォート（null fallback）
+  - Macro / TDEE の analytics_cache stale 判定に使用
+- `fetchDailyLogs()` を削除（全列取得の暫定共用クエリ、#165 で @deprecated 付与済み）
+- `src/app/macro/page.tsx` を `fetchMacroDailyLogs` + `fetchLatestUpdatedAt` に切り替え
+- `src/app/tdee/page.tsx` を `fetchTdeeDailyLogs` + `fetchLatestUpdatedAt` に切り替え
+- `src/lib/utils/calcMacro.ts` の関数シグネチャを `DailyLog[]` → `MacroDailyLog[]` に変更
+
+### stale 判定の設計変更
+
+#165 まで: `logs.reduce()` で全取得行から MAX(updated_at) を計算
+#166 から: `fetchLatestUpdatedAt()` で専用クエリとして取得
+
+理由:
+- Macro / TDEE が LIMIT 付きの窓取得になったため、取得行の中に最新 updated_at が含まれない場合がある
+- `updated_at DESC LIMIT 1` の専用クエリにより、全件走査なしで正しく MAX を取得できる
 
 ---
 
@@ -40,8 +71,10 @@ Dashboard は 18列中 16列を使用しており全列に近い。ただし:
 
 | 関数名 | 取得テーブル | SELECT 列 | 絞り込み | sort | 戻り値型 | fallback 方針 |
 |---|---|---|---|---|---|---|
-| `fetchDashboardDailyLogs()` | `daily_logs` | 16列（note・leg_flag 除く） | なし | log_date ASC | `QueryResult<DailyLog[]>` | error banner 表示、空配列フォールバック |
-| `fetchDailyLogs()` *(deprecated)* | `daily_logs` | `*` (全列) | なし | log_date ASC | `QueryResult<DailyLog[]>` | error banner 表示、空配列フォールバック |
+| `fetchDashboardDailyLogs()` | `daily_logs` | 16列（note・leg_flag 除く） | なし | log_date ASC・全期間 | `QueryResult<DashboardDailyLog[]>` | error banner 表示、空配列フォールバック |
+| `fetchMacroDailyLogs(days)` | `daily_logs` | 6列（log_date/weight/calories/protein/fat/carbs） | なし | log_date DESC LIMIT days | `QueryResult<MacroDailyLog[]>` | error banner 表示・早期 return |
+| `fetchTdeeDailyLogs(limit)` | `daily_logs` | 3列（log_date/weight/calories） | なし | log_date DESC LIMIT limit | `QueryResult<TdeeDailyLog[]>` | error banner 表示、空配列フォールバック |
+| `fetchLatestUpdatedAt()` | `daily_logs` | updated_at | なし | updated_at DESC LIMIT 1 | `string \| null` | null（ベストエフォート） |
 | `fetchWeightLogs()` | `daily_logs` | log_date, weight | weight NOT NULL | log_date ASC | `Pick<DailyLog, "log_date"\|"weight">[]` | 空配列（ベストエフォート） |
 | `fetchDailyLogsForSettings()` | `daily_logs` | log_date, weight, calories | なし | log_date ASC | `QueryResult<DataQualityLog[]>` | error banner 表示、空配列フォールバック |
 | `fetchCareerLogs()` | `career_logs` | `*` (全列) | なし | log_date ASC | `QueryResult<CareerLog[]>` | error banner 表示、空配列フォールバック |

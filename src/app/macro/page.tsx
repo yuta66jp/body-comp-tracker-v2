@@ -10,17 +10,18 @@ import {
   calcPfcKcalRatio,
 } from "@/lib/utils/calcMacro";
 import type { MacroTargets } from "@/lib/utils/calcMacro";
-import { fetchDailyLogs } from "@/lib/queries/dailyLogs";
+import { fetchMacroDailyLogs, fetchLatestUpdatedAt } from "@/lib/queries/dailyLogs";
 import { fetchMacroTargets, fetchSettings } from "@/lib/queries/settings";
 import { fetchFactorAnalysis } from "@/lib/queries/analytics";
 
 export const revalidate = 3600;
 
 export default async function MacroPage() {
-  const [logsResult, targetsResult, settingsResult] = await Promise.all([
-    fetchDailyLogs(),
+  const [logsResult, targetsResult, settingsResult, latestUpdatedAt] = await Promise.all([
+    fetchMacroDailyLogs(60),
     fetchMacroTargets(),
     fetchSettings(),
+    fetchLatestUpdatedAt(),
   ]);
 
   if (logsResult.kind === "error") {
@@ -44,13 +45,7 @@ export default async function MacroPage() {
     );
   }
 
-  // MAX(updated_at) を使って stale 判定する。
-  // MAX(log_date) ではなく MAX(updated_at) を使うことで、過去日の行修正でも stale を正しく検知できる。
-  const latestRawLogUpdatedAt = logs.reduce<string | null>((max, l) => {
-    if (!l.updated_at) return max;
-    return max === null || l.updated_at > max ? l.updated_at : max;
-  }, null);
-  const factorResult = await fetchFactorAnalysis(latestRawLogUpdatedAt);
+  const factorResult = await fetchFactorAnalysis(latestUpdatedAt);
 
   const { calTarget, ...targets }: MacroTargets & { calTarget: number | null } = targetsResult;
   const currentPhase = settingsResult.kind === "ok" ? settingsResult.data.currentPhase : null;

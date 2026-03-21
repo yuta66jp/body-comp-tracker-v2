@@ -15,10 +15,10 @@
  * ## ページ依存マップ (更新種別 → 影響ページ)
  *
  * daily_logs 更新:
- *   /             fetchDailyLogs / fetchEnrichedLogs
+ *   /             fetchDashboardDailyLogs / fetchEnrichedLogs
  *   /history      fetchWeightLogs
- *   /macro        fetchDailyLogs / fetchFactorAnalysis
- *   /tdee         fetchDailyLogs / fetchEnrichedLogs
+ *   /macro        fetchMacroDailyLogs / fetchLatestUpdatedAt / fetchFactorAnalysis
+ *   /tdee         fetchTdeeDailyLogs / fetchLatestUpdatedAt / fetchEnrichedLogs
  *   /settings     fetchDailyLogsForSettings (データ品質セクション)
  *
  * settings 更新:

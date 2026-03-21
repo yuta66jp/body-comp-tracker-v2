@@ -1,4 +1,4 @@
-import type { DailyLog } from "@/lib/supabase/types";
+import type { MacroDailyLog } from "@/lib/supabase/types";
 
 /** Macro 画面用の目標値（settings から取得）*/
 export interface MacroTargets {
@@ -93,7 +93,7 @@ function avg(vals: (number | null)[]): number | null {
   return v.length > 0 ? v.reduce((a, b) => a + b, 0) / v.length : null;
 }
 
-function periodStats(logs: DailyLog[]): MacroPeriodStats {
+function periodStats(logs: MacroDailyLog[]): MacroPeriodStats {
   return {
     avgCalories: avg(logs.map((d) => d.calories)),
     avgProtein: avg(logs.map((d) => d.protein)),
@@ -103,7 +103,7 @@ function periodStats(logs: DailyLog[]): MacroPeriodStats {
   };
 }
 
-export function calcMacroKpi(logs: DailyLog[]): MacroKpiData {
+export function calcMacroKpi(logs: MacroDailyLog[]): MacroKpiData {
   const sorted = [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date));
 
   const last7 = sorted.slice(-7);
@@ -137,7 +137,7 @@ export function calcMacroKpi(logs: DailyLog[]): MacroKpiData {
 }
 
 /** 直近 N 日分の日次 PFC データ（グラフ用） */
-export function calcDailyMacro(logs: DailyLog[], days = 60) {
+export function calcDailyMacro(logs: MacroDailyLog[], days = 60) {
   return [...logs]
     .sort((a, b) => a.log_date.localeCompare(b.log_date))
     .slice(-days)
