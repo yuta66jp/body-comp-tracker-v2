@@ -50,17 +50,19 @@ export function normalizeGrams(raw: string, fallback: number): number {
 export function Cart({ items, onChange }: CartProps) {
   const totals = calcCartTotals(items);
 
-  // 編集中の grams を string で一時保持する（index → string）。
+  // 編集中の grams を string で一時保持する（food.name → string）。
+  // キーに index ではなく food.name（cart 内で一意）を使うことで、
+  // 行削除後の index ずれによる対応崩れを防ぐ。
   // onChange では文字列のまま保持し、blur 時に正規化して親へ反映する。
   // これにより「全消し → 再入力」時に 0 に潰されず、自然に打ち直せる。
-  const [editingGrams, setEditingGrams] = useState<Record<number, string>>({});
+  const [editingGrams, setEditingGrams] = useState<Record<string, string>>({});
 
-  function handleGramsChange(index: number, value: string) {
-    setEditingGrams((prev) => ({ ...prev, [index]: value }));
+  function handleGramsChange(foodName: string, value: string) {
+    setEditingGrams((prev) => ({ ...prev, [foodName]: value }));
   }
 
-  function handleGramsBlur(index: number) {
-    const raw = editingGrams[index];
+  function handleGramsBlur(index: number, foodName: string) {
+    const raw = editingGrams[foodName];
     if (raw === undefined) return; // 未編集ならスキップ
 
     const grams = normalizeGrams(raw, items[index].grams);
@@ -69,15 +71,16 @@ export function Cart({ items, onChange }: CartProps) {
 
     setEditingGrams((prev) => {
       const updated = { ...prev };
-      delete updated[index];
+      delete updated[foodName];
       return updated;
     });
   }
 
   function remove(index: number) {
+    const foodName = items[index].food.name;
     setEditingGrams((prev) => {
       const updated = { ...prev };
-      delete updated[index];
+      delete updated[foodName];
       return updated;
     });
     onChange(items.filter((_, i) => i !== index));
@@ -110,9 +113,9 @@ export function Cart({ items, onChange }: CartProps) {
                 type="number"
                 min={0}
                 max={9999}
-                value={i in editingGrams ? editingGrams[i] : item.grams}
-                onChange={(e) => handleGramsChange(i, e.target.value)}
-                onBlur={() => handleGramsBlur(i)}
+                value={item.food.name in editingGrams ? editingGrams[item.food.name] : item.grams}
+                onChange={(e) => handleGramsChange(item.food.name, e.target.value)}
+                onBlur={() => handleGramsBlur(i, item.food.name)}
                 className="w-16 rounded border border-gray-200 px-2 py-1 text-right text-sm outline-none focus:border-blue-400"
               />
               <span className="text-xs text-gray-400">g</span>
