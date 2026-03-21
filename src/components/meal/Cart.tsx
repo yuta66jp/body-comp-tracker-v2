@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import type { FoodMaster } from "@/lib/supabase/types";
 
@@ -29,16 +30,56 @@ export function calcCartTotals(items: CartItem[]) {
   );
 }
 
+/**
+ * 編集完了（blur）時に grams 文字列を正規化して確定値を返す。
+ *
+ * - 空文字・空白のみ・NaN・不正文字列 → fallback（編集前の値に戻す）
+ * - 負数 → 0 にクランプ
+ * - 有効な数値 → そのまま使用（小数も許容）
+ *
+ * @param raw     input から受け取った文字列
+ * @param fallback 不正値の場合に使う元の grams 値
+ */
+export function normalizeGrams(raw: string, fallback: number): number {
+  if (raw.trim() === "") return fallback;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(0, parsed);
+}
+
 export function Cart({ items, onChange }: CartProps) {
   const totals = calcCartTotals(items);
 
-  function updateGrams(index: number, value: string) {
-    const grams = Math.max(0, Number(value) || 0);
+  // 編集中の grams を string で一時保持する（index → string）。
+  // onChange では文字列のまま保持し、blur 時に正規化して親へ反映する。
+  // これにより「全消し → 再入力」時に 0 に潰されず、自然に打ち直せる。
+  const [editingGrams, setEditingGrams] = useState<Record<number, string>>({});
+
+  function handleGramsChange(index: number, value: string) {
+    setEditingGrams((prev) => ({ ...prev, [index]: value }));
+  }
+
+  function handleGramsBlur(index: number) {
+    const raw = editingGrams[index];
+    if (raw === undefined) return; // 未編集ならスキップ
+
+    const grams = normalizeGrams(raw, items[index].grams);
     const next = items.map((item, i) => (i === index ? { ...item, grams } : item));
     onChange(next);
+
+    setEditingGrams((prev) => {
+      const updated = { ...prev };
+      delete updated[index];
+      return updated;
+    });
   }
 
   function remove(index: number) {
+    setEditingGrams((prev) => {
+      const updated = { ...prev };
+      delete updated[index];
+      return updated;
+    });
     onChange(items.filter((_, i) => i !== index));
   }
 
@@ -69,8 +110,9 @@ export function Cart({ items, onChange }: CartProps) {
                 type="number"
                 min={0}
                 max={9999}
-                value={item.grams}
-                onChange={(e) => updateGrams(i, e.target.value)}
+                value={i in editingGrams ? editingGrams[i] : item.grams}
+                onChange={(e) => handleGramsChange(i, e.target.value)}
+                onBlur={() => handleGramsBlur(i)}
                 className="w-16 rounded border border-gray-200 px-2 py-1 text-right text-sm outline-none focus:border-blue-400"
               />
               <span className="text-xs text-gray-400">g</span>
