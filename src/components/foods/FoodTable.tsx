@@ -52,6 +52,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
   /** true のとき新規カテゴリ名をテキスト入力、false のとき既存から選択 */
   const [newCategoryMode, setNewCategoryMode] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [visibleCount, setVisibleCount] = useState(15);
 
   const categories = useMemo(() => {
     const cats = Array.from(
@@ -170,7 +171,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
             type="text"
             placeholder="食品名で検索..."
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { setQuery(e.target.value); setVisibleCount(15); }}
             className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
           />
         </div>
@@ -191,7 +192,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
           {categories.map((cat) => (
             <button
               key={cat}
-              onClick={() => setCategory(cat)}
+              onClick={() => { setCategory(cat); setVisibleCount(15); }}
               className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 category === cat
                   ? "bg-blue-600 text-white"
@@ -327,7 +328,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
                   </td>
                 </tr>
               ) : (
-                filtered.map((food) => (
+                filtered.slice(0, visibleCount).map((food) => (
                   <tr key={food.name} className="border-b border-slate-50 hover:bg-slate-50">
                     <td className="px-4 py-2.5 font-medium text-slate-800">{food.name}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">{food.calories}</td>
@@ -351,8 +352,18 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
             </tbody>
           </table>
         </div>
+        {visibleCount < filtered.length && (
+          <div className="border-t border-slate-100 px-4 py-2 text-center">
+            <button
+              onClick={() => setVisibleCount((c) => c + 15)}
+              className="text-xs font-medium text-blue-600 hover:text-blue-700"
+            >
+              さらに表示（残り {filtered.length - visibleCount} 件）
+            </button>
+          </div>
+        )}
         <div className="border-t border-slate-100 px-4 py-2 text-xs text-slate-400">
-          {filtered.length} 件 / 全 {foods.length} 件
+          {filtered.length} 件中 {Math.min(visibleCount, filtered.length)} 件を表示
           {category !== "すべて" && <span className="ml-1 text-blue-500">（{category}）</span>}
         </div>
       </div>
