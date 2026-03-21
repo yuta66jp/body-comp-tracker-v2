@@ -67,9 +67,11 @@ export function computeHasContent(input: HasContentInput): boolean {
 
 interface MealLoggerProps {
   sidebar?: boolean; // サイドバーモード: 常時展開・縦レイアウト
+  /** サイドバーモード時のみ有効。false にすると内部ヘッダー行を非表示にする */
+  showHeader?: boolean;
 }
 
-export function MealLogger({ sidebar = false }: MealLoggerProps) {
+export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerProps) {
   // 既存ログ（SWR キャッシュ。日付変更時の hydrate に使用）
   const { data: logs, mutate: mutateLogs } = useDailyLogs();
 
@@ -590,12 +592,14 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
   if (sidebar) {
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50">
-            <PenLine size={15} className="text-blue-600" />
+        {showHeader && (
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50">
+              <PenLine size={15} className="text-blue-600" />
+            </div>
+            <span className="text-sm font-semibold text-slate-700">食事ログ</span>
           </div>
-          <span className="text-sm font-semibold text-slate-700">食事ログ</span>
-        </div>
+        )}
         {content}
       </div>
     );

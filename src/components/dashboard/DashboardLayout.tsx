@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, PenLine } from "lucide-react";
 import { MealLogger } from "@/components/meal/MealLogger";
 
 interface DashboardLayoutProps {
@@ -13,37 +13,62 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="flex min-h-screen gap-0 bg-slate-50 py-6">
-      {/* サイドバー（lg 以上のみ） */}
+      {/* サイドバー（lg 以上のみ）
+          open=true : w-80 でフル表示。カードヘッダーに「食事ログ + 閉じるボタン」を統合。
+          open=false: w-8 に縮小し、PanelLeftOpen アイコンのみ表示（スタンドアロン行を作らない）。 */}
       <aside
-        className={`hidden lg:block flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden ${
-          open ? "w-80 mr-6" : "w-0 mr-0"
+        className={`hidden lg:flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden ${
+          open ? "w-80 mr-6" : "w-8 mr-3"
         }`}
       >
-        <div className="w-80 sticky top-20">
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <MealLogger sidebar />
+        {open ? (
+          /* 展開時: 食事ログカード（ヘッダーに閉じるボタン統合） */
+          <div className="w-80 sticky top-20">
+            <div className="rounded-2xl border border-slate-100 bg-white shadow-sm">
+              {/* カードヘッダー: 食事ログタイトル + 閉じるボタン */}
+              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-blue-50">
+                    <PenLine size={14} className="text-blue-600" />
+                  </div>
+                  <span className="text-sm font-semibold text-slate-700">食事ログ</span>
+                </div>
+                <button
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                  title="食事ログを閉じる"
+                  aria-label="食事ログを閉じる"
+                >
+                  <PanelLeftClose size={13} />
+                  閉じる
+                </button>
+              </div>
+              {/* MealLogger 本体（内部ヘッダーは非表示） */}
+              <div className="p-5">
+                <MealLogger sidebar showHeader={false} />
+              </div>
+            </div>
           </div>
-        </div>
+        ) : (
+          /* 折りたたみ時: アイコンのみの再オープンボタン */
+          <div className="sticky top-20">
+            <button
+              onClick={() => setOpen(true)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white shadow-sm transition-colors hover:bg-slate-50"
+              title="食事ログを開く"
+              aria-label="食事ログを開く"
+            >
+              <PanelLeftOpen size={14} className="text-slate-500" />
+            </button>
+          </div>
+        )}
       </aside>
 
       {/* メインコンテンツ */}
       <main className="min-w-0 flex-1 space-y-6">
-        {/* モバイル用 MealLogger + トグルボタン（lg 以上）を同じ行にまとめる */}
-        <div className="flex items-center gap-3">
-          {/* トグルボタン（lg 以上のみ表示） */}
-          <button
-            onClick={() => setOpen((v) => !v)}
-            className="hidden lg:flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-700 shrink-0"
-            title={open ? "サイドバーを閉じる" : "サイドバーを開く"}
-          >
-            {open
-              ? <><PanelLeftClose size={14} /> 閉じる</>
-              : <><PanelLeftOpen size={14} /> 食事入力</>}
-          </button>
-          {/* モバイル用 MealLogger */}
-          <div className="lg:hidden flex-1 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <MealLogger sidebar />
-          </div>
+        {/* モバイル用 MealLogger（lg 以上では非表示） */}
+        <div className="lg:hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <MealLogger sidebar />
         </div>
 
         {children}
