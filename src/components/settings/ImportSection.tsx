@@ -57,9 +57,14 @@ export function ImportSection() {
     setPreflightLoading(true);
     try {
       const supabase = createClient();
-      const { data } = await supabase.from("daily_logs").select("log_date");
+      const { data, error } = await supabase.from("daily_logs").select("log_date");
+      if (error) {
+        setErrorMsg("既存データの取得に失敗しました: " + error.message);
+        setResult("error");
+        return;
+      }
       const existingDates = new Set(
-        ((data ?? []) as { log_date: string }[]).map((r) => r.log_date)
+        (data as { log_date: string }[]).map((r) => r.log_date)
       );
       setPreflight(computeImportPreflight(rows, errorCount, existingDates));
     } finally {
