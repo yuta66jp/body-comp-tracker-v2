@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { isActiveNav } from "@/lib/utils/nav";
 import {
   LayoutDashboard,
   CalendarDays,
@@ -26,7 +27,7 @@ export function NavBar() {
   const pathname = usePathname();
 
   return (
-    <nav className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 backdrop-blur-md">
+    <nav className="sticky top-0 z-20 hidden border-b border-slate-200/80 bg-white/80 backdrop-blur-md md:block">
       <div className="mx-auto flex max-w-5xl items-center gap-0.5 px-4 py-2.5">
         {/* ロゴ */}
         <div className="mr-5 flex items-center gap-2">
@@ -37,11 +38,12 @@ export function NavBar() {
         </div>
 
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href;
+          const active = isActiveNav(pathname, href);
           return (
             <Link
               key={href}
               href={href}
+              aria-current={active ? "page" : undefined}
               className={`group flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150 ${
                 active
                   ? "bg-blue-50 text-blue-700"
