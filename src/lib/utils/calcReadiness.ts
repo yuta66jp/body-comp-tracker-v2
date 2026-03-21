@@ -10,7 +10,7 @@
  *   - KpiCards         → 表示フォーマット (将来的に calcReadiness へ委譲予定)
  */
 
-import type { DailyLog } from "@/lib/supabase/types";
+import type { DashboardDailyLog } from "@/lib/supabase/types";
 import { calcWeightTrend } from "./calcTrend";
 import { toJstDateStr, dateRangeStr, calcDaysLeft, addDaysStr } from "./date";
 
@@ -82,14 +82,14 @@ function avgOrNull(values: (number | null)[]): number | null {
  * @param today    基準日 (YYYY-MM-DD). 省略時は JST の今日
  */
 export function calcReadiness(
-  logs: DailyLog[],
+  logs: DashboardDailyLog[],
   settings: ReadinessSettings,
   today?: string
 ): ReadinessMetrics {
   const todayStr = today ?? toJstDateStr(new Date());
 
   // --- ログを日付 Map に変換 ---
-  const logByDate = new Map<string, DailyLog>();
+  const logByDate = new Map<string, DashboardDailyLog>();
   for (const log of logs) {
     // 同日重複があれば後勝ち (DBのPK制約上は起きないが防御的に)
     logByDate.set(log.log_date, log);

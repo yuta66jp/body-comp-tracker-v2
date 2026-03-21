@@ -1,14 +1,14 @@
 "use client";
 
 import { TrendingDown, TrendingUp, Minus, Weight, CalendarClock, Target } from "lucide-react";
-import type { DailyLog } from "@/lib/supabase/types";
+import type { DashboardDailyLog } from "@/lib/supabase/types";
 import type { AppSettings } from "@/lib/domain/settings";
 import { calcWeightTrend } from "@/lib/utils/calcTrend";
 import { toJstDateStr, calcDaysLeft, addDaysStr, dateRangeStr } from "@/lib/utils/date";
 import { calcGoalReachDate } from "@/lib/utils/calcReadiness";
 
 interface KpiCardsProps {
-  logs: DailyLog[];
+  logs: DashboardDailyLog[];
   settings: AppSettings;
   avgTdee: number | null;
 }

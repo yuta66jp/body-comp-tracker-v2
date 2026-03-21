@@ -13,14 +13,14 @@ import {
   ReferenceLine,
 } from "recharts";
 import type { TooltipValueType } from "recharts";
-import type { DailyLog, Prediction } from "@/lib/supabase/types";
+import type { DashboardDailyLog, Prediction } from "@/lib/supabase/types";
 import { toJstDateStr, addDaysStr, dateRangeStr } from "@/lib/utils/date";
 import type { MonthlyGoalEntry } from "@/lib/utils/monthlyGoalPlan";
 import { buildMonthlyGoalDateMap } from "@/lib/utils/monthlyGoalVisualization";
 import { buildForecastMap, calcEwLinearForecast } from "@/lib/utils/forecastUtils";
 
 interface ForecastChartProps {
-  logs: DailyLog[];
+  logs: DashboardDailyLog[];
   predictions: Prediction[];
   sma7: Array<{ date: string; value: number }>;
   goalWeight?: number;

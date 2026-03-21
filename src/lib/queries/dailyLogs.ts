@@ -23,7 +23,7 @@
  * ## write 系・UI 固有文言はここに含めない
  */
 import { createClient } from "@/lib/supabase/server";
-import type { DailyLog, CareerLog, Prediction } from "@/lib/supabase/types";
+import type { DailyLog, DashboardDailyLog, CareerLog, Prediction } from "@/lib/supabase/types";
 import type { DataQualityLog } from "@/lib/utils/calcDataQuality";
 import type { QueryResult } from "./queryResult";
 
@@ -66,7 +66,7 @@ import type { QueryResult } from "./queryResult";
  *   kind: "ok"    — 取得成功。data が空配列 = ログ未入力（正常な空状態）。
  *   kind: "error" — DB フェッチ失敗。呼び出し側で error banner を表示すること。
  */
-export async function fetchDashboardDailyLogs(): Promise<QueryResult<DailyLog[]>> {
+export async function fetchDashboardDailyLogs(): Promise<QueryResult<DashboardDailyLog[]>> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("daily_logs")
@@ -80,10 +80,9 @@ export async function fetchDashboardDailyLogs(): Promise<QueryResult<DailyLog[]>
     console.error("[fetchDashboardDailyLogs] daily_logs fetch error:", error.message, { code: error.code });
     return { kind: "error", message: error.message };
   }
-  // note と leg_flag は SELECT から除外しているが、型は DailyLog[] で維持する。
-  // Dashboard のいずれの関数・コンポーネントもこれらの列を参照しないため実害はない。
   // 列を明示指定すると supabase-js が戻り値型を絞り込むため unknown 経由でキャストする。
-  return { kind: "ok", data: (data as unknown as DailyLog[]) ?? [] };
+  // DashboardDailyLog は取得列と 1:1 対応しており、未取得の note / leg_flag は含まない。
+  return { kind: "ok", data: (data as unknown as DashboardDailyLog[]) ?? [] };
 }
 
 /**

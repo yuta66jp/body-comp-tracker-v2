@@ -1,12 +1,12 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Minus } from "lucide-react";
-import type { DailyLog } from "@/lib/supabase/types";
+import type { DashboardDailyLog } from "@/lib/supabase/types";
 import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayTags";
 import { formatConditionSummary } from "@/lib/utils/trainingType";
 
 interface RecentLogsTableProps {
-  logs: DailyLog[];
+  logs: DashboardDailyLog[];
   embedded?: boolean;
   seasonMap?: Map<string, string>;   // log_date → season name
   currentSeason?: string | null;
@@ -22,7 +22,7 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
     .filter((d) => d.weight !== null)
     .sort((a, b) => a.log_date.localeCompare(b.log_date));
 
-  function getDelta(log: DailyLog): number | null {
+  function getDelta(log: DashboardDailyLog): number | null {
     const idx = ascending.findIndex((d) => d.log_date === log.log_date);
     if (idx <= 0) return null;
     const prev = ascending[idx - 1];
@@ -31,7 +31,7 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
   }
 
   /** 直前ログとのカロリー差分。calories / 前回 calories いずれかが null なら null */
-  function getCalDelta(log: DailyLog): number | null {
+  function getCalDelta(log: DashboardDailyLog): number | null {
     if (log.calories === null) return null;
     const idx = ascending.findIndex((d) => d.log_date === log.log_date);
     if (idx <= 0) return null;

@@ -5,12 +5,12 @@ import { RecentLogsTable } from "./RecentLogsTable";
 import { MonthlyCalendar } from "./MonthlyCalendar";
 import { MonthlyGoalTable } from "./MonthlyGoalTable";
 import { SeasonSummary } from "@/components/history/SeasonSummary";
-import type { DailyLog } from "@/lib/supabase/types";
+import type { DashboardDailyLog } from "@/lib/supabase/types";
 import type { MonthStats } from "@/components/history/SeasonSummary";
 import type { MonthlyGoalComparisonRow } from "@/lib/utils/monthlyGoalVisualization";
 
 interface LogsAndSummaryTabsProps {
-  logs: DailyLog[];
+  logs: DashboardDailyLog[];
   monthStats: MonthStats[];
   seasonMap?: Map<string, string>;
   currentSeason?: string | null;
