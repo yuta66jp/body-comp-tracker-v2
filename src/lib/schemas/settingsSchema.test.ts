@@ -128,12 +128,13 @@ describe("parseSettings — 異常系", () => {
   });
 
   it("target_weight (goal_weight) が負数で失敗する", () => {
+    // strict parser は負数を「数値でない」として拒否する（範囲チェックより前）
     const result = parseSettings({ goal_weight: "-5" });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     const err = result.errors.find((e) => e.field === "goal_weight");
     expect(err).toBeDefined();
-    expect(err!.message).toContain("20〜200");
+    expect(err!.message).toContain("数値");
   });
 
   it("文字列を数値フィールドに渡して失敗する", () => {

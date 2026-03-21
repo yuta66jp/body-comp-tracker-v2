@@ -1,5 +1,6 @@
 /**
  * csvParser.ts — CSV パース共通ユーティリティ
+ * parseNum は parseStrictNumber を使用して部分成功パースを排除している。
  *
  * - RFC 4180 準拠のクォート付きセル（"value with, comma"）に対応
  * - クォートフィールド内の改行（multiline フィールド）に対応
@@ -10,6 +11,8 @@
  * - 列数不足の行（実際のセル数 < ヘッダー数）はスキップし、errors に記録する。
  *   列数が多い場合（実際のセル数 > ヘッダー数）の余剰列は無視する。
  */
+
+import { parseStrictNumber } from "./parseNumber";
 
 export interface ParsedRow {
   log_date: string;
@@ -63,9 +66,7 @@ export function normalizeKey(raw: string): keyof ParsedRow | null {
 }
 
 export function parseNum(v: string): number | null {
-  if (v.trim() === "") return null;
-  const n = parseFloat(v.trim());
-  return isNaN(n) ? null : n;
+  return parseStrictNumber(v, { allowNegative: true });
 }
 
 /** "true" / "1" → true, それ以外（空文字含む）→ false */

@@ -24,6 +24,7 @@ import {
   type WorkMode,
 } from "@/lib/utils/trainingType";
 import { useDailyLogs } from "@/lib/hooks/useDailyLogs";
+import { parseStrictNumber } from "@/lib/utils/parseNumber";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -221,7 +222,7 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
       // touched=true かつユーザーが操作した場合のみ送信。
       // touched=false (hydrate のみ) は undefined → 既存値を保持。
       weight:   weightTouched
-        ? (weight === null   ? null   : (weight   !== "" ? parseFloat(weight)   : undefined))
+        ? (weight === null   ? null   : parseStrictNumber(weight)   ?? undefined)
         : undefined,
       // カートに一度でも追加後に空にした → null 送信（マクロをクリア）
       calories: cartItems.length > 0 ? totals.calories : (cartEverHadItems ? null : undefined),
@@ -234,7 +235,7 @@ export function MealLogger({ sidebar = false }: MealLoggerProps) {
       ...tagPayload,
       // Phase 2.5 新規フィールド
       sleep_hours: sleepHoursTouched
-        ? (sleepHours === null ? null : (sleepHours !== "" ? parseFloat(sleepHours) : undefined))
+        ? (sleepHours === null ? null : parseStrictNumber(sleepHours) ?? undefined)
         : undefined,
       // ルール: touched=true → hadBowelMovement の値をそのまま送信
       //           null  = 明示クリア（未記録に戻す）
