@@ -9,6 +9,7 @@
  */
 import { createClient } from "@/lib/supabase/server";
 import type { ForecastBacktestRun, ForecastBacktestMetric, Json } from "@/lib/supabase/types";
+import type { QueryResult } from "./queryResult";
 
 /**
  * config.series_type を安全に読み出す。
@@ -27,12 +28,16 @@ function getSeriesType(run: ForecastBacktestRun): string {
  * 最新 20 件の run を取得し、daily / sma7 それぞれの最新 run を返す。
  * 旧来の run (config.series_type なし) は daily として扱う。
  *
- * フォールバック: エラー時は { dailyRun: null, sma7Run: null } を返す。
+ * 戻り値:
+ *   kind: "ok"    — 取得成功。dailyRun / sma7Run が null = バックテスト未実行（正常な空状態）。
+ *   kind: "error" — DB フェッチ失敗。呼び出し側で error banner を表示すること。
+ *
+ * エラー時に null を返すと「バックテスト未実行」と誤表示されるため QueryResult を使用する。
  */
-export async function fetchLatestRuns(): Promise<{
+export async function fetchLatestRuns(): Promise<QueryResult<{
   dailyRun: ForecastBacktestRun | null;
   sma7Run: ForecastBacktestRun | null;
-}> {
+}>> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("forecast_backtest_runs")
@@ -41,23 +46,28 @@ export async function fetchLatestRuns(): Promise<{
     .limit(20);
 
   if (error) {
-    console.error("forecast_backtest_runs fetch error:", error.message);
-    return { dailyRun: null, sma7Run: null };
+    console.error("[fetchLatestRuns] forecast_backtest_runs fetch error:", error.message);
+    return { kind: "error", message: error.message };
   }
 
   const runs = (data as ForecastBacktestRun[]) ?? [];
   const dailyRun = runs.find((r) => getSeriesType(r) === "daily") ?? null;
   const sma7Run = runs.find((r) => getSeriesType(r) === "sma7") ?? null;
 
-  return { dailyRun, sma7Run };
+  return { kind: "ok", data: { dailyRun, sma7Run } };
 }
 
 /**
  * 指定 run_id のメトリクスを horizon_days 昇順で取得する。
  *
- * フォールバック: エラー時は空配列を返す。
+ * 戻り値:
+ *   kind: "ok"    — 取得成功。data が空配列 = 指標データ未生成（正常な空状態）。
+ *   kind: "error" — DB フェッチ失敗。呼び出し側で error banner を表示すること。
+ *
+ * run の存在は fetchLatestRuns で確認済みのうえで呼ばれるため、
+ * エラー時に空配列を返すと「指標データが見つかりませんでした」と誤表示されるおそれがある。
  */
-export async function fetchMetrics(runId: string): Promise<ForecastBacktestMetric[]> {
+export async function fetchMetrics(runId: string): Promise<QueryResult<ForecastBacktestMetric[]>> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("forecast_backtest_metrics")
@@ -65,8 +75,8 @@ export async function fetchMetrics(runId: string): Promise<ForecastBacktestMetri
     .eq("run_id", runId)
     .order("horizon_days", { ascending: true });
   if (error) {
-    console.error("forecast_backtest_metrics fetch error:", error.message);
-    return [];
+    console.error("[fetchMetrics] forecast_backtest_metrics fetch error:", error.message);
+    return { kind: "error", message: error.message };
   }
-  return (data as ForecastBacktestMetric[]) ?? [];
+  return { kind: "ok", data: (data as ForecastBacktestMetric[]) ?? [] };
 }

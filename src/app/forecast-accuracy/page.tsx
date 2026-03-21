@@ -9,7 +9,23 @@ export const revalidate = 3600; // 1時間キャッシュ (バッチは週1回)
 // ─── ページ ──────────────────────────────────────────────────────────────────
 
 export default async function ForecastAccuracyPage() {
-  const { dailyRun, sma7Run } = await fetchLatestRuns();
+  const runsResult = await fetchLatestRuns();
+
+  if (runsResult.kind === "error") {
+    return (
+      <main className="min-h-screen bg-gray-50 p-6">
+        <div className="flex items-center gap-2 mb-6">
+          <BarChart2 size={20} className="text-blue-600" />
+          <h1 className="text-xl font-bold text-gray-800">予測精度評価</h1>
+        </div>
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          バックテストデータの取得に失敗しました。しばらく経ってから再度お試しください。
+        </div>
+      </main>
+    );
+  }
+
+  const { dailyRun, sma7Run } = runsResult.data;
 
   // 両方ともデータなし
   if (!dailyRun && !sma7Run) {
@@ -44,10 +60,13 @@ export default async function ForecastAccuracyPage() {
   }
 
   // metrics を並列取得
-  const [dailyMetrics, sma7Metrics] = await Promise.all([
-    dailyRun ? fetchMetrics(dailyRun.id) : Promise.resolve([]),
-    sma7Run ? fetchMetrics(sma7Run.id) : Promise.resolve([]),
+  const [dailyMetricsResult, sma7MetricsResult] = await Promise.all([
+    dailyRun ? fetchMetrics(dailyRun.id) : Promise.resolve({ kind: "ok" as const, data: [] }),
+    sma7Run ? fetchMetrics(sma7Run.id) : Promise.resolve({ kind: "ok" as const, data: [] }),
   ]);
+
+  const dailyMetrics = dailyMetricsResult.kind === "ok" ? dailyMetricsResult.data : [];
+  const sma7Metrics = sma7MetricsResult.kind === "ok" ? sma7MetricsResult.data : [];
 
   return (
     <main className="min-h-screen bg-gray-50 p-6">
@@ -66,7 +85,7 @@ export default async function ForecastAccuracyPage() {
         />
 
         {/* ── 単日評価の詳細 (既存) ── */}
-        {dailyRun && dailyMetrics.length > 0 ? (
+        {dailyRun && dailyMetricsResult.kind === "ok" && dailyMetrics.length > 0 ? (
           <div>
             <h2 className="mb-3 text-sm font-bold text-slate-600">
               単日体重ベース評価
@@ -76,6 +95,10 @@ export default async function ForecastAccuracyPage() {
             </h2>
             <BacktestResults run={dailyRun} metrics={dailyMetrics} />
           </div>
+        ) : dailyRun && dailyMetricsResult.kind === "error" ? (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            単日評価: 指標データの取得に失敗しました。
+          </div>
         ) : dailyRun ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
             単日評価: バックテスト実行は記録されていますが、指標データが見つかりませんでした。
@@ -83,7 +106,7 @@ export default async function ForecastAccuracyPage() {
         ) : null}
 
         {/* ── 7日平均評価の詳細 (新セクション) ── */}
-        {sma7Run && sma7Metrics.length > 0 ? (
+        {sma7Run && sma7MetricsResult.kind === "ok" && sma7Metrics.length > 0 ? (
           <div>
             <h2 className="mb-3 text-sm font-bold text-slate-600">
               7日平均体重ベース評価
@@ -95,6 +118,10 @@ export default async function ForecastAccuracyPage() {
               </span>
             </h2>
             <BacktestResults run={sma7Run} metrics={sma7Metrics} />
+          </div>
+        ) : sma7Run && sma7MetricsResult.kind === "error" ? (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            7日平均評価: 指標データの取得に失敗しました。
           </div>
         ) : sma7Run ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
