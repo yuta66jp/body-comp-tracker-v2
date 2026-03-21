@@ -28,6 +28,7 @@ from backtest import (
     compute_metrics,
     log_summary,
     make_neuralprophet_predictor,
+    predict_ew_linear,
     predict_linear,
     predict_ma7,
     predict_naive,
@@ -277,6 +278,7 @@ class TestRunBacktest:
         assert "Naive" in results
         assert "MovingAverage7d" in results
         assert "LinearTrend30d" in results
+        assert "EWLinearTrend" in results
         # 全ホライズンがキーとして存在する
         for model_results in results.values():
             assert 7 in model_results
@@ -376,6 +378,34 @@ class TestBaselinePredictors:
         pred = predict_linear(train, 7)
         # 最後の点は 70 + 0.1 * 29 = 72.9、7日後は 72.9 + 0.1 * 7 = 73.6
         assert abs(pred - 73.6) < 0.1  # 線形回帰の誤差を許容
+
+    def test_ew_linear_constant_data(self):
+        """一定体重では EW 線形回帰も定数を返す。"""
+        train = self._train_df()  # 全行 70.0
+        pred7  = predict_ew_linear(train, 7)
+        pred14 = predict_ew_linear(train, 14)
+        assert abs(pred7  - 70.0) < 1e-6
+        assert abs(pred14 - 70.0) < 1e-6
+
+    def test_ew_linear_extrapolates_linear_trend(self):
+        """完全線形データでは線形回帰と近似した外挿ができること。"""
+        # 完全な線形データ: weight = 70 + 0.1 * i
+        train = make_df(30, weight_start=70.0, slope=0.1)
+        pred = predict_ew_linear(train, 7)
+        # 最後の点は 72.9、7日後は ~73.6。加重の影響で LinearTrend30d と近似する
+        assert abs(pred - 73.6) < 0.3  # 加重回帰のため誤差許容を少し広める
+
+    def test_ew_linear_returns_float(self):
+        """戻り値が float であること。"""
+        train = make_df(10, weight_start=70.0, slope=-0.05)
+        result = predict_ew_linear(train, 7)
+        assert isinstance(result, float)
+
+    def test_ew_linear_single_row_fallback(self):
+        """1行以下のデータでは最後の体重を返す (クラッシュしないこと)。"""
+        train = make_df(1, weight_start=72.0)
+        pred = predict_ew_linear(train, 7)
+        assert abs(pred - 72.0) < 1e-6
 
 
 # ── NeuralProphet PyTorch 2.6+ patch ──────────────────────────────────────────

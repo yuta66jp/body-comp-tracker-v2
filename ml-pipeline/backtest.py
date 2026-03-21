@@ -2,10 +2,11 @@
 backtest.py — 体重予測モデルの walk-forward 精度評価
 
 評価対象モデル:
-  - NeuralProphet  (現行の本番モデル)
-  - Naive          (直近体重をそのまま将来値とする)
+  - NeuralProphet   (現行の本番モデル)
+  - Naive           (直近体重をそのまま将来値とする)
   - MovingAverage7d (直近7日平均)
   - LinearTrend30d  (直近30日の単純線形回帰で外挿)
+  - EWLinearTrend   (直近30日の指数加重線形回帰で外挿; 最近の変化に敏感)
 
 評価方式: rolling walk-forward backtest
   - 起点をずらしながら「その時点までのデータだけ」で予測
@@ -254,6 +255,36 @@ def make_neuralprophet_predictor(config: BacktestConfig) -> Callable:
     return _predict
 
 
+def predict_ew_linear(train: pd.DataFrame, horizon: int) -> float:
+    """EW Linear Trend: 指数加重線形回帰で horizon 日先を外挿する。
+
+    直近30日に指数加重 (alpha=0.9/日) を適用した加重最小二乗線形回帰。
+    LinearTrend30d との違い: 古いデータを指数的に小さく重み付けすることで
+    直近のトレンド変化により敏感に反応する。
+
+    alpha=0.9 の選択根拠:
+      - 1日前の重みが 0.9、7日前は ~0.48、30日前は ~0.04
+      - 短期トレンドと中期トレンドのバランスを取る実用的な値
+    """
+    window = train.tail(30)
+    n = len(window)
+    if n < 2:
+        return float(window["weight"].iloc[-1])
+
+    x = np.arange(n, dtype=float)
+    y = window["weight"].values.astype(float)
+
+    # 指数加重: 直近ほど重い (最新 = alpha^0 = 1.0, 1日前 = 0.9, ...)
+    alpha = 0.9
+    weights = np.array([alpha ** (n - 1 - i) for i in range(n)])
+
+    # 加重線形回帰 (numpy polyfit は w パラメータで重みをサポート)
+    slope, intercept = np.polyfit(x, y, 1, w=weights)
+
+    # horizon 日先のインデックス = 最後のインデックス + horizon
+    return float(slope * (n - 1 + horizon) + intercept)
+
+
 def build_models(config: BacktestConfig) -> dict[str, Callable]:
     """config から実験で使うモデル辞書を構築する。
 
@@ -265,6 +296,7 @@ def build_models(config: BacktestConfig) -> dict[str, Callable]:
         "Naive":          predict_naive,
         "MovingAverage7d": predict_ma7,
         "LinearTrend30d": predict_linear,
+        "EWLinearTrend":  predict_ew_linear,
     }
 
 
