@@ -27,6 +27,8 @@ export async function GET(req: NextRequest) {
   const supabase = createClient();
 
   if (table === "daily_logs") {
+    // CSV エクスポートのため全列 select("*") が必要。
+    // front SSR 用 projection query (src/lib/queries/dailyLogs.ts) とは異なる経路。
     let query = supabase.from("daily_logs").select("*").order("log_date", { ascending: true });
     if (start) query = query.gte("log_date", start);
     if (end) query = query.lte("log_date", end);
