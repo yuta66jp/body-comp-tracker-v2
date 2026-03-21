@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { RecentLogsTable } from "./RecentLogsTable";
+import { RecentLogsCards } from "./RecentLogsCards";
 import { MonthlyCalendar } from "./MonthlyCalendar";
 import { MonthlyGoalTable } from "./MonthlyGoalTable";
 import { SeasonSummary } from "@/components/history/SeasonSummary";
@@ -25,7 +26,7 @@ type Tab = "logs" | "calendar" | "monthly";
 const TAB_LABELS: Record<Tab, string> = {
   logs:     "直近ログ",
   calendar: "カレンダー",
-  monthly:  "月別サマリー",
+  monthly:  "月別",
 };
 
 export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason, monthlyGoalSummaryRows, phase }: LogsAndSummaryTabsProps) {
@@ -56,7 +57,13 @@ export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason,
       <div className="p-4 sm:p-5">
         {tab === "logs" && (
           <div role="tabpanel" id="panel-logs" aria-labelledby="tab-logs">
-            <RecentLogsTable logs={logs} embedded seasonMap={seasonMap} currentSeason={currentSeason} />
+            {/* モバイル: カードリスト。sm+ ではテーブル表示に切り替え */}
+            <div className="sm:hidden">
+              <RecentLogsCards logs={logs} seasonMap={seasonMap} currentSeason={currentSeason} />
+            </div>
+            <div className="hidden sm:block">
+              <RecentLogsTable logs={logs} embedded seasonMap={seasonMap} currentSeason={currentSeason} />
+            </div>
           </div>
         )}
         {tab === "calendar" && (
