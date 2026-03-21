@@ -7,8 +7,8 @@
  * バリデーションは src/lib/schemas/settingsSchema.ts の parseSettings に委譲する。
  */
 
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { revalidateAfterSettingsMutation } from "@/lib/cache/revalidate";
 import { parseSettings } from "@/lib/schemas/settingsSchema";
 import type { SettingsInput } from "@/lib/schemas/settingsSchema";
 
@@ -45,11 +45,7 @@ export async function saveSettings(
   }
 
   // 3. On-demand revalidation（設定依存ページのキャッシュを破棄）
-  revalidatePath("/");
-  revalidatePath("/history");
-  revalidatePath("/macro");
-  revalidatePath("/tdee");
-  revalidatePath("/settings");
+  revalidateAfterSettingsMutation();
 
   return { ok: true };
 }
