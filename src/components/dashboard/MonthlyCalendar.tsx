@@ -33,7 +33,7 @@ import { createContext, useContext, useMemo, useState } from "react";
 import { DayPicker } from "react-day-picker";
 import { ja } from "date-fns/locale";
 import * as JapaneseHolidays from "japanese-holidays";
-import type { DailyLog } from "@/lib/supabase/types";
+import type { DashboardDailyLog } from "@/lib/supabase/types";
 import { buildCalendarDayMap, toDateKey, type CalendarDayData } from "@/lib/utils/calendarUtils";
 import type { DayProps } from "react-day-picker";
 import { toJstDateStr } from "@/lib/utils/date";
@@ -213,7 +213,7 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
 // ── メインコンポーネント ──────────────────────────────────────────────────────
 
 interface MonthlyCalendarProps {
-  logs: DailyLog[];
+  logs: DashboardDailyLog[];
 }
 
 export function MonthlyCalendar({ logs }: MonthlyCalendarProps) {

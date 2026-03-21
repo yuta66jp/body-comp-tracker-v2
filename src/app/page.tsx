@@ -12,11 +12,11 @@ import { calcMonthlyGoalProgress } from "@/lib/utils/calcMonthlyGoalProgress";
 import { toJstDateStr } from "@/lib/utils/date";
 import { buildMonthlyGoalPlan } from "@/lib/utils/monthlyGoalPlan";
 import { buildMonthlyGoalSummaryRows, buildMonthlyGoalComparisonRows } from "@/lib/utils/monthlyGoalVisualization";
-import { fetchDailyLogs, fetchPredictions, fetchCareerLogsForDashboard } from "@/lib/queries/dailyLogs";
+import { fetchDashboardDailyLogs, fetchPredictions, fetchCareerLogsForDashboard } from "@/lib/queries/dailyLogs";
 import { fetchSettings } from "@/lib/queries/settings";
 import { fetchEnrichedLogs } from "@/lib/queries/analytics";
 import { mapToAppSettings } from "@/lib/domain/settings";
-import type { DailyLog, CareerLog } from "@/lib/supabase/types";
+import type { DashboardDailyLog, CareerLog } from "@/lib/supabase/types";
 import type { MonthStats } from "@/components/history/SeasonSummary";
 
 /** career_logs から日付→シーズン名のマップを構築 */
@@ -53,8 +53,8 @@ function getSeasonForMonth(month: string, ranges: Array<{ season: string; start:
   return currentSeason; // career_logs に該当なし → 現在シーズン
 }
 
-function buildMonthStats(logs: DailyLog[], months = 3): MonthStats[] {
-  const map = new Map<string, DailyLog[]>();
+function buildMonthStats(logs: DashboardDailyLog[], months = 3): MonthStats[] {
+  const map = new Map<string, DashboardDailyLog[]>();
   for (const log of logs) {
     const month = log.log_date.slice(0, 7);
     if (!map.has(month)) map.set(month, []);
@@ -83,7 +83,7 @@ function buildMonthStats(logs: DailyLog[], months = 3): MonthStats[] {
 
 export default async function DashboardPage() {
   const [logsResult, predictions, settingsResult, careerLogs] = await Promise.all([
-    fetchDailyLogs(),
+    fetchDashboardDailyLogs(),
     fetchPredictions(),
     fetchSettings(),
     fetchCareerLogsForDashboard(),

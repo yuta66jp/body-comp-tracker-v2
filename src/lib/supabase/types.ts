@@ -357,6 +357,20 @@ export type Database = {
 
 // Convenience type aliases
 export type DailyLog = Database["public"]["Tables"]["daily_logs"]["Row"];
+
+/**
+ * Dashboard 専用の daily_logs projection 型。
+ * fetchDashboardDailyLogs() が取得する 16 列に対応する。
+ *
+ * 除外列:
+ *   - note     : Dashboard のいずれの関数・コンポーネントでも参照されない
+ *   - leg_flag : Dashboard では参照されない（training_type から導出される派生値）
+ *
+ * DailyLog は DashboardDailyLog の全プロパティを含む（plus note / leg_flag）ため、
+ * DailyLog[] は DashboardDailyLog[] を受け入れる関数に渡せる（後方互換）。
+ */
+export type DashboardDailyLog = Omit<DailyLog, "note" | "leg_flag">;
+
 export type FoodMaster = Database["public"]["Tables"]["food_master"]["Row"];
 export type MenuMaster = Database["public"]["Tables"]["menu_master"]["Row"];
 export type Setting = Database["public"]["Tables"]["settings"]["Row"];

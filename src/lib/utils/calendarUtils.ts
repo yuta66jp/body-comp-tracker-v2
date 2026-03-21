@@ -10,7 +10,7 @@
  *   カロリー差分: 同じく直前にカロリー記録があるエントリとの差分。
  */
 
-import type { DailyLog } from "@/lib/supabase/types";
+import type { DashboardDailyLog } from "@/lib/supabase/types";
 import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "./dayTags";
 import { formatConditionSummary, isValidTrainingType, isValidWorkMode, TRAINING_TYPE_LABELS, WORK_MODE_LABELS } from "./trainingType";
 
@@ -27,7 +27,7 @@ export interface CalendarDayTagInfo {
  * ログが存在する日のみ Map に含まれる（ログなし日は undefined）。
  */
 export interface CalendarDayData {
-  log: DailyLog;
+  log: DashboardDailyLog;
   /** 直前体重記録との差分。直前ログがないか、体重 null の場合は null */
   weightDelta: number | null;
   /** 直前カロリー記録との差分。直前ログがないか、calories null の場合は null */
@@ -105,7 +105,7 @@ export function buildConditionTags(params: {
  * - ログが存在しない日は Map に含まれない
  * - 差分は「直前のログ日の記録値」との差分（欠損日を跨ぐ）
  */
-export function buildCalendarDayMap(logs: DailyLog[]): Map<string, CalendarDayData> {
+export function buildCalendarDayMap(logs: DashboardDailyLog[]): Map<string, CalendarDayData> {
   const sorted = [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date));
 
   // 体重・カロリーそれぞれの「記録ありログ」リスト（差分計算用）

@@ -15,7 +15,7 @@
  *   - generateFindings で「チートデイ後の水分増加の可能性」を注記
  */
 
-import type { DailyLog } from "@/lib/supabase/types";
+import type { DashboardDailyLog } from "@/lib/supabase/types";
 import type { ReadinessMetrics } from "./calcReadiness";
 import type { DataQualityReport } from "./calcDataQuality";
 import { addDaysStr, dateRangeStr, toJstDateStr } from "./date";
@@ -372,7 +372,7 @@ function generateFindings(
  * @param options.today  基準日 YYYY-MM-DD (省略時 JST 今日)
  */
 export function calcWeeklyReview(
-  logs: DailyLog[],
+  logs: DashboardDailyLog[],
   metrics: ReadinessMetrics,
   qualityReport: DataQualityReport,
   options: {
@@ -390,7 +390,7 @@ export function calcWeeklyReview(
   const weekLabel = `${d7Start}〜${todayStr}`;
 
   // ── ログ日付 Map ──
-  const logByDate = new Map<string, DailyLog>();
+  const logByDate = new Map<string, DashboardDailyLog>();
   for (const log of logs) {
     logByDate.set(log.log_date, log);
   }
@@ -412,10 +412,10 @@ export function calcWeeklyReview(
   // ── Nutrition (直近 7 暦日) ──
   const windowLogs = last7Dates
     .map((d) => logByDate.get(d))
-    .filter((l): l is DailyLog => l !== undefined);
+    .filter((l): l is DashboardDailyLog => l !== undefined);
 
   function fieldAvg(
-    field: keyof Pick<DailyLog, "calories" | "protein" | "fat" | "carbs">
+    field: keyof Pick<DashboardDailyLog, "calories" | "protein" | "fat" | "carbs">
   ): number | null {
     const vals = windowLogs
       .filter((l) => l[field] !== null)
