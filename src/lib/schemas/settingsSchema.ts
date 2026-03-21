@@ -6,6 +6,8 @@
  * 各設定キーが number か string かをここで明確に定義する。
  */
 
+import { parseStrictNumber } from "@/lib/utils/parseNumber";
+
 // ─── 設定キー一覧 ────────────────────────────────────────────────────────────
 
 /** value_num に保存する数値系キー */
@@ -160,8 +162,8 @@ export function parseSettings(input: SettingsInput): ParseSettingsResult {
       records.push({ key, value_num: null, value_str: null });
       continue;
     }
-    const parsed = parseFloat(raw);
-    if (!Number.isFinite(parsed)) {
+    const parsed = parseStrictNumber(raw);
+    if (parsed === null) {
       errors.push({ field: key, message: `${NUMERIC_RULES[key].label} は数値で入力してください` });
       continue;
     }

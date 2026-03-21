@@ -19,6 +19,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { AlertTriangle, Info } from "lucide-react";
 import { buildMonthlyGoalPlan } from "@/lib/utils/monthlyGoalPlan";
+import { parseStrictNumber } from "@/lib/utils/parseNumber";
 import type {
   MonthlyGoalOverride,
   MonthlyGoalErrorCode,
@@ -251,9 +252,9 @@ function PlanContent({
    */
   function handleCommit(month: string) {
     const raw = inputValues[month] ?? "";
-    const parsed = parseFloat(raw);
+    const parsed = parseStrictNumber(raw);
 
-    if (!isFinite(parsed) || parsed <= 0 || parsed > 300) {
+    if (parsed === null || parsed <= 0 || parsed > 300) {
       // 不正値: 元の plan 値に戻す
       const entry = plan.entries.find((e) => e.month === month);
       if (entry) {

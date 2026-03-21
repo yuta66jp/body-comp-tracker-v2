@@ -5,6 +5,8 @@
  * コンポーネントから独立しているためユニットテストが容易。
  */
 
+import { parseStrictNumber } from "@/lib/utils/parseNumber";
+
 export type FieldType = "number" | "text" | "date" | "select";
 
 export interface NormalizedUpsert {
@@ -35,9 +37,8 @@ export function normalizeSettingField(
 
   // text / select フィールド: 前後空白を除去
   const normalizedStr = !isNumeric && !isDate ? raw.trim() : raw;
-  // number フィールド: parseFloat して有限数でなければ null
-  const parsedNum = isNumeric && raw.trim() !== "" ? parseFloat(raw.trim()) : NaN;
-  const numValue = isNumeric ? (Number.isFinite(parsedNum) ? parsedNum : null) : null;
+  // number フィールド: strict parser で部分成功パースを排除。"12abc" 等は null になる
+  const numValue = isNumeric ? parseStrictNumber(raw) : null;
   // date フィールド: YYYY-MM-DD 形式のみ保存（それ以外は null）
   const dateValue =
     isDate && /^\d{4}-\d{2}-\d{2}$/.test(raw.trim()) ? raw.trim() : null;

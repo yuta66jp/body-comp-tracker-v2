@@ -4,6 +4,7 @@ import { useState, useMemo, useTransition } from "react";
 import { Trash2, Plus, Search, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { FoodMaster } from "@/lib/supabase/types";
+import { parseStrictNumber } from "@/lib/utils/parseNumber";
 
 interface FoodTableProps {
   initialFoods: FoodMaster[];
@@ -103,14 +104,17 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
       fat: "F (g)",
       carbs: "C (g)",
     };
+    const parsedNums: Record<string, number> = {};
     for (const field of numFields) {
-      if (form[field].trim() === "") {
-        return setError(`${labelMap[field]} は必須です`);
+      const v = parseStrictNumber(form[field], { min: 0 });
+      if (v === null) {
+        return setError(
+          form[field].trim() === ""
+            ? `${labelMap[field]} は必須です`
+            : `${labelMap[field]} には 0 以上の数値を入力してください`
+        );
       }
-      const v = parseFloat(form[field]);
-      if (isNaN(v) || v < 0) {
-        return setError(`${labelMap[field]} には 0 以上の数値を入力してください`);
-      }
+      parsedNums[field] = v;
     }
 
     setIsSaving(true);
@@ -118,10 +122,10 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
 
     const payload: FoodMaster = {
       name: form.name.trim(),
-      calories: parseFloat(form.calories),
-      protein: parseFloat(form.protein),
-      fat: parseFloat(form.fat),
-      carbs: parseFloat(form.carbs),
+      calories: parsedNums["calories"]!,
+      protein: parsedNums["protein"]!,
+      fat: parsedNums["fat"]!,
+      carbs: parsedNums["carbs"]!,
       category: form.category.trim() || null,
     };
     const supabase = createClient();
