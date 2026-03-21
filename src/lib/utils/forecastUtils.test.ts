@@ -182,12 +182,32 @@ describe("buildYAxisConfig", () => {
     }
   });
 
-  it("default: 5 の倍数のみラベルを返し、それ以外は空文字", () => {
+  it("default: 5kg 倍数（主要）と 3kg 倍数（補助）にラベルを返す", () => {
     const { formatter } = buildYAxisConfig("default", 55.0, 75.0);
+    // 主要目盛り (5kg倍数)
     expect(formatter(60)).toBe("60kg");
     expect(formatter(65)).toBe("65kg");
+    expect(formatter(70)).toBe("70kg");
+    // 補助目盛り (3kg倍数)
+    expect(formatter(63)).toBe("63kg");
+    expect(formatter(66)).toBe("66kg");
+    expect(formatter(69)).toBe("69kg");
+    expect(formatter(72)).toBe("72kg");
+    // それ以外は空文字
     expect(formatter(61)).toBe("");
-    expect(formatter(63)).toBe("");
+    expect(formatter(62)).toBe("");
+    expect(formatter(64)).toBe("");
+    expect(formatter(67)).toBe("");
+    expect(formatter(68)).toBe("");
+    expect(formatter(71)).toBe("");
+  });
+
+  it("default: 典型レンジ(58-73)で最大ラベル間隔が 3kg 以下になる", () => {
+    const { ticks, formatter } = buildYAxisConfig("default", 58.0, 73.0);
+    const labeled = ticks.filter((t) => formatter(t) !== "");
+    for (let i = 1; i < labeled.length; i++) {
+      expect(labeled[i] - labeled[i - 1]).toBeLessThanOrEqual(3);
+    }
   });
 
   it("yMin が step の倍数でない場合、切り上げた値から tick が始まる", () => {
