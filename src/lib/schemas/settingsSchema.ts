@@ -40,29 +40,70 @@ export type SettingKey = NumericSettingKey | StringSettingKey;
 /**
  * 保存対象の設定値 (入力値は文字列で渡ってくることを前提)。
  *
- * 全フィールドが省略可能だが、省略したフィールドは parseSettings() 内で
- * null として扱われ DB に上書きされる。
- * これは部分更新インターフェースではなく、全項目一括保存を前提とした入力型である。
- * 一部キーだけを渡すと、残りのキーが null で消えるため注意すること。
+ * 【全フィールド必須】
+ * この型はすべてのフィールドが必須の string である。
+ * 空欄フィールドには "" (空文字) を渡すこと。
+ * "" は parseSettings() 内で null として DB に保存される。
+ *
+ * なぜ全フィールド必須か:
+ * parseSettings() は partial update ではなく full-replace 関数であり、
+ * 渡されたすべてのフィールドを DB に upsert する。
+ * フィールドを省略できる型（optional）にすると、省略フィールドが
+ * null で上書きされることに気づかずに partial save を呼び出す
+ * accidental null overwrite を引き起こしやすい。
+ * 全フィールド必須にすることで、コンパイル時にこのミスを検知できる。
+ *
+ * 利用時のパターン:
+ * saveSettings({
+ *   goal_weight: values["goal_weight"] ?? "",
+ *   activity_factor: values["activity_factor"] ?? "",
+ *   // ... 全フィールドを渡す
+ * });
+ *
+ * テストで一部フィールドだけ変えたい場合は EMPTY_SETTINGS_INPUT をスプレッドする:
+ * parseSettings({ ...EMPTY_SETTINGS_INPUT, goal_weight: "65.0" })
  */
 export interface SettingsInput {
   // 数値系 (文字列として渡し、schema 側で number に変換する)
-  goal_weight?: string | null;
-  activity_factor?: string | null;
-  height_cm?: string | null;
-  age?: string | null;
-  target_calories_kcal?: string | null;
-  target_protein_g?: string | null;
-  target_fat_g?: string | null;
-  target_carbs_g?: string | null;
+  goal_weight: string;
+  activity_factor: string;
+  height_cm: string;
+  age: string;
+  target_calories_kcal: string;
+  target_protein_g: string;
+  target_fat_g: string;
+  target_carbs_g: string;
   // 文字列系
-  current_season?: string | null;
-  current_phase?: string | null;
-  sex?: string | null;
-  contest_date?: string | null;
-  /** JSON 文字列化した MonthlyGoalOverride[] */
-  monthly_plan_overrides?: string | null;
+  current_season: string;
+  current_phase: string;
+  sex: string;
+  contest_date: string;
+  /** JSON 文字列化した MonthlyGoalOverride[]。空のときは "" を渡す。 */
+  monthly_plan_overrides: string;
 }
+
+/**
+ * 全フィールドが空文字 ("") の SettingsInput。
+ * テストで一部フィールドだけ変えたい場合のベースとして使う。
+ *
+ * @example
+ * parseSettings({ ...EMPTY_SETTINGS_INPUT, goal_weight: "65.0" })
+ */
+export const EMPTY_SETTINGS_INPUT: SettingsInput = {
+  goal_weight: "",
+  activity_factor: "",
+  height_cm: "",
+  age: "",
+  target_calories_kcal: "",
+  target_protein_g: "",
+  target_fat_g: "",
+  target_carbs_g: "",
+  current_season: "",
+  current_phase: "",
+  sex: "",
+  contest_date: "",
+  monthly_plan_overrides: "",
+};
 
 /**
  * バリデーション・変換済みの DB upsert 用レコード型。
@@ -139,14 +180,13 @@ function isValidDate(s: string): boolean {
 /**
  * SettingsInput を検証・変換して DB upsert 用の SettingRecord[] を返す。
  *
- * 【全項目保存関数】
- * この関数は常に全設定キー (NUMERIC_SETTING_KEYS + STRING_SETTING_KEYS) の
- * レコードを生成する。省略・null・空文字のフィールドは value_num/value_str = null
- * として records に積まれ、DB で上書きされる。
+ * 【全項目保存関数 (full-replace)】
+ * SettingsInput は全フィールド必須。この関数は全設定キー
+ * (NUMERIC_SETTING_KEYS + STRING_SETTING_KEYS) のレコードを常に生成する。
+ * 空文字 ("") のフィールドは value_num/value_str = null として records に積まれ DB で上書きされる。
  *
  * partial update（一部キーのみ更新）には対応していない。
- * 一部キーだけ渡すと、残りキーが null で消えるため、必ず全フィールドを渡すこと。
- * 現状の唯一の caller (saveSettings) は SettingsForm から全フィールドを受け取って渡す。
+ * SettingsInput 型が全フィールド必須のため、コンパイル時に partial 呼び出しは検知できる。
  *
  * - バリデーションエラーがひとつでもあれば ok: false を返す（保存は行わない）。
  */
