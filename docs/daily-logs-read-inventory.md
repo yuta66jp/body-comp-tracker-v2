@@ -1,7 +1,7 @@
 # daily_logs read API 利用箇所棚卸し
 
-> Issue: #164（設計整理）、#165（Dashboard read 実装）、#166（Macro / TDEE read 整理）
-> 作成日: 2026-03-21 / #165 追記: 2026-03-21 / #166 追記: 2026-03-21
+> Issue: #164（設計整理）、#165（Dashboard read 実装）、#166（Macro / TDEE read 整理）、#167（front / full read 経路分離）
+> 作成日: 2026-03-21 / #165 追記: 2026-03-21 / #166 追記: 2026-03-21 / #167 追記: 2026-03-21
 > 目的: 後続 Issue (#165 #166 #167) が迷わず着手できる粒度での設計整理
 
 ---
@@ -82,6 +82,65 @@ Dashboard は 18列中 16列を使用しており全列に近い。ただし:
 | `fetchCareerLogs()` | `career_logs` | `*` (全列) | なし | log_date ASC | `QueryResult<CareerLog[]>` | error banner 表示、空配列フォールバック |
 | `fetchCareerLogsForDashboard()` | `career_logs` | log_date, season, target_date | なし | log_date ASC | `Pick<CareerLog, ...>[]` | 空配列（ベストエフォート） |
 | `fetchPredictions()` | `predictions` | `*` (全列) | なし | ds ASC | `Prediction[]` | 空配列（ベストエフォート） |
+
+---
+
+## 0c. #167 実装サマリー（front / full read 経路分離）
+
+#167 で以下を実施した:
+
+- `src/lib/queries/dailyLogs.ts` のファイルヘッダーを刷新
+  - 「front SSR 専用 projection query モジュール」であることを明記
+  - full read の所在（useDailyLogs hook / export route / ML batch）を一覧化
+  - 新画面追加時の指針（専用 query をここに追加すること）を明記
+- `src/lib/hooks/useDailyLogs.ts` に docstring を追加
+  - client-side full read であること・MealLogger 専用であることを明記
+  - Server Component は `src/lib/queries/dailyLogs.ts` を使うことを注記
+- `src/app/api/export/route.ts` の full read 箇所にコメントを追加
+  - CSV export のため全列必要であること・projection query 経路と別物であることを明記
+- `src/lib/queries/queryResult.ts` の `fetchTdeeDailyLogs` コメントを修正（LIMIT 30 → 180）
+
+**新設関数なし**: front SSR 側はすでに projection query 完全分離済みであり、
+全読み取り用関数を追加しても呼び出し元がない。責務境界はコメント・docstring・docs で明文化した。
+
+---
+
+## 1a. front / full read 経路境界
+
+### front SSR projection query（`src/lib/queries/dailyLogs.ts`）
+
+- Server Components が Next.js SSR 時に呼ぶ read query のみを提供
+- すべての関数が「画面必要列のみ」の projection query
+- full read（`select("*")`）は含まない
+- **ここを起点に新画面の query を追加すること**
+
+### full read が必要な経路（front SSR query 外）
+
+| 経路 | ファイル | 用途 | クライアント種別 |
+|---|---|---|---|
+| Client SWR hook | `src/lib/hooks/useDailyLogs.ts` | MealLogger フォーム hydration | Browser (anon key) |
+| CSV export route | `src/app/api/export/route.ts` | CSV ダウンロード（全列必要） | Server Route Handler (anon key) |
+| ML batch enrich | `ml-pipeline/enrich.py` | TDEE 推定バッチ（全列必要） | Python supabase-py (service_role key) |
+| ML batch analyze | `ml-pipeline/analyze.py` | XGBoost 因子分析バッチ（全列必要） | Python supabase-py (service_role key) |
+| ML batch predict | `ml-pipeline/predict.py` | 体重予測バッチ（log_date, weight のみ） | Python supabase-py (service_role key) |
+
+### 各 full read が許容される理由
+
+**`useDailyLogs.ts`**: MealLogger は編集フォームのため、どの列が操作されるか事前に絞れない。
+Browser から直接取得する client-side SWR であり、Server Component SSR の projection 最適化とは別レイヤー。
+
+**`api/export/route.ts`**: CSV エクスポートはユーザーがバックアップ目的で全データを取得するもの。
+表示最適化の対象外であり、全列取得が機能要件。
+
+**`ml-pipeline/*.py`**: GitHub Actions cron で実行される Python バッチ。
+anon key ではなく service_role key を使用し、JS の query layer と完全に独立した経路。
+アルゴリズム計算に全列・全件が必要なため projection 最適化の対象外。
+
+### 将来の拡張指針
+
+- **新しい画面（Server Component ページ）を追加する場合**: 必要列を絞った専用 query を `dailyLogs.ts` に追加する
+- **`useDailyLogs.ts` の全列取得を変更する場合**: MealLogger の全フィールド参照を確認してから projection を検討する
+- **full read を Server Component から呼ぶことは避ける**: `dailyLogs.ts` に `fetchDailyLogsFull()` 相当の関数を追加したくなった場合、その画面が本当に全列必要か再検討すること
 
 ---
 

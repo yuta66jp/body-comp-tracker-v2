@@ -11,7 +11,7 @@
  * この型を使用する関数 (空状態と取得エラーを区別すべき主要クエリ):
  *   - fetchDashboardDailyLogs   (daily_logs 16列 — Dashboard 専用)
  *   - fetchMacroDailyLogs       (daily_logs 6列 LIMIT 60 — Macro 専用)
- *   - fetchTdeeDailyLogs        (daily_logs 3列 LIMIT 30 — TDEE 専用)
+ *   - fetchTdeeDailyLogs        (daily_logs 3列 LIMIT 180 — TDEE 専用)
  *   - fetchDailyLogsForSettings (daily_logs — settings ページ用)
  *   - fetchCareerLogs           (career_logs — history ページ主データ)
  *   - fetchSettings             (settings → AppSettings 変換)

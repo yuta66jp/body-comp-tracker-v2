@@ -1,20 +1,35 @@
 /**
- * daily_logs テーブルの read 責務を集約する。
+ * daily_logs テーブルの **front SSR 専用 projection query** を集約する。
+ *
+ * ## このモジュールのスコープ
+ *
+ * - Server Components / Server Actions / Route Handlers が Next.js SSR 時に呼ぶ read query
+ * - すべての関数は「画面が必要とする列のみ」の projection query であり、全列 full read は含まない
+ * - write 系・UI 固有文言はここに含めない
+ *
+ * ## full read が必要な箇所（このモジュール外で管理）
+ *
+ * | 経路 | 場所 | 用途 |
+ * |---|---|---|
+ * | Client SWR hook    | `src/lib/hooks/useDailyLogs.ts`    | MealLogger フォーム hydration 用クライアント全列取得 |
+ * | CSV export route   | `src/app/api/export/route.ts`      | CSV ダウンロード用全列取得（全列が必要）              |
+ * | ML/batch (Python)  | `ml-pipeline/enrich.py`, `analyze.py` | TDEE・因子分析バッチ。supabase-py 経由で直接読む    |
+ *
+ * front 側の Server Component ページがこれらの経路を使わないようにすること。
+ * 新しい画面を追加する場合は、必要な列を絞った専用 query をここに追加すること。
  *
  * ## 現行クエリ一覧
  *
  * | 関数 | 取得列 | 用途 | 戻り値型 |
  * |---|---|---|---|
- * | fetchDashboardDailyLogs()   | 16列（note・leg_flag 除く） | Dashboard 専用 (#165)          | QueryResult |
- * | fetchMacroDailyLogs(days)   | 6列・DESC LIMIT days        | Macro 専用 (#166)              | QueryResult |
- * | fetchTdeeDailyLogs(limit)   | 3列・DESC LIMIT limit       | TDEE raw fallback 専用 (#166)  | QueryResult |
- * | fetchLatestUpdatedAt()      | updated_at 1行              | stale 判定用（Macro/TDEE共用） | ベストエフォート |
- * | fetchWeightLogs()           | log_date, weight            | History ページ補助             | ベストエフォート |
- * | fetchDailyLogsForSettings() | log_date, weight, calories  | Settings DataQuality 計算      | QueryResult |
+ * | fetchDashboardDailyLogs()   | 16列（note・leg_flag 除く）  | Dashboard 専用 (#165)                | QueryResult |
+ * | fetchMacroDailyLogs(days)   | 6列・DESC LIMIT days         | Macro 専用 (#166)                    | QueryResult |
+ * | fetchTdeeDailyLogs(limit)   | 3列・DESC LIMIT limit        | TDEE raw fallback 専用 (#166)        | QueryResult |
+ * | fetchLatestUpdatedAt()      | updated_at 1行               | stale 判定用（Macro/TDEE共用）       | ベストエフォート |
+ * | fetchWeightLogs()           | log_date, weight             | History ページ補助                   | ベストエフォート |
+ * | fetchDailyLogsForSettings() | log_date, weight, calories   | Settings DataQuality 計算            | QueryResult |
  *
  * 詳細: docs/daily-logs-read-inventory.md
- *
- * ## write 系・UI 固有文言はここに含めない
  */
 import { createClient } from "@/lib/supabase/server";
 import type { DailyLog, DashboardDailyLog, MacroDailyLog, TdeeDailyLog, CareerLog, Prediction } from "@/lib/supabase/types";
