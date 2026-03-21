@@ -92,12 +92,10 @@ export function ForecastChart({
     viewStartStr = addDaysStr(latestLogDate, -30) ?? today; // 最新測定日を含む31日間
     viewEndStr = latestLogDate;
   } else if (rangeTab === "90d") {
-    // 90d: 約1ヶ月前〜近未来予測終端（全体ビューと同じ終端）
-    // 「直近の実績 + 近未来予測」をまとめて確認できるビュー
+    // 90d: 30日前を起点に固定90日窓（start + 90日で終端固定）
+    // 「直近1ヶ月の実績 + 近未来予測」を一定スパンで確認できるビュー
     viewStartStr = addDaysStr(latestLogDate, -30) ?? today;
-    viewEndStr = [lastForecastDate, lastEwDate, contestDate ?? ""]
-      .filter(Boolean)
-      .reduce((a, b) => (a > b ? a : b));
+    viewEndStr = addDaysStr(viewStartStr, 90) ?? today;
   } else {
     // default: 45日前〜 contestDate / lastForecastDate / lastEwDate の最大
     viewStartStr = addDaysStr(today, -45) ?? today;
