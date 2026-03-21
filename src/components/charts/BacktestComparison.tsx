@@ -147,8 +147,47 @@ export function BacktestComparison({
         </div>
       )}
 
-      {/* ── 比較テーブル ── */}
-      <div className="overflow-x-auto">
+      {/* ── モバイル: horizon 別サマリーカード (md 未満) ── */}
+      <div className="md:hidden p-4 space-y-3">
+        {HORIZONS.map((h) => {
+          const dBest = dailyBest[h];
+          const sBest = sma7Best[h];
+          const nrPct = noiseReductionPct(dBest?.mae ?? null, sBest?.mae ?? null);
+          return (
+            <div key={h} className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+              <p className="mb-2 text-xs font-bold text-slate-600">D+{h} 日先</p>
+              <div className="flex flex-wrap items-start gap-x-6 gap-y-2 text-xs">
+                {hasDailyData && dBest && (
+                  <div>
+                    <p className="mb-0.5 font-medium text-blue-500">単日評価 ★</p>
+                    <p className="font-semibold text-slate-700">{MODEL_LABELS[dBest.model] ?? dBest.model}</p>
+                    <p className="font-mono text-slate-500">MAE {fmt3(dBest.mae)}</p>
+                  </div>
+                )}
+                {hasSma7Data && sBest && (
+                  <div>
+                    <p className="mb-0.5 font-medium text-emerald-600">7日平均評価 ★</p>
+                    <p className="font-semibold text-slate-700">{MODEL_LABELS[sBest.model] ?? sBest.model}</p>
+                    <p className="font-mono text-slate-500">MAE {fmt3(sBest.mae)}</p>
+                  </div>
+                )}
+                {hasDailyData && hasSma7Data && nrPct !== null && (
+                  <div className="ml-auto text-right">
+                    <p className="mb-0.5 text-slate-400">ノイズ除去率</p>
+                    <p className={`text-base font-bold tabular-nums ${noiseReductionColor(nrPct)}`}>{nrPct}%</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        <p className="text-[10px] text-slate-400">
+          ★ = ホライズン別最良モデル / ノイズ除去率 = (1 − 7日均MAE ÷ 単日MAE) × 100%
+        </p>
+      </div>
+
+      {/* ── デスクトップ: 比較テーブル (md+) ── */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full min-w-[600px] text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -247,10 +286,10 @@ export function BacktestComparison({
             </tfoot>
           )}
         </table>
-      </div>
+      </div>{/* end hidden md:block */}
 
-      {/* ── フッター注記 ── */}
-      <div className="border-t border-slate-50 bg-slate-50 px-5 py-2.5 text-[11px] text-slate-400">
+      {/* ── フッター注記（デスクトップのみ）── */}
+      <div className="hidden md:block border-t border-slate-50 bg-slate-50 px-5 py-2.5 text-[11px] text-slate-400">
         <span>
           ★ = ホライズン別最良モデル / MAE: 平均絶対誤差 (kg) / ノイズ除去率 = (1 − 7日均MAE ÷ 単日MAE) × 100%
         </span>
