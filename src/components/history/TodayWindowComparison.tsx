@@ -149,8 +149,62 @@ export function TodayWindowComparison({
         </span>
       </div>
 
-      {/* ── テーブル ── */}
-      <div className="overflow-x-auto">
+      {/* ── モバイル: カード要約 (sm 未満) ── */}
+      <div className="sm:hidden divide-y divide-slate-50 px-4 py-1">
+        {/* 今季カード */}
+        {currentEntry && (
+          <div className="py-3">
+            <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-red-400">
+              今季 · {currentSeason}
+            </div>
+            <div className="mt-1 flex items-baseline gap-1">
+              <span className="text-2xl font-bold text-red-500">
+                {fmt1(currentEntry.avgWeight)}
+              </span>
+              <span className="text-sm text-slate-400">kg</span>
+              {currentEntry.avgWeight === null && (
+                <span className="text-xs text-slate-300">データなし</span>
+              )}
+            </div>
+            {fmtDateRange(currentEntry.dateFrom, currentEntry.dateTo) && (
+              <div className="mt-0.5 text-[10px] text-slate-400">
+                {fmtDateRange(currentEntry.dateFrom, currentEntry.dateTo)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 過去シーズン一覧 */}
+        {sortedEntries.filter((e) => e.season !== currentSeason).map((entry) => {
+          const ahead = isAhead(currentEntry?.avgWeight ?? null, entry.avgWeight, isCut);
+          return (
+            <div key={entry.season} className="flex items-center justify-between py-2.5">
+              <div>
+                <div className="text-sm font-medium text-slate-600">{entry.season}</div>
+                {fmtDateRange(entry.dateFrom, entry.dateTo) && (
+                  <div className="text-[10px] text-slate-400">
+                    {fmtDateRange(entry.dateFrom, entry.dateTo)}
+                  </div>
+                )}
+              </div>
+              <div className="text-right">
+                <div className="tabular-nums text-sm text-slate-700">
+                  {fmt1(entry.avgWeight)}<span className="ml-0.5 text-xs text-slate-300">kg</span>
+                </div>
+                {currentEntry?.avgWeight !== null && entry.avgWeight !== null && (
+                  <div className={`flex items-center justify-end gap-0.5 text-xs ${diffColorClass(ahead)}`}>
+                    <DiffIcon ahead={ahead} />
+                    {diffLabel(currentEntry!.avgWeight, entry.avgWeight)}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── デスクトップ: テーブル (sm+) ── */}
+      <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-400">
