@@ -96,7 +96,8 @@ export type RangeTab = "default" | "7d" | "31d" | "60d";
  * - 7d:      0.5kg 刻み、全ラベル表示
  * - 31d:     1kg 刻み、全ラベル表示
  * - 60d:     1kg 刻み、全ラベル表示
- * - default: 1kg 刻み、5kg 倍数のみラベル表示（密度抑制）
+ * - default: 1kg 刻み、5kg 倍数（主要目盛り）+ 3kg 倍数（補助目盛り）でラベル表示
+ *            → ~3kg 間隔でラベルが並び「kg 表示が消える」レンジを防ぐ
  */
 export function buildYAxisConfig(
   rangeTab: RangeTab,
@@ -104,7 +105,6 @@ export function buildYAxisConfig(
   yMax: number
 ): { ticks: number[]; formatter: (v: number) => string } {
   const step = rangeTab === "7d" ? 0.5 : 1;
-  const labelEvery = rangeTab === "default" ? 5 : 0;
 
   const tickStart = Math.round(Math.ceil(yMin / step) * step * 10) / 10;
   const ticks: number[] = [];
@@ -113,7 +113,11 @@ export function buildYAxisConfig(
   }
 
   const formatter = (v: number): string => {
-    if (labelEvery > 0 && Math.round(v) % labelEvery !== 0) return "";
+    if (rangeTab === "default") {
+      // 5kg 主要目盛り OR 3kg 補助目盛りのみラベル表示（~3kg 間隔を保証）
+      const vi = Math.round(v);
+      if (vi % 5 !== 0 && vi % 3 !== 0) return "";
+    }
     return v % 1 === 0 ? `${v}kg` : `${v.toFixed(1)}kg`;
   };
 
