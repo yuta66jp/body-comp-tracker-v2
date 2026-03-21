@@ -54,14 +54,11 @@ export function MonthlyGoalTable({ rows, phase }: MonthlyGoalTableProps) {
 
   return (
     <div className="mt-4 border-t border-slate-100 pt-4">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-        月次計画 vs 実績
-      </p>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-left">
-              <th className="pb-2 pr-3 text-xs font-semibold uppercase tracking-wide text-slate-400">月</th>
+              <th className="pb-2 pr-3 text-xs font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">月次計画 vs 実績</th>
               {/* 月初体重: sm 以上のみ表示 */}
               <th className="hidden sm:table-cell pb-2 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">月初体重</th>
               <th className="pb-2 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">月末目標</th>
