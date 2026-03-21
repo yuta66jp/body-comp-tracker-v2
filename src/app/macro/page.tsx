@@ -4,6 +4,7 @@ import { MacroDailyTable } from "@/components/macro/MacroDailyTable";
 import { MacroPfcSummary } from "@/components/macro/MacroPfcSummary";
 import { FactorAnalysis, FactorAnalysisPlaceholder } from "@/components/charts/FactorAnalysis";
 import { PageShell } from "@/components/ui/PageShell";
+import { TableScroll } from "@/components/ui/TableScroll";
 import {
   calcMacroKpi,
   calcDailyMacro,
@@ -66,8 +67,10 @@ export default async function MacroPage() {
         {/* 既存: PFC 構成比推移（直近60日） */}
         <MacroStackedChart data={dailyData} />
 
-        {/* 既存: 日次栄養内訳テーブル */}
-        <MacroDailyTable data={dailyData} calTarget={calTarget} />
+        {/* 既存: 日次栄養内訳テーブル（モバイルでエッジブリード） */}
+        <TableScroll>
+          <MacroDailyTable data={dailyData} calTarget={calTarget} />
+        </TableScroll>
 
         {factorResult.payload !== null ? (
           <FactorAnalysis
