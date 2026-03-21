@@ -14,7 +14,7 @@ export function DashboardLayout({ children, header }: DashboardLayoutProps) {
   const [open, setOpen] = useState(true);
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 py-6 gap-4">
+    <div className="flex flex-col min-h-screen bg-slate-50 py-6 gap-2">
       {/* 全幅ヘッダー（シーズンバッジ・エラーバナーなど） */}
       {header && <div>{header}</div>}
 
