@@ -46,8 +46,10 @@ Dashboard は 18列中 16列を使用しており全列に近い。ただし:
   - `Pick<DailyLog, "log_date" | "weight" | "calories">`
 - `fetchMacroDailyLogs(days=60)` を新設（`src/lib/queries/dailyLogs.ts`）
   - SELECT: 6列、DESC LIMIT 60、クライアント側で昇順 reverse、QueryResult 返却
-- `fetchTdeeDailyLogs(limit=30)` を新設（`src/lib/queries/dailyLogs.ts`）
-  - SELECT: 3列、DESC LIMIT 30、クライアント側で昇順 reverse、QueryResult 返却
+- `fetchTdeeDailyLogs(limit=180)` を新設（`src/lib/queries/dailyLogs.ts`）
+  - SELECT: 3列、DESC LIMIT 180、クライアント側で昇順 reverse、QueryResult 返却
+  - デフォルト 180 の根拠: enriched が unavailable の fallback グラフで約 6 か月の体重推移を維持するため
+  - KPI / テーブル用の直近 14 日は page.tsx 側で `slice(-14)` により切り出す
 - `fetchLatestUpdatedAt()` を新設（`src/lib/queries/dailyLogs.ts`）
   - `updated_at DESC LIMIT 1` で MAX(updated_at) を取得、ベストエフォート（null fallback）
   - Macro / TDEE の analytics_cache stale 判定に使用
@@ -73,7 +75,7 @@ Dashboard は 18列中 16列を使用しており全列に近い。ただし:
 |---|---|---|---|---|---|---|
 | `fetchDashboardDailyLogs()` | `daily_logs` | 16列（note・leg_flag 除く） | なし | log_date ASC・全期間 | `QueryResult<DashboardDailyLog[]>` | error banner 表示、空配列フォールバック |
 | `fetchMacroDailyLogs(days)` | `daily_logs` | 6列（log_date/weight/calories/protein/fat/carbs） | なし | log_date DESC LIMIT days | `QueryResult<MacroDailyLog[]>` | error banner 表示・早期 return |
-| `fetchTdeeDailyLogs(limit)` | `daily_logs` | 3列（log_date/weight/calories） | なし | log_date DESC LIMIT limit | `QueryResult<TdeeDailyLog[]>` | error banner 表示、空配列フォールバック |
+| `fetchTdeeDailyLogs(limit=180)` | `daily_logs` | 3列（log_date/weight/calories） | なし | log_date DESC LIMIT 180 | `QueryResult<TdeeDailyLog[]>` | error banner 表示、空配列フォールバック |
 | `fetchLatestUpdatedAt()` | `daily_logs` | updated_at | なし | updated_at DESC LIMIT 1 | `string \| null` | null（ベストエフォート） |
 | `fetchWeightLogs()` | `daily_logs` | log_date, weight | weight NOT NULL | log_date ASC | `Pick<DailyLog, "log_date"\|"weight">[]` | 空配列（ベストエフォート） |
 | `fetchDailyLogsForSettings()` | `daily_logs` | log_date, weight, calories | なし | log_date ASC | `QueryResult<DataQualityLog[]>` | error banner 表示、空配列フォールバック |

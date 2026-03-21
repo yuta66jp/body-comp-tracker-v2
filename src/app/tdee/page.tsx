@@ -26,7 +26,7 @@ export const revalidate = 3600;
 
 export default async function TdeePage() {
   const [rawLogsResult, settingsResult, latestUpdatedAt] = await Promise.all([
-    fetchTdeeDailyLogs(30),
+    fetchTdeeDailyLogs(180),
     fetchSettings(),
     fetchLatestUpdatedAt(),
   ]);

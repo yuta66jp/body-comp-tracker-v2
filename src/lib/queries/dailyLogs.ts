@@ -112,9 +112,18 @@ export async function fetchMacroDailyLogs(days = 60): Promise<QueryResult<MacroD
  * 取得列: log_date, weight, calories
  * 並び順: 日付降順で LIMIT {limit} 取得後、昇順に並び直して返す。
  *
- * 用途:
- *   - TDEE グラフの enriched_logs 非対応 fallback 表示
- *   - 直近 7/14 日の体重・カロリー集計（KPI / テーブル用）
+ * ## デフォルト値 180 の根拠
+ * enriched_logs が unavailable（ML バッチ未実行）の場合、グラフは raw ログを
+ * fallback として直接描画する。TDEE 推移は「約 6 か月の体重推移」として
+ * 引き続き表示されることが要件のため、約 6 か月 ≈ 180 日を確保する。
+ * enriched が fresh / stale の場合は enrichedRows が主軸となるため
+ * 余分な取得は KPI / table の slice 範囲にのみ影響し、機能面への影響はない。
+ *
+ * ## page.tsx 側での切り出し方針
+ *   - fallback グラフ: 取得全体（最大 180 行）を使う
+ *   - KPI（直近 7 / 14 日集計）: sortedRaw.slice(-14) / slice(-7) で切り出す
+ *   - テーブル（直近 14 日）: sortedRaw.slice(-14) で切り出す
+ *   - latestWeight: weight != null の末尾行を使う
  *
  * stale 判定: updated_at は取得しない。stale 判定が必要な場合は fetchLatestUpdatedAt() を別途呼ぶこと。
  *
@@ -122,7 +131,7 @@ export async function fetchMacroDailyLogs(days = 60): Promise<QueryResult<MacroD
  *   kind: "ok"    — 取得成功。data が空配列 = ログ未入力（正常な空状態）。
  *   kind: "error" — DB フェッチ失敗。呼び出し側で graceful degradation すること。
  */
-export async function fetchTdeeDailyLogs(limit = 30): Promise<QueryResult<TdeeDailyLog[]>> {
+export async function fetchTdeeDailyLogs(limit = 180): Promise<QueryResult<TdeeDailyLog[]>> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("daily_logs")
