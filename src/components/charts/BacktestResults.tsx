@@ -104,7 +104,7 @@ export function BacktestResults({ run, metrics }: Props) {
       </div>
 
       {/* Horizon 別 Best モデル */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {HORIZONS.map((h) => {
           const winner = best[h];
           const cfg = winner ? MODEL_CONFIG[winner] : null;
@@ -112,7 +112,7 @@ export function BacktestResults({ run, metrics }: Props) {
           return (
             <div
               key={h}
-              className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm text-center"
+              className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm"
             >
               <p className="text-xs text-slate-400 mb-1">{h} 日先 — 最良モデル</p>
               <p
@@ -153,7 +153,8 @@ export function BacktestResults({ run, metrics }: Props) {
             />
             <Legend
               formatter={(name: string) => MODEL_CONFIG[name]?.label ?? name}
-              wrapperStyle={{ fontSize: 12 }}
+              wrapperStyle={{ fontSize: 11 }}
+              iconSize={10}
             />
             {MODEL_ORDER.map((model) => (
               <Bar
@@ -168,8 +169,59 @@ export function BacktestResults({ run, metrics }: Props) {
         </ResponsiveContainer>
       </div>
 
-      {/* 詳細指標テーブル */}
-      <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm overflow-x-auto">
+      {/* 詳細指標テーブル — モバイル: horizon 別ランクカード */}
+      <div className="md:hidden space-y-3">
+        <h2 className="text-sm font-semibold text-slate-700">詳細指標（ホライズン別）</h2>
+        {HORIZONS.map((h) => {
+          const ranked = MODEL_ORDER
+            .map((model) => ({
+              model,
+              metric: metrics.find((x) => x.horizon_days === h && x.model_name === model),
+            }))
+            .filter((x): x is { model: string; metric: typeof metrics[number] } => x.metric !== undefined)
+            .sort((a, b) => a.metric.mae - b.metric.mae);
+          return (
+            <div key={h} className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+              <h3 className="mb-2.5 text-sm font-semibold text-slate-700">{h} 日先</h3>
+              <div className="space-y-1.5">
+                {ranked.map(({ model, metric }, rank) => {
+                  const cfg = MODEL_CONFIG[model];
+                  const isBest = rank === 0;
+                  return (
+                    <div
+                      key={model}
+                      className={`flex items-center justify-between rounded-lg px-3 py-2 ${isBest ? "bg-blue-50" : "bg-slate-50"}`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-4 flex-shrink-0 text-xs text-slate-400">{rank + 1}</span>
+                        <span
+                          className="h-2 w-2 flex-shrink-0 rounded-full"
+                          style={{ backgroundColor: cfg?.color ?? "#94a3b8" }}
+                        />
+                        <span className={`truncate text-xs font-medium ${isBest ? "text-blue-700" : "text-slate-600"}`}>
+                          {cfg?.label ?? model}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0 text-xs">
+                        <span className={`font-mono tabular-nums ${isBest ? "font-bold text-blue-600" : "text-slate-600"}`}>
+                          MAE {fmt(metric.mae)}
+                        </span>
+                        <span className="text-slate-400 tabular-nums font-mono">
+                          <BiasIcon bias={metric.bias ?? null} />
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-[10px] text-slate-400">MAE (kg) 昇順 / Bias: 上振れ↑ 下振れ↓ 中立 —</p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 詳細指標テーブル — デスクトップ: フル指標テーブル */}
+      <div className="hidden md:block rounded-xl border border-slate-100 bg-white p-4 shadow-sm overflow-x-auto">
         <h2 className="mb-3 text-sm font-semibold text-slate-700">詳細指標テーブル</h2>
         <table className="w-full min-w-max text-xs">
           <thead>

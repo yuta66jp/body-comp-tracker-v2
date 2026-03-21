@@ -11,7 +11,7 @@ export const revalidate = 3600; // 1時間キャッシュ (バッチは週1回)
 
 function ForecastTitle({ children }: { children?: React.ReactNode }) {
   return (
-    <div className="mb-4 flex items-center gap-2 md:mb-6">
+    <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1.5 md:mb-6">
       <BarChart2 size={20} className="text-blue-600" />
       <h1 className="text-xl font-bold text-slate-800">予測精度評価</h1>
       {children}
@@ -76,7 +76,7 @@ export default async function ForecastAccuracyPage() {
     <PageShell
       titleSlot={
         <ForecastTitle>
-          <span className="text-xs text-slate-400">データは週次バッチで更新されます</span>
+          <span className="hidden sm:inline text-xs text-slate-400">データは週次バッチで更新されます</span>
           <ForecastAccuracyRefreshButton />
         </ForecastTitle>
       }
