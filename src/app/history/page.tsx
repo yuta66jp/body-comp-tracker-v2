@@ -15,6 +15,7 @@ import { fetchCareerLogs, fetchWeightLogs } from "@/lib/queries/dailyLogs";
 import { fetchSettings } from "@/lib/queries/settings";
 import { mapToAppSettings } from "@/lib/domain/settings";
 import type { CareerLog } from "@/lib/supabase/types";
+import { PageShell } from "@/components/ui/PageShell";
 
 /** 比較するマイルストーン (大会日からの日数) */
 const MILESTONES = [-180, -120, -90, -60, -30, -14];
@@ -73,8 +74,7 @@ export default async function HistoryPage() {
   const isCut = settings.currentPhase !== "Bulk";
 
   return (
-    <main className="min-h-screen bg-gray-50 p-6">
-      <h1 className="mb-6 text-xl font-bold text-gray-800">キャリア比較</h1>
+    <PageShell title="キャリア比較">
 
       {/* Read error banners — graceful degradation: コンテンツはブロックしない */}
       {careerLogsResult.kind === "error" && (
@@ -160,6 +160,6 @@ export default async function HistoryPage() {
           </div>
         )}
       </div>
-    </main>
+    </PageShell>
   );
 }

@@ -3,6 +3,7 @@ import { MacroStackedChart } from "@/components/macro/MacroStackedChart";
 import { MacroDailyTable } from "@/components/macro/MacroDailyTable";
 import { MacroPfcSummary } from "@/components/macro/MacroPfcSummary";
 import { FactorAnalysis, FactorAnalysisPlaceholder } from "@/components/charts/FactorAnalysis";
+import { PageShell } from "@/components/ui/PageShell";
 import {
   calcMacroKpi,
   calcDailyMacro,
@@ -26,12 +27,11 @@ export default async function MacroPage() {
 
   if (logsResult.kind === "error") {
     return (
-      <main className="min-h-screen bg-gray-50 p-6">
-        <h1 className="mb-6 text-xl font-bold text-gray-800">栄養分析</h1>
+      <PageShell title="栄養分析">
         <div className="rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
           ログデータの取得中にエラーが発生しました。ページを再読み込みしてください。
         </div>
-      </main>
+      </PageShell>
     );
   }
 
@@ -39,8 +39,8 @@ export default async function MacroPage() {
 
   if (logs.length === 0) {
     return (
-      <main className="flex min-h-screen items-center justify-center p-6">
-        <p className="text-gray-400">データがありません。</p>
+      <main className="flex min-h-svh items-center justify-center">
+        <p className="text-slate-400">データがありません。</p>
       </main>
     );
   }
@@ -55,8 +55,7 @@ export default async function MacroPage() {
   const pfcRatio = calcPfcKcalRatio(kpi.weekly);
 
   return (
-    <main className="min-h-screen bg-gray-50 p-6">
-      <h1 className="mb-6 text-xl font-bold text-gray-800">栄養分析</h1>
+    <PageShell title="栄養分析">
       <div className="space-y-6">
         {/* 上段: kcal / PFC 目標差分・前週比サマリー */}
         <MacroKpiCards kpi={kpi} targets={targets} diff={diff} phase={currentPhase} />
@@ -81,6 +80,6 @@ export default async function MacroPage() {
           <FactorAnalysisPlaceholder analyticsAvailability={factorResult.availability} />
         )}
       </div>
-    </main>
+    </PageShell>
   );
 }

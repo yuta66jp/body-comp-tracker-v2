@@ -21,6 +21,7 @@ import { fetchSettings } from "@/lib/queries/settings";
 import { fetchEnrichedLogs } from "@/lib/queries/analytics";
 import { mapToAppSettings } from "@/lib/domain/settings";
 import type { CurrentPhase } from "@/lib/utils/energyBalance";
+import { PageShell } from "@/components/ui/PageShell";
 
 export const revalidate = 3600;
 
@@ -175,8 +176,7 @@ export default async function TdeePage() {
   }));
 
   return (
-    <main className="min-h-screen bg-gray-50 p-6">
-      <h1 className="mb-6 text-xl font-bold text-gray-800">TDEE・代謝分析</h1>
+    <PageShell title="TDEE・代謝分析">
 
       {/* Read error banners — graceful degradation: コンテンツはブロックしない */}
       {rawLogsResult.kind === "error" && (
@@ -233,6 +233,6 @@ export default async function TdeePage() {
           </p>
         )}
       </div>
-    </main>
+    </PageShell>
   );
 }

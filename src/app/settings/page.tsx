@@ -5,6 +5,7 @@ import { DataQualityPanel } from "@/components/settings/DataQualityPanel";
 import { calcDataQuality } from "@/lib/utils/calcDataQuality";
 import { fetchSettingsRows } from "@/lib/queries/settings";
 import { fetchDailyLogsForSettings } from "@/lib/queries/dailyLogs";
+import { PageShell } from "@/components/ui/PageShell";
 
 export const revalidate = 0;
 
@@ -24,9 +25,7 @@ export default async function SettingsPage() {
     [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date)).at(-1)?.weight ?? null;
 
   return (
-    <main className="min-h-screen bg-gray-50 p-6">
-      <h1 className="mb-6 text-xl font-bold text-gray-800">設定</h1>
-
+    <PageShell title="設定">
       {/* Read error banners — graceful degradation: コンテンツはブロックしない */}
       {settingsRowsResult.kind === "error" && (
         <div className="mb-5 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
@@ -47,6 +46,6 @@ export default async function SettingsPage() {
           <ImportSection />
         </div>
       </div>
-    </main>
+    </PageShell>
   );
 }
