@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, X } from "lucide-react";
+import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, X, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { parseCSV } from "@/lib/utils/csvParser";
 import type { ParseResult } from "@/lib/utils/csvParser";
+import { computeImportPreflight } from "@/lib/utils/importPreflight";
+import type { ImportPreflightSummary } from "@/lib/utils/importPreflight";
 
 const BATCH_SIZE = 50;
 
@@ -16,6 +18,12 @@ export function ImportSection() {
   const [result, setResult] = useState<"success" | "error" | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // 事前集計 (preflight)
+  const [preflight, setPreflight] = useState<ImportPreflightSummary | null>(null);
+  const [preflightLoading, setPreflightLoading] = useState(false);
+  // 確認ステップ
+  const [confirming, setConfirming] = useState(false);
+
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -23,13 +31,45 @@ export function ImportSection() {
     setResult(null);
     setErrorMsg(null);
     setProgress(null);
+    setPreflight(null);
+    setConfirming(false);
 
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
-      setParsed(parseCSV(text));
+      const parseResult = parseCSV(text);
+      setParsed(parseResult);
+      if (parseResult.rows.length > 0) {
+        void runPreflight(parseResult.rows, parseResult.errors.length);
+      }
     };
     reader.readAsText(file, "utf-8");
+  }
+
+  /**
+   * DB の既存 log_date を取得して事前集計を計算する。
+   * 結果は preflight state に格納し、UI がサマリーを表示できるようにする。
+   */
+  async function runPreflight(
+    rows: { log_date: string }[],
+    errorCount: number
+  ): Promise<void> {
+    setPreflightLoading(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.from("daily_logs").select("log_date");
+      if (error) {
+        setErrorMsg("既存データの取得に失敗しました: " + error.message);
+        setResult("error");
+        return;
+      }
+      const existingDates = new Set(
+        (data as { log_date: string }[]).map((r) => r.log_date)
+      );
+      setPreflight(computeImportPreflight(rows, errorCount, existingDates));
+    } finally {
+      setPreflightLoading(false);
+    }
   }
 
   function reset() {
@@ -38,11 +78,15 @@ export function ImportSection() {
     setResult(null);
     setErrorMsg(null);
     setProgress(null);
+    setPreflight(null);
+    setPreflightLoading(false);
+    setConfirming(false);
     if (fileRef.current) fileRef.current.value = "";
   }
 
   async function handleImport() {
     if (!parsed || parsed.rows.length === 0) return;
+    setConfirming(false);
     const supabase = createClient();
     const total = parsed.rows.length;
     setProgress({ done: 0, total });
@@ -63,9 +107,7 @@ export function ImportSection() {
     }
   }
 
-  const dateRange = parsed && parsed.rows.length > 0
-    ? `${parsed.rows[0].log_date} 〜 ${parsed.rows[parsed.rows.length - 1].log_date}`
-    : null;
+  const isImporting = !!progress && progress.done < progress.total;
 
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
@@ -94,17 +136,48 @@ export function ImportSection() {
             </button>
           </div>
 
-          {/* パース結果サマリー */}
+          {/* 事前集計サマリー（照合中 or 結果表示） */}
           {parsed.rows.length > 0 && (
-            <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm">
-              <p className="font-semibold text-emerald-700">
-                {parsed.rows.length.toLocaleString()} 件を読み込みました
-              </p>
-              {dateRange && <p className="mt-0.5 text-xs text-emerald-600">{dateRange}</p>}
-            </div>
+            preflightLoading ? (
+              <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-400">
+                <Loader2 size={14} className="animate-spin" />
+                <span>既存データと照合中...</span>
+              </div>
+            ) : preflight ? (
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">インポート内容</p>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="rounded-lg bg-emerald-50 px-2 py-2">
+                    <p className="text-lg font-bold text-emerald-700">{preflight.newCount.toLocaleString()}</p>
+                    <p className="text-xs text-emerald-600">新規追加</p>
+                  </div>
+                  <div className={`rounded-lg px-2 py-2 ${preflight.updateCount > 0 ? "bg-amber-50" : "bg-slate-50"}`}>
+                    <p className={`text-lg font-bold ${preflight.updateCount > 0 ? "text-amber-700" : "text-slate-400"}`}>
+                      {preflight.updateCount.toLocaleString()}
+                    </p>
+                    <p className={`text-xs ${preflight.updateCount > 0 ? "text-amber-600" : "text-slate-400"}`}>
+                      既存更新
+                    </p>
+                  </div>
+                  <div className={`rounded-lg px-2 py-2 ${preflight.skipCount > 0 ? "bg-rose-50" : "bg-slate-50"}`}>
+                    <p className={`text-lg font-bold ${preflight.skipCount > 0 ? "text-rose-600" : "text-slate-400"}`}>
+                      {preflight.skipCount.toLocaleString()}
+                    </p>
+                    <p className={`text-xs ${preflight.skipCount > 0 ? "text-rose-500" : "text-slate-400"}`}>
+                      スキップ
+                    </p>
+                  </div>
+                </div>
+                {preflight.dateRange && (
+                  <p className="mt-2 text-xs text-slate-400">
+                    対象期間: {preflight.dateRange.from} 〜 {preflight.dateRange.to}
+                  </p>
+                )}
+              </div>
+            ) : null
           )}
 
-          {/* パースエラー */}
+          {/* パースエラー詳細 */}
           {parsed.errors.length > 0 && (
             <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
               <p className="text-xs font-semibold text-amber-700 mb-1">
@@ -118,7 +191,7 @@ export function ImportSection() {
             </div>
           )}
 
-          {/* 読み込めるデータがない場合 */}
+          {/* 有効なデータがない場合 */}
           {parsed.rows.length === 0 && parsed.errors.length === 0 && (
             <p className="text-sm text-slate-400">有効なデータが見つかりませんでした。</p>
           )}
@@ -151,6 +224,63 @@ export function ImportSection() {
               {parsed.rows.length > 3 && (
                 <p className="px-3 py-1.5 text-xs text-slate-400">…他 {parsed.rows.length - 3} 件</p>
               )}
+            </div>
+          )}
+
+          {/* 確認パネル（confirming=true のとき表示） */}
+          {confirming && preflight && (
+            <div className={`rounded-xl border px-4 py-4 ${
+              preflight.updateCount > 0
+                ? "border-amber-200 bg-amber-50"
+                : "border-blue-100 bg-blue-50"
+            }`}>
+              <div className="flex items-start gap-2">
+                {preflight.updateCount > 0 ? (
+                  <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-amber-600" />
+                ) : (
+                  <Upload size={16} className="mt-0.5 flex-shrink-0 text-blue-500" />
+                )}
+                <div className="text-sm">
+                  {preflight.updateCount > 0 ? (
+                    <>
+                      <p className="font-semibold text-amber-700">
+                        {preflight.updateCount.toLocaleString()} 件の既存データが上書きされます
+                      </p>
+                      <p className="mt-0.5 text-xs text-amber-600">
+                        この操作は取り消せません。新規 {preflight.newCount} 件の追加と合わせて実行します。
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-semibold text-blue-700">
+                        {preflight.newCount.toLocaleString()} 件の新規データを追加します
+                      </p>
+                      <p className="mt-0.5 text-xs text-blue-500">
+                        既存データへの上書きはありません。
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  onClick={() => setConfirming(false)}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 hover:bg-slate-50"
+                >
+                  やめる
+                </button>
+                <button
+                  onClick={handleImport}
+                  className={`flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-semibold text-white ${
+                    preflight.updateCount > 0
+                      ? "bg-amber-500 hover:bg-amber-600"
+                      : "bg-blue-600 hover:bg-blue-700"
+                  }`}
+                >
+                  <Upload size={14} />
+                  実行する
+                </button>
+              </div>
             </div>
           )}
 
@@ -187,8 +317,8 @@ export function ImportSection() {
             </div>
           )}
 
-          {/* ボタン */}
-          {parsed.rows.length > 0 && result !== "success" && (
+          {/* ボタンエリア */}
+          {parsed.rows.length > 0 && result !== "success" && !confirming && (
             <div className="flex justify-end gap-3">
               <button
                 onClick={reset}
@@ -197,13 +327,15 @@ export function ImportSection() {
                 キャンセル
               </button>
               <button
-                onClick={handleImport}
-                disabled={!!progress && progress.done < progress.total}
+                onClick={() => setConfirming(true)}
+                disabled={isImporting || preflightLoading || !preflight}
                 className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40"
               >
-                {progress && progress.done < progress.total
+                {isImporting
                   ? <><Loader2 size={14} className="animate-spin" /> インポート中...</>
-                  : <><Upload size={14} /> インポート</>}
+                  : preflightLoading
+                    ? <><Loader2 size={14} className="animate-spin" /> 照合中...</>
+                    : <><Upload size={14} /> インポートを確認</>}
               </button>
             </div>
           )}
