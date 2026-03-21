@@ -29,11 +29,12 @@ interface BacktestComparisonProps {
 const HORIZONS = [7, 14, 30] as const;
 type Horizon = (typeof HORIZONS)[number];
 
-const MODEL_ORDER = ["NeuralProphet", "MovingAverage7d", "LinearTrend30d", "Naive"];
+const MODEL_ORDER = ["NeuralProphet", "MovingAverage7d", "LinearTrend30d", "EWLinearTrend", "Naive"];
 const MODEL_LABELS: Record<string, string> = {
   NeuralProphet:   "NeuralProphet",
   MovingAverage7d: "MA 7d",
   LinearTrend30d:  "Linear 30d",
+  EWLinearTrend:   "EW Linear",
   Naive:           "Naive",
 };
 

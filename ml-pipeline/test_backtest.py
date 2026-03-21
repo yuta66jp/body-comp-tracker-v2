@@ -28,6 +28,7 @@ from backtest import (
     compute_metrics,
     log_summary,
     make_neuralprophet_predictor,
+    predict_ew_linear,
     predict_linear,
     predict_ma7,
     predict_naive,
@@ -277,6 +278,7 @@ class TestRunBacktest:
         assert "Naive" in results
         assert "MovingAverage7d" in results
         assert "LinearTrend30d" in results
+        assert "EWLinearTrend" in results
         # 全ホライズンがキーとして存在する
         for model_results in results.values():
             assert 7 in model_results
@@ -376,6 +378,63 @@ class TestBaselinePredictors:
         pred = predict_linear(train, 7)
         # 最後の点は 70 + 0.1 * 29 = 72.9、7日後は 72.9 + 0.1 * 7 = 73.6
         assert abs(pred - 73.6) < 0.1  # 線形回帰の誤差を許容
+
+    def test_ew_linear_constant_data(self):
+        """一定体重では SMA7 も定数になり、EW 線形回帰も定数を返す。"""
+        train = self._train_df()  # 全行 70.0
+        pred7  = predict_ew_linear(train, 7)
+        pred14 = predict_ew_linear(train, 14)
+        assert abs(pred7  - 70.0) < 1e-6
+        assert abs(pred14 - 70.0) < 1e-6
+
+    def test_ew_linear_extrapolates_linear_trend(self):
+        """完全線形データでは SMA7 系列も線形になり、EW 線形回帰で外挿できること。
+
+        SMA7 は生体重より約3日ラグがあるため、予測値は生体重ベースの
+        LinearTrend30d より若干低くなる。それでも同一方向へ外挿できること。
+        """
+        # 完全な線形データ: weight = 70 + 0.1 * i (slope = 0.1 kg/day)
+        train = make_df(30, weight_start=70.0, slope=0.1)
+        pred = predict_ew_linear(train, 7)
+        # 生体重ベースなら 73.6 だが、SMA7 ラグ (~3日) により ~73.2 前後になる
+        # 少なくとも「最後の生体重 72.9 を超えた値」が返ること (上昇トレンドの外挿)
+        last_weight = 70.0 + 0.1 * 29  # = 72.9
+        assert pred > last_weight, "上昇トレンドなので予測は最後の体重より高いはず"
+        assert abs(pred - 73.6) < 0.6  # SMA7 ラグを考慮した許容範囲
+
+    def test_ew_linear_uses_sma7_input(self):
+        """ノイズが大きい単日体重でも、SMA7 入力により安定した予測ができること。
+
+        偶数日に +1.0 kg のノイズを加えた場合:
+          生体重ベース回帰はノイズに影響を受けるが、
+          SMA7 入力なら平滑化されノイズの影響が小さい。
+        """
+        # 基準: slope=-0.05 の線形トレンド
+        base = make_df(40, weight_start=75.0, slope=-0.05)
+        # 偶数インデックスに +1.0 kg のノイズを付加
+        noisy = base.copy()
+        noisy.loc[noisy.index % 2 == 0, "weight"] += 1.0
+
+        pred_noisy = predict_ew_linear(noisy, 7)
+        pred_clean = predict_ew_linear(base,  7)
+
+        # SMA7 平滑化により、ノイズありの予測がクリーンな予測の ±0.5 kg 以内に収まる
+        assert abs(pred_noisy - pred_clean) < 0.5, (
+            f"SMA7 平滑化でノイズが抑制されるはず: noisy={pred_noisy:.3f}, clean={pred_clean:.3f}"
+        )
+
+    def test_ew_linear_returns_float(self):
+        """戻り値が float であること。"""
+        train = make_df(10, weight_start=70.0, slope=-0.05)
+        result = predict_ew_linear(train, 7)
+        assert isinstance(result, float)
+
+    def test_ew_linear_single_row_fallback(self):
+        """データが少なく SMA7 が 2 件未満の場合は生体重の最終値を返す。"""
+        # 3行では min_periods=4 が満たされず SMA7 が全て NaN → フォールバック
+        train = make_df(3, weight_start=72.0)
+        pred = predict_ew_linear(train, 7)
+        assert abs(pred - train["weight"].iloc[-1]) < 1e-6
 
 
 # ── NeuralProphet PyTorch 2.6+ patch ──────────────────────────────────────────

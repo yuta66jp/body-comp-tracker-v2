@@ -20,10 +20,11 @@ const HORIZONS = [7, 14, 30] as const;
 
 // UI 表示順・色
 const MODEL_CONFIG: Record<string, { label: string; color: string; order: number }> = {
-  NeuralProphet:  { label: "NeuralProphet",   color: "#3b82f6", order: 0 },
-  Naive:          { label: "Naive",            color: "#94a3b8", order: 1 },
-  MovingAverage7d:{ label: "MA 7d",            color: "#f59e0b", order: 2 },
-  LinearTrend30d: { label: "Linear Trend 30d", color: "#10b981", order: 3 },
+  NeuralProphet:  { label: "NeuralProphet",      color: "#3b82f6", order: 0 },
+  Naive:          { label: "Naive",               color: "#94a3b8", order: 1 },
+  MovingAverage7d:{ label: "MA 7d",               color: "#f59e0b", order: 2 },
+  LinearTrend30d: { label: "Linear Trend 30d",    color: "#10b981", order: 3 },
+  EWLinearTrend:  { label: "EW Linear Trend",     color: "#8b5cf6", order: 4 },
 };
 
 const MODEL_ORDER = Object.entries(MODEL_CONFIG)
