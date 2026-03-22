@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard,
   PieChart,
@@ -33,22 +33,51 @@ export function MobileBottomNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
 
+  const triggerRef  = useRef<HTMLButtonElement>(null);
+  const firstLinkRef = useRef<HTMLAnchorElement>(null);
+
   const moreActive = MORE_ITEMS.some((item) => isActiveNav(pathname, item.href));
+
+  // Escape キーでシートを閉じ、トリガーボタンにフォーカスを戻す
+  useEffect(() => {
+    if (!moreOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMoreOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [moreOpen]);
+
+  // シートが開いたとき最初のリンクにフォーカス
+  useEffect(() => {
+    if (moreOpen) {
+      firstLinkRef.current?.focus();
+    }
+  }, [moreOpen]);
+
+  function closeSheet() {
+    setMoreOpen(false);
+    triggerRef.current?.focus();
+  }
 
   return (
     <>
       {/* ── More sheet ───────────────────────────────────────────────── */}
       {moreOpen && (
         <>
-          {/* backdrop — タップで閉じる */}
+          {/* backdrop — タップで閉じる・半透明 dim で開閉を視覚的に示す */}
           <div
-            className="fixed inset-0 z-30"
-            onClick={() => setMoreOpen(false)}
+            className="fixed inset-0 z-30 bg-black/30"
+            onClick={closeSheet}
             aria-hidden="true"
           />
-          {/* sheet 本体。タブバー高 + Safe Area 分だけ下から浮かせる */}
+          {/* sheet 本体。role="dialog" + aria-modal でスクリーンリーダーに認識させる */}
           <div
-            role="menu"
+            role="dialog"
+            aria-modal="true"
             aria-label="その他のページ"
             className="fixed left-0 right-0 z-40 border-t border-slate-200 bg-white shadow-lg"
             style={{
@@ -57,15 +86,15 @@ export function MobileBottomNav() {
             }}
           >
             <div className="mx-auto flex max-w-screen-xl flex-col px-4 py-2">
-              {MORE_ITEMS.map(({ href, label, icon: Icon }) => {
+              {MORE_ITEMS.map(({ href, label, icon: Icon }, index) => {
                 const active = isActiveNav(pathname, href);
                 return (
                   <Link
                     key={href}
                     href={href}
-                    role="menuitem"
+                    ref={index === 0 ? firstLinkRef : undefined}
                     aria-current={active ? "page" : undefined}
-                    onClick={() => setMoreOpen(false)}
+                    onClick={closeSheet}
                     className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors ${
                       active
                         ? "bg-blue-50 text-blue-700"
@@ -114,9 +143,10 @@ export function MobileBottomNav() {
 
           {/* その他ボタン */}
           <button
+            ref={triggerRef}
             type="button"
             aria-expanded={moreOpen}
-            aria-haspopup="menu"
+            aria-haspopup="dialog"
             aria-label="その他のナビゲーションを開く"
             onClick={() => setMoreOpen((prev) => !prev)}
             className={`flex flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[10px] font-medium transition-colors ${
