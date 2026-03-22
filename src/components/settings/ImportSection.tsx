@@ -18,6 +18,7 @@ export function ImportSection() {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [result, setResult] = useState<"success" | "error" | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [importCount, setImportCount] = useState<{ saved: number; skipped: number } | null>(null);
 
   // 事前集計 (preflight)
   const [preflight, setPreflight] = useState<ImportPreflightSummary | null>(null);
@@ -34,6 +35,7 @@ export function ImportSection() {
     setProgress(null);
     setPreflight(null);
     setConfirming(false);
+    setImportCount(null);
 
     const reader = new FileReader();
     reader.onload = (ev) => {
@@ -82,6 +84,7 @@ export function ImportSection() {
     setPreflight(null);
     setPreflightLoading(false);
     setConfirming(false);
+    setImportCount(null);
     if (fileRef.current) fileRef.current.value = "";
   }
 
@@ -92,14 +95,20 @@ export function ImportSection() {
     setProgress({ done: 0, total });
     setResult(null);
     setErrorMsg(null);
+    setImportCount(null);
 
     try {
+      let totalSaved = 0;
+      let totalSkipped = 0;
       for (let i = 0; i < total; i += BATCH_SIZE) {
         const batch = parsed.rows.slice(i, i + BATCH_SIZE);
         const res = await importDailyLogs(batch);
         if (!res.ok) throw new Error(res.message);
+        totalSaved += res.count;
+        totalSkipped += res.skipped;
         setProgress({ done: Math.min(i + BATCH_SIZE, total), total });
       }
+      setImportCount({ saved: totalSaved, skipped: totalSkipped });
       setResult("success");
     } catch (e) {
       setResult("error");
@@ -301,10 +310,15 @@ export function ImportSection() {
           )}
 
           {/* 結果 */}
-          {result === "success" && (
+          {result === "success" && importCount && (
             <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm font-medium text-emerald-600">
               <CheckCircle2 size={16} />
-              {parsed.rows.length.toLocaleString()} 件をインポートしました（既存データは上書き）
+              <span>
+                {importCount.saved.toLocaleString()} 件をインポートしました
+                {importCount.skipped > 0 && (
+                  <span className="ml-1 text-amber-600">（{importCount.skipped.toLocaleString()} 件はスキップ）</span>
+                )}
+              </span>
             </div>
           )}
           {result === "error" && (
