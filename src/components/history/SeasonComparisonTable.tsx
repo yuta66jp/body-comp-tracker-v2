@@ -243,11 +243,11 @@ export function SeasonComparisonTable({
       {/* ── 凡例 ── */}
       <div className="flex flex-wrap items-center gap-4 border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400">
         <span className="flex items-center gap-1">
-          <TrendingDown size={11} className="text-emerald-500" />
+          <TrendingDown size={11} className="text-emerald-600" />
           {isCut ? "今季が前回より軽い (先行)" : "今季が前回より重い (先行)"}
         </span>
         <span className="flex items-center gap-1">
-          <TrendingUp size={11} className="text-amber-500" />
+          <TrendingUp size={11} className="text-amber-600" />
           {isCut ? "今季が前回より重い (遅れ)" : "今季が前回より軽い (遅れ)"}
         </span>
         <span className="ml-auto">

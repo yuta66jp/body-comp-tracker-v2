@@ -408,7 +408,7 @@ export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerPro
           {hydratedLog.protein  !== null && <span> / P {hydratedLog.protein}g</span>}
           {hydratedLog.fat      !== null && <span> / F {hydratedLog.fat}g</span>}
           {hydratedLog.carbs    !== null && <span> / C {hydratedLog.carbs}g</span>}
-          <span className="ml-1 text-amber-500">（更新する場合はカートから追加）</span>
+          <span className="ml-1 text-amber-600">（更新する場合はカートから追加）</span>
         </div>
       )}
 

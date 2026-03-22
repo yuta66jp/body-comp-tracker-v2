@@ -158,7 +158,7 @@ function PrereqMessage({
       {icon === "info" ? (
         <Info size={14} className="shrink-0 text-slate-400" />
       ) : (
-        <AlertTriangle size={14} className="shrink-0 text-amber-500" />
+        <AlertTriangle size={14} className="shrink-0 text-amber-600" />
       )}
       <span>{children}</span>
     </div>

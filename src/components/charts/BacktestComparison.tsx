@@ -248,7 +248,7 @@ export function BacktestComparison({
                         >
                           {hasSma7Data ? fmt3(sma7Mae) : "—"}
                           {isSma7Best && hasSma7Data && (
-                            <span className="ml-1 text-[9px] text-emerald-400">★</span>
+                            <span className="ml-1 text-[9px] text-emerald-600">★</span>
                           )}
                         </td>
                       </Fragment>

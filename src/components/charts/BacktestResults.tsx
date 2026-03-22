@@ -301,8 +301,8 @@ export function BacktestResults({ run, metrics }: Props) {
       {/* 指標の読み方 */}
       <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
         <div className="flex items-start gap-2">
-          <Info size={16} className="mt-0.5 flex-shrink-0 text-amber-500" />
-          <div className="space-y-1 text-xs text-amber-800">
+          <Info size={16} className="mt-0.5 flex-shrink-0 text-amber-600" />
+          <div className="space-y-1 text-xs text-amber-600">
             <p className="font-semibold">指標の読み方</p>
             <p>
               <strong>MAE</strong> = 予測と実測の平均絶対誤差 (kg)。例えば MAE=0.5 なら平均 ±0.5 kg の誤差。

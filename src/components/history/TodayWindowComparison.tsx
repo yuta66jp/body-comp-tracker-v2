@@ -70,8 +70,8 @@ function diffColorClass(ahead: boolean | null): string {
 
 function DiffIcon({ ahead }: { ahead: boolean | null }) {
   if (ahead === null) return <Minus size={12} className="text-slate-300" />;
-  if (ahead) return <TrendingDown size={12} className="text-emerald-500" />;
-  return <TrendingUp size={12} className="text-amber-500" />;
+  if (ahead) return <TrendingDown size={12} className="text-emerald-600" />;
+  return <TrendingUp size={12} className="text-amber-600" />;
 }
 
 // ─── 自動所見生成 ────────────────────────────────────────────────────────────
@@ -294,11 +294,11 @@ export function TodayWindowComparison({
       {/* ── 凡例 ── */}
       <div className="flex flex-wrap items-center gap-4 border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400">
         <span className="flex items-center gap-1">
-          <TrendingDown size={11} className="text-emerald-500" />
+          <TrendingDown size={11} className="text-emerald-600" />
           {isCut ? "今季が前回より軽い（先行）" : "今季が前回より重い（先行）"}
         </span>
         <span className="flex items-center gap-1">
-          <TrendingUp size={11} className="text-amber-500" />
+          <TrendingUp size={11} className="text-amber-600" />
           {isCut ? "今季が前回より重い（遅れ）" : "今季が前回より軽い（遅れ）"}
         </span>
         <span className="ml-auto text-slate-300">ウィンドウ ±{windowDays}日</span>

@@ -62,8 +62,8 @@ function diffColor(ahead: boolean | null): string {
 /** diff のアイコン */
 function DiffIcon({ ahead }: { ahead: boolean | null }) {
   if (ahead === null) return <Minus size={12} className="text-slate-300" />;
-  if (ahead) return <TrendingDown size={12} className="text-emerald-500" />;
-  return <TrendingUp size={12} className="text-amber-500" />;
+  if (ahead) return <TrendingDown size={12} className="text-emerald-600" />;
+  return <TrendingUp size={12} className="text-amber-600" />;
 }
 
 // ─── 自動所見生成 ────────────────────────────────────────────────────────────
