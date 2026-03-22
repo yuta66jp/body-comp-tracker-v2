@@ -52,7 +52,7 @@ def load_csv(path: str) -> list[dict]:
 
 def main() -> None:
     if len(sys.argv) < 2:
-        print(__doc__)
+        logger.info("%s", __doc__)
         sys.exit(1)
 
     csv_path = sys.argv[1]
