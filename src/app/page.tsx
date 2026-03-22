@@ -224,7 +224,7 @@ export default async function DashboardPage() {
         </p>
       ) : logs.length > 0 ? (
         <>
-          <KpiCards logs={logs} settings={settings} avgTdee={latestTdee} />
+          <KpiCards logs={logs} settings={settings} avgTdee={latestTdee} currentWeight={readinessMetrics.current_weight} />
           <GoalNavigator
             metrics={readinessMetrics}
             phase={phase}

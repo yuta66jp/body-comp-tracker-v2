@@ -11,6 +11,7 @@ interface KpiCardsProps {
   logs: DashboardDailyLog[];
   settings: AppSettings;
   avgTdee: number | null;
+  currentWeight: number | null;
 }
 
 interface KpiCardProps {
@@ -54,12 +55,8 @@ function KpiCard({ label, value, unit, sub, icon, accent, iconColor, trendDir, t
   );
 }
 
-export function KpiCards({ logs, settings }: KpiCardsProps) {
+export function KpiCards({ logs, settings, currentWeight }: KpiCardsProps) {
   const sorted = [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date));
-  const latest = sorted[sorted.length - 1];
-
-  // --- 現在体重（最新の生体重。目標到達予定の計算には使わない）---
-  const currentWeight = latest?.weight ?? null;
 
   // --- 基準日 (todayStr) ---
   // 以降の全暦日計算で共通して使う。JST 固定で UTC サーバー上でもズレない。
