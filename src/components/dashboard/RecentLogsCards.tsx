@@ -18,6 +18,7 @@ import { ArrowDown, ArrowUp, Minus } from "lucide-react";
 import type { DashboardDailyLog } from "@/lib/supabase/types";
 import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayTags";
 import { formatConditionSummary } from "@/lib/utils/trainingType";
+import { computeWeightDelta, buildRecentLogArrays } from "@/lib/utils/recentLogsUtils";
 
 interface RecentLogsCardsProps {
   logs: DashboardDailyLog[];
@@ -26,22 +27,7 @@ interface RecentLogsCardsProps {
 }
 
 export function RecentLogsCards({ logs, seasonMap, currentSeason }: RecentLogsCardsProps) {
-  const sorted = [...logs]
-    .filter((d) => d.weight !== null)
-    .sort((a, b) => b.log_date.localeCompare(a.log_date))
-    .slice(0, 14);
-
-  const ascending = [...logs]
-    .filter((d) => d.weight !== null)
-    .sort((a, b) => a.log_date.localeCompare(b.log_date));
-
-  function getDelta(log: DashboardDailyLog): number | null {
-    const idx = ascending.findIndex((d) => d.log_date === log.log_date);
-    if (idx <= 0) return null;
-    const prev = ascending[idx - 1];
-    if (prev.weight === null || log.weight === null) return null;
-    return log.weight - prev.weight;
-  }
+  const { sorted, ascending } = buildRecentLogArrays(logs);
 
   if (sorted.length === 0) {
     return (
@@ -52,7 +38,7 @@ export function RecentLogsCards({ logs, seasonMap, currentSeason }: RecentLogsCa
   return (
     <div className="divide-y divide-slate-50">
       {sorted.map((log) => {
-        const delta = getDelta(log);
+        const delta = computeWeightDelta(ascending, log);
         const DeltaIcon =
           delta === null ? null : delta > 0 ? ArrowUp : delta < 0 ? ArrowDown : Minus;
         const season = seasonMap?.get(log.log_date) ?? currentSeason;

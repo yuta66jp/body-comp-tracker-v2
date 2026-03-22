@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, Minus } from "lucide-react";
 import type { DashboardDailyLog } from "@/lib/supabase/types";
 import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayTags";
 import { formatConditionSummary } from "@/lib/utils/trainingType";
+import { computeWeightDelta, buildRecentLogArrays } from "@/lib/utils/recentLogsUtils";
 
 interface RecentLogsTableProps {
   logs: DashboardDailyLog[];
@@ -13,22 +14,7 @@ interface RecentLogsTableProps {
 }
 
 export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeason }: RecentLogsTableProps) {
-  const sorted = [...logs]
-    .filter((d) => d.weight !== null)
-    .sort((a, b) => b.log_date.localeCompare(a.log_date))
-    .slice(0, 14);
-
-  const ascending = [...logs]
-    .filter((d) => d.weight !== null)
-    .sort((a, b) => a.log_date.localeCompare(b.log_date));
-
-  function getDelta(log: DashboardDailyLog): number | null {
-    const idx = ascending.findIndex((d) => d.log_date === log.log_date);
-    if (idx <= 0) return null;
-    const prev = ascending[idx - 1];
-    if (prev.weight === null || log.weight === null) return null;
-    return log.weight - prev.weight;
-  }
+  const { sorted, ascending } = buildRecentLogArrays(logs);
 
   /** 直前ログとのカロリー差分。calories / 前回 calories いずれかが null なら null */
   function getCalDelta(log: DashboardDailyLog): number | null {
@@ -53,7 +39,7 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
         </thead>
         <tbody className="divide-y divide-slate-50">
           {sorted.map((log) => {
-            const delta = getDelta(log);
+            const delta = computeWeightDelta(ascending, log);
             const DeltaIcon = delta === null ? null : delta > 0 ? ArrowUp : delta < 0 ? ArrowDown : Minus;
             const conditionSummary = formatConditionSummary({
               had_bowel_movement: log.had_bowel_movement as boolean | null,
