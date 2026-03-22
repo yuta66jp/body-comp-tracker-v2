@@ -88,6 +88,26 @@ describe("calcWeightTrend", () => {
     });
   });
 
+  describe("不正日付", () => {
+    it("不正な日付文字列が含まれる場合は Error をスローする", () => {
+      expect(() =>
+        calcWeightTrend([
+          { date: "2026-03-01", weight: 75.0 },
+          { date: "not-a-date", weight: 74.9 },
+        ])
+      ).toThrow("calcWeightTrend: invalid date \"not-a-date\"");
+    });
+
+    it("最初の日付が不正な場合も Error をスローする", () => {
+      expect(() =>
+        calcWeightTrend([
+          { date: "2026-99-99", weight: 75.0 },
+          { date: "2026-03-02", weight: 74.9 },
+        ])
+      ).toThrow("calcWeightTrend: invalid date \"2026-99-99\"");
+    });
+  });
+
   describe("rSquared", () => {
     it("完全な線形トレンドで rSquared ≈ 1", () => {
       const data = [
