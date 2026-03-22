@@ -7,6 +7,7 @@ import { parseCSV } from "@/lib/utils/csvParser";
 import type { ParseResult } from "@/lib/utils/csvParser";
 import { computeImportPreflight } from "@/lib/utils/importPreflight";
 import type { ImportPreflightSummary } from "@/lib/utils/importPreflight";
+import { importDailyLogs } from "@/app/actions/importDailyLogs";
 
 const BATCH_SIZE = 50;
 
@@ -87,7 +88,6 @@ export function ImportSection() {
   async function handleImport() {
     if (!parsed || parsed.rows.length === 0) return;
     setConfirming(false);
-    const supabase = createClient();
     const total = parsed.rows.length;
     setProgress({ done: 0, total });
     setResult(null);
@@ -96,8 +96,8 @@ export function ImportSection() {
     try {
       for (let i = 0; i < total; i += BATCH_SIZE) {
         const batch = parsed.rows.slice(i, i + BATCH_SIZE);
-        const { error } = await supabase.from("daily_logs").upsert(batch as never, { onConflict: "log_date" });
-        if (error) throw new Error(error.message);
+        const res = await importDailyLogs(batch);
+        if (!res.ok) throw new Error(res.message);
         setProgress({ done: Math.min(i + BATCH_SIZE, total), total });
       }
       setResult("success");
