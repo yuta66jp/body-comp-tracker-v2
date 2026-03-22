@@ -141,15 +141,15 @@ describe("calcActualPacePerTwoWeeks", () => {
   });
 
   test("データが2件あれば計算できる", () => {
-    // calcWeightTrend はインデックス基準: 2点の場合 slope = Δweight/1 per index
-    // daysAgo(today, 13) と today の 2点: weight 70→69 → slope = -1 per index × 14 = -14 kg/2週
+    // calcWeightTrend は実日数差基準: 2点間の日数で slope を算出
+    // daysAgo(today, 13) と today の 2点: weight 70→69 → slope = -1/13 kg/日 × 14 = -14/13 kg/2週
     const logs = [
       { date: daysAgo(today, 13), weight: 70 },
       { date: today, weight: 69 },
     ];
     const result = calcActualPacePerTwoWeeks(logs, today);
     expect(result).not.toBeNull();
-    expect(result!).toBeCloseTo(-14, 5);
+    expect(result!).toBeCloseTo(-14 / 13, 5);
   });
 
   test("直近14日より古いデータは無視される", () => {
