@@ -86,6 +86,7 @@ function FormSection({ id, title, subtitle, isOpen, onToggle, children, border =
           onClick={onToggle}
           aria-expanded={isOpen}
           aria-controls={panelId}
+          aria-label={`${title}を${isOpen ? "閉じる" : "開く"}`}
           className="sm:hidden ml-3 flex-shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
         >
           <ChevronDown
@@ -295,6 +296,7 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
             onClick={() => toggleSection("season")}
             aria-expanded={openSections.has("season")}
             aria-controls="settings-panel-season"
+            aria-label={`シーズン・コンテストを${openSections.has("season") ? "閉じる" : "開く"}`}
             className="sm:hidden ml-3 flex-shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
           >
             <ChevronDown
