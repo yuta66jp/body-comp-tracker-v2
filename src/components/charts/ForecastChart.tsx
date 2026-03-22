@@ -91,10 +91,10 @@ export function ForecastChart({
     viewStartStr = addDaysStr(latestLogDate, -30) ?? today; // 最新測定日を含む31日間
     viewEndStr = latestLogDate;
   } else if (rangeTab === "60d") {
-    // 60d: 30日前を起点に固定60日窓（start + 60日で終端固定）
+    // 60d: 30日前を起点に固定60日窓（start から 59日後 = inclusive で60日）
     // 「直近1ヶ月の実績 + 近未来予測」を一定スパンで確認できるビュー
     viewStartStr = addDaysStr(latestLogDate, -30) ?? today;
-    viewEndStr = addDaysStr(viewStartStr, 60) ?? today;
+    viewEndStr = addDaysStr(viewStartStr, 59) ?? today;
   } else {
     // default: 45日前〜 contestDate+15 (なければ lastForecastDate / lastEwDate の最大)
     viewStartStr = addDaysStr(today, -45) ?? today;
