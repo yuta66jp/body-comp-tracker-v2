@@ -45,7 +45,7 @@ function confidenceLevel(sampleCount: number): "high" | "medium" | "low" {
 }
 
 const CONFIDENCE_CFG = {
-  high:   { label: "参考度: 高",   className: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+  high:   { label: "参考度: 高",   className: "text-emerald-600 bg-emerald-50 border-emerald-200" },
   medium: { label: "参考度: 中",   className: "text-amber-700  bg-amber-50  border-amber-200"   },
   low:    { label: "参考度: 低め", className: "text-rose-600   bg-rose-50   border-rose-200"     },
 };
@@ -82,7 +82,7 @@ export function FactorAnalysisPlaceholder({
         </div>
       ) : (
         <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-4">
-          <p className="text-sm font-medium text-amber-800">分析結果がまだありません</p>
+          <p className="text-sm font-medium text-amber-600">分析結果がまだありません</p>
           <p className="mt-1.5 text-xs text-amber-700">
             ML バッチ（analyze.py）が実行されると結果が表示されます。
             GitHub Actions の日次 cron（毎日 AM 3:00 JST）で自動実行されます。
@@ -160,7 +160,7 @@ const STABILITY_CFG: Record<
   StabilityLabel,
   { label: string; className: string; tooltip: string } | null
 > = {
-  high:        { label: "安定", className: "text-emerald-700 bg-emerald-50 border-emerald-200", tooltip: "重要度がデータの変動に対して安定しています" },
+  high:        { label: "安定", className: "text-emerald-600 bg-emerald-50 border-emerald-200", tooltip: "重要度がデータの変動に対して安定しています" },
   medium:      { label: "中程度", className: "text-amber-700 bg-amber-50 border-amber-200",    tooltip: "ある程度安定していますが解釈には注意が必要です" },
   low:         { label: "不安定", className: "text-rose-600 bg-rose-50 border-rose-200",       tooltip: "データの揺らぎで重要度が変わりやすく、強い解釈は避けてください" },
   unavailable: null,  // バッジ非表示

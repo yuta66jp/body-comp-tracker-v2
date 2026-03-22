@@ -117,7 +117,7 @@ export default async function ForecastAccuracyPage() {
               <span className="ml-2 text-xs font-normal text-slate-400">
                 ({sma7Run.created_at.slice(0, 10)} 実行)
               </span>
-              <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+              <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">
                 ノイズ除去済み
               </span>
             </h2>
@@ -133,7 +133,7 @@ export default async function ForecastAccuracyPage() {
           </div>
         ) : (
           /* sma7 未実行の場合の誘導 */
-          <div className="rounded-xl border border-dashed border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-700">
+          <div className="rounded-xl border border-dashed border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-600">
             <p className="font-semibold">7日平均ベース評価を追加するには:</p>
             <code className="mt-2 block rounded bg-emerald-100 px-3 py-1.5 text-xs font-mono">
               python ml-pipeline/backtest.py --series-type sma7

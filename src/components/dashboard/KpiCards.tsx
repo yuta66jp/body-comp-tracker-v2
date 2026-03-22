@@ -30,7 +30,7 @@ function KpiCard({ label, value, unit, sub, icon, accent, iconColor, trendDir, t
   const isGood = trendDir === undefined || trendDir === "flat"
     ? null
     : trendDir === trendPositive;
-  const trendColor = isGood === null ? "text-slate-400" : isGood ? "text-emerald-500" : "text-rose-500";
+  const trendColor = isGood === null ? "text-slate-400" : isGood ? "text-emerald-600" : "text-rose-500";
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
@@ -159,7 +159,7 @@ export function KpiCards({ logs, settings }: KpiCardsProps) {
             goalReachDate
               ? "text-teal-600"
               : goalReachLabel === "達成済み ✓"
-              ? "text-emerald-500"
+              ? "text-emerald-600"
               : "text-slate-400"
           }`}>
             {goalReachLabel}

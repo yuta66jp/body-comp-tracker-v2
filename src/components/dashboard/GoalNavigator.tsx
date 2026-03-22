@@ -260,7 +260,7 @@ export function GoalNavigator({
             className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
               isCut
                 ? "bg-blue-100 text-blue-700"
-                : "bg-emerald-100 text-emerald-700"
+                : "bg-emerald-100 text-emerald-600"
             }`}
           >
             {phase}
@@ -516,7 +516,7 @@ export function GoalNavigator({
 
             {/* 警告あり補足 */}
             {monthlyGoalProgress.hasWarnings && (
-              <span className="text-[10px] text-amber-500">⚠ 計画に警告あり</span>
+              <span className="text-[10px] text-amber-600">⚠ 計画に警告あり</span>
             )}
           </div>
         </div>

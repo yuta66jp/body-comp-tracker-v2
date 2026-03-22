@@ -49,7 +49,7 @@ const STAGNATION_CONFIG: Record<
 > = {
   advancing: {
     label: "順調",
-    color: "text-emerald-700",
+    color: "text-emerald-600",
     bg: "bg-emerald-50 border-emerald-200",
     icon: CheckCircle2,
   },

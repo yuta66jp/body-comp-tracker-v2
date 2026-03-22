@@ -36,18 +36,18 @@ function getPaceInfo(rate: number, isBulk: boolean): PaceInfo {
   if (isBulk) {
     if (rate < -1.5) return { label: "減少しすぎています",  note: "増量方針から外れている可能性があります",     color: "text-rose-500"    };
     if (rate < -1.0) return { label: "減少傾向です",        note: "摂取量不足の可能性があります",               color: "text-rose-500"    };
-    if (rate < -0.5) return { label: "やや減少しています",  note: "増量にはやや不足気味です",                   color: "text-amber-500"   };
-    if (rate < -0.1) return { label: "やや緩やかです",      note: "もう少し増量幅を出せる可能性があります",     color: "text-amber-500"   };
-    if (rate < +0.1) return { label: "横ばいです",          note: "維持寄りで、増量としては控えめです",         color: "text-amber-500"   };
+    if (rate < -0.5) return { label: "やや減少しています",  note: "増量にはやや不足気味です",                   color: "text-amber-600"   };
+    if (rate < -0.1) return { label: "やや緩やかです",      note: "もう少し増量幅を出せる可能性があります",     color: "text-amber-600"   };
+    if (rate < +0.1) return { label: "横ばいです",          note: "維持寄りで、増量としては控えめです",         color: "text-amber-600"   };
     if (rate < +0.5) return { label: "適正ペースです",      note: "良いペースで進んでいます",                   color: "text-emerald-600" };
     return             { label: "増量が速すぎます",         note: "脂肪増加が大きくなる可能性があります",       color: "text-rose-500"    };
   }
   // Cut（デフォルト）
   if (rate < -1.5) return { label: "減量が速すぎます",    note: "筋量維持や回復に影響する可能性があります",   color: "text-rose-500"    };
-  if (rate < -1.0) return { label: "やや速めです",        note: "コンディション低下に注意してください",       color: "text-amber-500"   };
+  if (rate < -1.0) return { label: "やや速めです",        note: "コンディション低下に注意してください",       color: "text-amber-600"   };
   if (rate < -0.5) return { label: "適正ペースです",      note: "良いペースで進んでいます",                   color: "text-emerald-600" };
-  if (rate < -0.1) return { label: "やや緩やかです",      note: "もう少し減量幅を出せる可能性があります",     color: "text-amber-500"   };
-  if (rate < +0.1) return { label: "横ばいです",          note: "摂取量または活動量の調整余地があります",     color: "text-amber-500"   };
+  if (rate < -0.1) return { label: "やや緩やかです",      note: "もう少し減量幅を出せる可能性があります",     color: "text-amber-600"   };
+  if (rate < +0.1) return { label: "横ばいです",          note: "摂取量または活動量の調整余地があります",     color: "text-amber-600"   };
   if (rate < +0.5) return { label: "やや増加しています",  note: "減量方針から少し外れている可能性があります", color: "text-rose-500"    };
   return             { label: "増加しています",           note: "摂取量や特殊日の影響を確認してください",     color: "text-rose-500"    };
 }
