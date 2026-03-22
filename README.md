@@ -223,7 +223,11 @@ ForecastChart（`src/components/charts/ForecastChart.tsx`）は 3 タブ（7日 
 
 ---
 
-## 今後の方針
+## 開発状況 / 今後の方針
+
+本プロジェクトは主要な実装フェーズを一旦完了し、現在は運用期間に入っています。
+
+運用期間の目的、想定期間、condition 系特徴量の段階投入、SHAP ベース説明への移行、read projection / window 最適化の扱いについては `docs/project-status.md` を参照してください。
 
 ### condition 系特徴量の段階投入（データ蓄積後）
 
