@@ -7,8 +7,8 @@
  * カスタム描画する。
  *
  * レイアウト仕様:
- *   セル高さ: h-24（モバイル）/ h-28（PC）固定。ログ有無でサイズが変わらない。
- *   td 内の absolute div + overflow-hidden でコンテンツを固定高に収める。
+ *   セル高さ: min-h-24（モバイル）/ min-h-28（PC）。コンテンツ量に応じて伸びる。
+ *   タグが複数ある日もセル内情報が欠けないよう、固定高を廃止した。
  *
  *   情報の縦方向優先順位:
  *     1. 日付（補助・小・左上）
@@ -51,8 +51,9 @@ const CalendarContext = createContext<CalendarCtx>({
 });
 
 // ── セル高さ定数 ─────────────────────────────────────────────────────────────
-// h-24 = 96px (モバイル)、h-28 = 112px (PC)
-const CELL_H = "h-24 sm:h-28";
+// min-h-24 = 96px 以上 (モバイル)、min-h-28 = 112px 以上 (PC)
+// コンテンツ量に応じてセルが伸び、行内の最大高に揃う（table レイアウトの仕様）
+const CELL_H = "min-h-24 sm:min-h-28";
 
 // ── 曜日タイプ判定 ────────────────────────────────────────────────────────────
 
@@ -113,9 +114,8 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
     ? "text-blue-600 font-bold"
     : DATE_NUM_COLOR[weekdayType];
 
-  // absolute + overflow-hidden で固定高を保証
-  const innerCls =
-    `absolute inset-0 ${CELL_H} overflow-hidden flex flex-col p-1 sm:p-1.5`;
+  // 非 absolute: td が min-h を持つため、コンテンツ量に応じて td ごと伸びる
+  const innerCls = "flex flex-col p-1 sm:p-1.5";
 
   return (
     <td className={tdCls}>
