@@ -94,6 +94,7 @@ body-comp-tracker-v2/
 │   └── requirements-ci.txt         # CI用軽量依存 (supabase 不要)
 ├── .github/workflows/
 │   ├── ml-daily.yml                # 日次バッチ (cron: 毎日 AM 3:00 JST)
+│   ├── ml-backtest.yml             # 週次 backtest バッチ (cron: 毎週金曜夜間 → 土曜 AM 4:00 JST)
 │   └── ci.yml                      # Lint + TypeCheck + Build
 ├── CLAUDE.md                       # このファイル
 ├── README.md                       # 人間向け入口文書
