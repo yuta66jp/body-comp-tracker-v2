@@ -4,17 +4,19 @@ import { useState, useMemo } from "react";
 import { Search, Plus, Check } from "lucide-react";
 import { useFoodList } from "@/lib/hooks/useFoodList";
 import { MenuPicker } from "./MenuPicker";
+import { TempFoodForm } from "./TempFoodForm";
 import type { FoodMaster } from "@/lib/supabase/types";
-import type { CartItem } from "./Cart";
+import type { CartItem, TempFoodItem } from "./Cart";
 
 interface FoodPickerProps {
   onAdd: (food: FoodMaster) => void;
   onAddSet: (items: CartItem[]) => void;
+  onAddTemp: (food: TempFoodItem) => void;
 }
 
-type Tab = "single" | "set";
+type Tab = "single" | "set" | "temp";
 
-export function FoodPicker({ onAdd, onAddSet }: FoodPickerProps) {
+export function FoodPicker({ onAdd, onAddSet, onAddTemp }: FoodPickerProps) {
   const { data: foods = [], isLoading } = useFoodList();
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("single");
@@ -55,11 +57,17 @@ export function FoodPicker({ onAdd, onAddSet }: FoodPickerProps) {
     return result.slice(0, 30);
   }, [foods, query, category]);
 
+  const TAB_LABELS: Record<Tab, string> = {
+    single: "単品",
+    set: "[SET] セット",
+    temp: "一時食品",
+  };
+
   return (
     <div className="flex flex-col gap-2">
-      {/* 単品 / セット タブ */}
+      {/* 単品 / セット / 一時食品 タブ */}
       <div role="tablist" className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-        {(["single", "set"] as Tab[]).map((t) => (
+        {(["single", "set", "temp"] as Tab[]).map((t) => (
           <button
             key={t}
             id={`foodpicker-tab-${t}`}
@@ -73,7 +81,7 @@ export function FoodPicker({ onAdd, onAddSet }: FoodPickerProps) {
                 : "text-slate-400 hover:text-slate-600"
             }`}
           >
-            {t === "single" ? "単品" : "[SET] セット"}
+            {TAB_LABELS[t]}
           </button>
         ))}
       </div>
@@ -81,6 +89,10 @@ export function FoodPicker({ onAdd, onAddSet }: FoodPickerProps) {
       {tab === "set" ? (
         <div role="tabpanel" id="foodpicker-panel-set" aria-labelledby="foodpicker-tab-set">
           <MenuPicker foods={foods} onAddSet={onAddSet} />
+        </div>
+      ) : tab === "temp" ? (
+        <div role="tabpanel" id="foodpicker-panel-temp" aria-labelledby="foodpicker-tab-temp">
+          <TempFoodForm onAdd={onAddTemp} />
         </div>
       ) : (
         <div role="tabpanel" id="foodpicker-panel-single" aria-labelledby="foodpicker-tab-single">

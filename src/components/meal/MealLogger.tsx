@@ -5,7 +5,7 @@ import { CheckCircle2, AlertCircle, Loader2, PenLine, X, Undo2 } from "lucide-re
 import { saveDailyLog } from "@/app/actions/saveDailyLog";
 import { FoodPicker } from "./FoodPicker";
 import { Cart, calcCartTotals } from "./Cart";
-import type { CartItem } from "./Cart";
+import type { CartItem, TempFoodItem } from "./Cart";
 import type { FoodMaster, DailyLog } from "@/lib/supabase/types";
 import { toJstDateStr } from "@/lib/utils/date";
 import {
@@ -183,13 +183,18 @@ export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerPro
   function addFood(food: FoodMaster) {
     setCartEverHadItems(true);
     setCartItems((prev) => {
-      const existing = prev.findIndex((item) => item.food.name === food.name);
+      const existing = prev.findIndex(
+        (item) => item.kind === "regular" && item.food.name === food.name
+      );
       if (existing >= 0) {
-        return prev.map((item, i) =>
-          i === existing ? { ...item, grams: item.grams + 100 } : item
-        );
+        return prev.map((item, i) => {
+          if (i === existing && item.kind === "regular") {
+            return { ...item, grams: item.grams + 100 };
+          }
+          return item;
+        });
       }
-      return [...prev, { food, grams: 100 }];
+      return [...prev, { kind: "regular" as const, food, grams: 100 }];
     });
   }
 
@@ -198,15 +203,26 @@ export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerPro
     setCartItems((prev) => {
       const next = [...prev];
       for (const item of items) {
-        const existing = next.findIndex((c) => c.food.name === item.food.name);
+        if (item.kind !== "regular") continue;
+        const existing = next.findIndex(
+          (c) => c.kind === "regular" && c.food.name === item.food.name
+        );
         if (existing >= 0) {
-          next[existing] = { ...next[existing], grams: next[existing].grams + item.grams };
+          const existingItem = next[existing];
+          if (existingItem.kind === "regular") {
+            next[existing] = { ...existingItem, grams: existingItem.grams + item.grams };
+          }
         } else {
           next.push(item);
         }
       }
       return next;
     });
+  }
+
+  function addTempFood(food: TempFoodItem) {
+    setCartEverHadItems(true);
+    setCartItems((prev) => [...prev, { kind: "temp" as const, food }]);
   }
 
   async function handleSave() {
@@ -553,7 +569,7 @@ export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerPro
       {/* 食品検索 */}
       <div>
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">食品を追加</p>
-        <FoodPicker onAdd={addFood} onAddSet={addFromMenu} />
+        <FoodPicker onAdd={addFood} onAddSet={addFromMenu} onAddTemp={addTempFood} />
       </div>
 
       {/* カート */}

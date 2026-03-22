@@ -4,10 +4,30 @@ import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import type { FoodMaster } from "@/lib/supabase/types";
 
-export interface CartItem {
-  food: FoodMaster;
+/**
+ * 食品DB未登録の一時食品。
+ * - grams: 摂取グラム数（表示用）
+ * - calories / protein / fat / carbs: 今回の摂取量そのものの値（100g換算ではない）
+ * - tempId: セッション内の一意識別子（同名食品を複数追加できるようにするため）
+ */
+export interface TempFoodItem {
+  tempId: string;
+  name: string;
   grams: number;
+  calories: number;
+  protein: number;
+  fat: number;
+  carbs: number;
 }
+
+/**
+ * CartItem は通常食品（food_master 由来）と一時食品の discriminated union。
+ * - kind: "regular" — food_master に登録済み。grams を変えると栄養値が再計算される。
+ * - kind: "temp"    — その日だけの一時食品。栄養値はユーザーが直接入力した摂取量そのもの。
+ */
+export type CartItem =
+  | { kind: "regular"; food: FoodMaster; grams: number }
+  | { kind: "temp"; food: TempFoodItem };
 
 interface CartProps {
   items: CartItem[];
@@ -20,12 +40,24 @@ function calcNutrient(food: FoodMaster, grams: number, key: keyof Pick<FoodMaste
 
 export function calcCartTotals(items: CartItem[]) {
   return items.reduce(
-    (acc, { food, grams }) => ({
-      calories: acc.calories + calcNutrient(food, grams, "calories"),
-      protein: acc.protein + calcNutrient(food, grams, "protein"),
-      fat: acc.fat + calcNutrient(food, grams, "fat"),
-      carbs: acc.carbs + calcNutrient(food, grams, "carbs"),
-    }),
+    (acc, item) => {
+      if (item.kind === "regular") {
+        return {
+          calories: acc.calories + calcNutrient(item.food, item.grams, "calories"),
+          protein:  acc.protein  + calcNutrient(item.food, item.grams, "protein"),
+          fat:      acc.fat      + calcNutrient(item.food, item.grams, "fat"),
+          carbs:    acc.carbs    + calcNutrient(item.food, item.grams, "carbs"),
+        };
+      } else {
+        // 一時食品: ユーザーが入力した摂取量をそのまま合算する
+        return {
+          calories: acc.calories + item.food.calories,
+          protein:  acc.protein  + item.food.protein,
+          fat:      acc.fat      + item.food.fat,
+          carbs:    acc.carbs    + item.food.carbs,
+        };
+      }
+    },
     { calories: 0, protein: 0, fat: 0, carbs: 0 }
   );
 }
@@ -51,10 +83,10 @@ export function Cart({ items, onChange }: CartProps) {
   const totals = calcCartTotals(items);
 
   // 編集中の grams を string で一時保持する（food.name → string）。
-  // キーに index ではなく food.name（cart 内で一意）を使うことで、
+  // キーに index ではなく food.name（通常食品は cart 内で一意）を使うことで、
   // 行削除後の index ずれによる対応崩れを防ぐ。
+  // 一時食品はこの map を使用しない（grams は TempFoodItem 内に固定値として保持）。
   // onChange では文字列のまま保持し、blur 時に正規化して親へ反映する。
-  // これにより「全消し → 再入力」時に 0 に潰されず、自然に打ち直せる。
   const [editingGrams, setEditingGrams] = useState<Record<string, string>>({});
 
   function handleGramsChange(foodName: string, value: string) {
@@ -65,8 +97,11 @@ export function Cart({ items, onChange }: CartProps) {
     const raw = editingGrams[foodName];
     if (raw === undefined) return; // 未編集ならスキップ
 
-    const grams = normalizeGrams(raw, items[index].grams);
-    const next = items.map((item, i) => (i === index ? { ...item, grams } : item));
+    const item = items[index];
+    if (item.kind !== "regular") return; // 一時食品は grams 編集なし
+
+    const grams = normalizeGrams(raw, item.grams);
+    const next = items.map((it, i) => (i === index ? { ...it, grams } : it));
     onChange(next);
 
     setEditingGrams((prev) => {
@@ -77,12 +112,14 @@ export function Cart({ items, onChange }: CartProps) {
   }
 
   function remove(index: number) {
-    const foodName = items[index].food.name;
-    setEditingGrams((prev) => {
-      const updated = { ...prev };
-      delete updated[foodName];
-      return updated;
-    });
+    const item = items[index];
+    if (item.kind === "regular") {
+      setEditingGrams((prev) => {
+        const updated = { ...prev };
+        delete updated[item.food.name];
+        return updated;
+      });
+    }
     onChange(items.filter((_, i) => i !== index));
   }
 
@@ -97,38 +134,68 @@ export function Cart({ items, onChange }: CartProps) {
   return (
     <div className="flex flex-col gap-3">
       <ul className="flex flex-col gap-2">
-        {items.map((item, i) => (
-          <li key={item.food.name} className="flex items-center gap-2 rounded-lg border border-gray-100 bg-white px-3 py-2">
-            <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-medium text-gray-800">{item.food.name}</p>
-              <p className="text-xs text-gray-400">
-                {calcNutrient(item.food, item.grams, "calories")} kcal &nbsp;|&nbsp;
-                P {calcNutrient(item.food, item.grams, "protein")}g&nbsp;
-                F {calcNutrient(item.food, item.grams, "fat")}g&nbsp;
-                C {calcNutrient(item.food, item.grams, "carbs")}g
-              </p>
-            </div>
-            <div className="flex items-center gap-1">
-              <input
-                type="number"
-                min={0}
-                max={9999}
-                value={item.food.name in editingGrams ? editingGrams[item.food.name] : item.grams}
-                onChange={(e) => handleGramsChange(item.food.name, e.target.value)}
-                onBlur={() => handleGramsBlur(i, item.food.name)}
-                className="w-20 rounded border border-gray-200 px-2 py-2.5 text-right text-sm outline-none focus:border-blue-400"
-              />
-              <span className="text-xs text-gray-400">g</span>
-            </div>
-            <button
-              onClick={() => remove(i)}
-              className="ml-1 p-2 text-gray-300 hover:text-rose-500"
-              aria-label="削除"
-            >
-              <Trash2 size={15} />
-            </button>
-          </li>
-        ))}
+        {items.map((item, i) => {
+          if (item.kind === "regular") {
+            return (
+              <li key={`regular-${item.food.name}`} className="flex items-center gap-2 rounded-lg border border-gray-100 bg-white px-3 py-2">
+                <div className="flex-1 min-w-0">
+                  <p className="truncate text-sm font-medium text-gray-800">{item.food.name}</p>
+                  <p className="text-xs text-gray-400">
+                    {calcNutrient(item.food, item.grams, "calories")} kcal &nbsp;|&nbsp;
+                    P {calcNutrient(item.food, item.grams, "protein")}g&nbsp;
+                    F {calcNutrient(item.food, item.grams, "fat")}g&nbsp;
+                    C {calcNutrient(item.food, item.grams, "carbs")}g
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={0}
+                    max={9999}
+                    value={item.food.name in editingGrams ? editingGrams[item.food.name] : item.grams}
+                    onChange={(e) => handleGramsChange(item.food.name, e.target.value)}
+                    onBlur={() => handleGramsBlur(i, item.food.name)}
+                    className="w-20 rounded border border-gray-200 px-2 py-2.5 text-right text-sm outline-none focus:border-blue-400"
+                  />
+                  <span className="text-xs text-gray-400">g</span>
+                </div>
+                <button
+                  onClick={() => remove(i)}
+                  className="ml-1 p-2 text-gray-300 hover:text-rose-500"
+                  aria-label="削除"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </li>
+            );
+          } else {
+            // 一時食品: 栄養値は入力済み固定値。grams は表示のみ。
+            return (
+              <li key={`temp-${item.food.tempId}`} className="flex items-center gap-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <p className="truncate text-sm font-medium text-gray-800">{item.food.name}</p>
+                    <span className="flex-shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-200 text-amber-800">一時</span>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    {item.food.calories} kcal &nbsp;|&nbsp;
+                    P {item.food.protein}g&nbsp;
+                    F {item.food.fat}g&nbsp;
+                    C {item.food.carbs}g
+                    {item.food.grams > 0 && <>&nbsp;·&nbsp;{item.food.grams}g</>}
+                  </p>
+                </div>
+                <button
+                  onClick={() => remove(i)}
+                  className="ml-1 p-2 text-gray-300 hover:text-rose-500"
+                  aria-label="削除"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </li>
+            );
+          }
+        })}
       </ul>
 
       {/* 合計行 */}
