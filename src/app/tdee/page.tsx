@@ -23,6 +23,7 @@ import { mapToAppSettings } from "@/lib/domain/settings";
 import type { CurrentPhase } from "@/lib/utils/energyBalance";
 import { PageShell } from "@/components/ui/PageShell";
 import { TableScroll } from "@/components/ui/TableScroll";
+import { toJstDateStr, addDaysStr, dateRangeStr } from "@/lib/utils/date";
 
 export const revalidate = 3600;
 
@@ -39,6 +40,14 @@ export default async function TdeePage() {
 
   // fetchTdeeDailyLogs は昇順ソート済みで返すため、ここで再ソートは不要。
   const sortedRaw = rawLogs;
+
+  // 暦日ウィンドウ定数（「直近7日」= 今日を含む7暦日）
+  const today = toJstDateStr();
+  const d7Start   = addDaysStr(today, -6) ?? today;   // 今日 - 6日 〜 今日 (7暦日)
+  const d14Start  = addDaysStr(today, -13) ?? today;  // 今日 - 13日 〜 今日 - 7日 (前7暦日)
+  const d7End     = addDaysStr(today, -7) ?? today;   // prev7 の末尾（今日 -7日）
+  const d7Dates   = new Set(dateRangeStr(d7Start, today));
+  const prev7Dates = new Set(dateRangeStr(d14Start, d7End));
 
   const enrichedResult = await fetchEnrichedLogs(latestUpdatedAt);
   const enrichedRows = enrichedResult.rows;
@@ -107,18 +116,19 @@ export default async function TdeePage() {
   })();
 
   // 直近7日の平均カロリー: バッチの avg_calories_7d 最終値を使う（canonical）
-  // fallback: rawLogs 末尾 7 件の calories 平均
+  // fallback: 直近7暦日の rawLogs calories 平均
   const avgCalories7: number | null = (() => {
     if (lastEnrichedRow?.avg_calories_7d !== undefined && lastEnrichedRow.avg_calories_7d !== null) {
       return lastEnrichedRow.avg_calories_7d;
     }
-    const last7 = sortedRaw.slice(-7).filter((d) => d.calories !== null);
-    return last7.length > 0 ? last7.reduce((s, d) => s + d.calories!, 0) / last7.length : null;
+    const last7Cal = sortedRaw.filter((d) => d7Dates.has(d.log_date) && d.calories !== null);
+    return last7Cal.length > 0 ? last7Cal.reduce((s, d) => s + d.calories!, 0) / last7Cal.length : null;
   })();
 
   // TDEE 推定値の標準偏差 (信頼度判定に使用)
-  // 直近7件の tdee_estimated から算出する
-  const tdeeValues7 = enrichedRows.slice(-7)
+  // 直近7暦日の tdee_estimated から算出する
+  const tdeeValues7 = enrichedRows
+    .filter((r) => d7Dates.has(r.log_date))
     .map((r) => r.tdee_estimated)
     .filter((v): v is number => v !== null);
   const tdeeStdDev =
@@ -132,9 +142,9 @@ export default async function TdeePage() {
         })()
       : undefined;
 
-  // 実測変化: 直近7日 vs 前7日 の平均体重差
-  const last7 = sortedRaw.slice(-7);
-  const prev7 = sortedRaw.slice(-14, -7);
+  // 実測変化: 直近7暦日 vs 前7暦日 の平均体重差
+  const last7 = sortedRaw.filter((d) => d7Dates.has(d.log_date));
+  const prev7 = sortedRaw.filter((d) => prev7Dates.has(d.log_date));
   const weights7 = last7.filter((d) => d.weight !== null).map((d) => d.weight!);
   const weightsPrev7 = prev7.filter((d) => d.weight !== null).map((d) => d.weight!);
   const avgW7 = weights7.length > 0 ? weights7.reduce((a, b) => a + b, 0) / weights7.length : null;
@@ -143,7 +153,7 @@ export default async function TdeePage() {
     ? Math.round((avgW7 - avgWPrev7) * 100) / 100
     : null;
 
-  // 信頼度算出
+  // 信頼度算出（直近7暦日内の記録日数）
   const calDays = last7.filter((d) => d.calories !== null).length;
   const weightDays = weights7.length;
   const weightStdDev =
