@@ -65,7 +65,11 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
       return null;
     }
 
-    const grams = form.grams.trim() === "" ? 0 : Math.max(0, Math.round(Number(form.grams)));
+    const rawGrams = Number(form.grams);
+    const grams =
+      form.grams.trim() === "" || !Number.isFinite(rawGrams)
+        ? 0
+        : Math.max(0, Math.round(rawGrams));
 
     return {
       tempId: generateTempId(),
