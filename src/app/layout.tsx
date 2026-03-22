@@ -11,6 +11,7 @@ import { BottomSpacer } from "@/components/ui/BottomSpacer";
 export const metadata: Metadata = {
   title: "Body Composition Tracker",
   description: "コンテスト向け体重・栄養管理ダッシュボード",
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({
