@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Check } from "lucide-react";
 import type { TempFoodItem } from "./Cart";
 
 interface TempFoodFormProps {
@@ -34,6 +34,7 @@ function parseNonNegative(value: string): number | null {
 export function TempFoodForm({ onAdd }: TempFoodFormProps) {
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<Partial<Record<FormField, string>>>({});
+  const [justAdded, setJustAdded] = useState(false);
 
   function setField(field: FormField, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -88,6 +89,8 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
     onAdd(food);
     setForm(emptyForm);
     setErrors({});
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 1200);
   }
 
   const inputCls =
@@ -187,10 +190,18 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
 
       <button
         type="submit"
-        className="flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600"
+        disabled={justAdded}
+        className={`flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-colors ${
+          justAdded
+            ? "bg-green-500 cursor-default"
+            : "bg-amber-500 hover:bg-amber-600"
+        }`}
       >
-        <Plus size={14} />
-        一時食品として追加
+        {justAdded ? (
+          <><Check size={14} /> カートに追加しました</>
+        ) : (
+          <><Plus size={14} /> 一時食品として追加</>
+        )}
       </button>
     </form>
   );
