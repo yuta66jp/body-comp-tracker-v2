@@ -229,19 +229,21 @@ export function parseCSV(text: string): ParseResult {
       continue;
     }
 
-    // training_type: 許容値以外は null に補正する（行はスキップしない）
+    // training_type: 許容値以外はエラーに記録してスキップする（通常保存と同じ扱い）
     const rawTrainingType = raw["training_type"] || null;
-    const training_type =
-      rawTrainingType !== null && !isValidTrainingType(rawTrainingType)
-        ? null
-        : rawTrainingType;
+    if (rawTrainingType !== null && !isValidTrainingType(rawTrainingType)) {
+      errors.push(`行 ${i + 1}: training_type の値が不正（${rawTrainingType}）— スキップ`);
+      continue;
+    }
+    const training_type = rawTrainingType;
 
-    // work_mode: 許容値以外は null に補正する（行はスキップしない）
+    // work_mode: 許容値以外はエラーに記録してスキップする（通常保存と同じ扱い）
     const rawWorkMode = raw["work_mode"] || null;
-    const work_mode =
-      rawWorkMode !== null && !isValidWorkMode(rawWorkMode)
-        ? null
-        : rawWorkMode;
+    if (rawWorkMode !== null && !isValidWorkMode(rawWorkMode)) {
+      errors.push(`行 ${i + 1}: work_mode の値が不正（${rawWorkMode}）— スキップ`);
+      continue;
+    }
+    const work_mode = rawWorkMode;
 
     rows.push({
       log_date: normalized,

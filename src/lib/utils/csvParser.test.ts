@@ -172,16 +172,18 @@ describe("parseCSV", () => {
     expect(result.rows[0].log_date).toBe("2026-03-01");
   });
 
-  it("不正な training_type は null に補正する（行はスキップしない）", () => {
+  it("不正な training_type はエラーに記録して行をスキップする", () => {
     const csv = [
       "log_date,weight,training_type",
       "2026-03-01,65.0,invalid_type",
+      "2026-03-02,64.5,chest",
     ].join("\n");
 
     const result = parseCSV(csv);
-    expect(result.errors).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("invalid_type");
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0].training_type).toBeNull();
+    expect(result.rows[0].log_date).toBe("2026-03-02");
   });
 
   it("有効な training_type はそのまま保持する", () => {
@@ -197,16 +199,18 @@ describe("parseCSV", () => {
     expect(result.rows[1].training_type).toBe("off");
   });
 
-  it("不正な work_mode は null に補正する（行はスキップしない）", () => {
+  it("不正な work_mode はエラーに記録して行をスキップする", () => {
     const csv = [
       "log_date,weight,work_mode",
       "2026-03-01,65.0,invalid_mode",
+      "2026-03-02,64.5,office",
     ].join("\n");
 
     const result = parseCSV(csv);
-    expect(result.errors).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("invalid_mode");
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0].work_mode).toBeNull();
+    expect(result.rows[0].log_date).toBe("2026-03-02");
   });
 
   it("有効な work_mode はそのまま保持する", () => {
