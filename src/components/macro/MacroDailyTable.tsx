@@ -36,7 +36,7 @@ export function MacroDailyTable({ data, calTarget = null }: MacroDailyTableProps
     return (
       <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
         <h2 className="mb-2 text-sm font-semibold text-gray-700">日次栄養内訳（直近 14 日）</h2>
-        <p className="text-sm text-gray-400">データがありません。</p>
+        <p className="py-8 text-center text-sm text-slate-400">データがありません</p>
       </div>
     );
   }

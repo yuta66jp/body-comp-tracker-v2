@@ -28,7 +28,7 @@ export default async function MacroPage() {
 
   if (logsResult.kind === "error") {
     return (
-      <PageShell title="栄養分析">
+      <PageShell title="栄養">
         <div className="rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
           ログデータの取得中にエラーが発生しました。ページを再読み込みしてください。
         </div>
@@ -40,7 +40,7 @@ export default async function MacroPage() {
 
   if (logs.length === 0) {
     return (
-      <PageShell title="栄養分析">
+      <PageShell title="栄養">
         <div className="rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-700">
           栄養データが記録されるとグラフが表示されます。
         </div>

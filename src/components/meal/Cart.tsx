@@ -116,7 +116,7 @@ export function Cart({ items, onChange }: CartProps) {
                 value={item.food.name in editingGrams ? editingGrams[item.food.name] : item.grams}
                 onChange={(e) => handleGramsChange(item.food.name, e.target.value)}
                 onBlur={() => handleGramsBlur(i, item.food.name)}
-                className="w-16 rounded border border-gray-200 px-2 py-2.5 text-right text-sm outline-none focus:border-blue-400"
+                className="w-20 rounded border border-gray-200 px-2 py-2.5 text-right text-sm outline-none focus:border-blue-400"
               />
               <span className="text-xs text-gray-400">g</span>
             </div>

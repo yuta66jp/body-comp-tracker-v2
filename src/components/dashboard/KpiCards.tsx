@@ -110,7 +110,7 @@ export function KpiCards({ logs, settings }: KpiCardsProps) {
     slopePerWeek === null || Math.abs(slopePerWeek) < 0.05 ? "flat" : slopePerWeek > 0 ? "up" : "down";
   const trendLabel = slopePerWeek === null || Math.abs(slopePerWeek) < 0.05
     ? "横ばい"
-    : `${slopePerWeek > 0 ? "+" : ""}${slopePerWeek.toFixed(2)} kg/週`;
+    : `${slopePerWeek > 0 ? "+" : ""}${slopePerWeek.toFixed(1)} kg/週`;
 
   const goalReachResult = calcGoalReachDate(weight_7d_avg, slopePerDay30, goalWeight, todayStr);
   const goalReachDate = goalReachResult.date;

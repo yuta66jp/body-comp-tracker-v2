@@ -338,7 +338,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
                   className="flex-shrink-0 p-2 -mr-1 text-slate-300 hover:text-rose-500 disabled:opacity-40"
                   aria-label={`${food.name}を削除`}
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={15} />
                 </button>
               </div>
             ))

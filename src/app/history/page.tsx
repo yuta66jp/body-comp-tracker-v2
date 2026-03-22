@@ -75,7 +75,7 @@ export default async function HistoryPage() {
   const isCut = settings.currentPhase !== "Bulk";
 
   return (
-    <PageShell title="キャリア比較">
+    <PageShell title="履歴">
 
       {/* Read error banners — graceful degradation: コンテンツはブロックしない */}
       {careerLogsResult.kind === "error" && (

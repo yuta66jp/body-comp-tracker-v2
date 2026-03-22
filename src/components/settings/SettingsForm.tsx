@@ -73,14 +73,14 @@ interface FormSectionProps {
 
 function FormSection({ id, title, subtitle, isOpen, onToggle, children, border = true }: FormSectionProps) {
   const panelId = `settings-panel-${id}`;
+  const headingId = `settings-heading-${id}`;
   return (
     <div className={border ? "mt-5 border-t border-slate-100 pt-5" : ""}>
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-slate-700">{title}</h2>
+          <h2 id={headingId} className="text-sm font-semibold text-slate-700">{title}</h2>
           {subtitle && <p className="mt-0.5 text-xs text-slate-400">{subtitle}</p>}
         </div>
-        {/* アコーディオントグル: モバイルのみ表示。sm+ は常に展開 */}
         <button
           type="button"
           onClick={onToggle}
@@ -94,10 +94,10 @@ function FormSection({ id, title, subtitle, isOpen, onToggle, children, border =
           />
         </button>
       </div>
-      {/* sm+ では常に表示。モバイルでは isOpen でトグル */}
       <div
         id={panelId}
         role="region"
+        aria-labelledby={headingId}
         className={`mt-4 ${!isOpen ? "hidden sm:block" : ""}`}
       >
         {children}

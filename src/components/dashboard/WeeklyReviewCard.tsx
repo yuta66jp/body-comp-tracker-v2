@@ -83,7 +83,7 @@ function fmt0(v: number | null): string {
 }
 function fmtSigned1(v: number | null): string {
   if (v === null) return "—";
-  return `${v > 0 ? "+" : ""}${v.toFixed(2)}`;
+  return `${v > 0 ? "+" : ""}${v.toFixed(1)}`;
 }
 function fmtSignedKcal(v: number | null): string {
   if (v === null) return "—";

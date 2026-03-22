@@ -77,7 +77,7 @@ export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason,
             {monthStats.length > 0
               ? <SeasonSummary stats={[...monthStats].reverse()} />
               : !monthlyGoalSummaryRows?.length && (
-                  <p className="py-6 text-center text-sm text-slate-400">データがありません</p>
+                  <p className="py-8 text-center text-sm text-slate-400">データがありません</p>
                 )
             }
             {/* 月次計画 vs 実績 */}
