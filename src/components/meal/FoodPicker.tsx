@@ -59,8 +59,8 @@ export function FoodPicker({ onAdd, onAddSet, onAddTemp }: FoodPickerProps) {
 
   const TAB_LABELS: Record<Tab, string> = {
     single: "単品",
-    set: "[SET] セット",
-    temp: "一時食品",
+    set: "セット",
+    temp: "一時",
   };
 
   return (
