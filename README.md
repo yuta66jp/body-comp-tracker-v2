@@ -286,12 +286,21 @@ Server 側でも anon key を使用しているため、**RLS ポリシーが有
 - anon key は `.env.local` と Vercel 環境変数でのみ管理する
 - `SUPABASE_SERVICE_ROLE_KEY` はサーバー専用（GitHub Secrets / `.env.local`）に限定し、クライアントバンドルに含めない
 
+### /api/export エンドポイントについて
+
+`/api/export` は認証チェックなしで `daily_logs` / `food_master` / `predictions` を CSV で返す。
+保護手段は「Supabase URL 非公開 + anon key 非共有」の組み合わせに依存している。
+
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` はクライアントバンドルに含まれるため、URL と anon key が揃えば外部からアクセスできる点に留意すること
+- `daily_logs` には体重・睡眠・腸の記録など個人データが含まれる
+- 将来マルチユーザー化する場合は `auth.getUser()` による session チェックを追加すること
+
 ### 将来 multi-user 対応を行う場合
 
 1. Supabase Auth の導入
 2. RLS ポリシーを `auth.uid()` ベースのユーザースコープに変更
 3. anon key の write 権限（INSERT / UPDATE / DELETE policy）を削除
-4. Server Actions / Route Handlers に認証チェックを追加
+4. Server Actions / Route Handlers に認証チェックを追加（`/api/export` も含む）
 
 ---
 

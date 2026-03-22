@@ -1,3 +1,17 @@
+/**
+ * /api/export — CSV エクスポートエンドポイント
+ *
+ * セキュリティ前提:
+ *   - このエンドポイントは認証チェックを行わない個人利用専用の実装。
+ *   - 保護手段は「Supabase URL 非公開 + anon key 非共有」の組み合わせに依存している。
+ *   - NEXT_PUBLIC_SUPABASE_ANON_KEY はクライアントバンドルに含まれるため、
+ *     URL と anon key が揃えば外部からアクセスできる点に留意すること。
+ *   - RLS ポリシーは `anon USING (true)`（全件読み取り許可）であり、
+ *     将来テーブルを追加する場合はポリシーを明示的に設定すること。
+ *   - 将来マルチユーザー化する場合は auth.getUser() による session チェックを追加し、
+ *     RLS ポリシーを `user_id = auth.uid()` 条件に移行すること。
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
