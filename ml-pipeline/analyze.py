@@ -148,6 +148,17 @@ def run_importance(df: pd.DataFrame) -> dict[str, dict[str, float | str]]:
     if len(df) < MIN_ROWS:
         raise ValueError(f"有効行数が不足 ({len(df)} < {MIN_ROWS})")
 
+    # 特徴量ごとのカバレッジを確認（dropna 前の元データと比較）
+    # coverage が著しく低い特徴量は重要度スコアが歪む可能性があるため警告する
+    MIN_FEATURE_COVERAGE = 0.3  # 30% 以上の非 null 行を要求
+    for col in FEATURE_COLS:
+        coverage = df[col].notna().mean() if len(df) > 0 else 0.0
+        if coverage < MIN_FEATURE_COVERAGE:
+            logging.warning(
+                "Feature '%s' has low coverage: %.1f%% (threshold: %.0f%%)",
+                col, coverage * 100, MIN_FEATURE_COVERAGE * 100,
+            )
+
     X = df[FEATURE_COLS].values
     y = df["target"].values
 
