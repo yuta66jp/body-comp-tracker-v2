@@ -96,7 +96,10 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
     "w-full rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-slate-800 outline-none transition-colors focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100 placeholder:text-slate-400";
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+    <form
+      onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
+      className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3"
+    >
       <p className="text-xs text-amber-700 font-medium">
         食品DBに登録しない一時食品。摂取量の栄養値を直接入力してください。
       </p>
@@ -183,13 +186,12 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
       </div>
 
       <button
-        type="button"
-        onClick={handleSubmit}
+        type="submit"
         className="flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600"
       >
         <Plus size={14} />
         一時食品として追加
       </button>
-    </div>
+    </form>
   );
 }
