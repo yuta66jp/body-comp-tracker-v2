@@ -98,7 +98,7 @@ export function Cart({ items, onChange }: CartProps) {
     <div className="flex flex-col gap-3">
       <ul className="flex flex-col gap-2">
         {items.map((item, i) => (
-          <li key={`${item.food.name}-${i}`} className="flex items-center gap-2 rounded-lg border border-gray-100 bg-white px-3 py-2">
+          <li key={item.food.name} className="flex items-center gap-2 rounded-lg border border-gray-100 bg-white px-3 py-2">
             <div className="flex-1 min-w-0">
               <p className="truncate text-sm font-medium text-gray-800">{item.food.name}</p>
               <p className="text-xs text-gray-400">
