@@ -102,7 +102,7 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
         <label className="mb-1 block text-xs font-medium text-slate-500">食品名 <span className="text-rose-500">*</span></label>
         <input
           type="text"
-          placeholder="例: ローソン チキン南蛮"
+          placeholder="例: サラダチキン (コンビニ)"
           value={form.name}
           onChange={(e) => setField("name", e.target.value)}
           className={errors.name ? errorInputCls : inputCls}
