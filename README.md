@@ -152,7 +152,7 @@ ForecastChart（`src/components/charts/ForecastChart.tsx`）は 3 タブ（7日 
 ### 設定（Settings）
 
 - 目標体重・大会日付・TDEE 設定などを管理
-- 保存は Server Action + shared schema（zod）で一元処理
+- 保存は Server Action + shared schema（settingsSchema.ts）で一元処理
 - 読み取りは typed domain model（AppSettings）に変換して利用
 - UI integration test（jsdom）で保存導線・fallback 導線を自動検証
 - **月次目標計画セクション（MonthlyGoalPlanSection）**: `buildMonthlyGoalPlan` を使い、大会日・目標体重から月末目標を自動配分してプレビュー表示
@@ -210,7 +210,7 @@ ForecastChart（`src/components/charts/ForecastChart.tsx`）は 3 タブ（7日 
 
 | 項目 | 内容 |
 |---|---|
-| settings 統一 | Server Action + shared schema（zod）で保存。typed AppSettings で読み取り |
+| settings 統一 | Server Action + shared schema（settingsSchema.ts）で保存。typed AppSettings で読み取り |
 | query layer | Supabase read 系ロジックを `src/lib/queries/` に集約。主要クエリは `QueryResult<T>` で状態を明示し、補助的なクエリ（career_logs-for-dashboard / predictions 等）はベストエフォートで空配列フォールバック。意図を JSDoc に明記 |
 | UI integration tests | 保存導線・fallback 導線を jsdom ベースで自動検証 |
 

@@ -65,7 +65,7 @@ body-comp-tracker-v2/
 │   │   ├── domain/
 │   │   │   └── settings.ts         # AppSettings 型 + DB rows → AppSettings mapper
 │   │   ├── schemas/
-│   │   │   └── settingsSchema.ts   # settings 保存用 zod schema (Server Action と共有)
+│   │   │   └── settingsSchema.ts   # settings 保存用バリデーション schema (Server Action と共有)
 │   │   ├── analytics/
 │   │   │   └── status.ts           # AnalyticsAvailability 型 (fresh/stale/unavailable/error)
 │   │   ├── hooks/                  # Client-side hooks (useDailyLogs 等)
@@ -187,7 +187,7 @@ body-comp-tracker-v2/
 
 ### 設定 (settings)
 - 保存: `src/app/settings/actions.ts` の Server Action を通じて行う
-  - バリデーションは `src/lib/schemas/settingsSchema.ts` (zod) で実施
+  - バリデーションは `src/lib/schemas/settingsSchema.ts`（TypeScript の型 + 手書きバリデーション関数）で実施
   - schema は Server Action と Client の両方から参照される
 - 読み取り: `fetchSettings()` → `AppSettings` に変換して利用する
   - `AppSettings` の型定義は `src/lib/domain/settings.ts` に集約
