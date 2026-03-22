@@ -109,8 +109,9 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
 
       {/* 食品名 */}
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-500">食品名 <span className="text-rose-500">*</span></label>
+        <label htmlFor="temp-food-name" className="mb-1 block text-xs font-medium text-slate-500">食品名 <span className="text-rose-500">*</span></label>
         <input
+          id="temp-food-name"
           type="text"
           placeholder="例: サラダチキン (コンビニ)"
           value={form.name}
@@ -122,8 +123,9 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
 
       {/* グラム数（任意） */}
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-500">グラム数（任意）</label>
+        <label htmlFor="temp-food-grams" className="mb-1 block text-xs font-medium text-slate-500">グラム数（任意）</label>
         <input
+          id="temp-food-grams"
           type="number"
           min={0}
           placeholder="200"
@@ -138,8 +140,9 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
         <p className="mb-1.5 text-xs font-medium text-slate-500">栄養値（この食品の摂取量全体） <span className="text-rose-500">*</span></p>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="mb-1 block text-[11px] text-slate-400">カロリー (kcal)</label>
+            <label htmlFor="temp-food-calories" className="mb-1 block text-[11px] text-slate-400">カロリー (kcal)</label>
             <input
+              id="temp-food-calories"
               type="number"
               min={0}
               placeholder="350"
@@ -150,8 +153,9 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
             {errors.calories && <p className="mt-1 text-xs text-rose-500">{errors.calories}</p>}
           </div>
           <div>
-            <label className="mb-1 block text-[11px] text-slate-400">たんぱく質 (g)</label>
+            <label htmlFor="temp-food-protein" className="mb-1 block text-[11px] text-slate-400">たんぱく質 (g)</label>
             <input
+              id="temp-food-protein"
               type="number"
               min={0}
               placeholder="25"
@@ -162,8 +166,9 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
             {errors.protein && <p className="mt-1 text-xs text-rose-500">{errors.protein}</p>}
           </div>
           <div>
-            <label className="mb-1 block text-[11px] text-slate-400">脂質 (g)</label>
+            <label htmlFor="temp-food-fat" className="mb-1 block text-[11px] text-slate-400">脂質 (g)</label>
             <input
+              id="temp-food-fat"
               type="number"
               min={0}
               placeholder="12"
@@ -174,8 +179,9 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
             {errors.fat && <p className="mt-1 text-xs text-rose-500">{errors.fat}</p>}
           </div>
           <div>
-            <label className="mb-1 block text-[11px] text-slate-400">炭水化物 (g)</label>
+            <label htmlFor="temp-food-carbs" className="mb-1 block text-[11px] text-slate-400">炭水化物 (g)</label>
             <input
+              id="temp-food-carbs"
               type="number"
               min={0}
               placeholder="30"
