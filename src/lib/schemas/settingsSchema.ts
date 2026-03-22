@@ -252,10 +252,23 @@ export function parseSettings(input: SettingsInput): ParseSettingsResult {
   }
 
   // ── monthly_plan_overrides ────────────────────────────────────────────────
-  // JSON 文字列として保持する。内容バリデーションは MonthlyGoalPlanSection 側で完結している。
+  // JSON 配列文字列として保持する。保存前に JSON としてパース可能かを検証する。
   {
     const raw = (input.monthly_plan_overrides ?? "").trim();
-    records.push({ key: "monthly_plan_overrides", value_num: null, value_str: raw !== "" ? raw : null });
+    if (raw !== "") {
+      try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) {
+          errors.push({ field: "monthly_plan_overrides", message: "月次計画データの形式が不正です" });
+        } else {
+          records.push({ key: "monthly_plan_overrides", value_num: null, value_str: raw });
+        }
+      } catch {
+        errors.push({ field: "monthly_plan_overrides", message: "月次計画データの JSON が不正です" });
+      }
+    } else {
+      records.push({ key: "monthly_plan_overrides", value_num: null, value_str: null });
+    }
   }
 
   if (errors.length > 0) return { ok: false, errors };
