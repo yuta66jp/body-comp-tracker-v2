@@ -23,12 +23,12 @@ const emptyForm = {
 
 type FormField = keyof typeof emptyForm;
 
-/** 数値フィールドのバリデーション: 空文字 NG、負数 NG、非数値 NG */
+/** 数値フィールドのバリデーション: 空文字 NG、負数 NG、非数値 NG。小数は保持する。 */
 function parseNonNegative(value: string): number | null {
   if (value.trim() === "") return null;
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0) return null;
-  return Math.round(n);
+  return n;
 }
 
 export function TempFoodForm({ onAdd }: TempFoodFormProps) {
