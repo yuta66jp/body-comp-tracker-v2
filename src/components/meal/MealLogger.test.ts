@@ -40,7 +40,7 @@ describe("computeHasContent", () => {
   });
 
   it("カートにアイテムがある場合は true", () => {
-    const item = { food: { id: "test-id", name: "chicken", calories: 165, protein: 31, fat: 3.6, carbs: 0, category: null, created_at: null }, grams: 100 };
+    const item = { kind: "regular" as const, food: { id: "test-id", name: "chicken", calories: 165, protein: 31, fat: 3.6, carbs: 0, category: null, created_at: null }, grams: 100 };
     expect(computeHasContent({ ...base, cartItems: [item] })).toBe(true);
   });
 

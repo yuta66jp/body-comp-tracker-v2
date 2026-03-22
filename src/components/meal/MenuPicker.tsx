@@ -33,7 +33,7 @@ export function MenuPicker({ foods, onAddSet }: MenuPickerProps) {
     const items: CartItem[] = menu.recipe.flatMap((ri) => {
       const food = foodMap.get(ri.name);
       if (!food) return [];
-      return [{ food, grams: ri.amount }];
+      return [{ kind: "regular" as const, food, grams: ri.amount }];
     });
 
     if (items.length > 0) onAddSet(items);
