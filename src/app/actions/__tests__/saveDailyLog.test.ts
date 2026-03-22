@@ -92,9 +92,9 @@ describe("buildUpdatePayload — undefined/null/値の区別", () => {
   });
 
   test("boolean true もペイロードに含まれる", () => {
-    const payload = buildUpdatePayload({ is_cheat_day: true, is_poor_sleep: true });
+    const payload = buildUpdatePayload({ is_cheat_day: true, is_refeed_day: true });
     expect(payload.is_cheat_day).toBe(true);
-    expect(payload.is_poor_sleep).toBe(true);
+    expect(payload.is_refeed_day).toBe(true);
   });
 
   test("全フィールド undefined → 空ペイロード", () => {
@@ -113,7 +113,7 @@ describe("buildUpdatePayload — undefined/null/値の区別", () => {
       is_cheat_day: true,
       is_refeed_day: false,
       is_eating_out: false,
-      is_poor_sleep: false,
+      is_travel_day: false,
     } as const;
     const payload = buildUpdatePayload(input);
     expect(Object.keys(payload)).toHaveLength(10);

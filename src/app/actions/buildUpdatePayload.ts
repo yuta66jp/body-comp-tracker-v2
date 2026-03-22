@@ -28,7 +28,6 @@ export function buildUpdatePayload(
   if (input.is_refeed_day !== undefined) payload.is_refeed_day = input.is_refeed_day;
   if (input.is_eating_out !== undefined) payload.is_eating_out = input.is_eating_out;
   if (input.is_travel_day !== undefined) payload.is_travel_day = input.is_travel_day;
-  if (input.is_poor_sleep !== undefined) payload.is_poor_sleep = input.is_poor_sleep;
 
   // Phase 2.5 新規フィールド
   if (input.sleep_hours !== undefined)         payload.sleep_hours         = input.sleep_hours;
