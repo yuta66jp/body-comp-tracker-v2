@@ -13,6 +13,8 @@
  */
 
 import { parseStrictNumber } from "./parseNumber";
+import { parseLocalDateStr } from "./date";
+import { isValidTrainingType, isValidWorkMode } from "./trainingType";
 
 export interface ParsedRow {
   log_date: string;
@@ -220,11 +222,26 @@ export function parseCSV(text: string): ParseResult {
     if (!dateStr) continue; // 空行扱いでスキップ
 
     // YYYY-MM-DD または YYYY/MM/DD を受け入れる
+    // parseLocalDateStr で実在日付まで検証する（"2026-02-30" 等を弾く）
     const normalized = dateStr.replace(/\//g, "-").slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
-      errors.push(`行 ${i + 1}: 日付フォーマットが不正（${dateStr}）`);
+    if (parseLocalDateStr(normalized) === null) {
+      errors.push(`行 ${i + 1}: 日付が不正（${dateStr}）— スキップ`);
       continue;
     }
+
+    // training_type: 許容値以外は null に補正する（行はスキップしない）
+    const rawTrainingType = raw["training_type"] || null;
+    const training_type =
+      rawTrainingType !== null && !isValidTrainingType(rawTrainingType)
+        ? null
+        : rawTrainingType;
+
+    // work_mode: 許容値以外は null に補正する（行はスキップしない）
+    const rawWorkMode = raw["work_mode"] || null;
+    const work_mode =
+      rawWorkMode !== null && !isValidWorkMode(rawWorkMode)
+        ? null
+        : rawWorkMode;
 
     rows.push({
       log_date: normalized,
@@ -241,8 +258,8 @@ export function parseCSV(text: string): ParseResult {
       is_poor_sleep: parseBool(raw["is_poor_sleep"] ?? ""),
       sleep_hours: parseNum(raw["sleep_hours"] ?? ""),
       had_bowel_movement: parseBoolNullable(raw["had_bowel_movement"] ?? ""),
-      training_type: raw["training_type"] || null,
-      work_mode: raw["work_mode"] || null,
+      training_type,
+      work_mode,
       leg_flag: parseBoolNullable(raw["leg_flag"] ?? ""),
     });
   }

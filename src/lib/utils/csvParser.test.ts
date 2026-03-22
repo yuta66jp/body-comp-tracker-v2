@@ -158,6 +158,70 @@ describe("parseCSV", () => {
     expect(result.rows[0].log_date).toBe("2026-03-05");
   });
 
+  it("存在しない日付（2026-02-30）はエラーに記録してスキップする", () => {
+    const csv = [
+      "log_date,weight",
+      "2026-02-30,65.0",  // 実在しない日付（regex は通るが parseLocalDateStr で弾く）
+      "2026-03-01,64.0",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.errors.length).toBeGreaterThanOrEqual(1);
+    expect(result.errors[0]).toContain("2026-02-30");
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].log_date).toBe("2026-03-01");
+  });
+
+  it("不正な training_type は null に補正する（行はスキップしない）", () => {
+    const csv = [
+      "log_date,weight,training_type",
+      "2026-03-01,65.0,invalid_type",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.errors).toHaveLength(0);
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].training_type).toBeNull();
+  });
+
+  it("有効な training_type はそのまま保持する", () => {
+    const csv = [
+      "log_date,weight,training_type",
+      "2026-03-01,65.0,quads",
+      "2026-03-02,64.5,off",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.errors).toHaveLength(0);
+    expect(result.rows[0].training_type).toBe("quads");
+    expect(result.rows[1].training_type).toBe("off");
+  });
+
+  it("不正な work_mode は null に補正する（行はスキップしない）", () => {
+    const csv = [
+      "log_date,weight,work_mode",
+      "2026-03-01,65.0,invalid_mode",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.errors).toHaveLength(0);
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].work_mode).toBeNull();
+  });
+
+  it("有効な work_mode はそのまま保持する", () => {
+    const csv = [
+      "log_date,weight,work_mode",
+      "2026-03-01,65.0,office",
+      "2026-03-02,64.5,remote",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.errors).toHaveLength(0);
+    expect(result.rows[0].work_mode).toBe("office");
+    expect(result.rows[1].work_mode).toBe("remote");
+  });
+
   it("YYYY/MM/DD 形式を受け入れる", () => {
     const csv = [
       "log_date,weight",
