@@ -51,9 +51,9 @@ const CalendarContext = createContext<CalendarCtx>({
 });
 
 // ── セル高さ定数 ─────────────────────────────────────────────────────────────
-// min-h-24 = 96px 以上 (モバイル)、min-h-28 = 112px 以上 (PC)
-// コンテンツ量に応じてセルが伸び、行内の最大高に揃う（table レイアウトの仕様）
-const CELL_H = "min-h-24 sm:min-h-28";
+// h-24 = 96px 固定 (モバイル)、sm:h-28 = 112px 固定 (PC)
+// 内側 div に固定高 + overflow-hidden を設定し、コンテンツ量に関わらず全セルを同一高にする
+const CELL_H = "h-24 sm:h-28";
 
 // ── 曜日タイプ判定 ────────────────────────────────────────────────────────────
 
@@ -90,7 +90,9 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
   // outside: 表示月以外の日（同じ固定高で空セル）
   if (modifiers.outside) {
     return (
-      <td className={`${CELL_H} border border-slate-50 bg-slate-50/30 relative`} />
+      <td className="border border-slate-50 bg-slate-50/30 relative">
+        <div className={CELL_H} />
+      </td>
     );
   }
 
@@ -103,7 +105,7 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
 
   // 土日祝背景は常に適用。today はリングで上書きせず重ねる（2つの視覚チャネルを分離）
   const tdCls =
-    `${CELL_H} border border-slate-100 relative ` +
+    "border border-slate-100 relative " +
     CELL_BG[weekdayType] +
     (isToday ? " ring-2 ring-inset ring-blue-400" : "");
 
@@ -114,8 +116,8 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
     ? "text-blue-600 font-bold"
     : DATE_NUM_COLOR[weekdayType];
 
-  // 非 absolute: td が min-h を持つため、コンテンツ量に応じて td ごと伸びる
-  const innerCls = "flex flex-col p-1 sm:p-1.5";
+  // 固定高 + overflow-hidden: コンテンツ量に関わらず全セルを同一高に保つ
+  const innerCls = `${CELL_H} overflow-hidden flex flex-col p-1 sm:p-1.5`;
 
   return (
     <td className={tdCls}>
@@ -252,7 +254,7 @@ export function MonthlyCalendar({ logs }: MonthlyCalendarProps) {
             "flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-400 " +
             "hover:border-slate-300 hover:text-slate-600 transition-colors",
           chevron:       "h-3.5 w-3.5",
-          month_grid:    "w-full border-collapse",
+          month_grid:    "w-full border-collapse table-fixed",
           weekdays:      "",
           weekday:       "py-2 text-[11px] font-semibold text-slate-400 text-center",
           weeks:         "",
