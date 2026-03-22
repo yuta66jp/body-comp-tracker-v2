@@ -40,9 +40,11 @@ export default async function MacroPage() {
 
   if (logs.length === 0) {
     return (
-      <main className="flex min-h-svh items-center justify-center">
-        <p className="text-slate-400">データがありません。</p>
-      </main>
+      <PageShell title="栄養分析">
+        <div className="rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-700">
+          栄養データが記録されるとグラフが表示されます。
+        </div>
+      </PageShell>
     );
   }
 
