@@ -33,8 +33,9 @@ export function MobileBottomNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const triggerRef  = useRef<HTMLButtonElement>(null);
+  const triggerRef   = useRef<HTMLButtonElement>(null);
   const firstLinkRef = useRef<HTMLAnchorElement>(null);
+  const sheetRef     = useRef<HTMLDivElement>(null);
 
   const moreActive = MORE_ITEMS.some((item) => isActiveNav(pathname, item.href));
 
@@ -58,6 +59,45 @@ export function MobileBottomNav() {
     }
   }, [moreOpen]);
 
+  // body スクロール抑止: シート表示中に背景がスクロールしないようにする
+  useEffect(() => {
+    if (moreOpen) {
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [moreOpen]);
+
+  // フォーカストラップ: Tab / Shift+Tab でシート外へフォーカスが抜けないようにする
+  useEffect(() => {
+    if (!moreOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const sheet = sheetRef.current;
+      if (!sheet) return;
+      const focusable = Array.from(
+        sheet.querySelectorAll<HTMLElement>("a[href], button:not([disabled])")
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [moreOpen]);
+
   function closeSheet() {
     setMoreOpen(false);
     triggerRef.current?.focus();
@@ -76,6 +116,7 @@ export function MobileBottomNav() {
           />
           {/* sheet 本体。role="dialog" + aria-modal でスクリーンリーダーに認識させる */}
           <div
+            ref={sheetRef}
             role="dialog"
             aria-modal="true"
             aria-label="その他のページ"
