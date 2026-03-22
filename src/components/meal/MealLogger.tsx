@@ -329,8 +329,8 @@ export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerPro
                 onClick={() => { setWeight(null); setWeightTouched(true); }}
                 aria-label="体重を削除予定にする"
                 title="保存時にこの値を削除する"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-400 transition-colors">
-                <X size={13} />
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-rose-400 transition-colors">
+                <X size={15} />
               </button>
             )}
           </div>
@@ -372,8 +372,8 @@ export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerPro
                 onClick={() => { setNote(null); setNoteTouched(true); }}
                 aria-label="メモを削除予定にする"
                 title="保存時にこの値を削除する"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-400 transition-colors">
-                <X size={13} />
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-rose-400 transition-colors">
+                <X size={15} />
               </button>
             )}
           </div>
@@ -455,8 +455,8 @@ export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerPro
                   onClick={() => { setSleepHours(null); setSleepHoursTouched(true); }}
                   aria-label="睡眠時間を削除予定にする"
                   title="保存時にこの値を削除する"
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-400 transition-colors">
-                  <X size={13} />
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-rose-400 transition-colors">
+                  <X size={15} />
                 </button>
               )}
             </div>

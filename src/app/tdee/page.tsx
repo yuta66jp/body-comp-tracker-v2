@@ -187,7 +187,7 @@ export default async function TdeePage() {
   }));
 
   return (
-    <PageShell title="TDEE・代謝分析">
+    <PageShell title="TDEE">
 
       {/* Read error banners — graceful degradation: コンテンツはブロックしない */}
       {rawLogsResult.kind === "error" && (

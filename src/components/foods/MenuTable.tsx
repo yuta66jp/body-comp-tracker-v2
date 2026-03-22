@@ -230,7 +230,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
                         <span>{ri.amount}g</span>
                         <span className="text-gray-600 font-medium">{kcal} kcal</span>
                         <button onClick={() => removeItemFromEditing(originalIdx)} className="text-gray-300 hover:text-rose-500">
-                          <Trash2 size={13} />
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     </li>
@@ -262,7 +262,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
 
       {/* ── メニュー一覧 ── */}
       {menus.length === 0 ? (
-        <p className="rounded-2xl border border-gray-100 bg-white p-8 text-center text-sm text-gray-400">
+        <p className="py-8 text-center text-sm text-slate-400">
           セットメニューが登録されていません
         </p>
       ) : (
@@ -304,7 +304,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
                         className="p-2 -mr-1 text-slate-300 hover:text-rose-500 disabled:opacity-40"
                         aria-label={`${menu.name}を削除`}
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   </div>

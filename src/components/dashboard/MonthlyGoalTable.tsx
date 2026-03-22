@@ -114,7 +114,7 @@ export function MonthlyGoalTable({ rows, phase }: MonthlyGoalTableProps) {
                   {/* 差分 */}
                   <td className={`py-2 pr-3 text-right text-xs font-semibold tabular-nums ${diffColor(row.diffKg, isCut)}`}>
                     {row.diffKg !== null
-                      ? `${row.diffKg > 0 ? "+" : ""}${row.diffKg.toFixed(2)}`
+                      ? `${row.diffKg > 0 ? "+" : ""}${row.diffKg.toFixed(1)}`
                       : "—"}
                   </td>
                   {/* 状態 */}
@@ -124,7 +124,7 @@ export function MonthlyGoalTable({ rows, phase }: MonthlyGoalTableProps) {
                   {/* 累積ズレ */}
                   <td className={`py-2 pr-3 text-right text-xs tabular-nums ${diffColor(row.cumulativeGapKg, isCut)}`}>
                     {row.cumulativeGapKg !== null
-                      ? `${row.cumulativeGapKg > 0 ? "+" : ""}${row.cumulativeGapKg.toFixed(2)}`
+                      ? `${row.cumulativeGapKg > 0 ? "+" : ""}${row.cumulativeGapKg.toFixed(1)}`
                       : "—"}
                   </td>
                   {/* 翌月必要変化量 (sm 以上) */}

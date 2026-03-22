@@ -103,7 +103,7 @@ function fmt1(v: number | null, fallback = "—"): string {
 
 function fmtRate2W(v: number | null, fallback = "—"): string {
   if (v === null) return fallback;
-  return `${v > 0 ? "+" : ""}${v.toFixed(2)} kg/2週`;
+  return `${v > 0 ? "+" : ""}${v.toFixed(1)} kg/2週`;
 }
 
 function fmtKcal(v: number | null, fallback = "—"): string {
@@ -114,7 +114,7 @@ function fmtKcal(v: number | null, fallback = "—"): string {
 /** 差の符号をわかりやすくラベル化 (kg/2週) */
 function paceGapLabel(gap: number | null, isCut: boolean): string {
   if (gap === null) return "—";
-  const abs = Math.abs(gap).toFixed(2);
+  const abs = Math.abs(gap).toFixed(1);
   if (Math.abs(gap) < 0.04) return "ほぼ一致";
   // Cut: gap > 0 = 遅れ, gap < 0 = 先行
   // Bulk: gap < 0 = 遅れ, gap > 0 = 先行
@@ -174,7 +174,7 @@ function buildReasonLabel(
     return "ペース差を算出できません";
   }
   const isBehind = isCut ? paceGap > 0 : paceGap < 0;
-  const absGap = Math.abs(paceGap).toFixed(2);
+  const absGap = Math.abs(paceGap).toFixed(1);
   if (isBehind) {
     return `必要ペースより ${absGap} kg/2週 遅いため、${kcalCorrection < 0 ? "" : "+"}${kcalCorrection.toLocaleString()} kcal/日 を推奨`;
   } else {
@@ -495,7 +495,7 @@ export function GoalNavigator({
                   }`}
                 >
                   {monthlyGoalProgress.deltaKg > 0 ? "+" : ""}
-                  {monthlyGoalProgress.deltaKg.toFixed(2)} kg
+                  {monthlyGoalProgress.deltaKg.toFixed(1)} kg
                 </span>
               </span>
             )}
@@ -506,7 +506,7 @@ export function GoalNavigator({
                 残必要ペース:{" "}
                 <span className="font-semibold tabular-nums text-slate-700">
                   {monthlyGoalProgress.requiredPaceKgPerWeek > 0 ? "+" : ""}
-                  {monthlyGoalProgress.requiredPaceKgPerWeek.toFixed(2)} kg/週
+                  {monthlyGoalProgress.requiredPaceKgPerWeek.toFixed(1)} kg/週
                 </span>
                 <span className="ml-1 text-[10px] text-slate-400">
                   (残{monthlyGoalProgress.daysToMonthEnd}日)
