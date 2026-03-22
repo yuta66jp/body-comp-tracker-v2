@@ -2,9 +2,9 @@
 
 import { useState, useMemo, useTransition } from "react";
 import { Trash2, Plus, Search, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import type { FoodMaster } from "@/lib/supabase/types";
 import { parseStrictNumber } from "@/lib/utils/parseNumber";
+import { insertFood, deleteFood } from "@/app/actions/foods";
 
 interface FoodTableProps {
   initialFoods: FoodMaster[];
@@ -129,11 +129,10 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
       carbs: parsedNums["carbs"]!,
       category: form.category.trim() || null,
     };
-    const supabase = createClient();
-    const { error: err } = await supabase.from("food_master").insert(payload as never);
+    const { error: err } = await insertFood(payload);
 
     setIsSaving(false);
-    if (err) return setError(err.message);
+    if (err) return setError(err);
 
     // 成功パス: リストを更新し、成功を表示してから1.2秒後に閉じる
     setFoods((prev) => [...prev, payload].sort((a, b) => a.name.localeCompare(b.name)));
@@ -150,8 +149,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
 
   function handleDelete(name: string) {
     startTransition(async () => {
-      const supabase = createClient();
-      const { error: err } = await supabase.from("food_master").delete().eq("name", name as never);
+      const { error: err } = await deleteFood(name);
       if (!err) setFoods((prev) => prev.filter((f) => f.name !== name));
     });
   }

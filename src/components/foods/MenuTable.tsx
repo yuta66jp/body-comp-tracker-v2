@@ -2,9 +2,9 @@
 
 import { useState, useMemo, useTransition } from "react";
 import { Plus, Trash2, Save, ChevronDown, ChevronUp, X } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import type { FoodMaster, RecipeItem } from "@/lib/supabase/types";
 import type { MenuEntry } from "@/lib/hooks/useMenuList";
+import { insertMenu, updateMenu, deleteMenu } from "@/app/actions/foods";
 
 interface MenuTableProps {
   initialMenus: MenuEntry[];
@@ -94,22 +94,15 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
     setIsSaving(true);
     setSaveError(null);
 
-    const supabase = createClient();
     const nextName = editing.name.trim();
     const payload = { name: nextName, recipe: editing.items };
 
-    let error;
-    if (editing.originalName === null) {
-      ({ error } = await supabase.from("menu_master").insert(payload as never));
-    } else {
-      ({ error } = await supabase
-        .from("menu_master")
-        .update(payload as never)
-        .eq("name", editing.originalName as never));
-    }
+    const { error } = editing.originalName === null
+      ? await insertMenu(payload)
+      : await updateMenu(editing.originalName, payload);
 
     setIsSaving(false);
-    if (error) return setSaveError(error.message);
+    if (error) return setSaveError(error);
 
     setMenus((prev) => {
       const filtered = prev.filter((m) => m.name !== editing.originalName && m.name !== payload.name);
@@ -128,8 +121,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
 
   function handleDelete(name: string) {
     startTransition(async () => {
-      const supabase = createClient();
-      const { error } = await supabase.from("menu_master").delete().eq("name", name as never);
+      const { error } = await deleteMenu(name);
       if (!error) setMenus((prev) => prev.filter((m) => m.name !== name));
     });
   }
