@@ -21,8 +21,10 @@ function makeDailyLog(
   overrides: Partial<DailyLog> = {}
 ): DailyLog {
   return {
+    id: "test-id",
     log_date,
-    weight,
+    weight: weight as number,
+    created_at: null,
     calories: null,
     protein: null,
     fat: null,

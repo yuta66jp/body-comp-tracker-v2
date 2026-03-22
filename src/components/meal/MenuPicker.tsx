@@ -44,7 +44,7 @@ export function MenuPicker({ foods, onAddSet }: MenuPickerProps) {
     if (!menu) return 0;
     return menu.recipe.reduce((sum, ri) => {
       const food = foodMap.get(ri.name);
-      return sum + (food ? Math.round((food.calories * ri.amount) / 100) : 0);
+      return sum + (food ? Math.round(((food.calories ?? 0) * ri.amount) / 100) : 0);
     }, 0);
   }
 

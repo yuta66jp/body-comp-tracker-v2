@@ -228,8 +228,8 @@ describe("SettingsForm — 保存中ステータス", () => {
 describe("SettingsForm — 初期値の反映", () => {
   it("initialSettings の数値フィールドがフォームに反映される", () => {
     const settings: Setting[] = [
-      { key: "goal_weight", value_num: 60.5, value_str: null },
-      { key: "age",         value_num: 28,   value_str: null },
+      { key: "goal_weight", value_num: 60.5, value_str: null, updated_at: null },
+      { key: "age",         value_num: 28,   value_str: null, updated_at: null },
     ];
 
     render(<SettingsForm initialSettings={settings} />);
@@ -245,7 +245,7 @@ describe("SettingsForm — 初期値の反映", () => {
 
   it("initialSettings の文字列フィールドがフォームに反映される", () => {
     const settings: Setting[] = [
-      { key: "current_season", value_num: null, value_str: "2026_TokyoNovice" },
+      { key: "current_season", value_num: null, value_str: "2026_TokyoNovice", updated_at: null },
     ];
 
     render(<SettingsForm initialSettings={settings} />);
