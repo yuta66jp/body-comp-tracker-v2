@@ -20,9 +20,13 @@ export default async function SettingsPage() {
   const logs = logsResult.kind === "ok" ? logsResult.data : [];
   const qualityReport = calcDataQuality(logs);
 
-  // 最新の記録体重 (最新 log_date のもの)。月次目標計画の起点体重として使用。
+  // 最新の非 null 体重。月次目標計画の起点体重として使用。
+  // 最新 log_date のレコードに weight がなくても、過去の記録があれば計画 UI が機能する。
   const currentWeight =
-    [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date)).at(-1)?.weight ?? null;
+    [...logs]
+      .sort((a, b) => a.log_date.localeCompare(b.log_date))
+      .findLast((l) => l.weight !== null)
+      ?.weight ?? null;
 
   return (
     <PageShell title="設定">
