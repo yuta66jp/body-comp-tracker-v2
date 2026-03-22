@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition } from "react";
 import { Trash2, Plus, Search, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
-import type { FoodMaster } from "@/lib/supabase/types";
+import type { FoodMaster, TablesInsert } from "@/lib/supabase/types";
 import { parseStrictNumber } from "@/lib/utils/parseNumber";
 import { insertFood, deleteFood } from "@/app/actions/foods";
 
@@ -121,7 +121,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
     setIsSaving(true);
     setError(null);
 
-    const payload: FoodMaster = {
+    const payload: TablesInsert<"food_master"> = {
       name: form.name.trim(),
       calories: parsedNums["calories"]!,
       protein: parsedNums["protein"]!,
@@ -135,7 +135,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
     if (err) return setError(err);
 
     // 成功パス: リストを更新し、成功を表示してから1.2秒後に閉じる
-    setFoods((prev) => [...prev, payload].sort((a, b) => a.name.localeCompare(b.name)));
+    setFoods((prev) => [...prev, payload as FoodMaster].sort((a, b) => a.name.localeCompare(b.name)));
     setSaveSuccess(true);
     setTimeout(() => {
       setShowForm(false);

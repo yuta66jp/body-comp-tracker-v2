@@ -4,12 +4,14 @@ import type { DailyLog } from "@/lib/supabase/types";
 
 function makeLog(log_date: string, overrides: Partial<DailyLog> = {}): DailyLog {
   return {
+    id:                "test-id",
     log_date,
     weight: 65.0,
     calories: 2000,
     protein: 150,
     fat: 50,
     carbs: 200,
+    created_at:        null,
     note: null,
     is_cheat_day:      false,
     is_refeed_day:     false,

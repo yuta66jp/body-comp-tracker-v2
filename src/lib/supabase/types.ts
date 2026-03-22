@@ -1,359 +1,515 @@
-/**
- * Supabase DB 型定義
- * 本番では `npx supabase gen types typescript --project-id <id> > src/lib/supabase/types.ts` で上書きすること。
- */
-
 export type Json =
   | string
   | number
   | boolean
   | null
   | { [key: string]: Json | undefined }
-  | Json[];
+  | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.1"
+  }
   public: {
     Tables: {
-      forecast_backtest_runs: {
-        Row: {
-          id: string;
-          created_at: string;
-          model_name: string;
-          model_version: string | null;
-          horizons: number[];
-          train_min_date: string | null;
-          train_max_date: string | null;
-          n_source_rows: number;
-          notes: string | null;
-          config: Json;
-        };
-        Insert: {
-          id?: string;
-          created_at?: string;
-          model_name: string;
-          model_version?: string | null;
-          horizons: number[];
-          train_min_date?: string | null;
-          train_max_date?: string | null;
-          n_source_rows?: number;
-          notes?: string | null;
-          config?: Json;
-        };
-        Update: {
-          id?: string;
-          created_at?: string;
-          model_name?: string;
-          model_version?: string | null;
-          horizons?: number[];
-          train_min_date?: string | null;
-          train_max_date?: string | null;
-          n_source_rows?: number;
-          notes?: string | null;
-          config?: Json;
-        };
-        Relationships: [];
-      };
-      forecast_backtest_metrics: {
-        Row: {
-          id: string;
-          run_id: string;
-          model_name: string;
-          horizon_days: number;
-          mae: number;
-          rmse: number;
-          mape: number | null;
-          bias: number | null;
-          n_predictions: number;
-          computed_at: string;
-          extra: Json;
-        };
-        Insert: {
-          id?: string;
-          run_id: string;
-          model_name: string;
-          horizon_days: number;
-          mae: number;
-          rmse: number;
-          mape?: number | null;
-          bias?: number | null;
-          n_predictions?: number;
-          computed_at?: string;
-          extra?: Json;
-        };
-        Update: {
-          id?: string;
-          run_id?: string;
-          model_name?: string;
-          horizon_days?: number;
-          mae?: number;
-          rmse?: number;
-          mape?: number | null;
-          bias?: number | null;
-          n_predictions?: number;
-          computed_at?: string;
-          extra?: Json;
-        };
-        Relationships: [];
-      };
-      forecast_backtest_predictions: {
-        Row: {
-          id: string;
-          run_id: string;
-          model_name: string;
-          forecast_origin_date: string;
-          target_date: string;
-          horizon_days: number;
-          predicted_weight: number;
-          actual_weight: number;
-          error: number;
-          abs_error: number;
-          squared_error: number;
-          ape: number | null;
-        };
-        Insert: {
-          id?: string;
-          run_id: string;
-          model_name: string;
-          forecast_origin_date: string;
-          target_date: string;
-          horizon_days: number;
-          predicted_weight: number;
-          actual_weight: number;
-          error: number;
-          abs_error: number;
-          squared_error: number;
-          ape?: number | null;
-        };
-        Update: {
-          id?: string;
-          run_id?: string;
-          model_name?: string;
-          forecast_origin_date?: string;
-          target_date?: string;
-          horizon_days?: number;
-          predicted_weight?: number;
-          actual_weight?: number;
-          error?: number;
-          abs_error?: number;
-          squared_error?: number;
-          ape?: number | null;
-        };
-        Relationships: [];
-      };
-      daily_logs: {
-        Row: {
-          log_date: string;
-          weight: number | null;
-          calories: number | null;
-          protein: number | null;
-          fat: number | null;
-          carbs: number | null;
-          note: string | null;
-          is_cheat_day: boolean;
-          is_refeed_day: boolean;
-          is_eating_out: boolean;
-          is_travel_day: boolean;
-          /** @deprecated UIからの入力を廃止。既存データ互換のため型は残す。sleep_hours を使用すること。 */
-          is_poor_sleep: boolean;
-          // ── Phase 2.5 追加カラム ──
-          sleep_hours: number | null;
-          /** null=未記録, true=便通あり, false=便通なし */
-          had_bowel_movement: boolean | null;
-          /** 値: 'off' | 'chest' | 'back' | 'shoulders' | 'glutes_hamstrings' | 'quads' */
-          training_type: string | null;
-          /** 値: 'off' | 'office' | 'remote' */
-          work_mode: string | null;
-          /** training_type から導出 (quads/glutes_hamstrings → true, それ以外 → false, 未入力 → null) */
-          leg_flag: boolean | null;
-          /** 行の最終更新日時 (ISO 8601)。analytics stale 判定の基準として MAX(updated_at) を使用する */
-          updated_at: string;
-        };
-        Insert: {
-          log_date: string;
-          weight?: number | null;
-          calories?: number | null;
-          protein?: number | null;
-          fat?: number | null;
-          carbs?: number | null;
-          note?: string | null;
-          is_cheat_day?: boolean;
-          is_refeed_day?: boolean;
-          is_eating_out?: boolean;
-          is_travel_day?: boolean;
-          is_poor_sleep?: boolean;
-          sleep_hours?: number | null;
-          had_bowel_movement?: boolean | null;
-          training_type?: string | null;
-          work_mode?: string | null;
-          leg_flag?: boolean | null;
-          updated_at?: string;
-        };
-        Update: {
-          log_date?: string;
-          weight?: number | null;
-          calories?: number | null;
-          protein?: number | null;
-          fat?: number | null;
-          carbs?: number | null;
-          note?: string | null;
-          is_cheat_day?: boolean;
-          is_refeed_day?: boolean;
-          is_eating_out?: boolean;
-          is_travel_day?: boolean;
-          is_poor_sleep?: boolean;
-          sleep_hours?: number | null;
-          had_bowel_movement?: boolean | null;
-          training_type?: string | null;
-          work_mode?: string | null;
-          leg_flag?: boolean | null;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
-      food_master: {
-        Row: {
-          name: string;
-          protein: number;
-          fat: number;
-          carbs: number;
-          calories: number;
-          category: string | null;
-        };
-        Insert: {
-          name: string;
-          protein: number;
-          fat: number;
-          carbs: number;
-          calories: number;
-          category?: string | null;
-        };
-        Update: {
-          name?: string;
-          protein?: number;
-          fat?: number;
-          carbs?: number;
-          calories?: number;
-          category?: string | null;
-        };
-        Relationships: [];
-      };
-      menu_master: {
-        Row: {
-          name: string;
-          recipe: Json;
-        };
-        Insert: {
-          name: string;
-          recipe: Json;
-        };
-        Update: {
-          name?: string;
-          recipe?: Json;
-        };
-        Relationships: [];
-      };
-      settings: {
-        Row: {
-          key: string;
-          value_num: number | null;
-          value_str: string | null;
-        };
-        Insert: {
-          key: string;
-          value_num?: number | null;
-          value_str?: string | null;
-        };
-        Update: {
-          key?: string;
-          value_num?: number | null;
-          value_str?: string | null;
-        };
-        Relationships: [];
-      };
-      predictions: {
-        Row: {
-          id: number;
-          ds: string;
-          yhat: number;
-          model_version: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: number;
-          ds: string;
-          yhat: number;
-          model_version: string;
-          created_at?: string;
-        };
-        Update: {
-          id?: number;
-          ds?: string;
-          yhat?: number;
-          model_version?: string;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
       analytics_cache: {
         Row: {
-          metric_type: string;
-          payload: Json;
-          updated_at: string;
-        };
+          metric_type: string
+          payload: Json
+          updated_at: string
+        }
         Insert: {
-          metric_type: string;
-          payload: Json;
-          updated_at?: string;
-        };
+          metric_type: string
+          payload: Json
+          updated_at?: string
+        }
         Update: {
-          metric_type?: string;
-          payload?: Json;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
+          metric_type?: string
+          payload?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       career_logs: {
         Row: {
-          id: number;
-          log_date: string;
-          weight: number;
-          season: string;
-          target_date: string;
-          note: string | null;
-        };
+          id: number
+          log_date: string
+          note: string | null
+          season: string
+          target_date: string
+          weight: number
+        }
         Insert: {
-          id?: number;
-          log_date: string;
-          weight: number;
-          season: string;
-          target_date: string;
-          note?: string | null;
-        };
+          id?: number
+          log_date: string
+          note?: string | null
+          season: string
+          target_date: string
+          weight: number
+        }
         Update: {
-          id?: number;
-          log_date?: string;
-          weight?: number;
-          season?: string;
-          target_date?: string;
-          note?: string | null;
-        };
-        Relationships: [];
-      };
-    };
-    Views: Record<string, never>;
+          id?: number
+          log_date?: string
+          note?: string | null
+          season?: string
+          target_date?: string
+          weight?: number
+        }
+        Relationships: []
+      }
+      daily_logs: {
+        Row: {
+          calories: number | null
+          carbs: number | null
+          created_at: string | null
+          fat: number | null
+          had_bowel_movement: boolean | null
+          id: string
+          is_cheat_day: boolean
+          is_eating_out: boolean
+          is_poor_sleep: boolean | null
+          is_refeed_day: boolean
+          is_travel_day: boolean
+          leg_flag: boolean | null
+          log_date: string
+          note: string | null
+          protein: number | null
+          sleep_hours: number | null
+          training_type: string | null
+          updated_at: string
+          weight: number
+          work_mode: string | null
+        }
+        Insert: {
+          calories?: number | null
+          carbs?: number | null
+          created_at?: string | null
+          fat?: number | null
+          had_bowel_movement?: boolean | null
+          id?: string
+          is_cheat_day?: boolean
+          is_eating_out?: boolean
+          is_poor_sleep?: boolean | null
+          is_refeed_day?: boolean
+          is_travel_day?: boolean
+          leg_flag?: boolean | null
+          log_date: string
+          note?: string | null
+          protein?: number | null
+          sleep_hours?: number | null
+          training_type?: string | null
+          updated_at?: string
+          weight: number
+          work_mode?: string | null
+        }
+        Update: {
+          calories?: number | null
+          carbs?: number | null
+          created_at?: string | null
+          fat?: number | null
+          had_bowel_movement?: boolean | null
+          id?: string
+          is_cheat_day?: boolean
+          is_eating_out?: boolean
+          is_poor_sleep?: boolean | null
+          is_refeed_day?: boolean
+          is_travel_day?: boolean
+          leg_flag?: boolean | null
+          log_date?: string
+          note?: string | null
+          protein?: number | null
+          sleep_hours?: number | null
+          training_type?: string | null
+          updated_at?: string
+          weight?: number
+          work_mode?: string | null
+        }
+        Relationships: []
+      }
+      food_master: {
+        Row: {
+          calories: number | null
+          carbs: number | null
+          category: string | null
+          created_at: string | null
+          fat: number | null
+          id: string
+          name: string
+          protein: number | null
+        }
+        Insert: {
+          calories?: number | null
+          carbs?: number | null
+          category?: string | null
+          created_at?: string | null
+          fat?: number | null
+          id?: string
+          name: string
+          protein?: number | null
+        }
+        Update: {
+          calories?: number | null
+          carbs?: number | null
+          category?: string | null
+          created_at?: string | null
+          fat?: number | null
+          id?: string
+          name?: string
+          protein?: number | null
+        }
+        Relationships: []
+      }
+      forecast_backtest_metrics: {
+        Row: {
+          bias: number | null
+          computed_at: string
+          extra: Json
+          horizon_days: number
+          id: string
+          mae: number
+          mape: number | null
+          model_name: string
+          n_predictions: number
+          rmse: number
+          run_id: string
+        }
+        Insert: {
+          bias?: number | null
+          computed_at?: string
+          extra?: Json
+          horizon_days: number
+          id?: string
+          mae: number
+          mape?: number | null
+          model_name: string
+          n_predictions?: number
+          rmse: number
+          run_id: string
+        }
+        Update: {
+          bias?: number | null
+          computed_at?: string
+          extra?: Json
+          horizon_days?: number
+          id?: string
+          mae?: number
+          mape?: number | null
+          model_name?: string
+          n_predictions?: number
+          rmse?: number
+          run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forecast_backtest_metrics_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "forecast_backtest_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forecast_backtest_predictions: {
+        Row: {
+          abs_error: number
+          actual_weight: number
+          ape: number | null
+          error: number
+          forecast_origin_date: string
+          horizon_days: number
+          id: string
+          model_name: string
+          predicted_weight: number
+          run_id: string
+          squared_error: number
+          target_date: string
+        }
+        Insert: {
+          abs_error: number
+          actual_weight: number
+          ape?: number | null
+          error: number
+          forecast_origin_date: string
+          horizon_days: number
+          id?: string
+          model_name: string
+          predicted_weight: number
+          run_id: string
+          squared_error: number
+          target_date: string
+        }
+        Update: {
+          abs_error?: number
+          actual_weight?: number
+          ape?: number | null
+          error?: number
+          forecast_origin_date?: string
+          horizon_days?: number
+          id?: string
+          model_name?: string
+          predicted_weight?: number
+          run_id?: string
+          squared_error?: number
+          target_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forecast_backtest_predictions_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "forecast_backtest_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forecast_backtest_runs: {
+        Row: {
+          config: Json
+          created_at: string
+          horizons: number[]
+          id: string
+          model_name: string
+          model_version: string | null
+          n_source_rows: number
+          notes: string | null
+          train_max_date: string | null
+          train_min_date: string | null
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          horizons: number[]
+          id?: string
+          model_name: string
+          model_version?: string | null
+          n_source_rows?: number
+          notes?: string | null
+          train_max_date?: string | null
+          train_min_date?: string | null
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          horizons?: number[]
+          id?: string
+          model_name?: string
+          model_version?: string | null
+          n_source_rows?: number
+          notes?: string | null
+          train_max_date?: string | null
+          train_min_date?: string | null
+        }
+        Relationships: []
+      }
+      menu_master: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          recipe: Json
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          recipe: Json
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          recipe?: Json
+        }
+        Relationships: []
+      }
+      predictions: {
+        Row: {
+          created_at: string
+          ds: string
+          id: number
+          model_version: string
+          yhat: number
+        }
+        Insert: {
+          created_at?: string
+          ds: string
+          id?: number
+          model_version: string
+          yhat: number
+        }
+        Update: {
+          created_at?: string
+          ds?: string
+          id?: number
+          model_version?: string
+          yhat?: number
+        }
+        Relationships: []
+      }
+      settings: {
+        Row: {
+          key: string
+          updated_at: string | null
+          value_num: number | null
+          value_str: string | null
+        }
+        Insert: {
+          key: string
+          updated_at?: string | null
+          value_num?: number | null
+          value_str?: string | null
+        }
+        Update: {
+          key?: string
+          updated_at?: string | null
+          value_num?: number | null
+          value_str?: string | null
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
     Functions: {
       save_daily_log_partial: {
-        Args: {
-          p_log_date: string;
-          p_fields: Record<string, unknown>;
-        };
-        Returns: undefined;
-      };
-    };
-    Enums: Record<string, never>;
-    CompositeTypes: Record<string, never>;
-  };
-};
+        Args: { p_fields: Json; p_log_date: string }
+        Returns: undefined
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const
 
 // Convenience type aliases
 export type DailyLog = Database["public"]["Tables"]["daily_logs"]["Row"];

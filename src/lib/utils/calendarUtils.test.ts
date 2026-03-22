@@ -9,10 +9,12 @@ import type { DailyLog } from "@/lib/supabase/types";
 
 // ── テストデータ工場 ─────────────────────────────────────────────────────────
 
-function makeLog(overrides: Partial<DailyLog> & { log_date: string }): DailyLog {
+function makeLog(overrides: Omit<Partial<DailyLog>, "weight"> & { log_date: string; weight?: number | null }): DailyLog {
   return {
+    id:                 "test-id",
     log_date:           overrides.log_date,
-    weight:             overrides.weight             ?? null,
+    weight:             (overrides.weight ?? null) as number,
+    created_at:         null,
     calories:           overrides.calories           ?? null,
     protein:            overrides.protein            ?? null,
     fat:                overrides.fat                ?? null,

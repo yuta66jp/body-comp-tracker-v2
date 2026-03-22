@@ -20,7 +20,7 @@ interface EditingMenu {
 function calcRecipeKcal(items: RecipeItem[], foodMap: Map<string, FoodMaster>) {
   return items.reduce((sum, ri) => {
     const f = foodMap.get(ri.name);
-    return sum + (f ? Math.round((f.calories * ri.amount) / 100) : 0);
+    return sum + (f ? Math.round(((f.calories ?? 0) * ri.amount) / 100) : 0);
   }, 0);
 }
 
@@ -214,13 +214,13 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
                 .sort((a, b) => {
                   const fa = foodMap.get(a.name);
                   const fb = foodMap.get(b.name);
-                  const ka = fa ? Math.round((fa.calories * a.amount) / 100) : 0;
-                  const kb = fb ? Math.round((fb.calories * b.amount) / 100) : 0;
+                  const ka = fa ? Math.round(((fa.calories ?? 0) * a.amount) / 100) : 0;
+                  const kb = fb ? Math.round(((fb.calories ?? 0) * b.amount) / 100) : 0;
                   return kb - ka;
                 })
                 .map((ri) => {
                   const food = foodMap.get(ri.name);
-                  const kcal = food ? Math.round((food.calories * ri.amount) / 100) : 0;
+                  const kcal = food ? Math.round(((food.calories ?? 0) * ri.amount) / 100) : 0;
                   // 削除は元の items 配列のインデックスで行う
                   const originalIdx = editing.items.findIndex((i) => i.name === ri.name);
                   return (
@@ -313,7 +313,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
                     <div className="border-t border-slate-50 bg-slate-50 px-4 py-3 space-y-1.5">
                       {menu.recipe.map((ri, i) => {
                         const food = foodMap.get(ri.name);
-                        const itemKcal = food ? Math.round((food.calories * ri.amount) / 100) : 0;
+                        const itemKcal = food ? Math.round(((food.calories ?? 0) * ri.amount) / 100) : 0;
                         return (
                           <div key={i} className="flex justify-between text-xs text-slate-600">
                             <span>{ri.name}</span>
@@ -364,7 +364,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
                     <ul className="border-t border-gray-50 bg-gray-50 px-6 py-2 space-y-1">
                       {menu.recipe.map((ri, i) => {
                         const food = foodMap.get(ri.name);
-                        const itemKcal = food ? Math.round((food.calories * ri.amount) / 100) : 0;
+                        const itemKcal = food ? Math.round(((food.calories ?? 0) * ri.amount) / 100) : 0;
                         return (
                           <li key={i} className="flex justify-between text-xs text-gray-600">
                             <span>{ri.name}</span>

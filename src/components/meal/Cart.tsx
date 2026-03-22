@@ -15,7 +15,7 @@ interface CartProps {
 }
 
 function calcNutrient(food: FoodMaster, grams: number, key: keyof Pick<FoodMaster, "calories" | "protein" | "fat" | "carbs">) {
-  return Math.round((food[key] * grams) / 100);
+  return Math.round(((food[key] ?? 0) * grams) / 100);
 }
 
 export function calcCartTotals(items: CartItem[]) {
