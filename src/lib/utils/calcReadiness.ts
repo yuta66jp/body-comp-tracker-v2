@@ -315,7 +315,7 @@ export interface GoalReachResult {
   status: "achieved" | "stalled" | "projected" | "no_data";
   /** 到達予定日 (YYYY-MM-DD)。status="projected" 時のみ非 null */
   date: string | null;
-  /** 表示ラベル ("MM-DD" / "達成済み ✓" / "停滞中" / "—") */
+  /** 表示ラベル ("YYYY-MM-DD" / "達成済み ✓" / "停滞中" / "—") */
   label: string;
 }
 
@@ -370,7 +370,7 @@ export function calcGoalReachDate(
   const date = addDaysStr(today, Math.round(daysNeeded));
   if (!date) return { status: "stalled", date: null, label: "停滞中" };
 
-  return { status: "projected", date, label: date.slice(5) }; // MM-DD
+  return { status: "projected", date, label: date }; // YYYY-MM-DD
 }
 
 /**

@@ -309,7 +309,7 @@ describe("calcGoalReachDate", () => {
     const r = calcGoalReachDate(70.0, slope, 68.0, today);
     expect(r.status).toBe("projected");
     expect(r.date).toBe("2026-03-29"); // today + 14日
-    expect(r.label).toBe("03-29");
+    expect(r.label).toBe("2026-03-29");
   });
 
   test("Cut: 7日後に到達するペース → status=projected", () => {
@@ -317,7 +317,7 @@ describe("calcGoalReachDate", () => {
     const r = calcGoalReachDate(69.0, -1 / 7, 68.0, today);
     expect(r.status).toBe("projected");
     expect(r.date).toBe("2026-03-22"); // today + 7日
-    expect(r.label).toBe("03-22");
+    expect(r.label).toBe("2026-03-22");
   });
 
   test("Bulk: 目標より低く増量中 → status=projected", () => {
