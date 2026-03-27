@@ -91,7 +91,7 @@ function generateFinding(
 
   if (pastWithData.length === 0) return null;
 
-  const prev = pastWithData[0];
+  const prev = pastWithData[0]!;
   const diff = current.avgWeight - prev.avgWeight!;
   const direction = isCut
     ? diff < -0.05 ? "先行" : diff > 0.05 ? "遅れ" : "同ペース"

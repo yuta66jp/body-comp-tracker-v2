@@ -98,7 +98,7 @@ export function Cart({ items, onChange }: CartProps) {
     if (raw === undefined) return; // 未編集ならスキップ
 
     const item = items[index];
-    if (item.kind !== "regular") return; // 一時食品は grams 編集なし
+    if (!item || item.kind !== "regular") return; // 一時食品は grams 編集なし
 
     const grams = normalizeGrams(raw, item.grams);
     const next = items.map((it, i) => (i === index ? { ...it, grams } : it));
@@ -113,6 +113,7 @@ export function Cart({ items, onChange }: CartProps) {
 
   function remove(index: number) {
     const item = items[index];
+    if (!item) return;
     if (item.kind === "regular") {
       setEditingGrams((prev) => {
         const updated = { ...prev };

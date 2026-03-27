@@ -10,7 +10,7 @@ function makeSma7(n: number, latestDate: string, valueAtLatest: number, slope: n
   for (let i = 0; i < n; i++) {
     // latestDate - (n-1-i) 日
     const daysBack = n - 1 - i;
-    const [y, m, d] = latestDate.split("-").map(Number);
+    const [y, m, d] = latestDate.split("-").map(Number) as [number, number, number];
     const dt = new Date(y, m - 1, d - daysBack);
     const date = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
     result.push({ date, value: valueAtLatest + slope * (i - (n - 1)) });
@@ -42,19 +42,19 @@ describe("calcEwLinearForecast", () => {
     const sma7 = makeSma7(20, latestLogDate, 70.0, 0.0);
     const result = calcEwLinearForecast(sma7, latestLogDate, 30);
     expect(result).toHaveLength(30);
-    expect(result[29].date).toBe("2026-04-14");
+    expect(result[29]!.date).toBe("2026-04-14");
   });
 
   it("latestLogDate の翌日から始まる", () => {
     const sma7 = makeSma7(20, latestLogDate, 70.0, 0.0);
     const result = calcEwLinearForecast(sma7, latestLogDate);
-    expect(result[0].date).toBe("2026-03-16");
+    expect(result[0]!.date).toBe("2026-03-16");
   });
 
   it("14 件目が latestLogDate + 14 日の日付になる", () => {
     const sma7 = makeSma7(20, latestLogDate, 70.0, 0.0);
     const result = calcEwLinearForecast(sma7, latestLogDate);
-    expect(result[13].date).toBe("2026-03-29");
+    expect(result[13]!.date).toBe("2026-03-29");
   });
 
   it("一定 SMA7 では一定値を予測する", () => {
@@ -69,13 +69,13 @@ describe("calcEwLinearForecast", () => {
     // slope = -0.05 kg/日 の下降トレンド
     const sma7 = makeSma7(20, latestLogDate, 70.0, -0.05);
     const result = calcEwLinearForecast(sma7, latestLogDate, 7);
-    expect(result[6].value).toBeLessThan(70.0);
+    expect(result[6]!.value).toBeLessThan(70.0);
   });
 
   it("上昇トレンドでは予測値が latestLogDate 時点の SMA7 より高くなる", () => {
     const sma7 = makeSma7(20, latestLogDate, 70.0, 0.05);
     const result = calcEwLinearForecast(sma7, latestLogDate, 7);
-    expect(result[6].value).toBeGreaterThan(70.0);
+    expect(result[6]!.value).toBeGreaterThan(70.0);
   });
 
   it("SMA7 が 30 件を超える場合でも直近 30 件を使って予測できる", () => {
@@ -83,26 +83,26 @@ describe("calcEwLinearForecast", () => {
     const result = calcEwLinearForecast(sma7, latestLogDate);
     expect(result).toHaveLength(14);
     // 下降トレンドなので予測値が下がっていること
-    expect(result[13].value).toBeLessThan(70.0);
+    expect(result[13]!.value).toBeLessThan(70.0);
   });
 
   // ── 非有限値ガード ────────────────────────────────────────────────────────────
 
   it("value に NaN を含む場合は空配列を返す", () => {
     const sma7 = makeSma7(20, latestLogDate, 70.0, 0.0);
-    sma7[10].value = NaN;
+    sma7[10]!.value = NaN;
     expect(calcEwLinearForecast(sma7, latestLogDate)).toEqual([]);
   });
 
   it("value に Infinity を含む場合は空配列を返す", () => {
     const sma7 = makeSma7(20, latestLogDate, 70.0, 0.0);
-    sma7[5].value = Infinity;
+    sma7[5]!.value = Infinity;
     expect(calcEwLinearForecast(sma7, latestLogDate)).toEqual([]);
   });
 
   it("value に -Infinity を含む場合は空配列を返す", () => {
     const sma7 = makeSma7(20, latestLogDate, 70.0, 0.0);
-    sma7[5].value = -Infinity;
+    sma7[5]!.value = -Infinity;
     expect(calcEwLinearForecast(sma7, latestLogDate)).toEqual([]);
   });
 
@@ -166,7 +166,7 @@ describe("buildForecastMap", () => {
 /** tick 配列の隣接差がすべて step に等しいことを検証するヘルパー */
 function assertUniformStep(ticks: number[], step: number) {
   for (let i = 1; i < ticks.length; i++) {
-    expect(ticks[i] - ticks[i - 1]).toBeCloseTo(step);
+    expect(ticks[i]! - ticks[i - 1]!).toBeCloseTo(step);
   }
 }
 

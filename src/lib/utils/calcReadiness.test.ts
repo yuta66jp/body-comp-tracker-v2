@@ -54,7 +54,7 @@ function makeDailyLog(
 
 /** today から n 日前の日付 (YYYY-MM-DD) を返すシンプルなヘルパー */
 function daysAgo(today: string, n: number): string {
-  const [y, m, d] = today.split("-").map(Number);
+  const [y, m, d] = today.split("-").map(Number) as [number, number, number];
   const date = new Date(y, m - 1, d - n);
   const yy = date.getFullYear();
   const mm = String(date.getMonth() + 1).padStart(2, "0");

@@ -112,7 +112,7 @@ describe("fetchSettingsRows", () => {
     expect(result.kind).toBe("ok");
     if (result.kind === "ok") {
       expect(result.data).toHaveLength(2);
-      expect(result.data[0].key).toBe("goal_weight");
+      expect(result.data[0]!.key).toBe("goal_weight");
     }
   });
 

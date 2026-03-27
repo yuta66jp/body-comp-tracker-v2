@@ -22,8 +22,8 @@ describe("calcSeasonMeta", () => {
       makeLog("2025-11-01", 62.0), // 最小
     ];
     const [meta] = calcSeasonMeta(logs);
-    expect(meta.peakWeight).toBe(62.0);
-    expect(meta.peakDate).toBe("2025-11-01");
+    expect(meta!.peakWeight).toBe(62.0);
+    expect(meta!.peakDate).toBe("2025-11-01");
   });
 
   it("日付範囲（startDate / endDate）が正しい", () => {
@@ -33,8 +33,8 @@ describe("calcSeasonMeta", () => {
       makeLog("2025-11-01", 62.0),
     ];
     const [meta] = calcSeasonMeta(logs);
-    expect(meta.startDate).toBe("2025-09-01");
-    expect(meta.endDate).toBe("2025-11-01");
+    expect(meta!.startDate).toBe("2025-09-01");
+    expect(meta!.endDate).toBe("2025-11-01");
   });
 
   it("件数（count）が正しい", () => {
@@ -43,7 +43,7 @@ describe("calcSeasonMeta", () => {
       makeLog("2025-10-01", 65.0),
     ];
     const [meta] = calcSeasonMeta(logs);
-    expect(meta.count).toBe(2);
+    expect(meta!.count).toBe(2);
   });
 
   it("複数シーズンが独立して集計される", () => {
@@ -71,8 +71,8 @@ describe("buildDaysOutSeries", () => {
     const seriesMap = buildDaysOutSeries(logs);
     const points = seriesMap.get("S1")!;
 
-    expect(points[0].daysOut).toBe(-30);
-    expect(points[1].daysOut).toBe(0);
+    expect(points[0]!.daysOut).toBe(-30);
+    expect(points[1]!.daysOut).toBe(0);
   });
 
   it("seasonFilter を指定すると対象シーズンのみが含まれる", () => {
@@ -90,7 +90,7 @@ describe("buildDaysOutSeries", () => {
     const seriesMap = buildDaysOutSeries(logs);
     const [point] = seriesMap.get("S1")!;
     // 1点だけの場合は sma7 = weight
-    expect(point.sma7).toBeCloseTo(62.5, 5);
+    expect(point!.sma7).toBeCloseTo(62.5, 5);
   });
 
   it("7日移動平均が正しく計算される", () => {
@@ -105,7 +105,7 @@ describe("buildDaysOutSeries", () => {
     );
     const seriesMap = buildDaysOutSeries(logs);
     const points = seriesMap.get("S1")!;
-    const lastSma7 = points[6].sma7!;
+    const lastSma7 = points[6]!.sma7!;
     // 全7点の平均 = (70+69+68+67+66+65+64)/7 = 67
     expect(lastSma7).toBeCloseTo(67, 5);
   });

@@ -112,7 +112,7 @@ describe("fetchMetrics", () => {
     expect(result.kind).toBe("ok");
     if (result.kind === "ok") {
       expect(result.data).toHaveLength(2);
-      expect(result.data[0].horizon_days).toBe(7);
+      expect(result.data[0]!.horizon_days).toBe(7);
     }
   });
 

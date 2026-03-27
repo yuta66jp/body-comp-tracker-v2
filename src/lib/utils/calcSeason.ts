@@ -36,11 +36,11 @@ export function calcSeasonMeta(logs: CareerLog[]): SeasonMeta[] {
 
       return {
         season,
-        targetDate: sorted[0].target_date,
-        startDate: sorted[0].log_date,
-        endDate: sorted[sorted.length - 1].log_date,
+        targetDate: sorted[0]!.target_date,
+        startDate: sorted[0]!.log_date,
+        endDate: sorted[sorted.length - 1]!.log_date,
         peakWeight: minWeight,
-        peakDate: sorted[minIdx].log_date,
+        peakDate: sorted[minIdx]!.log_date,
         count: sorted.length,
       };
     })
@@ -197,8 +197,8 @@ export function buildTodayWindowEntries(
 
     // inWindow は buildDaysOutSeries で log_date 昇順にソート済みのため、
     // 先頭が最古・末尾が最新の日付になる
-    const dateFrom = inWindow[0].log_date;
-    const dateTo = inWindow[inWindow.length - 1].log_date;
+    const dateFrom = inWindow[0]!.log_date;
+    const dateTo = inWindow[inWindow.length - 1]!.log_date;
 
     return { season, count: inWindow.length, avgWeight, centerDaysOut, dateFrom, dateTo };
   });

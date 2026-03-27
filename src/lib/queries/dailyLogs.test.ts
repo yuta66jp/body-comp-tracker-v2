@@ -77,7 +77,7 @@ describe("fetchMacroDailyLogs", () => {
     expect(result.kind).toBe("ok");
     if (result.kind === "ok") {
       expect(result.data).toHaveLength(2);
-      expect(result.data[0].log_date).toBe("2026-03-01"); // reverse 後は昇順
+      expect(result.data[0]!.log_date).toBe("2026-03-01"); // reverse 後は昇順
     }
   });
 
@@ -115,7 +115,7 @@ describe("fetchTdeeDailyLogs", () => {
     expect(result.kind).toBe("ok");
     if (result.kind === "ok") {
       expect(result.data).toHaveLength(2);
-      expect(result.data[0].log_date).toBe("2026-03-01");
+      expect(result.data[0]!.log_date).toBe("2026-03-01");
     }
   });
 
@@ -237,7 +237,7 @@ describe("fetchCareerLogs", () => {
     expect(result.kind).toBe("ok");
     if (result.kind === "ok") {
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].season).toBe("2025_Spring");
+      expect(result.data[0]!.season).toBe("2025_Spring");
     }
   });
 
@@ -275,7 +275,7 @@ describe("fetchCareerLogsForDashboard", () => {
     mockFrom.mockReturnValue({ select: selectFn });
     const result = await fetchCareerLogsForDashboard();
     expect(result).toHaveLength(1);
-    expect(result[0].season).toBe("2025_Spring");
+    expect(result[0]!.season).toBe("2025_Spring");
   });
 
   it("異常系: DB エラーのとき空配列を返す", async () => {
@@ -299,7 +299,7 @@ describe("fetchPredictions", () => {
     setupChain({ data: rows, error: null });
     const result = await fetchPredictions();
     expect(result).toHaveLength(1);
-    expect(result[0].ds).toBe("2026-03-15");
+    expect(result[0]!.ds).toBe("2026-03-15");
   });
 
   it("正常系: データが空のとき空配列を返す", async () => {

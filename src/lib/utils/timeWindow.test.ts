@@ -28,7 +28,7 @@ function makeLog(date: string) {
 /** 連続した日付のログを生成 (欠損なし) */
 function makeConsecutiveLogs(startDate: string, count: number) {
   const logs = [];
-  const [y, m, d] = startDate.split("-").map(Number);
+  const [y, m, d] = startDate.split("-").map(Number) as [number, number, number];
   const base = new Date(y, m - 1, d);
   for (let i = 0; i < count; i++) {
     const cur = new Date(base);
@@ -122,7 +122,7 @@ describe("filterLastNCalendarDays", () => {
   it("ログが1件のみ: today と一致すれば返す", () => {
     const logs = [makeLog("2026-03-14")];
     expect(filterLastNCalendarDays(logs, "2026-03-14", 7).length).toBe(1);
-    expect(filterLastNCalendarDays(logs, "2026-03-14", 7)[0].log_date).toBe("2026-03-14");
+    expect(filterLastNCalendarDays(logs, "2026-03-14", 7)[0]!.log_date).toBe("2026-03-14");
   });
 
   it("ログが1件のみ: ウィンドウ外なら空を返す", () => {
@@ -206,16 +206,16 @@ describe("暦日ベース vs 記録日ベースの挙動の違い", () => {
     // 暦日ベース: 3/8〜3/14 に含まれる4件のみ
     const calResult = filterLastNCalendarDays(logs, "2026-03-14", 7);
     expect(calResult.length).toBe(4);
-    expect(calResult[0].log_date).toBe("2026-03-08");
+    expect(calResult[0]!.log_date).toBe("2026-03-08");
 
     // 記録日ベース: 末尾から7件 → 3/3, 3/8, 3/10, 3/12, 3/14 + 3/1, 3/2 = 7件
     // つまり 3/1〜3/3 の古いデータも含まれる（欠損分だけ過去にずれる）
     const entryResult = lastNEntries(logs, 7);
     expect(entryResult.length).toBe(7);
-    expect(entryResult[0].log_date).toBe("2026-03-01"); // 記録日ベースは2週間前まで遡る
+    expect(entryResult[0]!.log_date).toBe("2026-03-01"); // 記録日ベースは2週間前まで遡る
 
     // 両者で先頭の日付が異なることを確認（定義が異なることの明示）
-    expect(calResult[0].log_date).not.toBe(entryResult[0].log_date);
+    expect(calResult[0]!.log_date).not.toBe(entryResult[0]!.log_date);
   });
 });
 
@@ -226,8 +226,8 @@ describe("lastNEntries", () => {
     const logs = makeConsecutiveLogs("2026-03-01", 14);
     const result = lastNEntries(logs, 7);
     expect(result.length).toBe(7);
-    expect(result[0].log_date).toBe("2026-03-08");
-    expect(result[6].log_date).toBe("2026-03-14");
+    expect(result[0]!.log_date).toBe("2026-03-08");
+    expect(result[6]!.log_date).toBe("2026-03-14");
   });
 
   it("ログが n 未満の場合は全件返す", () => {
@@ -254,8 +254,8 @@ describe("prevNEntries", () => {
     const result = prevNEntries(logs, 7);
     // 末尾7件 = 3/8〜3/14, その前7件 = 3/1〜3/7
     expect(result.length).toBe(7);
-    expect(result[0].log_date).toBe("2026-03-01");
-    expect(result[6].log_date).toBe("2026-03-07");
+    expect(result[0]!.log_date).toBe("2026-03-01");
+    expect(result[6]!.log_date).toBe("2026-03-07");
   });
 
   it("lastNEntries と prevNEntries は重ならない", () => {
@@ -278,8 +278,8 @@ describe("prevNEntries", () => {
     // n=7: 末尾7件=3/4〜3/10, 前7件を取ろうとしても3件しかない
     const result = prevNEntries(logs, 7);
     expect(result.length).toBe(3);
-    expect(result[0].log_date).toBe("2026-03-01");
-    expect(result[2].log_date).toBe("2026-03-03");
+    expect(result[0]!.log_date).toBe("2026-03-01");
+    expect(result[2]!.log_date).toBe("2026-03-03");
   });
 
   it("空配列は空を返す", () => {

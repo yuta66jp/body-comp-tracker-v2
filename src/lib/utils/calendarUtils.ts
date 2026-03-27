@@ -147,7 +147,7 @@ export function buildCalendarDayMap(logs: DashboardDailyLog[]): Map<string, Cale
     if (log.weight !== null) {
       const idx = withWeight.findIndex((d) => d.log_date === log.log_date);
       if (idx > 0) {
-        weightDelta = Math.round((log.weight - withWeight[idx - 1].weight!) * 100) / 100;
+        weightDelta = Math.round((log.weight - withWeight[idx - 1]!.weight!) * 100) / 100;
       }
     }
 
@@ -156,7 +156,7 @@ export function buildCalendarDayMap(logs: DashboardDailyLog[]): Map<string, Cale
     if (log.calories !== null) {
       const idx = withCals.findIndex((d) => d.log_date === log.log_date);
       if (idx > 0) {
-        calDelta = Math.round(log.calories - withCals[idx - 1].calories!);
+        calDelta = Math.round(log.calories - withCals[idx - 1]!.calories!);
       }
     }
 

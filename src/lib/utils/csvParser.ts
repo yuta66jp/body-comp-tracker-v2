@@ -187,7 +187,7 @@ export function parseCSV(text: string): ParseResult {
 
   if (nonEmpty.length < 2) return { rows: [], errors: ["データ行がありません"] };
 
-  const headerCells = nonEmpty[0];
+  const headerCells = nonEmpty[0]!;
   const headers = headerCells.map((h) => h.trim());
   const keyMap = headers.map(normalizeKey);
 
@@ -202,7 +202,7 @@ export function parseCSV(text: string): ParseResult {
   const errors: string[] = [];
 
   for (let i = 1; i < nonEmpty.length; i++) {
-    const cells = nonEmpty[i];
+    const cells = nonEmpty[i]!;
 
     // 列数不足の行はスキップして errors に記録する。
     // 余剰列（cells.length > headers.length）は keyMap の範囲外として自然に無視される。

@@ -89,7 +89,7 @@ describe("SettingsForm — 保存成功", () => {
     });
 
     // 渡された引数に必須フィールドが含まれることを確認する
-    const callArg = mockSaveSettings.mock.calls[0][0];
+    const callArg = mockSaveSettings.mock.calls[0]![0];
     expect(callArg).toHaveProperty("contest_date");
     expect(callArg).toHaveProperty("goal_weight");
     expect(callArg).toHaveProperty("activity_factor");

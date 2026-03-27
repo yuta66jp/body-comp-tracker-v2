@@ -41,7 +41,7 @@ describe("fetchFoods", () => {
     expect(result.kind).toBe("ok");
     if (result.kind === "ok") {
       expect(result.data).toHaveLength(2);
-      expect(result.data[0].name).toBe("鶏むね肉");
+      expect(result.data[0]!.name).toBe("鶏むね肉");
     }
   });
 
@@ -87,8 +87,8 @@ describe("fetchMenus", () => {
     expect(result.kind).toBe("ok");
     if (result.kind === "ok") {
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].name).toBe("鶏むね肉定食");
-      expect(result.data[0].recipe).toHaveLength(1);
+      expect(result.data[0]!.name).toBe("鶏むね肉定食");
+      expect(result.data[0]!.recipe).toHaveLength(1);
     }
   });
 
@@ -98,7 +98,7 @@ describe("fetchMenus", () => {
     const result = await fetchMenus();
     expect(result.kind).toBe("ok");
     if (result.kind === "ok") {
-      expect(result.data[0].recipe).toEqual([]);
+      expect(result.data[0]!.recipe).toEqual([]);
     }
   });
 

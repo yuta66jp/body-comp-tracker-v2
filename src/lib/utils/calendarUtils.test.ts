@@ -287,7 +287,7 @@ describe("buildConditionTags", () => {
 
   it("work_mode=remote → cyan color", () => {
     const tags = buildConditionTags({ had_bowel_movement: null, training_type: null, work_mode: "remote" });
-    expect(tags[0].colorClass).toContain("cyan");
+    expect(tags[0]!.colorClass).toContain("cyan");
   });
 });
 

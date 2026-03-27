@@ -140,7 +140,7 @@ describe("MenuTable — 保存成功（新規）", () => {
     const plusButtons = screen.getAllByRole("button").filter(
       (b) => b.querySelector("[data-testid='icon-plus']")
     );
-    fireEvent.click(plusButtons[plusButtons.length - 1]);
+    fireEvent.click(plusButtons[plusButtons.length - 1]!);
 
     fireEvent.click(screen.getByText("保存"));
 
@@ -173,7 +173,7 @@ describe("MenuTable — 保存成功（更新）", () => {
   it("編集ボタンでフォームが開き updateMenu が呼ばれる", async () => {
     // 編集ボタンは複数ある（モバイル/デスクトップ）ので最初の1つを使う
     const editButtons = screen.getAllByText("編集");
-    fireEvent.click(editButtons[0]);
+    fireEvent.click(editButtons[0]!);
 
     // 名前を変更
     const nameInput = screen.getByPlaceholderText("セット名（例: 鶏飯セット）");
@@ -206,7 +206,7 @@ describe("MenuTable — 削除", () => {
 
     const deleteButtons = screen.getAllByLabelText("鶏飯セットを削除");
     await act(async () => {
-      fireEvent.click(deleteButtons[0]);
+      fireEvent.click(deleteButtons[0]!);
     });
 
     await waitFor(() => {

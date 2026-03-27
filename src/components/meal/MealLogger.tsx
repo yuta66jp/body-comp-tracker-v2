@@ -209,7 +209,7 @@ export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerPro
           (c) => c.kind === "regular" && c.food.name === item.food.name
         );
         if (existing >= 0) {
-          const existingItem = next[existing];
+          const existingItem = next[existing]!;
           if (existingItem.kind === "regular") {
             next[existing] = { ...existingItem, grams: existingItem.grams + item.grams };
           }

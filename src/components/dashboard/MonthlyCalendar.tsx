@@ -235,7 +235,7 @@ interface MonthlyCalendarProps {
 export function MonthlyCalendar({ logs }: MonthlyCalendarProps) {
   // 当月（JST 基準）でデフォルト初期化
   const todayKey          = toJstDateStr();
-  const [y, m]            = todayKey.split("-").map(Number);
+  const [y, m]            = todayKey.split("-").map(Number) as [number, number, number];
   const [month, setMonth] = useState<Date>(new Date(y, m - 1, 1));
 
   const dayMap = useMemo(() => buildCalendarDayMap(logs), [logs]);

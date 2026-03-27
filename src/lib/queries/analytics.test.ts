@@ -286,8 +286,8 @@ describe("fetchFactorAnalysis", () => {
       error: null,
     });
     const result = await fetchFactorAnalysis("2026-03-14T03:00:00Z");
-    expect(result.payload!["cal_lag1"].stability).toBe("high");
-    expect(result.payload!["cal_lag1"].cv).toBe(0.1);
+    expect(result.payload!["cal_lag1"]!.stability).toBe("high");
+    expect(result.payload!["cal_lag1"]!.cv).toBe(0.1);
     // _stability はエントリから除外されている
     expect(result.payload!["_stability"]).toBeUndefined();
   });
@@ -301,8 +301,8 @@ describe("fetchFactorAnalysis", () => {
       error: null,
     });
     const result = await fetchFactorAnalysis("2026-03-14T03:00:00Z");
-    expect(result.payload!["cal_lag1"].stability).toBe("unavailable");
-    expect(result.payload!["cal_lag1"].cv).toBeNull();
+    expect(result.payload!["cal_lag1"]!.stability).toBe("unavailable");
+    expect(result.payload!["cal_lag1"]!.cv).toBeNull();
   });
 
   it("行なし (PGRST116): status = unavailable / payload = null", async () => {

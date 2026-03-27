@@ -43,7 +43,7 @@ describe("calcMonthlyBehaviorStats", () => {
         makeLog("2026-03-04", { had_bowel_movement: true }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
-      expect(result[0].bowelDays).toBe(2);
+      expect(result[0]!.bowelDays).toBe(2);
     });
 
     test("had_bowel_movement が全て null の月は bowelDays = 0", () => {
@@ -52,7 +52,7 @@ describe("calcMonthlyBehaviorStats", () => {
         makeLog("2026-03-02", { had_bowel_movement: null }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
-      expect(result[0].bowelDays).toBe(0);
+      expect(result[0]!.bowelDays).toBe(0);
     });
 
     test("had_bowel_movement === false は集計対象外", () => {
@@ -61,7 +61,7 @@ describe("calcMonthlyBehaviorStats", () => {
         makeLog("2026-03-02", { had_bowel_movement: false }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
-      expect(result[0].bowelDays).toBe(0);
+      expect(result[0]!.bowelDays).toBe(0);
     });
   });
 
@@ -74,7 +74,7 @@ describe("calcMonthlyBehaviorStats", () => {
         makeLog("2026-03-04", { training_type: "off" }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
-      expect(result[0].trainingCounts).toEqual({
+      expect(result[0]!.trainingCounts).toEqual({
         chest: 2,
         back: 1,
         off: 1,
@@ -87,7 +87,7 @@ describe("calcMonthlyBehaviorStats", () => {
         makeLog("2026-03-02", { training_type: "chest" }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
-      expect(result[0].trainingCounts).toEqual({ chest: 1 });
+      expect(result[0]!.trainingCounts).toEqual({ chest: 1 });
     });
 
     test("無効な training_type 文字列は集計対象外", () => {
@@ -96,7 +96,7 @@ describe("calcMonthlyBehaviorStats", () => {
         makeLog("2026-03-02", { training_type: "chest" }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
-      expect(result[0].trainingCounts).toEqual({ chest: 1 });
+      expect(result[0]!.trainingCounts).toEqual({ chest: 1 });
     });
 
     test("off は有効値として集計される", () => {
@@ -105,13 +105,13 @@ describe("calcMonthlyBehaviorStats", () => {
         makeLog("2026-03-02", { training_type: "off" }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
-      expect(result[0].trainingCounts).toEqual({ off: 2 });
+      expect(result[0]!.trainingCounts).toEqual({ off: 2 });
     });
 
     test("記録がない月は trainingCounts が空オブジェクト", () => {
       const logs = [makeLog("2026-03-01", { training_type: null })];
       const result = calcMonthlyBehaviorStats(logs);
-      expect(result[0].trainingCounts).toEqual({});
+      expect(result[0]!.trainingCounts).toEqual({});
     });
   });
 
@@ -124,7 +124,7 @@ describe("calcMonthlyBehaviorStats", () => {
         makeLog("2026-03-04", { work_mode: "off" }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
-      expect(result[0].workModeCounts).toEqual({
+      expect(result[0]!.workModeCounts).toEqual({
         remote: 2,
         office: 1,
         off: 1,
@@ -137,7 +137,7 @@ describe("calcMonthlyBehaviorStats", () => {
         makeLog("2026-03-02", { work_mode: "remote" }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
-      expect(result[0].workModeCounts).toEqual({ remote: 1 });
+      expect(result[0]!.workModeCounts).toEqual({ remote: 1 });
     });
 
     test("off (休日) は有効値として集計される", () => {
@@ -146,7 +146,7 @@ describe("calcMonthlyBehaviorStats", () => {
         makeLog("2026-03-02", { work_mode: "off" }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
-      expect(result[0].workModeCounts).toEqual({ off: 2 });
+      expect(result[0]!.workModeCounts).toEqual({ off: 2 });
     });
   });
 
@@ -163,7 +163,7 @@ describe("calcMonthlyBehaviorStats", () => {
         makeLog("2026-03-08", { is_poor_sleep: true }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
-      expect(result[0].flagCounts).toEqual({
+      expect(result[0]!.flagCounts).toEqual({
         is_cheat_day:  1,
         is_refeed_day: 2,
         is_eating_out: 3,
@@ -179,7 +179,7 @@ describe("calcMonthlyBehaviorStats", () => {
         makeLog("2026-03-03", { is_refeed_day: false }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
-      expect(result[0].flagCounts).toEqual({
+      expect(result[0]!.flagCounts).toEqual({
         is_cheat_day:  0,
         is_refeed_day: 0,
         is_eating_out: 0,
@@ -198,10 +198,10 @@ describe("calcMonthlyBehaviorStats", () => {
       ];
       const result = calcMonthlyBehaviorStats(logs);
       // 2026-03 が先 (降順)
-      expect(result[0].month).toBe("2026-03");
-      expect(result[0].bowelDays).toBe(2);
-      expect(result[1].month).toBe("2026-02");
-      expect(result[1].bowelDays).toBe(1);
+      expect(result[0]!.month).toBe("2026-03");
+      expect(result[0]!.bowelDays).toBe(2);
+      expect(result[1]!.month).toBe("2026-02");
+      expect(result[1]!.bowelDays).toBe(1);
     });
 
     test("months パラメータで返す月数を制限できる", () => {
@@ -212,8 +212,8 @@ describe("calcMonthlyBehaviorStats", () => {
       ];
       const result = calcMonthlyBehaviorStats(logs, 2);
       expect(result).toHaveLength(2);
-      expect(result[0].month).toBe("2026-03");
-      expect(result[1].month).toBe("2026-02");
+      expect(result[0]!.month).toBe("2026-03");
+      expect(result[1]!.month).toBe("2026-02");
     });
 
     test("months = 0 (デフォルト) で全月を返す", () => {
@@ -237,10 +237,10 @@ describe("calcMonthlyBehaviorStats", () => {
       const logs = [makeLog("2026-03-01")];
       const result = calcMonthlyBehaviorStats(logs);
       expect(result).toHaveLength(1);
-      expect(result[0].bowelDays).toBe(0);
-      expect(result[0].trainingCounts).toEqual({});
-      expect(result[0].workModeCounts).toEqual({});
-      expect(result[0].flagCounts).toEqual({
+      expect(result[0]!.bowelDays).toBe(0);
+      expect(result[0]!.trainingCounts).toEqual({});
+      expect(result[0]!.workModeCounts).toEqual({});
+      expect(result[0]!.flagCounts).toEqual({
         is_cheat_day: 0,
         is_refeed_day: 0,
         is_eating_out: 0,
@@ -270,10 +270,10 @@ describe("calcMonthlyBehaviorStats", () => {
         }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
-      expect(result[0].bowelDays).toBe(1);
-      expect(result[0].trainingCounts).toEqual({ chest: 1, back: 1 });
-      expect(result[0].workModeCounts).toEqual({ remote: 1, office: 1 });
-      expect(result[0].flagCounts.is_cheat_day).toBe(1);
+      expect(result[0]!.bowelDays).toBe(1);
+      expect(result[0]!.trainingCounts).toEqual({ chest: 1, back: 1 });
+      expect(result[0]!.workModeCounts).toEqual({ remote: 1, office: 1 });
+      expect(result[0]!.flagCounts.is_cheat_day).toBe(1);
     });
   });
 });
@@ -291,7 +291,7 @@ describe("sortedTrainingEntries", () => {
     const counts = { chest: 0, back: 2 };
     const result = sortedTrainingEntries(counts);
     expect(result).toHaveLength(1);
-    expect(result[0].type).toBe("back");
+    expect(result[0]!.type).toBe("back");
   });
 
   test("空オブジェクトは空配列を返す", () => {
@@ -311,6 +311,6 @@ describe("sortedWorkModeEntries", () => {
     const counts = { off: 0, office: 3 };
     const result = sortedWorkModeEntries(counts);
     expect(result).toHaveLength(1);
-    expect(result[0].mode).toBe("office");
+    expect(result[0]!.mode).toBe("office");
   });
 });
