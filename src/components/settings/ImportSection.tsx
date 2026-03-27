@@ -215,7 +215,7 @@ export function ImportSection() {
               <p className="font-semibold mb-0.5">
                 同じ日付の行が {csvDuplicateCount} 件重複していました
               </p>
-              <p>各日付について最後の行を採用しました。件数はその後の数値に反映されています。</p>
+              <p>各日付の最終値（最後に出現した行の値）を採用しました。件数はその後の数値に反映されています。</p>
             </div>
           )}
 
