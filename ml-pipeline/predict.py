@@ -34,6 +34,13 @@ logger = logging.getLogger(__name__)
 MODEL_VERSION = "neuralprophet-v1"
 FORECAST_DAYS = 180  # 大会日が半年先でもカバーできるよう拡張（旧版は90日）
 ADAPTATION_FACTOR = 30  # 代謝適応係数 (日数)
+
+# 本番予測バッチを成立させるための最低データ数。
+# weekly_seasonality=True の NeuralProphet が学習を完了できる実用的な下限。
+# 意図的に低めに設定し、データ蓄積初期でも予測バッチが稼働し続けるよう「継続性」を優先している。
+# バックテスト評価用の下限 (backtest.py: _MIN_TRAIN_ROWS_NP=30) とは目的が異なる:
+#   predict.py (14): 本番予測の継続性 — 14行未満でも予測不能にならないことを優先
+#   backtest.py (30): 評価の安定性 — 複数の週次サイクルを確保し評価メトリクスの信頼性を担保
 MIN_ROWS = 14
 
 
