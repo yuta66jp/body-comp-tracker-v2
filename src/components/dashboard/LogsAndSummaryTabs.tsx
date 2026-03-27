@@ -5,10 +5,12 @@ import { RecentLogsTable } from "./RecentLogsTable";
 import { RecentLogsCards } from "./RecentLogsCards";
 import { MonthlyCalendar } from "./MonthlyCalendar";
 import { MonthlyGoalTable } from "./MonthlyGoalTable";
+import { MonthlyBehaviorSummary } from "./MonthlyBehaviorSummary";
 import { SeasonSummary } from "@/components/history/SeasonSummary";
 import type { DashboardDailyLog } from "@/lib/supabase/types";
 import type { MonthStats } from "@/components/history/SeasonSummary";
 import type { MonthlyGoalComparisonRow } from "@/lib/utils/monthlyGoalVisualization";
+import type { MonthlyBehaviorStats } from "@/lib/utils/calcMonthlyBehaviorStats";
 
 interface LogsAndSummaryTabsProps {
   logs: DashboardDailyLog[];
@@ -19,6 +21,8 @@ interface LogsAndSummaryTabsProps {
   monthlyGoalSummaryRows?: MonthlyGoalComparisonRow[];
   /** "Cut" | "Bulk" — MonthlyGoalTable の差分色分けに使用 */
   phase?: string;
+  /** 月別行動・生活集計 (calcMonthlyBehaviorStats の結果) */
+  monthlyBehaviorStats?: MonthlyBehaviorStats[];
 }
 
 type Tab = "logs" | "calendar" | "monthly";
@@ -29,7 +33,7 @@ const TAB_LABELS: Record<Tab, string> = {
   monthly:  "月別",
 };
 
-export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason, monthlyGoalSummaryRows, phase }: LogsAndSummaryTabsProps) {
+export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason, monthlyGoalSummaryRows, phase, monthlyBehaviorStats }: LogsAndSummaryTabsProps) {
   const [tab, setTab] = useState<Tab>("logs");
 
   return (
@@ -85,6 +89,10 @@ export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason,
               <div className="mt-5">
                 <MonthlyGoalTable rows={monthlyGoalSummaryRows} phase={phase ?? "Cut"} />
               </div>
+            )}
+            {/* 月別行動・生活サマリー */}
+            {monthlyBehaviorStats && monthlyBehaviorStats.length > 0 && (
+              <MonthlyBehaviorSummary stats={monthlyBehaviorStats} />
             )}
           </div>
         )}
