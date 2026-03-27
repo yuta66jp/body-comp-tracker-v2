@@ -36,7 +36,7 @@ export function ModelInfoTooltip({ description }: ModelInfoTooltipProps) {
         type="button"
         aria-label="モデルの説明を見る"
         aria-expanded={open}
-        className="ml-1 rounded p-0.5 text-slate-300 hover:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        className="ml-1 rounded p-0.5 text-slate-400 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
         onFocus={() => setOpen(true)}
