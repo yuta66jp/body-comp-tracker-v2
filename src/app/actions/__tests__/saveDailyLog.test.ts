@@ -254,7 +254,6 @@ describe("buildUpdatePayload — 部分更新シナリオ", () => {
     expect("weight" in payload).toBe(false);
     expect("note" in payload).toBe(false);
     expect("is_cheat_day" in payload).toBe(false);
-    expect("is_poor_sleep" in payload).toBe(false);
   });
 
   test("タグのみ更新: weight・macro・note はペイロードに含まれない", () => {
@@ -276,7 +275,6 @@ describe("buildUpdatePayload — 部分更新シナリオ", () => {
     const payload = buildUpdatePayload({ weight: 70.0, is_cheat_day: true });
     expect("is_refeed_day" in payload).toBe(false);
     expect("is_eating_out" in payload).toBe(false);
-    expect("is_poor_sleep" in payload).toBe(false);
   });
 
   // ※ buildUpdatePayload 自体は空文字を通す。呼び出し側 (MealLogger) が

@@ -194,15 +194,6 @@ FEATURE_REGISTRY: list[FeatureDef] = [
         active=False,
     ),
     FeatureDef(
-        name="is_poor_sleep",
-        label="睡眠不足",
-        dtype=FeatureDtype.BOOLEAN,
-        nullable=False,
-        source_col="is_poor_sleep",
-        encoder_hint=EncoderHint.ORDINAL,
-        active=False,
-    ),
-    FeatureDef(
         name="leg_flag",
         label="脚トレ日",
         dtype=FeatureDtype.BOOLEAN,

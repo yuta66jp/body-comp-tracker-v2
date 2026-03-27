@@ -106,7 +106,6 @@ const INACTIVE_FEATURE_LABEL_MAP: Readonly<Record<string, string>> = {
   is_cheat_day:       "チートデイ",
   is_refeed_day:      "リフィードデイ",
   is_eating_out:      "外食日",
-  is_poor_sleep:      "睡眠不足",
   leg_flag:           "脚トレ日",
 
   // category

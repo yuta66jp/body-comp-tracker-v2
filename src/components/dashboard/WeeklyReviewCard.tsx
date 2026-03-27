@@ -288,11 +288,6 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
                     {DAY_TAG_LABELS.is_eating_out} {data.specialDays.eatingOutDays}日
                   </span>
                 )}
-                {data.specialDays.poorSleepDays > 0 && (
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${DAY_TAG_BADGE_COLORS.is_poor_sleep}`}>
-                    {DAY_TAG_LABELS.is_poor_sleep} {data.specialDays.poorSleepDays}日
-                  </span>
-                )}
               </div>
             </div>
           )}

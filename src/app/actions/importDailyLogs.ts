@@ -14,7 +14,6 @@ export type ImportDailyLogsResult =
  * 通常保存 (saveDailyLog) との整合:
  * - 日付 / 数値範囲 / enum バリデーションを通常保存と同じ経路で実施
  * - leg_flag は training_type から buildUpdatePayload 内で導出（CSV の値を使わない）
- * - is_poor_sleep は廃止済みのため変換対象から除外
  * - save_daily_log_partial RPC で atomic UPDATE → INSERT
  * - 保存後の revalidate は saveDailyLog 内で通常保存と同等に走る
  *
@@ -31,7 +30,6 @@ export async function importDailyLogs(
   for (const row of rows) {
     // ParsedRow → SaveDailyLogInput 変換
     // - leg_flag は saveDailyLog 内の buildUpdatePayload で training_type から導出するため除外
-    // - is_poor_sleep は廃止済みのため除外
     const input: SaveDailyLogInput = {
       log_date: row.log_date,
       weight: row.weight,
