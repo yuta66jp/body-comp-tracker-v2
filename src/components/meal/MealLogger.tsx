@@ -226,73 +226,86 @@ export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerPro
   }
 
   async function handleSave() {
+    // 二重送信ガード: saving 中は呼び出し元（ボタン以外の経路含む）からの再起動を防ぐ
+    if (status === "saving") return;
+
     setStatus("saving");
-    const totals = calcCartTotals(cartItems);
 
-    // 明示的にトグルされたタグのみペイロードに含める
-    const tagPayload: Partial<Record<DayTag, boolean>> = {};
-    for (const tag of touchedTags) {
-      tagPayload[tag] = tags[tag as keyof typeof tags] ?? false;
-    }
+    try {
+      const totals = calcCartTotals(cartItems);
 
-    const result = await saveDailyLog({
-      log_date: date,
-      // touched=true かつユーザーが操作した場合のみ送信。
-      // touched=false (hydrate のみ) は undefined → 既存値を保持。
-      weight:   weightTouched
-        ? (weight === null   ? null   : parseStrictNumber(weight)   ?? undefined)
-        : undefined,
-      // カートに一度でも追加後に空にした → null 送信（マクロをクリア）
-      calories: cartItems.length > 0 ? totals.calories : (cartEverHadItems ? null : undefined),
-      protein:  cartItems.length > 0 ? totals.protein  : (cartEverHadItems ? null : undefined),
-      fat:      cartItems.length > 0 ? totals.fat      : (cartEverHadItems ? null : undefined),
-      carbs:    cartItems.length > 0 ? totals.carbs    : (cartEverHadItems ? null : undefined),
-      note:     noteTouched
-        ? (note === null     ? null   : (note     !== "" ? note                 : undefined))
-        : undefined,
-      ...tagPayload,
-      // Phase 2.5 新規フィールド
-      sleep_hours: sleepHoursTouched
-        ? (sleepHours === null ? null : parseStrictNumber(sleepHours) ?? undefined)
-        : undefined,
-      // ルール: touched=true → hadBowelMovement の値をそのまま送信
-      //           null  = 明示クリア（未記録に戻す）
-      //           true  = 便通あり
-      //           false = 便通なし
-      //         touched=false → undefined（既存値を保持）
-      had_bowel_movement: hadBowelMovementTouched ? hadBowelMovement : undefined,
-      training_type:      trainingTypeTouched ? trainingType : undefined,
-      work_mode:          workModeTouched     ? workMode     : undefined,
-    });
+      // 明示的にトグルされたタグのみペイロードに含める
+      const tagPayload: Partial<Record<DayTag, boolean>> = {};
+      for (const tag of touchedTags) {
+        tagPayload[tag] = tags[tag as keyof typeof tags] ?? false;
+      }
 
-    if (!result.ok) {
-      console.error("[MealLogger] save error:", result.message);
-      setErrorMessage(result.message);
+      const result = await saveDailyLog({
+        log_date: date,
+        // touched=true かつユーザーが操作した場合のみ送信。
+        // touched=false (hydrate のみ) は undefined → 既存値を保持。
+        weight:   weightTouched
+          ? (weight === null   ? null   : parseStrictNumber(weight)   ?? undefined)
+          : undefined,
+        // カートに一度でも追加後に空にした → null 送信（マクロをクリア）
+        calories: cartItems.length > 0 ? totals.calories : (cartEverHadItems ? null : undefined),
+        protein:  cartItems.length > 0 ? totals.protein  : (cartEverHadItems ? null : undefined),
+        fat:      cartItems.length > 0 ? totals.fat      : (cartEverHadItems ? null : undefined),
+        carbs:    cartItems.length > 0 ? totals.carbs    : (cartEverHadItems ? null : undefined),
+        note:     noteTouched
+          ? (note === null     ? null   : (note     !== "" ? note                 : undefined))
+          : undefined,
+        ...tagPayload,
+        // Phase 2.5 新規フィールド
+        sleep_hours: sleepHoursTouched
+          ? (sleepHours === null ? null : parseStrictNumber(sleepHours) ?? undefined)
+          : undefined,
+        // ルール: touched=true → hadBowelMovement の値をそのまま送信
+        //           null  = 明示クリア（未記録に戻す）
+        //           true  = 便通あり
+        //           false = 便通なし
+        //         touched=false → undefined（既存値を保持）
+        had_bowel_movement: hadBowelMovementTouched ? hadBowelMovement : undefined,
+        training_type:      trainingTypeTouched ? trainingType : undefined,
+        work_mode:          workModeTouched     ? workMode     : undefined,
+      });
+
+      if (!result.ok) {
+        console.error("[MealLogger] save error:", result.message);
+        setErrorMessage(result.message);
+        setStatus("error");
+        setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
+      } else {
+        setStatus("saved");
+        // フォームをリセット（保存後は空フォームに戻す）
+        setHydratedLog(null);
+        setCartItems([]);
+        setCartEverHadItems(false);
+        setWeight("");
+        setWeightTouched(false);
+        setNote("");
+        setNoteTouched(false);
+        setTags(emptyTagState());
+        setTouchedTags(new Set());
+        setSleepHours("");
+        setSleepHoursTouched(false);
+        setHadBowelMovement(null);
+        setHadBowelMovementTouched(false);
+        setTrainingType(null);
+        setTrainingTypeTouched(false);
+        setWorkMode(null);
+        setWorkModeTouched(false);
+        // SWR キャッシュを更新して次回 hydrate に最新ログを反映させる
+        void mutateLogs();
+        setTimeout(() => setStatus("idle"), 2000);
+      }
+    } catch (e) {
+      // saveDailyLog が予期しない例外を throw した場合のフォールバック。
+      // これがないと status が "saving" のまま固まり、保存ボタンが永久に押せなくなる。
+      console.error("[MealLogger] unexpected error:", e);
+      setErrorMessage("予期しないエラーが発生しました");
       setStatus("error");
       setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
-    } else {
-      setStatus("saved");
-      // フォームをリセット（保存後は空フォームに戻す）
-      setHydratedLog(null);
-      setCartItems([]);
-      setCartEverHadItems(false);
-      setWeight("");
-      setWeightTouched(false);
-      setNote("");
-      setNoteTouched(false);
-      setTags(emptyTagState());
-      setTouchedTags(new Set());
-      setSleepHours("");
-      setSleepHoursTouched(false);
-      setHadBowelMovement(null);
-      setHadBowelMovementTouched(false);
-      setTrainingType(null);
-      setTrainingTypeTouched(false);
-      setWorkMode(null);
-      setWorkModeTouched(false);
-      // SWR キャッシュを更新して次回 hydrate に最新ログを反映させる
-      void mutateLogs();
-      setTimeout(() => setStatus("idle"), 2000);
     }
   }
 
