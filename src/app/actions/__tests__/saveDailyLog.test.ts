@@ -18,6 +18,7 @@ jest.mock("@/lib/supabase/server", () => ({ createClient: jest.fn() }));
 import { buildUpdatePayload } from "../buildUpdatePayload";
 import { saveDailyLog } from "../saveDailyLog";
 import { createClient } from "@/lib/supabase/server";
+import { revalidatePath } from "next/cache";
 
 const mockCreateClient = createClient as jest.MockedFunction<typeof createClient>;
 
@@ -682,5 +683,43 @@ describe("saveDailyLog — 既存行 partial update (fix: INSERT NOT NULL 回避
     expect(capture.p_fields?.weight).toBe(70.0);
     expect(capture.p_fields?.training_type).toBe("chest");
     expect(capture.p_fields?.leg_flag).toBe(false);
+  });
+});
+
+// ─── skipRevalidate オプション ────────────────────────────────────────────────
+
+const mockRevalidatePath = revalidatePath as jest.MockedFunction<typeof revalidatePath>;
+
+describe("saveDailyLog — skipRevalidate オプション", () => {
+  beforeEach(() => {
+    mockRevalidatePath.mockClear();
+  });
+
+  it("オプションなし: 保存成功後に revalidatePath が呼ばれる", async () => {
+    makeRpcMock(); // RPC 成功
+    await saveDailyLog({ log_date: "2026-03-10", weight: 70.0 });
+    expect(mockRevalidatePath).toHaveBeenCalled();
+  });
+
+  it("skipRevalidate: false: 保存成功後に revalidatePath が呼ばれる", async () => {
+    makeRpcMock();
+    await saveDailyLog({ log_date: "2026-03-10", weight: 70.0 }, { skipRevalidate: false });
+    expect(mockRevalidatePath).toHaveBeenCalled();
+  });
+
+  it("skipRevalidate: true: 保存成功後に revalidatePath が呼ばれない", async () => {
+    makeRpcMock();
+    await saveDailyLog({ log_date: "2026-03-10", weight: 70.0 }, { skipRevalidate: true });
+    expect(mockRevalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("skipRevalidate: true で RPC エラー: revalidatePath が呼ばれない", async () => {
+    makeRpcMock({ message: "some error" });
+    const result = await saveDailyLog(
+      { log_date: "2026-03-10", weight: 70.0 },
+      { skipRevalidate: true }
+    );
+    expect(result.ok).toBe(false);
+    expect(mockRevalidatePath).not.toHaveBeenCalled();
   });
 });
