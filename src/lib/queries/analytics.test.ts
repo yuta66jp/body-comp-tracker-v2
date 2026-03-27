@@ -117,6 +117,43 @@ describe("fetchEnrichedLogs", () => {
     const result = await fetchEnrichedLogs(null);
     expect(result.availability.status).toBe("fresh");
   });
+
+  // ── payload runtime validation ──────────────────────────────────────────────
+
+  it("payload が配列でない場合: status = unavailable / rows = []", async () => {
+    setupChain({
+      data: { payload: { log_date: "2026-03-14" }, updated_at: "2026-03-14T03:00:00Z" },
+      error: null,
+    });
+    const result = await fetchEnrichedLogs("2026-03-14T03:00:00Z");
+    expect(result.availability.status).toBe("unavailable");
+    expect(result.rows).toEqual([]);
+    expect(result.updatedAt).toBeNull();
+  });
+
+  it("payload が null の場合: status = unavailable / rows = []", async () => {
+    setupChain({
+      data: { payload: null, updated_at: "2026-03-14T03:00:00Z" },
+      error: null,
+    });
+    const result = await fetchEnrichedLogs("2026-03-14T03:00:00Z");
+    expect(result.availability.status).toBe("unavailable");
+    expect(result.rows).toEqual([]);
+  });
+
+  it("payload validation 失敗時は console.error が呼ばれる", async () => {
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+    setupChain({
+      data: { payload: "invalid", updated_at: "2026-03-14T03:00:00Z" },
+      error: null,
+    });
+    await fetchEnrichedLogs("2026-03-14T03:00:00Z");
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining("enriched_logs: payload validation failed"),
+      expect.anything()
+    );
+    spy.mockRestore();
+  });
 });
 
 // ── fetchFactorAnalysis ───────────────────────────────────────────────────────
@@ -238,5 +275,109 @@ describe("fetchFactorAnalysis", () => {
     });
     const result = await fetchFactorAnalysis(null);
     expect(result.availability.status).toBe("fresh");
+  });
+
+  // ── payload runtime validation ──────────────────────────────────────────────
+
+  it("payload が配列の場合: status = unavailable / payload = null", async () => {
+    setupChain({
+      data: { payload: [{ cal_lag1: 0.3 }], updated_at: "2026-03-14T03:00:00Z" },
+      error: null,
+    });
+    const result = await fetchFactorAnalysis("2026-03-14T03:00:00Z");
+    expect(result.availability.status).toBe("unavailable");
+    expect(result.payload).toBeNull();
+    expect(result.meta).toBeNull();
+    expect(result.updatedAt).toBeNull();
+  });
+
+  it("payload が文字列の場合: status = unavailable / payload = null", async () => {
+    setupChain({
+      data: { payload: "corrupted", updated_at: "2026-03-14T03:00:00Z" },
+      error: null,
+    });
+    const result = await fetchFactorAnalysis("2026-03-14T03:00:00Z");
+    expect(result.availability.status).toBe("unavailable");
+    expect(result.payload).toBeNull();
+  });
+
+  it("エントリに importance が欠けている場合: status = unavailable", async () => {
+    const payload = {
+      cal_lag1: { label: "前日カロリー", pct: 30 }, // importance なし
+    };
+    setupChain({
+      data: { payload, updated_at: "2026-03-14T03:00:00Z" },
+      error: null,
+    });
+    const result = await fetchFactorAnalysis("2026-03-14T03:00:00Z");
+    expect(result.availability.status).toBe("unavailable");
+    expect(result.payload).toBeNull();
+  });
+
+  it("エントリに pct が欠けている場合: status = unavailable", async () => {
+    const payload = {
+      cal_lag1: { label: "前日カロリー", importance: 0.3 }, // pct なし
+    };
+    setupChain({
+      data: { payload, updated_at: "2026-03-14T03:00:00Z" },
+      error: null,
+    });
+    const result = await fetchFactorAnalysis("2026-03-14T03:00:00Z");
+    expect(result.availability.status).toBe("unavailable");
+    expect(result.payload).toBeNull();
+  });
+
+  it("エントリ値が null の場合: status = unavailable", async () => {
+    const payload = { cal_lag1: null };
+    setupChain({
+      data: { payload, updated_at: "2026-03-14T03:00:00Z" },
+      error: null,
+    });
+    const result = await fetchFactorAnalysis("2026-03-14T03:00:00Z");
+    expect(result.availability.status).toBe("unavailable");
+    expect(result.payload).toBeNull();
+  });
+
+  it("payload validation 失敗時 (非オブジェクト) は console.error が呼ばれる", async () => {
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+    setupChain({
+      data: { payload: [1, 2, 3], updated_at: "2026-03-14T03:00:00Z" },
+      error: null,
+    });
+    await fetchFactorAnalysis("2026-03-14T03:00:00Z");
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining("xgboost_importance: payload validation failed"),
+      expect.anything()
+    );
+    spy.mockRestore();
+  });
+
+  it("payload validation 失敗時 (エントリ不正) は console.error が呼ばれ key 名が含まれる", async () => {
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const payload = { bad_feature: { label: "test" } }; // importance, pct なし
+    setupChain({
+      data: { payload, updated_at: "2026-03-14T03:00:00Z" },
+      error: null,
+    });
+    await fetchFactorAnalysis("2026-03-14T03:00:00Z");
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining("bad_feature"),
+    );
+    spy.mockRestore();
+  });
+
+  it("_meta / _stability のみで feature エントリなし: 正常に空 payload を返す", async () => {
+    const payload = {
+      _meta: { sample_count: 10, date_from: null, date_to: null, total_rows: 10 },
+      _stability: {},
+    };
+    setupChain({
+      data: { payload, updated_at: "2026-03-14T03:00:00Z" },
+      error: null,
+    });
+    const result = await fetchFactorAnalysis("2026-03-14T03:00:00Z");
+    // feature エントリがないので payload は空オブジェクト、クラッシュしない
+    expect(result.availability.status).toBe("fresh");
+    expect(result.payload).toEqual({});
   });
 });
