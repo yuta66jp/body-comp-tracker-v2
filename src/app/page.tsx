@@ -234,7 +234,7 @@ export default async function DashboardPage() {
             phase={phase}
             goalWeight={goalWeight ?? null}
             contestDate={contestDate ?? null}
-            avgTdee={latestTdee}
+            avgCalories={weeklyReview.nutrition.avgCalories}
             monthlyGoalProgress={monthlyGoalProgress}
             currentMonthMinWeight={currentMonthMinWeight}
           />
