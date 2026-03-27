@@ -172,6 +172,26 @@ function tokenizeCSV(text: string): string[][] {
 }
 
 /**
+ * CSV の rows 配列から log_date の重複を除去する。
+ *
+ * 同一 CSV 内に同じ log_date が複数行ある場合、**最後の行を採用**する。
+ * これにより preflight 集計・プレビュー表示・保存件数がすべて一致する。
+ *
+ * @returns deduped: 重複排除後の行（log_date が一意）、duplicateCount: 排除された行数
+ */
+export function deduplicateByLogDate(rows: ParsedRow[]): {
+  deduped: ParsedRow[];
+  duplicateCount: number;
+} {
+  const map = new Map<string, ParsedRow>();
+  for (const row of rows) {
+    map.set(row.log_date, row); // 後から来た行で上書き → 最後の行が残る
+  }
+  const deduped = Array.from(map.values());
+  return { deduped, duplicateCount: rows.length - deduped.length };
+}
+
+/**
  * CSV テキストを ParsedRow の配列に変換する。
  *
  * @param text - CSV 文字列（UTF-8 想定）

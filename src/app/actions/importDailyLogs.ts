@@ -11,6 +11,10 @@ export type ImportDailyLogsResult =
 /**
  * CSV パース済みの行を 1 件ずつ saveDailyLog 経由で保存する Server Action。
  *
+ * 前提: rows は log_date が一意であること（呼び出し元 ImportSection.tsx で
+ * deduplicateByLogDate により重複排除済み）。同日行が複数あると最後の行が
+ * DBに残るが、その場合は preflight の件数表示と不一致になるため渡さないこと。
+ *
  * 通常保存 (saveDailyLog) との整合:
  * - 日付 / 数値範囲 / enum バリデーションを通常保存と同じ経路で実施
  * - leg_flag は training_type から buildUpdatePayload 内で導出（CSV の値を使わない）

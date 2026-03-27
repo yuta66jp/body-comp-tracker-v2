@@ -1,4 +1,4 @@
-import { parseCSV, splitCSVLine } from "./csvParser";
+import { parseCSV, splitCSVLine, deduplicateByLogDate } from "./csvParser";
 
 // ---- 新列のデフォルト値 (旧 CSV に存在しない場合) ----
 const NEW_FIELD_DEFAULTS = {
@@ -498,5 +498,68 @@ describe("round-trip: export → import", () => {
     expect(row.training_type).toBe("quads");
     expect(row.work_mode).toBe("remote");
     expect(row.leg_flag).toBe(true);
+  });
+});
+
+// =========================================================
+describe("deduplicateByLogDate", () => {
+  const base = {
+    weight: null, calories: null, protein: null, fat: null, carbs: null,
+    note: null, is_cheat_day: false, is_refeed_day: false, is_eating_out: false,
+    is_travel_day: false, sleep_hours: null, had_bowel_movement: null,
+    training_type: null, work_mode: null, leg_flag: null,
+  };
+
+  it("重複なし: 全行そのまま返す", () => {
+    const rows = [
+      { ...base, log_date: "2026-03-01", weight: 70.0 },
+      { ...base, log_date: "2026-03-02", weight: 70.5 },
+    ];
+    const { deduped, duplicateCount } = deduplicateByLogDate(rows);
+    expect(deduped).toHaveLength(2);
+    expect(duplicateCount).toBe(0);
+  });
+
+  it("同日2行: 最後の行を採用し duplicateCount=1", () => {
+    const rows = [
+      { ...base, log_date: "2026-03-10", weight: 70.0 },
+      { ...base, log_date: "2026-03-10", weight: 69.5 },
+    ];
+    const { deduped, duplicateCount } = deduplicateByLogDate(rows);
+    expect(deduped).toHaveLength(1);
+    expect(deduped[0]!.weight).toBe(69.5); // 最後の行
+    expect(duplicateCount).toBe(1);
+  });
+
+  it("同日3行: 最後の行を採用し duplicateCount=2", () => {
+    const rows = [
+      { ...base, log_date: "2026-03-10", weight: 70.0 },
+      { ...base, log_date: "2026-03-10", weight: 69.5 },
+      { ...base, log_date: "2026-03-10", weight: 71.0 },
+    ];
+    const { deduped, duplicateCount } = deduplicateByLogDate(rows);
+    expect(deduped).toHaveLength(1);
+    expect(deduped[0]!.weight).toBe(71.0); // 最後の行
+    expect(duplicateCount).toBe(2);
+  });
+
+  it("複数日付の混在: 同日のみ重複排除", () => {
+    const rows = [
+      { ...base, log_date: "2026-03-01", weight: 70.0 },
+      { ...base, log_date: "2026-03-02", weight: 70.5 },
+      { ...base, log_date: "2026-03-01", weight: 69.8 }, // 重複
+      { ...base, log_date: "2026-03-03", weight: 71.0 },
+    ];
+    const { deduped, duplicateCount } = deduplicateByLogDate(rows);
+    expect(deduped).toHaveLength(3);
+    const d1 = deduped.find((r) => r.log_date === "2026-03-01");
+    expect(d1!.weight).toBe(69.8); // 最後の行
+    expect(duplicateCount).toBe(1);
+  });
+
+  it("空配列: そのまま返す", () => {
+    const { deduped, duplicateCount } = deduplicateByLogDate([]);
+    expect(deduped).toHaveLength(0);
+    expect(duplicateCount).toBe(0);
   });
 });
