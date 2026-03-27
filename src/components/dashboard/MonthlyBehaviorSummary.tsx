@@ -55,7 +55,7 @@ export function MonthlyBehaviorSummary({ stats }: MonthlyBehaviorSummaryProps) {
         行動・生活サマリー
       </h3>
       <div className="overflow-x-auto">
-        <table className="w-full text-xs">
+        <table className="min-w-max w-full text-xs">
           <thead>
             <tr className="border-b border-slate-100 text-left">
               <th className="pb-2 pr-3 font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">月</th>
@@ -92,7 +92,7 @@ export function MonthlyBehaviorSummary({ stats }: MonthlyBehaviorSummaryProps) {
                   {/* トレーニング */}
                   <td className="py-2.5 pr-3 text-slate-600">
                     {trainingEntries.length > 0 ? (
-                      <span className="flex flex-wrap gap-x-2 gap-y-0.5">
+                      <span className="flex flex-nowrap gap-x-2">
                         {trainingEntries.map(({ type, count }) => (
                           <span key={type} className="whitespace-nowrap tabular-nums">
                             <span className="text-slate-400">
@@ -110,7 +110,7 @@ export function MonthlyBehaviorSummary({ stats }: MonthlyBehaviorSummaryProps) {
                   {/* 仕事モード */}
                   <td className="py-2.5 pr-3 text-slate-600">
                     {workEntries.length > 0 ? (
-                      <span className="flex flex-wrap gap-x-2 gap-y-0.5">
+                      <span className="flex flex-nowrap gap-x-2">
                         {workEntries.map(({ mode, count }) => (
                           <span key={mode} className="whitespace-nowrap tabular-nums">
                             <span className="text-slate-400">
