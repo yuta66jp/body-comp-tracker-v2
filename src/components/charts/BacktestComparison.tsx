@@ -20,6 +20,7 @@
 import { Fragment } from "react";
 import { TrendingDown, AlertCircle } from "lucide-react";
 import type { ForecastBacktestMetric } from "@/lib/supabase/types";
+import { MODEL_DESCRIPTIONS, ModelInfoTooltip } from "./ModelInfoTooltip";
 
 interface BacktestComparisonProps {
   dailyMetrics: ForecastBacktestMetric[];
@@ -217,7 +218,14 @@ export function BacktestComparison({
               const label = MODEL_LABELS[model] ?? model;
               return (
                 <tr key={model} className="transition-colors hover:bg-slate-50/70">
-                  <td className="px-4 py-2.5 font-medium text-slate-700">{label}</td>
+                  <td className="px-4 py-2.5 font-medium text-slate-700">
+                    <span className="inline-flex items-center">
+                      {label}
+                      {MODEL_DESCRIPTIONS[model] && (
+                        <ModelInfoTooltip description={MODEL_DESCRIPTIONS[model]!} />
+                      )}
+                    </span>
+                  </td>
                   {HORIZONS.map((h) => {
                     const dailyMae = dailyMap.get(`${model}:${h}`) ?? null;
                     const sma7Mae = sma7Map.get(`${model}:${h}`) ?? null;

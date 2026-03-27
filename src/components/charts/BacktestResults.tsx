@@ -14,19 +14,11 @@ import {
 import { AlertTriangle, TrendingUp, TrendingDown, Minus, Info } from "lucide-react";
 import type { ForecastBacktestRun, ForecastBacktestMetric } from "@/lib/supabase/types";
 import { makeTooltipFormatter } from "@/lib/utils/rechartsFormatter";
+import { MODEL_DESCRIPTIONS, ModelInfoTooltip } from "./ModelInfoTooltip";
 
 // ── 定数 ─────────────────────────────────────────────────────────────────────
 
 const HORIZONS = [7, 14, 30] as const;
-
-/** モデルごとの簡易説明 (デスクトップ tooltip で表示) */
-const MODEL_DESCRIPTIONS: Record<string, string> = {
-  NeuralProphet:   "その時点までの全履歴で再学習する深層学習モデル。週次パターンを加味。学習データ 30 日以上必要。",
-  Naive:           "最新 1 点をそのまま予測値として使うベースライン。",
-  MovingAverage7d: "直近 7 日平均を予測値に使用。単日ノイズをならしたシンプル基準。",
-  LinearTrend30d:  "直近 30 日の体重推移に単純線形回帰を当てはめる。30 日スパンの直線トレンドを延長。",
-  EWLinearTrend:   "7 日移動平均で平滑化した直近 30 点に指数重み付き線形回帰を適用。最近のデータを重く評価。",
-};
 
 // UI 表示順・色
 const MODEL_CONFIG: Record<string, { label: string; color: string; order: number }> = {
@@ -79,38 +71,6 @@ function BiasIcon({ bias }: { bias: number | null }) {
   if (bias > 0.05)  return <TrendingUp   size={14} className="text-orange-500" aria-label="上振れ傾向" />;
   if (bias < -0.05) return <TrendingDown  size={14} className="text-blue-500"   aria-label="下振れ傾向" />;
   return <Minus size={14} className="text-slate-400" aria-label="ほぼ中立" />;
-}
-
-/**
- * デスクトップ限定のモデル説明 tooltip。
- * hover / focus の両方で説明文が出る。モバイルでは hidden。
- */
-function ModelInfoTooltip({ description }: { description: string }) {
-  const [open, setOpen] = React.useState(false);
-  return (
-    <span className="relative inline-flex items-center">
-      <button
-        type="button"
-        aria-label="モデルの説明を見る"
-        aria-expanded={open}
-        className="ml-1 rounded p-0.5 text-slate-300 hover:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
-      >
-        <Info size={11} />
-      </button>
-      {open && (
-        <span
-          role="tooltip"
-          className="absolute left-6 top-0 z-30 w-56 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] leading-relaxed text-slate-600 shadow-lg"
-        >
-          {description}
-        </span>
-      )}
-    </span>
-  );
 }
 
 /** MAE のグラフ用データを生成 */
