@@ -31,7 +31,7 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Test
-        run: npm test -- --runInBand --no-coverage
+        run: npm test -- --runInBand --coverage --coverageReporters=text-summary
 
       - name: Build
         env:
