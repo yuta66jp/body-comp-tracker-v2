@@ -26,7 +26,7 @@ export interface ImportPreflightSummary {
 /**
  * CSV インポートの事前集計を計算する純粋関数。
  *
- * @param parsedRows      CSV パース成功行（log_date 必須）
+ * @param parsedRows      CSV パース成功行（log_date 必須、かつ deduplicateByLogDate で重複排除済みであること）
  * @param parseErrorCount CSV パースエラー行数（スキップ件数）
  * @param existingDates   DB に存在する log_date の集合
  */

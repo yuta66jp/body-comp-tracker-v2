@@ -97,3 +97,28 @@ describe("computeImportPreflight — 全フィールド空のとき", () => {
     });
   });
 });
+
+// deduplicateByLogDate で重複排除済みの入力を受け取ることを前提とした動作確認
+describe("computeImportPreflight — 重複排除済み入力（deduplicateByLogDate 後）", () => {
+  it("同日の重複を排除した後は件数が実保存件数と一致する", () => {
+    // CSV に 2026-03-10 が3行あっても deduplicateByLogDate 後は1行になる
+    const deduped = [
+      { log_date: "2026-03-10" }, // 排除後
+      { log_date: "2026-03-11" }, // 新規
+    ];
+    const existing = new Set(["2026-03-10"]);
+    const result = computeImportPreflight(deduped, 0, existing);
+    // updateCount=1（実際に上書きされる行数）、newCount=1（実際に追加される行数）
+    expect(result.updateCount).toBe(1);
+    expect(result.newCount).toBe(1);
+  });
+
+  it("全行が同日重複かつ DB に既存: updateCount=1（排除後の1行分）", () => {
+    // CSV に同じ日付が3行あっても deduplicateByLogDate 後は1行
+    const deduped = [{ log_date: "2026-03-10" }];
+    const existing = new Set(["2026-03-10"]);
+    const result = computeImportPreflight(deduped, 0, existing);
+    expect(result.updateCount).toBe(1);
+    expect(result.newCount).toBe(0);
+  });
+});

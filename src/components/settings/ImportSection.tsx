@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, X, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { parseCSV } from "@/lib/utils/csvParser";
+import { parseCSV, deduplicateByLogDate } from "@/lib/utils/csvParser";
 import type { ParseResult } from "@/lib/utils/csvParser";
 import { computeImportPreflight } from "@/lib/utils/importPreflight";
 import type { ImportPreflightSummary } from "@/lib/utils/importPreflight";
@@ -23,6 +23,8 @@ export function ImportSection() {
   // 事前集計 (preflight)
   const [preflight, setPreflight] = useState<ImportPreflightSummary | null>(null);
   const [preflightLoading, setPreflightLoading] = useState(false);
+  // 同一 CSV 内の同日重複行数（log_date 単位で重複排除した際に除去された行数）
+  const [csvDuplicateCount, setCsvDuplicateCount] = useState(0);
   // 確認ステップ
   const [confirming, setConfirming] = useState(false);
 
@@ -36,14 +38,20 @@ export function ImportSection() {
     setPreflight(null);
     setConfirming(false);
     setImportCount(null);
+    setCsvDuplicateCount(0);
 
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
       const parseResult = parseCSV(text);
-      setParsed(parseResult);
-      if (parseResult.rows.length > 0) {
-        void runPreflight(parseResult.rows, parseResult.errors.length);
+      // 同一 CSV 内に同じ log_date が複数行ある場合、最後の行を採用して重複排除する。
+      // これにより preflight 件数・プレビュー key・実保存件数が一致する。
+      const { deduped, duplicateCount } = deduplicateByLogDate(parseResult.rows);
+      setCsvDuplicateCount(duplicateCount);
+      const deduped_result: ParseResult = { rows: deduped, errors: parseResult.errors };
+      setParsed(deduped_result);
+      if (deduped.length > 0) {
+        void runPreflight(deduped, deduped_result.errors.length);
       }
     };
     reader.readAsText(file, "utf-8");
@@ -85,6 +93,7 @@ export function ImportSection() {
     setPreflightLoading(false);
     setConfirming(false);
     setImportCount(null);
+    setCsvDuplicateCount(0);
     if (fileRef.current) fileRef.current.value = "";
   }
 
@@ -200,6 +209,16 @@ export function ImportSection() {
             </div>
           )}
 
+          {/* CSV 内の同日重複通知 */}
+          {csvDuplicateCount > 0 && (
+            <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+              <p className="font-semibold mb-0.5">
+                同じ日付の行が {csvDuplicateCount} 件重複していました
+              </p>
+              <p>各日付の最終値（最後に出現した行の値）を採用しました。件数はその後の数値に反映されています。</p>
+            </div>
+          )}
+
           {/* 有効なデータがない場合 */}
           {parsed.rows.length === 0 && parsed.errors.length === 0 && (
             <p className="text-sm text-slate-400">有効なデータが見つかりませんでした。</p>
@@ -217,8 +236,8 @@ export function ImportSection() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {parsed.rows.slice(0, 3).map((r) => (
-                    <tr key={r.log_date}>
+                  {parsed.rows.slice(0, 3).map((r, i) => (
+                    <tr key={`${r.log_date}-${i}`}>
                       <td className="px-3 py-2 font-mono text-slate-600">{r.log_date}</td>
                       <td className="px-3 py-2 text-slate-600">{r.weight ?? "—"}</td>
                       <td className="px-3 py-2 text-slate-600">{r.calories ?? "—"}</td>
