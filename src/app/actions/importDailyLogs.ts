@@ -22,10 +22,10 @@ export type ImportDailyLogsResult =
  * - save_daily_log_partial RPC で atomic UPDATE → INSERT
  *
  * revalidate の扱い:
- * - 行単位の revalidate は抑止（saveDailyLog に skipRevalidate: true を渡す）
- * - 全行保存完了後に 1 回だけ revalidateAfterDailyLogMutation() を呼ぶ
- * - 呼び出し元 (ImportSection.tsx) は BATCH_SIZE 単位でこの action を呼ぶため、
- *   revalidate はバッチ 1 回につき 1 回になる（行単位ではなくなる）
+ * - この action は revalidate を一切行わない
+ * - 行単位の revalidate は saveDailyLog に skipRevalidate: true を渡すことで抑止
+ * - import 全体の完了後に呼び出し元 (ImportSection.tsx) が
+ *   revalidateAfterImport() を 1 回だけ呼ぶ責務を持つ
  *
  * @returns ok:true の場合は count（成功件数）と skipped（スキップ件数）を返す
  */
@@ -67,10 +67,14 @@ export async function importDailyLogs(
     }
   }
 
-  // バッチ内で 1 件でも保存成功したら、ここで 1 回だけ revalidate する
-  if (count > 0) {
-    revalidateAfterDailyLogMutation();
-  }
-
   return { ok: true, count, skipped };
+}
+
+/**
+ * CSV インポート全体の完了後に呼ぶ Server Action。
+ * ImportSection.tsx がバッチループを終えた後に 1 回だけ呼ぶことで、
+ * import 完了後に必要なページを一括再検証する。
+ */
+export async function revalidateAfterImport(): Promise<void> {
+  revalidateAfterDailyLogMutation();
 }

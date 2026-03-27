@@ -7,7 +7,7 @@ import { parseCSV, deduplicateByLogDate } from "@/lib/utils/csvParser";
 import type { ParseResult } from "@/lib/utils/csvParser";
 import { computeImportPreflight } from "@/lib/utils/importPreflight";
 import type { ImportPreflightSummary } from "@/lib/utils/importPreflight";
-import { importDailyLogs } from "@/app/actions/importDailyLogs";
+import { importDailyLogs, revalidateAfterImport } from "@/app/actions/importDailyLogs";
 
 const BATCH_SIZE = 50;
 
@@ -116,6 +116,10 @@ export function ImportSection() {
         totalSaved += res.count;
         totalSkipped += res.skipped;
         setProgress({ done: Math.min(i + BATCH_SIZE, total), total });
+      }
+      // 全バッチ完了後に 1 回だけ revalidate する
+      if (totalSaved > 0) {
+        await revalidateAfterImport();
       }
       setImportCount({ saved: totalSaved, skipped: totalSkipped });
       setResult("success");
