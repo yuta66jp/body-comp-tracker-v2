@@ -26,27 +26,8 @@ export default async function MacroPage() {
     fetchLatestUpdatedAt(),
   ]);
 
-  if (logsResult.kind === "error") {
-    return (
-      <PageShell title="栄養">
-        <div className="rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
-          ログデータの取得中にエラーが発生しました。ページを再読み込みしてください。
-        </div>
-      </PageShell>
-    );
-  }
-
-  const logs = logsResult.data;
-
-  if (logs.length === 0) {
-    return (
-      <PageShell title="栄養">
-        <div className="rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-700">
-          栄養データが記録されるとグラフが表示されます。
-        </div>
-      </PageShell>
-    );
-  }
+  // QueryResult を展開。エラー時はフォールバック値で graceful degradation を維持する。
+  const logs = logsResult.kind === "ok" ? logsResult.data : [];
 
   const factorResult = await fetchFactorAnalysis(latestUpdatedAt);
 
@@ -59,32 +40,47 @@ export default async function MacroPage() {
 
   return (
     <PageShell title="栄養分析">
-      <div className="space-y-6">
-        {/* 上段: kcal / PFC 目標差分・前週比サマリー */}
-        <MacroKpiCards kpi={kpi} targets={targets} diff={diff} phase={currentPhase} />
 
-        {/* 中段: 今週の PFC kcal 比率 */}
-        <MacroPfcSummary ratio={pfcRatio} />
+      {/* error banner — graceful degradation: ページ全体はブロックしない */}
+      {logsResult.kind === "error" && (
+        <div className="mb-5 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+          ログデータの取得中にエラーが発生しました。ページを再読み込みしてください。
+        </div>
+      )}
 
-        {/* 既存: PFC 構成比推移（直近60日） */}
-        <MacroStackedChart data={dailyData} />
+      {logs.length === 0 ? (
+        <div className="rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-700">
+          栄養データが記録されるとグラフが表示されます。
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* 上段: kcal / PFC 目標差分・前週比サマリー */}
+          <MacroKpiCards kpi={kpi} targets={targets} diff={diff} phase={currentPhase} />
 
-        {/* 既存: 日次栄養内訳テーブル（モバイルでエッジブリード） */}
-        <TableScroll>
-          <MacroDailyTable data={dailyData} calTarget={calTarget} />
-        </TableScroll>
+          {/* 中段: 今週の PFC kcal 比率 */}
+          <MacroPfcSummary ratio={pfcRatio} />
 
-        {factorResult.payload !== null ? (
-          <FactorAnalysis
-            data={factorResult.payload}
-            meta={factorResult.meta}
-            updatedAt={factorResult.updatedAt ?? ""}
-            analyticsAvailability={factorResult.availability}
-          />
-        ) : (
-          <FactorAnalysisPlaceholder analyticsAvailability={factorResult.availability} />
-        )}
-      </div>
+          {/* 既存: PFC 構成比推移（直近60日） */}
+          <MacroStackedChart data={dailyData} />
+
+          {/* 既存: 日次栄養内訳テーブル（モバイルでエッジブリード） */}
+          <TableScroll>
+            <MacroDailyTable data={dailyData} calTarget={calTarget} />
+          </TableScroll>
+
+          {factorResult.payload !== null ? (
+            <FactorAnalysis
+              data={factorResult.payload}
+              meta={factorResult.meta}
+              updatedAt={factorResult.updatedAt ?? ""}
+              analyticsAvailability={factorResult.availability}
+            />
+          ) : (
+            <FactorAnalysisPlaceholder analyticsAvailability={factorResult.availability} />
+          )}
+        </div>
+      )}
+
     </PageShell>
   );
 }
