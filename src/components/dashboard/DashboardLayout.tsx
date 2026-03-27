@@ -75,12 +75,12 @@ export function DashboardLayout({ children, header }: DashboardLayoutProps) {
 
       {/* メインコンテンツ */}
       <main className="min-w-0 flex-1 flex flex-col gap-6">
-        {children}
-
-        {/* モバイル用 MealLogger: 閲覧コンテンツの後に trigger を配置し、
+        {/* モバイル用 MealLogger: ページ最上部に trigger を配置し、
             bottom sheet で入力フォームを開く（lg+ では描画なし）。
-            閲覧導線（KPI → GoalNavigator → WeeklyReview → Tabs）を先に確保する。 */}
+            記録 CTA をスクロール前に見えるようにする。 */}
         <MobileMealLoggerSheet />
+
+        {children}
       </main>
       </div>
     </div>
