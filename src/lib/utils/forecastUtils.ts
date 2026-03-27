@@ -74,6 +74,7 @@ export function calcEwLinearForecast(
 
   const slope     = (sw * swxy - swx * swy) / denom;
   const intercept = (swy - slope * swx) / sw;
+  if (!Number.isFinite(slope) || !Number.isFinite(intercept)) return [];
 
   // latestLogDate 翌日から horizonDays 日先まで外挿
   // x = n-1 が直近 SMA7 点に対応するため、h 日後は x = n-1+h
