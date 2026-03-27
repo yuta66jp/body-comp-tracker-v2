@@ -64,9 +64,9 @@ export function calcEwLinearForecast(
     const w = Math.pow(alpha, n - 1 - i);
     sw   += w;
     swx  += w * i;
-    swy  += w * ys[i];
+    swy  += w * ys[i]!;
     swxx += w * i * i;
-    swxy += w * i * ys[i];
+    swxy += w * i * ys[i]!;
   }
 
   const denom = sw * swxx - swx * swx;

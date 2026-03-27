@@ -76,7 +76,7 @@ export function ForecastChart({
 
   // タブごとの表示範囲
   const lastForecastDate = predictions.length > 0
-    ? [...predictions].sort((a, b) => b.ds.localeCompare(a.ds))[0].ds
+    ? [...predictions].sort((a, b) => b.ds.localeCompare(a.ds))[0]!.ds
     : today;
   // EW 補助線の最終日 (latestLogDate + 14 日、点がなければ今日)
   const lastEwDate = ewForecastPoints.at(-1)?.date ?? today;

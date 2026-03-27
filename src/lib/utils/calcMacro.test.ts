@@ -135,8 +135,8 @@ describe("calcDailyMacro", () => {
   it("null の栄養素は 0 に変換される", () => {
     const logs = [makeLog("2026-03-08", { calories: null, protein: null, fat: null, carbs: null })];
     const result = calcDailyMacro(logs);
-    expect(result[0].calories).toBe(0);
-    expect(result[0].protein).toBe(0);
+    expect(result[0]!.calories).toBe(0);
+    expect(result[0]!.protein).toBe(0);
   });
 });
 

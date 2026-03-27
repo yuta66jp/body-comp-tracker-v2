@@ -107,7 +107,7 @@ export function SeasonComparisonTable({
   }
 
   // 最新の過去シーズン (差分比較用)
-  const prevSeason = pastSeasons[pastSeasons.length - 1];
+  const prevSeason = pastSeasons[pastSeasons.length - 1]!;
 
   // 仕上がり体重 Map (season → peakWeight)
   const peakBySeasons: Record<string, number | null> = {};

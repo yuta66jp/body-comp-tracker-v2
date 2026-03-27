@@ -70,7 +70,7 @@ export function toLocalDateStr(date?: Date): string {
  */
 export function parseLocalDateStr(s: string): Date | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-  const [y, m, d] = s.split("-").map(Number);
+  const [y, m, d] = s.split("-").map(Number) as [number, number, number];
   if (m < 1 || m > 12) return null;
   const date = new Date(y, m - 1, d);
   if (date.getFullYear() !== y || date.getMonth() + 1 !== m || date.getDate() !== d) {

@@ -50,7 +50,7 @@ export function computeImportPreflight(
     parsedRows.length > 0
       ? (() => {
           const sorted = parsedRows.map((r) => r.log_date).sort();
-          return { from: sorted[0], to: sorted[sorted.length - 1] };
+          return { from: sorted[0]!, to: sorted[sorted.length - 1]! };
         })()
       : null;
 

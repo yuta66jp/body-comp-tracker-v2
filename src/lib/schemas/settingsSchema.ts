@@ -162,7 +162,7 @@ function isNumericKey(key: string): key is NumericSettingKey {
  */
 function isValidDate(s: string): boolean {
   if (!DATE_PATTERN.test(s)) return false;
-  const [year, month, day] = s.split("-").map(Number);
+  const [year, month, day] = s.split("-").map(Number) as [number, number, number];
   // 月: 1-12, 日: 1-31 の基本チェック
   if (month < 1 || month > 12) return false;
   if (day < 1 || day > 31) return false;

@@ -36,7 +36,7 @@ export function calcWeightTrend(
     return ms;
   };
 
-  const firstMs = parseDateMs(data[0].date);
+  const firstMs = parseDateMs(data[0]!.date);
   const xs = data.map((d) => (parseDateMs(d.date) - firstMs) / 86_400_000);
   const ys = data.map((d) => d.weight);
 
@@ -44,7 +44,7 @@ export function calcWeightTrend(
   const meanY = ys.reduce((a, b) => a + b, 0) / n;
 
   const ssXX = xs.reduce((acc, x) => acc + (x - meanX) ** 2, 0);
-  const ssXY = xs.reduce((acc, x, i) => acc + (x - meanX) * (ys[i] - meanY), 0);
+  const ssXY = xs.reduce((acc, x, i) => acc + (x - meanX) * (ys[i]! - meanY), 0);
   const ssYY = ys.reduce((acc, y) => acc + (y - meanY) ** 2, 0);
 
   const slope = ssXX === 0 ? 0 : ssXY / ssXX;

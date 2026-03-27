@@ -21,7 +21,7 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
     if (log.calories === null) return null;
     const idx = ascending.findIndex((d) => d.log_date === log.log_date);
     if (idx <= 0) return null;
-    const prev = ascending[idx - 1];
+    const prev = ascending[idx - 1]!;
     if (prev.calories === null) return null;
     return log.calories - prev.calories;
   }

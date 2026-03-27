@@ -92,7 +92,7 @@ describe("parseCSV", () => {
     const result = parseCSV(csv);
     expect(result.errors).toHaveLength(0);
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0].note).toBe("chicken, rice");
+    expect(result.rows[0]!.note).toBe("chicken, rice");
   });
 
   it("note にダブルクォートを含む CSV を正しくパースする", () => {
@@ -103,7 +103,7 @@ describe("parseCSV", () => {
 
     const result = parseCSV(csv);
     expect(result.errors).toHaveLength(0);
-    expect(result.rows[0].note).toBe('say "hello" today');
+    expect(result.rows[0]!.note).toBe('say "hello" today');
   });
 
   it("note にセル内改行を含む CSV を正しくパースする (multiline)", () => {
@@ -116,8 +116,8 @@ describe("parseCSV", () => {
     const result = parseCSV(csv);
     expect(result.errors).toHaveLength(0);
     expect(result.rows).toHaveLength(2);
-    expect(result.rows[0].note).toBe("line1\nline2");
-    expect(result.rows[1].log_date).toBe("2026-03-05");
+    expect(result.rows[0]!.note).toBe("line1\nline2");
+    expect(result.rows[1]!.log_date).toBe("2026-03-05");
   });
 
   it("列数不一致: 列が少ない行はスキップしエラーに記録する", () => {
@@ -131,7 +131,7 @@ describe("parseCSV", () => {
     expect(result.errors.length).toBeGreaterThanOrEqual(1);
     // 不足行はスキップ、正常行のみ取り込み
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0].log_date).toBe("2026-03-04");
+    expect(result.rows[0]!.log_date).toBe("2026-03-04");
   });
 
   it("必須列欠損: log_date がない場合はエラーを返す", () => {
@@ -155,7 +155,7 @@ describe("parseCSV", () => {
     const result = parseCSV(csv);
     expect(result.errors.length).toBeGreaterThanOrEqual(1);
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0].log_date).toBe("2026-03-05");
+    expect(result.rows[0]!.log_date).toBe("2026-03-05");
   });
 
   it("存在しない日付（2026-02-30）はエラーに記録してスキップする", () => {
@@ -169,7 +169,7 @@ describe("parseCSV", () => {
     expect(result.errors.length).toBeGreaterThanOrEqual(1);
     expect(result.errors[0]).toContain("2026-02-30");
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0].log_date).toBe("2026-03-01");
+    expect(result.rows[0]!.log_date).toBe("2026-03-01");
   });
 
   it("不正な training_type はエラーに記録して行をスキップする", () => {
@@ -183,7 +183,7 @@ describe("parseCSV", () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toContain("invalid_type");
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0].log_date).toBe("2026-03-02");
+    expect(result.rows[0]!.log_date).toBe("2026-03-02");
   });
 
   it("有効な training_type はそのまま保持する", () => {
@@ -195,8 +195,8 @@ describe("parseCSV", () => {
 
     const result = parseCSV(csv);
     expect(result.errors).toHaveLength(0);
-    expect(result.rows[0].training_type).toBe("quads");
-    expect(result.rows[1].training_type).toBe("off");
+    expect(result.rows[0]!.training_type).toBe("quads");
+    expect(result.rows[1]!.training_type).toBe("off");
   });
 
   it("不正な work_mode はエラーに記録して行をスキップする", () => {
@@ -210,7 +210,7 @@ describe("parseCSV", () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toContain("invalid_mode");
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0].log_date).toBe("2026-03-02");
+    expect(result.rows[0]!.log_date).toBe("2026-03-02");
   });
 
   it("有効な work_mode はそのまま保持する", () => {
@@ -222,8 +222,8 @@ describe("parseCSV", () => {
 
     const result = parseCSV(csv);
     expect(result.errors).toHaveLength(0);
-    expect(result.rows[0].work_mode).toBe("office");
-    expect(result.rows[1].work_mode).toBe("remote");
+    expect(result.rows[0]!.work_mode).toBe("office");
+    expect(result.rows[1]!.work_mode).toBe("remote");
   });
 
   it("YYYY/MM/DD 形式を受け入れる", () => {
@@ -234,7 +234,7 @@ describe("parseCSV", () => {
 
     const result = parseCSV(csv);
     expect(result.errors).toHaveLength(0);
-    expect(result.rows[0].log_date).toBe("2026-03-06");
+    expect(result.rows[0]!.log_date).toBe("2026-03-06");
   });
 
   it("列エイリアス: 'date' 列を log_date として扱う", () => {
@@ -245,7 +245,7 @@ describe("parseCSV", () => {
 
     const result = parseCSV(csv);
     expect(result.errors).toHaveLength(0);
-    expect(result.rows[0].log_date).toBe("2026-03-07");
+    expect(result.rows[0]!.log_date).toBe("2026-03-07");
   });
 
   it("空データの場合はエラーメッセージを返す", () => {
@@ -281,7 +281,7 @@ describe("parseCSV", () => {
     const csv = "log_date,weight\r\n2026-03-08,65.0\r\n";
     const result = parseCSV(csv);
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0].log_date).toBe("2026-03-08");
+    expect(result.rows[0]!.log_date).toBe("2026-03-08");
   });
 
   // ---- 新カラム ----
@@ -309,7 +309,7 @@ describe("parseCSV", () => {
     ].join("\n");
 
     const result = parseCSV(csv);
-    expect(result.rows[0].had_bowel_movement).toBeNull();
+    expect(result.rows[0]!.had_bowel_movement).toBeNull();
   });
 
   it("新カラム: had_bowel_movement は true/false を正しくパースする", () => {
@@ -320,8 +320,8 @@ describe("parseCSV", () => {
     ].join("\n");
 
     const result = parseCSV(csv);
-    expect(result.rows[0].had_bowel_movement).toBe(true);
-    expect(result.rows[1].had_bowel_movement).toBe(false);
+    expect(result.rows[0]!.had_bowel_movement).toBe(true);
+    expect(result.rows[1]!.had_bowel_movement).toBe(false);
   });
 
   it("新カラム: leg_flag は空文字で null になる", () => {
@@ -331,7 +331,7 @@ describe("parseCSV", () => {
     ].join("\n");
 
     const result = parseCSV(csv);
-    expect(result.rows[0].leg_flag).toBeNull();
+    expect(result.rows[0]!.leg_flag).toBeNull();
   });
 
   it("新カラム: leg_flag は true/false を正しくパースする", () => {
@@ -342,8 +342,8 @@ describe("parseCSV", () => {
     ].join("\n");
 
     const result = parseCSV(csv);
-    expect(result.rows[0].leg_flag).toBe(true);
-    expect(result.rows[1].leg_flag).toBe(false);
+    expect(result.rows[0]!.leg_flag).toBe(true);
+    expect(result.rows[1]!.leg_flag).toBe(false);
   });
 
   it("新カラム: training_type / work_mode / sleep_hours を正しくパースする", () => {
@@ -367,8 +367,8 @@ describe("parseCSV", () => {
     ].join("\n");
 
     const result = parseCSV(csv);
-    expect(result.rows[0].training_type).toBeNull();
-    expect(result.rows[0].work_mode).toBeNull();
+    expect(result.rows[0]!.training_type).toBeNull();
+    expect(result.rows[0]!.work_mode).toBeNull();
   });
 
   it("旧 CSV（新カラムなし）をインポートしても新フィールドはデフォルト値になる", () => {
@@ -404,8 +404,8 @@ describe("round-trip: export → import", () => {
 
     expect(result.errors).toHaveLength(0);
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0].note).toBe("chicken, rice");
-    expect(result.rows[0].log_date).toBe("2026-03-20");
+    expect(result.rows[0]!.note).toBe("chicken, rice");
+    expect(result.rows[0]!.log_date).toBe("2026-03-20");
   });
 
   it("note にダブルクォートを含むレコードが往復できる", () => {
@@ -422,7 +422,7 @@ describe("round-trip: export → import", () => {
     const result = parseCSV(csv);
 
     expect(result.errors).toHaveLength(0);
-    expect(result.rows[0].note).toBe('say "hello" today');
+    expect(result.rows[0]!.note).toBe('say "hello" today');
   });
 
   it("note に改行を含むレコードが往復できる", () => {
@@ -440,8 +440,8 @@ describe("round-trip: export → import", () => {
 
     expect(result.errors).toHaveLength(0);
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0].note).toBe("朝: オートミール\n昼: チキン\n夜: サラダ");
-    expect(result.rows[0].log_date).toBe("2026-03-22");
+    expect(result.rows[0]!.note).toBe("朝: オートミール\n昼: チキン\n夜: サラダ");
+    expect(result.rows[0]!.log_date).toBe("2026-03-22");
   });
 
   it("複数レコードの note に改行が含まれていても行数が保たれる", () => {
@@ -469,11 +469,11 @@ describe("round-trip: export → import", () => {
 
     expect(result.errors).toHaveLength(0);
     expect(result.rows).toHaveLength(2);
-    expect(result.rows[0].note).toBe("line1\nline2");
-    expect(result.rows[1].log_date).toBe("2026-03-24");
-    expect(result.rows[1].is_cheat_day).toBe(true);
-    expect(result.rows[1].sleep_hours).toBe(6.5);
-    expect(result.rows[1].training_type).toBe("back");
+    expect(result.rows[0]!.note).toBe("line1\nline2");
+    expect(result.rows[1]!.log_date).toBe("2026-03-24");
+    expect(result.rows[1]!.is_cheat_day).toBe(true);
+    expect(result.rows[1]!.sleep_hours).toBe(6.5);
+    expect(result.rows[1]!.training_type).toBe("back");
   });
 
   it("全新カラムを含むレコードが往復できる", () => {
@@ -490,7 +490,7 @@ describe("round-trip: export → import", () => {
     const result = parseCSV(csv);
 
     expect(result.errors).toHaveLength(0);
-    const row = result.rows[0];
+    const row = result.rows[0]!;
     expect(row.is_cheat_day).toBe(true);
     expect(row.is_refeed_day).toBe(true);
     expect(row.is_eating_out).toBe(true);

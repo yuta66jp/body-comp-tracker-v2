@@ -119,8 +119,8 @@ function buildWindow(
   // sortedWithWeight は全期間のデータ (ウィンドウより広い範囲が渡されることを想定)
   const datesSet = new Set(dates);
   for (let i = 1; i < sortedWithWeight.length; i++) {
-    const cur = sortedWithWeight[i];
-    const prev = sortedWithWeight[i - 1];
+    const cur = sortedWithWeight[i]!;
+    const prev = sortedWithWeight[i - 1]!;
     // 両日がウィンドウ内でなくても、ウィンドウ内の日が cur なら検出する
     if (!datesSet.has(cur.date)) continue;
     const delta = Math.abs(cur.weight - prev.weight);

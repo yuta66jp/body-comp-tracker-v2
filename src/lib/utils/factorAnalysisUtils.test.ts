@@ -60,22 +60,22 @@ describe("prepareFactorRows", () => {
 
   it("重要度の高い順にソートされる", () => {
     const { rows } = prepareFactorRows(data);
-    expect(rows[0].key).toBe("cal_lag1");
-    expect(rows[1].key).toBe("p_lag1");
-    expect(rows[2].key).toBe("c_lag1");
+    expect(rows[0]!.key).toBe("cal_lag1");
+    expect(rows[1]!.key).toBe("p_lag1");
+    expect(rows[2]!.key).toBe("c_lag1");
   });
 
   it("rank が 1 始まりで付与される", () => {
     const { rows } = prepareFactorRows(data);
-    expect(rows[0].rank).toBe(1);
-    expect(rows[1].rank).toBe(2);
-    expect(rows[2].rank).toBe(3);
+    expect(rows[0]!.rank).toBe(1);
+    expect(rows[1]!.rank).toBe(2);
+    expect(rows[2]!.rank).toBe(3);
   });
 
   it("ラベルが featureLabels の FEATURE_LABEL_MAP で解決される", () => {
     const { rows } = prepareFactorRows(data);
     // FEATURE_LABEL_MAP に cal_lag1 → "摂取 kcal（当日）" が登録されている
-    expect(rows[0].label).toBe("摂取 kcal（当日）");
+    expect(rows[0]!.label).toBe("摂取 kcal（当日）");
   });
 
   it("FEATURE_LABEL_MAP に未登録のキーは payload の label にフォールバックする", () => {
@@ -83,7 +83,7 @@ describe("prepareFactorRows", () => {
       unknown_feature: { label: "バックエンドラベル", importance: 1.0, pct: 100 },
     };
     const { rows } = prepareFactorRows(custom);
-    expect(rows[0].label).toBe("バックエンドラベル");
+    expect(rows[0]!.label).toBe("バックエンドラベル");
   });
 
   it("NaN を含む無効エントリは除外される", () => {
@@ -202,11 +202,11 @@ describe("mergeStability", () => {
 
   it("_stability がある場合、各エントリに stability / cv がマージされる", () => {
     const result = mergeStability(entries, stabilityMap);
-    expect(result["cal_lag1"].stability).toBe("high");
-    expect(result["cal_lag1"].cv).toBe(0.1);
-    expect(result["p_lag1"].stability).toBe("medium");
-    expect(result["c_lag1"].stability).toBe("low");
-    expect(result["c_lag1"].cv).toBe(0.8);
+    expect(result["cal_lag1"]!.stability).toBe("high");
+    expect(result["cal_lag1"]!.cv).toBe(0.1);
+    expect(result["p_lag1"]!.stability).toBe("medium");
+    expect(result["c_lag1"]!.stability).toBe("low");
+    expect(result["c_lag1"]!.cv).toBe(0.8);
   });
 
   it("_stability が null の場合、全エントリの stability が unavailable になる", () => {
@@ -230,21 +230,21 @@ describe("mergeStability", () => {
       // p_lag1 と c_lag1 は省略
     };
     const result = mergeStability(entries, partialStability);
-    expect(result["cal_lag1"].stability).toBe("high");
-    expect(result["p_lag1"].stability).toBe("unavailable");
-    expect(result["c_lag1"].stability).toBe("unavailable");
+    expect(result["cal_lag1"]!.stability).toBe("high");
+    expect(result["p_lag1"]!.stability).toBe("unavailable");
+    expect(result["c_lag1"]!.stability).toBe("unavailable");
   });
 
   it("元の entries の importance / pct / label を変更しない", () => {
     const result = mergeStability(entries, stabilityMap);
-    expect(result["cal_lag1"].importance).toBe(0.5);
-    expect(result["cal_lag1"].pct).toBe(50);
-    expect(result["cal_lag1"].label).toBe("カロリー");
+    expect(result["cal_lag1"]!.importance).toBe(0.5);
+    expect(result["cal_lag1"]!.pct).toBe(50);
+    expect(result["cal_lag1"]!.label).toBe("カロリー");
   });
 
   it("入力 entries を変更しない（immutable）", () => {
     mergeStability(entries, stabilityMap);
-    expect(entries["cal_lag1"].stability).toBeUndefined();
+    expect(entries["cal_lag1"]!.stability).toBeUndefined();
   });
 
   it("空の entries を渡すと空オブジェクトが返る", () => {
@@ -262,8 +262,8 @@ describe("prepareFactorRows stability fields", () => {
       p_lag1:   { label: "タンパク質", importance: 0.3, pct: 30, stability: "low", cv: 0.9 },
     };
     const { rows } = prepareFactorRows(data);
-    expect(rows[0].stability).toBe("high");
-    expect(rows[1].stability).toBe("low");
+    expect(rows[0]!.stability).toBe("high");
+    expect(rows[1]!.stability).toBe("low");
   });
 
   it("stability が付いていないエントリは unavailable として扱われる", () => {
@@ -271,8 +271,8 @@ describe("prepareFactorRows stability fields", () => {
       cal_lag1: { label: "カロリー", importance: 0.5, pct: 100 },
     };
     const { rows } = prepareFactorRows(data);
-    expect(rows[0].stability).toBe("unavailable");
-    expect(rows[0].cv).toBeNull();
+    expect(rows[0]!.stability).toBe("unavailable");
+    expect(rows[0]!.cv).toBeNull();
   });
 
   it("stability=unavailable のエントリも正常に表示できる（フィルタされない）", () => {

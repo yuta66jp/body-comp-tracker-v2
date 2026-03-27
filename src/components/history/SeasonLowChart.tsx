@@ -85,7 +85,7 @@ export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) 
               if (entry.isCurrent) {
                 color = CURRENT_COLOR;
               } else {
-                color = PAST_COLORS[pastIdx % PAST_COLORS.length];
+                color = PAST_COLORS[pastIdx % PAST_COLORS.length]!;
                 pastIdx++;
               }
               return <Cell key={i} fill={color} />;

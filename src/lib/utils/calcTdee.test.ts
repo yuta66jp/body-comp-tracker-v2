@@ -68,14 +68,14 @@ describe("calcMetabolicSim", () => {
   it("カロリー制限中は体重が減少する", () => {
     // 摂取 1800 < TDEE 2200 → 減量
     const result = calcMetabolicSim(65.0, 2200, 1800, "2026-03-15", "2026-03-08");
-    const lastWeight = result[result.length - 1].weight;
+    const lastWeight = result[result.length - 1]!.weight;
     expect(lastWeight).toBeLessThan(65.0);
   });
 
   it("カロリー過剰時は体重が増加する", () => {
     // 摂取 2600 > TDEE 2200 → 増量
     const result = calcMetabolicSim(65.0, 2200, 2600, "2026-03-15", "2026-03-08");
-    const lastWeight = result[result.length - 1].weight;
+    const lastWeight = result[result.length - 1]!.weight;
     expect(lastWeight).toBeGreaterThan(65.0);
   });
 
@@ -169,7 +169,7 @@ describe("calcTheoreticalWeightChangePerWeek", () => {
     const result = calcTheoreticalWeightChangePerWeek(300);
     expect(result).not.toBeNull();
     const str = result!.toString();
-    const decimals = str.includes(".") ? str.split(".")[1].length : 0;
+    const decimals = str.includes(".") ? str.split(".")[1]!.length : 0;
     expect(decimals).toBeLessThanOrEqual(2);
   });
 });

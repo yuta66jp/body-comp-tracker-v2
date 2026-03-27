@@ -106,7 +106,7 @@ describe("FoodTable — バリデーション", () => {
   it("kcal が空のとき「kcal は必須です」を表示", async () => {
     // textbox[0]=検索ボックス, textbox[1]=食品名入力
     const inputs = screen.getAllByRole("textbox");
-    fireEvent.change(inputs[1], { target: { value: "テスト食品" } });
+    fireEvent.change(inputs[1]!, { target: { value: "テスト食品" } });
     // kcal は空のまま保存
     fireEvent.click(screen.getByText("保存"));
     await waitFor(() => {
@@ -135,11 +135,11 @@ describe("FoodTable — 保存成功", () => {
     const textInputs = screen.getAllByRole("textbox");
     const numberInputs = screen.getAllByRole("spinbutton");
 
-    fireEvent.change(textInputs[1], { target: { value: "テスト食品" } });
-    fireEvent.change(numberInputs[0], { target: { value: "200" } }); // calories
-    fireEvent.change(numberInputs[1], { target: { value: "10" } });  // protein
-    fireEvent.change(numberInputs[2], { target: { value: "5" } });   // fat
-    fireEvent.change(numberInputs[3], { target: { value: "30" } });  // carbs
+    fireEvent.change(textInputs[1]!, { target: { value: "テスト食品" } });
+    fireEvent.change(numberInputs[0]!, { target: { value: "200" } }); // calories
+    fireEvent.change(numberInputs[1]!, { target: { value: "10" } });  // protein
+    fireEvent.change(numberInputs[2]!, { target: { value: "5" } });   // fat
+    fireEvent.change(numberInputs[3]!, { target: { value: "30" } });  // carbs
 
     fireEvent.click(screen.getByText("保存"));
 
@@ -171,11 +171,11 @@ describe("FoodTable — 保存失敗", () => {
     const textInputs = screen.getAllByRole("textbox");
     const numberInputs = screen.getAllByRole("spinbutton");
 
-    fireEvent.change(textInputs[1], { target: { value: "重複食品" } });
-    fireEvent.change(numberInputs[0], { target: { value: "100" } });
-    fireEvent.change(numberInputs[1], { target: { value: "10" } });
-    fireEvent.change(numberInputs[2], { target: { value: "5" } });
-    fireEvent.change(numberInputs[3], { target: { value: "10" } });
+    fireEvent.change(textInputs[1]!, { target: { value: "重複食品" } });
+    fireEvent.change(numberInputs[0]!, { target: { value: "100" } });
+    fireEvent.change(numberInputs[1]!, { target: { value: "10" } });
+    fireEvent.change(numberInputs[2]!, { target: { value: "5" } });
+    fireEvent.change(numberInputs[3]!, { target: { value: "10" } });
 
     fireEvent.click(screen.getByText("保存"));
 
@@ -200,7 +200,7 @@ describe("FoodTable — 削除", () => {
     render(<FoodTable initialFoods={[makeFoodMaster({ name: "削除対象" })]} />);
 
     // mobile/desktop 両方にボタンがあるので最初のものを使用
-    const [deleteButton] = screen.getAllByLabelText("削除対象を削除");
+    const deleteButton = screen.getAllByLabelText("削除対象を削除")[0]!;
     await act(async () => {
       fireEvent.click(deleteButton);
     });

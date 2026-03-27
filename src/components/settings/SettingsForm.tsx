@@ -315,7 +315,7 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
               <FieldItem
                 key={key}
                 fieldKey={key}
-                meta={FIELDS[key]}
+                meta={FIELDS[key]!}
                 value={values[key] ?? ""}
                 error={fieldErrors[key]}
                 onChange={(val) => set(key, val)}
@@ -338,7 +338,7 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
             <FieldItem
               key={key}
               fieldKey={key}
-              meta={FIELDS[key]}
+              meta={FIELDS[key]!}
               value={values[key] ?? ""}
               error={fieldErrors[key]}
               onChange={(val) => set(key, val)}
@@ -360,7 +360,7 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
             <FieldItem
               key={key}
               fieldKey={key}
-              meta={MACRO_TARGET_FIELDS[key]}
+              meta={MACRO_TARGET_FIELDS[key]!}
               value={values[key] ?? ""}
               error={fieldErrors[key]}
               onChange={(val) => set(key, val)}
