@@ -34,7 +34,7 @@ import { DayPicker } from "react-day-picker";
 import { ja } from "date-fns/locale";
 import * as JapaneseHolidays from "japanese-holidays";
 import type { DashboardDailyLog } from "@/lib/supabase/types";
-import { buildCalendarDayMap, toDateKey, type CalendarDayData } from "@/lib/utils/calendarUtils";
+import { buildCalendarDayMap, getMobileTrainingLabel, toDateKey, type CalendarDayData } from "@/lib/utils/calendarUtils";
 import type { DayProps } from "react-day-picker";
 import { toJstDateStr } from "@/lib/utils/date";
 
@@ -119,6 +119,11 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
   // 固定高 + overflow-hidden: コンテンツ量に関わらず全セルを同一高に保つ
   const innerCls = `${CELL_H} overflow-hidden flex flex-col p-1 sm:p-1.5`;
 
+  // モバイル表示専用: 特殊日優先 / 通常日は training_type 表示
+  const mobileTrainingLabel = data
+    ? getMobileTrainingLabel(data.dayTags, data.log.training_type)
+    : null;
+
   return (
     <td className={tdCls}>
       <div className={innerCls}>
@@ -190,6 +195,15 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
                 {tag.label}
               </span>
             ))}
+          </div>
+        )}
+
+        {/* ④-mobile トレーニング部位（モバイルのみ・特殊日がない日） */}
+        {mobileTrainingLabel && (
+          <div className="mt-0.5 sm:hidden">
+            <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none ${mobileTrainingLabel.colorClass}`}>
+              {mobileTrainingLabel.label}
+            </span>
           </div>
         )}
 

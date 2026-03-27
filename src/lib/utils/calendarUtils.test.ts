@@ -4,7 +4,8 @@
  * buildCalendarDayMap の差分計算・タグ処理・コンディション整形を検証する。
  */
 
-import { buildCalendarDayMap, buildConditionTags, toDateKey } from "./calendarUtils";
+import { buildCalendarDayMap, buildConditionTags, getMobileTrainingLabel, toDateKey } from "./calendarUtils";
+import type { CalendarDayTagInfo } from "./calendarUtils";
 import type { DailyLog } from "@/lib/supabase/types";
 
 // ── テストデータ工場 ─────────────────────────────────────────────────────────
@@ -287,6 +288,48 @@ describe("buildConditionTags", () => {
   it("work_mode=remote → cyan color", () => {
     const tags = buildConditionTags({ had_bowel_movement: null, training_type: null, work_mode: "remote" });
     expect(tags[0].colorClass).toContain("cyan");
+  });
+});
+
+// ── getMobileTrainingLabel ────────────────────────────────────────────────────
+
+const NO_TAGS: CalendarDayTagInfo[] = [];
+const WITH_TAGS: CalendarDayTagInfo[] = [{ key: "is_cheat_day", label: "チートデイ", colorClass: "bg-rose-100 text-rose-700" }];
+
+describe("getMobileTrainingLabel", () => {
+  it("特殊日なし + 有効 training_type → ラベルを返す", () => {
+    const result = getMobileTrainingLabel(NO_TAGS, "chest");
+    expect(result).not.toBeNull();
+    expect(result!.label).toBe("胸");
+    expect(result!.colorClass).toContain("indigo");
+  });
+
+  it("特殊日なし + glutes_hamstrings → ハム・ケツ を返す", () => {
+    expect(getMobileTrainingLabel(NO_TAGS, "glutes_hamstrings")!.label).toBe("ハム・ケツ");
+  });
+
+  it("特殊日あり → null を返す（特殊日優先）", () => {
+    expect(getMobileTrainingLabel(WITH_TAGS, "chest")).toBeNull();
+  });
+
+  it("特殊日あり + training_type null → null を返す", () => {
+    expect(getMobileTrainingLabel(WITH_TAGS, null)).toBeNull();
+  });
+
+  it("training_type = off → null を返す（off は非表示）", () => {
+    expect(getMobileTrainingLabel(NO_TAGS, "off")).toBeNull();
+  });
+
+  it("training_type = null → null を返す", () => {
+    expect(getMobileTrainingLabel(NO_TAGS, null)).toBeNull();
+  });
+
+  it("training_type = 無効値 → null を返す", () => {
+    expect(getMobileTrainingLabel(NO_TAGS, "unknown_muscle")).toBeNull();
+  });
+
+  it("特殊日なし + training_type = quads → 四頭 を返す", () => {
+    expect(getMobileTrainingLabel(NO_TAGS, "quads")!.label).toBe("四頭");
   });
 });
 
