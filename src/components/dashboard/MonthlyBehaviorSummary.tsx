@@ -61,7 +61,7 @@ export function MonthlyBehaviorSummary({ stats }: MonthlyBehaviorSummaryProps) {
               <th className="pb-2 pr-3 font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">月</th>
               <th className="pb-2 pr-3 text-right font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">便通</th>
               <th className="pb-2 pr-3 font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">トレーニング</th>
-              <th className="pb-2 pr-3 font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">仕事</th>
+              <th className="hidden sm:table-cell pb-2 pr-3 font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">仕事</th>
               <th className="pb-2 font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">特殊日</th>
             </tr>
           </thead>
@@ -107,8 +107,8 @@ export function MonthlyBehaviorSummary({ stats }: MonthlyBehaviorSummaryProps) {
                     )}
                   </td>
 
-                  {/* 仕事モード */}
-                  <td className="py-2.5 pr-3 text-slate-600">
+                  {/* 仕事モード (sm 以上のみ表示) */}
+                  <td className="hidden sm:table-cell py-2.5 pr-3 text-slate-600">
                     {workEntries.length > 0 ? (
                       <span className="flex flex-wrap gap-x-2 gap-y-0.5">
                         {workEntries.map(({ mode, count }) => (

@@ -61,11 +61,11 @@ export function MonthlyGoalTable({ rows, phase }: MonthlyGoalTableProps) {
               <th className="pb-2 pr-3 text-xs font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">月次計画 vs 実績</th>
               {/* 月初体重: sm 以上のみ表示 */}
               <th className="hidden sm:table-cell pb-2 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">月初体重</th>
-              <th className="pb-2 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">月末目標</th>
-              <th className="pb-2 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">実績月末</th>
-              <th className="pb-2 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">差分</th>
-              <th className="pb-2 pr-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">状態</th>
-              <th className="pb-2 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">累積ズレ</th>
+              <th className="pb-2 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">月末目標</th>
+              <th className="pb-2 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">実績月末</th>
+              <th className="pb-2 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">差分</th>
+              <th className="pb-2 pr-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">状態</th>
+              <th className="pb-2 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">累積ズレ</th>
               {/* 翌月必要: sm 以上のみ表示 */}
               <th className="hidden sm:table-cell pb-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">翌月必要</th>
             </tr>

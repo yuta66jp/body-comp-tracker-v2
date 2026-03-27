@@ -176,7 +176,7 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
       {/* ── ヘッダー ── */}
-      <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-slate-100 bg-slate-50 px-5 py-3">
         <div className="flex items-center gap-2">
           <ClipboardList size={15} className="text-slate-500" />
           <span className="text-sm font-bold text-slate-700">直近7日サマリー</span>
@@ -298,8 +298,8 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
           )}
         </div>
 
-        {/* ── 右列: 所見 ── */}
-        <div className="p-5">
+        {/* ── 右列: 所見 (モバイル非表示) ── */}
+        <div className="hidden lg:block p-5">
           <p className="mb-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
             所見
           </p>

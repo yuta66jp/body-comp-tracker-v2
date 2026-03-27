@@ -154,14 +154,14 @@ export function TdeeKpiCard({
 
       {/* 下段: 解釈補助文 + 信頼度 */}
       <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-gray-700">収支の解釈</p>
             <p className="mt-1.5 text-sm text-gray-600 leading-relaxed">{interpretation}</p>
           </div>
           <div className="shrink-0">
             <ConfidenceBadge confidence={confidence} />
-            <p className="mt-1.5 text-xs text-gray-400 text-right">{confidence.reason}</p>
+            <p className="mt-1.5 text-xs text-gray-400 sm:text-right">{confidence.reason}</p>
           </div>
         </div>
       </div>
