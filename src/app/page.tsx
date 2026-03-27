@@ -12,6 +12,7 @@ import { calcMonthlyGoalProgress } from "@/lib/utils/calcMonthlyGoalProgress";
 import { toJstDateStr } from "@/lib/utils/date";
 import { buildMonthlyGoalPlan } from "@/lib/utils/monthlyGoalPlan";
 import { buildMonthlyGoalSummaryRows, buildMonthlyGoalComparisonRows } from "@/lib/utils/monthlyGoalVisualization";
+import { calcMonthlyBehaviorStats } from "@/lib/utils/calcMonthlyBehaviorStats";
 import { fetchDashboardDailyLogs, fetchPredictions, fetchCareerLogsForDashboard } from "@/lib/queries/dailyLogs";
 import { fetchSettings } from "@/lib/queries/settings";
 import { fetchEnrichedLogs } from "@/lib/queries/analytics";
@@ -192,6 +193,9 @@ export default async function DashboardPage() {
         )
       : [];
 
+  // 月別行動・生活集計: buildMonthStats と同じ 3 ヶ月分を計算する
+  const monthlyBehaviorStats = calcMonthlyBehaviorStats(logs, 3);
+
   return (
     <DashboardLayout
       header={
@@ -262,6 +266,7 @@ export default async function DashboardPage() {
             currentSeason={currentSeason}
             monthlyGoalSummaryRows={monthlyGoalSummaryRows}
             phase={phase}
+            monthlyBehaviorStats={monthlyBehaviorStats}
           />
         </>
       ) : (
