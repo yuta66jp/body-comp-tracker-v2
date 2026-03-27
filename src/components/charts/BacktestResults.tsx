@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { AlertTriangle, TrendingUp, TrendingDown, Minus, Info } from "lucide-react";
 import type { ForecastBacktestRun, ForecastBacktestMetric } from "@/lib/supabase/types";
+import { makeTooltipFormatter } from "@/lib/utils/rechartsFormatter";
 
 // ── 定数 ─────────────────────────────────────────────────────────────────────
 
@@ -146,10 +147,10 @@ export function BacktestResults({ run, metrics }: Props) {
               tick={{ fontSize: 11 }}
             />
             <Tooltip
-              formatter={(v: unknown, name: unknown) => [
-                `${Number(v).toFixed(3)} kg`,
-                MODEL_CONFIG[String(name)]?.label ?? String(name),
-              ]}
+              formatter={makeTooltipFormatter(
+                (v) => `${v.toFixed(3)} kg`,
+                (name) => MODEL_CONFIG[name]?.label ?? name,
+              )}
             />
             <Legend
               formatter={(name: string) => MODEL_CONFIG[name]?.label ?? name}

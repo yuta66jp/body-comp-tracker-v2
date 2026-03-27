@@ -12,8 +12,8 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import type { TooltipValueType } from "recharts";
 import type { DashboardDailyLog, Prediction } from "@/lib/supabase/types";
+import { makeTooltipFormatter } from "@/lib/utils/rechartsFormatter";
 import { toJstDateStr, addDaysStr, dateRangeStr } from "@/lib/utils/date";
 import type { MonthlyGoalEntry } from "@/lib/utils/monthlyGoalPlan";
 import { buildMonthlyGoalDateMap } from "@/lib/utils/monthlyGoalVisualization";
@@ -201,20 +201,16 @@ export function ForecastChart({
             width={52}
           />
           <Tooltip
-            formatter={(value: TooltipValueType | undefined, name: number | string | undefined) => {
-              const labels: Record<string, string> = {
-                actual:             "実測",
-                sma7:               "7日平均",
-                forecast:           "AI予測",
-                ewTrend:            "直近トレンド",
-                monthlyGoalTarget:  "月次目標",
-              };
-              const nameStr = String(name ?? "");
-              return [
-                typeof value === "number" ? `${value.toFixed(1)} kg` : "—",
-                labels[nameStr] ?? nameStr,
-              ];
-            }}
+            formatter={makeTooltipFormatter(
+              (v) => `${v.toFixed(1)} kg`,
+              {
+                actual:            "実測",
+                sma7:              "7日平均",
+                forecast:          "AI予測",
+                ewTrend:           "直近トレンド",
+                monthlyGoalTarget: "月次目標",
+              },
+            )}
             labelFormatter={(label: unknown) => String(label)}
           />
           <Legend
