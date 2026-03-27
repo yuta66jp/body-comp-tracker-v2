@@ -150,11 +150,13 @@ export function calcReadiness(
       : null;
 
   // --- 必要週次変化率: (goal - current) / weeks_left ---
+  // days_to_contest < PACE_CALC_MIN_DAYS のとき weeksLeft が極小になり
+  // 非現実的な kg/週 値になるため null を返す (大会直前は週次ペース算出不可)
   let required_rate_kg_per_week: number | null = null;
   if (
     remaining_to_goal_kg !== null &&
     days_to_contest !== null &&
-    days_to_contest > 0
+    days_to_contest >= PACE_CALC_MIN_DAYS
   ) {
     const weeksLeft = days_to_contest / 7;
     // (goal - current) = -remaining, 負なら減量が必要
@@ -238,13 +240,23 @@ export function calcActualPacePerTwoWeeks(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * 必要ペース算出の最小残り日数。
+ *
+ * days_to_contest がこの値未満のとき、weeksLeft が極小になり
+ * 非現実的な kg/週 値になるため required_rate を null にする。
+ * 大会まで 1 週間未満では週次ペース指標は実用的でない。
+ */
+export const PACE_CALC_MIN_DAYS = 7;
+
+/**
  * 目標達成ステータス。
- * - achieved   : 残り ≤ 0.2 kg
- * - on_track   : 実績ペース ≥ 必要ペース (比率 ≥ 1.0)
- * - adjust     : 比率 0.5〜1.0 未満
- * - behind     : 比率 0.5 未満 または逆方向
- * - no_contest : contest_date 未設定または過去
- * - unknown    : データ不足
+ * - achieved          : 残り ≤ 0.2 kg
+ * - on_track          : 実績ペース ≥ 必要ペース (比率 ≥ 1.0)
+ * - adjust            : 比率 0.5〜1.0 未満
+ * - behind            : 比率 0.5 未満 または逆方向
+ * - no_contest        : contest_date 未設定または過去
+ * - contest_imminent  : days_to_contest < PACE_CALC_MIN_DAYS (週次ペース算出不可)
+ * - unknown           : データ不足
  */
 export type GoalStatus =
   | "achieved"
@@ -252,6 +264,7 @@ export type GoalStatus =
   | "adjust"
   | "behind"
   | "no_contest"
+  | "contest_imminent"
   | "unknown";
 
 /**
@@ -274,6 +287,9 @@ export function calcGoalStatus(
 ): GoalStatus {
   if (daysToContest === null || daysToContest < 0) return "no_contest";
   if (remainingToGoalKg !== null && Math.abs(remainingToGoalKg) < 0.2) return "achieved";
+  // 大会直前 (days < PACE_CALC_MIN_DAYS): 週次ペース算出不可のため専用状態を返す
+  // required_rate は null になるため "unknown" と区別することで UI が明示的な fallback を出せる
+  if (daysToContest < PACE_CALC_MIN_DAYS) return "contest_imminent";
   if (actualRateKgPerWeek === null || requiredRateKgPerWeek === null) return "unknown";
   if (requiredRateKgPerWeek === 0) return "on_track";
 
