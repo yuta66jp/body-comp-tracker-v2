@@ -90,9 +90,9 @@ export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason,
                 <MonthlyGoalTable rows={monthlyGoalSummaryRows} phase={phase ?? "Cut"} />
               </div>
             )}
-            {/* 月別行動・生活サマリー */}
+            {/* 月別行動・生活サマリー（昇順: 古い月から新しい月へ）*/}
             {monthlyBehaviorStats && monthlyBehaviorStats.length > 0 && (
-              <MonthlyBehaviorSummary stats={monthlyBehaviorStats} />
+              <MonthlyBehaviorSummary stats={[...monthlyBehaviorStats].reverse()} />
             )}
           </div>
         )}
