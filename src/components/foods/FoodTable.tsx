@@ -154,10 +154,17 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
     });
   }
 
-  const thCls = (key: SortKey) =>
-    `px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 cursor-pointer select-none hover:text-slate-700 transition-colors ${
+  // th 側: padding / font / alignment のみ。インタラクティブ性は内部 button が担う
+  const thSortCls = (key: SortKey) =>
+    `px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 ${
       key === "name" ? "text-left" : "text-right"
     }`;
+
+  // ソートボタン共通クラス: hover / focus / cursor を button 側に集約
+  const SORT_BTN_CLS =
+    "select-none cursor-pointer hover:text-slate-700 transition-colors " +
+    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 " +
+    "focus-visible:outline-blue-400 rounded-sm";
 
   const visibleFoods = filtered.slice(0, visibleCount);
 
@@ -350,20 +357,45 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
           <table className="w-full text-sm">
             <thead className="border-b border-slate-100 bg-slate-50">
               <tr>
-                <th className={thCls("name")} onClick={() => handleSort("name")}>
-                  食品名 <SortIcon col="name" sortKey={sortKey} sortDir={sortDir} />
+                <th
+                  className={thSortCls("name")}
+                  aria-sort={sortKey === "name" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+                >
+                  <button type="button" onClick={() => handleSort("name")} className={SORT_BTN_CLS}>
+                    食品名 <SortIcon col="name" sortKey={sortKey} sortDir={sortDir} />
+                  </button>
                 </th>
-                <th className={thCls("calories")} onClick={() => handleSort("calories")}>
-                  kcal <SortIcon col="calories" sortKey={sortKey} sortDir={sortDir} />
+                <th
+                  className={thSortCls("calories")}
+                  aria-sort={sortKey === "calories" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+                >
+                  <button type="button" onClick={() => handleSort("calories")} className={SORT_BTN_CLS}>
+                    kcal <SortIcon col="calories" sortKey={sortKey} sortDir={sortDir} />
+                  </button>
                 </th>
-                <th className={thCls("protein")} onClick={() => handleSort("protein")}>
-                  P (g) <SortIcon col="protein" sortKey={sortKey} sortDir={sortDir} />
+                <th
+                  className={thSortCls("protein")}
+                  aria-sort={sortKey === "protein" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+                >
+                  <button type="button" onClick={() => handleSort("protein")} className={SORT_BTN_CLS}>
+                    P (g) <SortIcon col="protein" sortKey={sortKey} sortDir={sortDir} />
+                  </button>
                 </th>
-                <th className={thCls("fat")} onClick={() => handleSort("fat")}>
-                  F (g) <SortIcon col="fat" sortKey={sortKey} sortDir={sortDir} />
+                <th
+                  className={thSortCls("fat")}
+                  aria-sort={sortKey === "fat" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+                >
+                  <button type="button" onClick={() => handleSort("fat")} className={SORT_BTN_CLS}>
+                    F (g) <SortIcon col="fat" sortKey={sortKey} sortDir={sortDir} />
+                  </button>
                 </th>
-                <th className={thCls("carbs")} onClick={() => handleSort("carbs")}>
-                  C (g) <SortIcon col="carbs" sortKey={sortKey} sortDir={sortDir} />
+                <th
+                  className={thSortCls("carbs")}
+                  aria-sort={sortKey === "carbs" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+                >
+                  <button type="button" onClick={() => handleSort("carbs")} className={SORT_BTN_CLS}>
+                    C (g) <SortIcon col="carbs" sortKey={sortKey} sortDir={sortDir} />
+                  </button>
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
                   カテゴリ

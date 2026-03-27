@@ -212,9 +212,61 @@ describe("FoodTable — 削除", () => {
   });
 });
 
-// ─── シナリオ 7: 検索フィルター ──────────────────────────────────────────
+// ─── シナリオ 7: ソートヘッダー (button / aria-sort) ─────────────────────
 
-describe("FoodTable — 検索フィルター", () => {
+describe("FoodTable — ソートヘッダー", () => {
+  const foods = [
+    makeFoodMaster({ name: "鶏むね肉", calories: 113, protein: 23, fat: 1, carbs: 0 }),
+    makeFoodMaster({ name: "白米",     calories: 168, protein: 3,  fat: 0, carbs: 37 }),
+  ];
+
+  it("ソートボタンが role=button でレンダリングされる", () => {
+    render(<FoodTable initialFoods={foods} />);
+    // デスクトップテーブル内のボタン（食品名・kcal・P/F/C の5列）
+    const sortButtons = screen.getAllByRole("button", { name: /食品名|kcal|P \(g\)|F \(g\)|C \(g\)/ });
+    expect(sortButtons.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it("初期状態: 食品名列の aria-sort が ascending", () => {
+    render(<FoodTable initialFoods={foods} />);
+    // 初期ソートは name / asc
+    const nameTh = screen.getAllByRole("columnheader", { name: /食品名/ })[0]!;
+    expect(nameTh).toHaveAttribute("aria-sort", "ascending");
+  });
+
+  it("非ソート列の aria-sort が none", () => {
+    render(<FoodTable initialFoods={foods} />);
+    const kcalTh = screen.getAllByRole("columnheader", { name: /kcal/ })[0]!;
+    expect(kcalTh).toHaveAttribute("aria-sort", "none");
+  });
+
+  it("kcalボタンをクリックすると kcal 列の aria-sort が descending になる", () => {
+    render(<FoodTable initialFoods={foods} />);
+    const kcalButton = screen.getAllByRole("button", { name: /kcal/ })[0]!;
+    fireEvent.click(kcalButton);
+    const kcalTh = screen.getAllByRole("columnheader", { name: /kcal/ })[0]!;
+    expect(kcalTh).toHaveAttribute("aria-sort", "descending");
+    // 食品名列は none に戻る
+    const nameTh = screen.getAllByRole("columnheader", { name: /食品名/ })[0]!;
+    expect(nameTh).toHaveAttribute("aria-sort", "none");
+  });
+
+  it("同じ列を2回クリックすると ascending → descending → ascending に切り替わる", () => {
+    render(<FoodTable initialFoods={foods} />);
+    const nameButton = screen.getAllByRole("button", { name: /食品名/ })[0]!;
+    // 初期: ascending → クリックで descending
+    fireEvent.click(nameButton);
+    const nameTh = screen.getAllByRole("columnheader", { name: /食品名/ })[0]!;
+    expect(nameTh).toHaveAttribute("aria-sort", "descending");
+    // もう一度クリックで ascending
+    fireEvent.click(nameButton);
+    expect(nameTh).toHaveAttribute("aria-sort", "ascending");
+  });
+});
+
+// ─── シナリオ 8: 検索フィルター ──────────────────────────────────────────
+
+describe("FoodTable — 検索フィルター (旧シナリオ 7)", () => {
   it("検索ボックスに入力すると一致しない食品が非表示になる", () => {
     render(<FoodTable initialFoods={INITIAL_FOODS} />);
     const searchInput = screen.getByPlaceholderText("食品名で検索...");
