@@ -42,6 +42,9 @@ export default async function HistoryPage() {
 
   const seasonMeta = calcSeasonMeta(careerLogs);
 
+  const isCut = settings.currentPhase !== "Bulk";
+  const deadlineLabel = isCut ? "大会日" : "目標日";
+
   // 現在シーズンのログを career_logs 形式に変換して比較に追加
   const currentAsCareer: CareerLog[] = currentLogs
     .filter((d) => d.weight !== null)
@@ -54,7 +57,10 @@ export default async function HistoryPage() {
       note: null,
     }));
 
-  const allCareerLogs = [...careerLogs, ...currentAsCareer];
+  // Bulk フェーズ時は現在シーズンを比較系列に含めない（参照モード）
+  const allCareerLogs = isCut
+    ? [...careerLogs, ...currentAsCareer]
+    : [...careerLogs];
   const allSeasonMeta = calcSeasonMeta(allCareerLogs);
   const seriesMap = buildDaysOutSeries(allCareerLogs);
   const daysOutData = buildDaysOutChartData(seriesMap, -300, 0);
@@ -72,9 +78,6 @@ export default async function HistoryPage() {
       ? buildTodayWindowEntries(seriesMap, todayDaysOut, 7)
       : [];
 
-  const isCut = settings.currentPhase !== "Bulk";
-  const deadlineLabel = isCut ? "大会日" : "目標日";
-
   return (
     <PageShell title="履歴">
 
@@ -87,6 +90,13 @@ export default async function HistoryPage() {
       {settingsResult.kind === "error" && (
         <div className="mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
           {`設定データの取得中にエラーが発生しました。${deadlineLabel}・シーズン名がデフォルト値になります。`}
+        </div>
+      )}
+
+      {/* Bulk 参照モード注記 */}
+      {!isCut && (
+        <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-2.5 text-xs text-amber-700">
+          Bulk フェーズ中は参照モードで表示しています。現在シーズンの比較は非表示です。
         </div>
       )}
 
@@ -108,8 +118,8 @@ export default async function HistoryPage() {
       <div className="space-y-6">
         {allCareerLogs.length > 0 ? (
           <>
-            {/* 今日基準近傍比較 (メイン判断用) */}
-            {todayDaysOut !== null && (
+            {/* 今日基準近傍比較 (メイン判断用) — Bulk 時は非表示 */}
+            {isCut && todayDaysOut !== null && (
               <TodayWindowComparison
                 entries={todayWindowEntries}
                 currentSeason={currentSeasonLabel}
@@ -135,6 +145,7 @@ export default async function HistoryPage() {
                 seasons={allSeasons}
                 currentSeason={currentSeasonLabel}
                 isCut={isCut}
+                showCurrentSeason={isCut}
               />
             </div>
             <div className="hidden md:block">
@@ -144,6 +155,7 @@ export default async function HistoryPage() {
                 seasons={allSeasons}
                 currentSeason={currentSeasonLabel}
                 isCut={isCut}
+                showCurrentSeason={isCut}
               />
             </div>
 

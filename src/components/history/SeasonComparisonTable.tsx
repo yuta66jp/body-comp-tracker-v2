@@ -23,6 +23,11 @@ interface SeasonComparisonTableProps {
   seasons: string[];
   currentSeason: string;
   isCut?: boolean;
+  /**
+   * true (default / Cut)  : 今季列・差列を表示
+   * false (Bulk)           : 今季列・差列を非表示（過去シーズン参照モード）
+   */
+  showCurrentSeason?: boolean;
 }
 
 // ─── ヘルパー ────────────────────────────────────────────────────────────────
@@ -91,6 +96,7 @@ export function SeasonComparisonTable({
   seasons,
   currentSeason,
   isCut = true,
+  showCurrentSeason = true,
 }: SeasonComparisonTableProps) {
   const pastSeasons = seasons.filter((s) => s !== currentSeason);
 
@@ -128,7 +134,9 @@ export function SeasonComparisonTable({
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-5 py-3">
         <p className="text-sm font-bold text-slate-700">シーズン比較テーブル</p>
         <p className="text-xs text-slate-400">
-          体重は 7日移動平均 / 大会 ±3日以内の最近接値 / 差は今季 − {prevSeason}
+          {showCurrentSeason
+            ? `体重は 7日移動平均 / 大会 ±3日以内の最近接値 / 差は今季 − ${prevSeason}`
+            : "体重は 7日移動平均 / 大会 ±3日以内の最近接値（参照用）"}
         </p>
       </div>
 
@@ -152,15 +160,19 @@ export function SeasonComparisonTable({
                   {s}
                 </th>
               ))}
-              {/* 今季 (赤でハイライト) */}
-              <th className="px-3 py-2.5 text-right text-red-500">
-                {currentSeason}
-                <span className="ml-1 rounded bg-red-50 px-1 text-[9px] font-bold">今季</span>
-              </th>
-              {/* 差分列 */}
-              <th className="px-4 py-2.5 text-right text-slate-500">
-                差 (vs {prevSeason})
-              </th>
+              {/* 今季 (赤でハイライト) — Bulk 時非表示 */}
+              {showCurrentSeason && (
+                <th className="px-3 py-2.5 text-right text-red-500">
+                  {currentSeason}
+                  <span className="ml-1 rounded bg-red-50 px-1 text-[9px] font-bold">今季</span>
+                </th>
+              )}
+              {/* 差分列 — Bulk 時非表示 */}
+              {showCurrentSeason && (
+                <th className="px-4 py-2.5 text-right text-slate-500">
+                  差 (vs {prevSeason})
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
@@ -212,27 +224,31 @@ export function SeasonComparisonTable({
                     );
                   })}
 
-                  {/* 今季の体重 */}
-                  <td className="px-3 py-2.5 text-right tabular-nums">
-                    {curVal !== null ? (
-                      <span className="font-semibold text-red-500">
-                        {curVal.toFixed(1)}
-                        <span className="ml-0.5 text-xs font-normal text-slate-300">kg</span>
-                      </span>
-                    ) : (
-                      <span className="text-slate-300">
-                        —
-                        <span className="ml-0.5 text-[10px]">
-                          {isFinisher ? "中" : "未達"}
+                  {/* 今季の体重 — Bulk 時非表示 */}
+                  {showCurrentSeason && (
+                    <td className="px-3 py-2.5 text-right tabular-nums">
+                      {curVal !== null ? (
+                        <span className="font-semibold text-red-500">
+                          {curVal.toFixed(1)}
+                          <span className="ml-0.5 text-xs font-normal text-slate-300">kg</span>
                         </span>
-                      </span>
-                    )}
-                  </td>
+                      ) : (
+                        <span className="text-slate-300">
+                          —
+                          <span className="ml-0.5 text-[10px]">
+                            {isFinisher ? "中" : "未達"}
+                          </span>
+                        </span>
+                      )}
+                    </td>
+                  )}
 
-                  {/* 差分 */}
-                  <td className="px-4 py-2.5 text-right tabular-nums">
-                    <DiffCell current={curVal} prev={prvVal} isCut={isCut} />
-                  </td>
+                  {/* 差分 — Bulk 時非表示 */}
+                  {showCurrentSeason && (
+                    <td className="px-4 py-2.5 text-right tabular-nums">
+                      <DiffCell current={curVal} prev={prvVal} isCut={isCut} />
+                    </td>
+                  )}
                 </tr>
               );
             })}
@@ -242,14 +258,18 @@ export function SeasonComparisonTable({
 
       {/* ── 凡例 ── */}
       <div className="flex flex-wrap items-center gap-4 border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400">
-        <span className="flex items-center gap-1">
-          <TrendingDown size={11} className="text-emerald-600" />
-          {isCut ? "今季が前回より軽い (先行)" : "今季が前回より重い (先行)"}
-        </span>
-        <span className="flex items-center gap-1">
-          <TrendingUp size={11} className="text-amber-600" />
-          {isCut ? "今季が前回より重い (遅れ)" : "今季が前回より軽い (遅れ)"}
-        </span>
+        {showCurrentSeason && (
+          <span className="flex items-center gap-1">
+            <TrendingDown size={11} className="text-emerald-600" />
+            {isCut ? "今季が前回より軽い (先行)" : "今季が前回より重い (先行)"}
+          </span>
+        )}
+        {showCurrentSeason && (
+          <span className="flex items-center gap-1">
+            <TrendingUp size={11} className="text-amber-600" />
+            {isCut ? "今季が前回より重い (遅れ)" : "今季が前回より軽い (遅れ)"}
+          </span>
+        )}
         <span className="ml-auto">
           過去シーズン数: {pastSeasons.length} / 全 {seasons.length} シーズン
         </span>
