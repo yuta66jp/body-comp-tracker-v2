@@ -142,8 +142,16 @@ def run_importance(df: pd.DataFrame) -> dict[str, dict[str, float | str]]:
             "xgboost が未導入です。pip install xgboost でインストールしてください。"
         ) from e
 
+    before_rows = len(df)
     df = apply_feature_engineering(df)
     df = df.dropna(subset=FEATURE_COLS + ["target"])
+    after_rows = len(df)
+    dropped_rows = before_rows - after_rows
+    drop_rate = dropped_rows / before_rows if before_rows > 0 else 0.0
+    logger.info(
+        "Feature drop by null filtering: before=%d, after=%d, dropped=%d, drop_rate=%.1f%%",
+        before_rows, after_rows, dropped_rows, drop_rate * 100,
+    )
 
     if len(df) < MIN_ROWS:
         raise ValueError(f"有効行数が不足 ({len(df)} < {MIN_ROWS})")
