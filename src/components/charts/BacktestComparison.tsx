@@ -1,7 +1,9 @@
+"use client";
+
 /**
  * BacktestComparison — 単日 vs 7日平均 精度比較カード
  *
- * Server Component (状態・イベントなし)
+ * Client Component (ModelInfoTooltip を使用するため)
  *
  * 表示内容:
  *   - 各モデル × 各ホライズン の MAE を単日/7日平均で並べて比較
