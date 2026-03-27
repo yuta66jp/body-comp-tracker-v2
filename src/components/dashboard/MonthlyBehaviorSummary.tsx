@@ -35,7 +35,6 @@ const FLAG_SHORT_LABELS: Record<string, string> = {
   is_refeed_day: "リフィード",
   is_eating_out: "外食",
   is_travel_day: "旅行",
-  is_poor_sleep: "睡眠不良",
 };
 
 const FLAG_KEYS = [
@@ -43,7 +42,6 @@ const FLAG_KEYS = [
   "is_refeed_day",
   "is_eating_out",
   "is_travel_day",
-  "is_poor_sleep",
 ] as const;
 
 export function MonthlyBehaviorSummary({ stats }: MonthlyBehaviorSummaryProps) {

@@ -25,7 +25,6 @@ function makeLog(overrides: Omit<Partial<DailyLog>, "weight"> & { log_date: stri
     is_refeed_day:      overrides.is_refeed_day      ?? false,
     is_eating_out:      overrides.is_eating_out      ?? false,
     is_travel_day:      overrides.is_travel_day      ?? false,
-    is_poor_sleep:      overrides.is_poor_sleep      ?? false,
     sleep_hours:        overrides.sleep_hours        ?? null,
     had_bowel_movement: overrides.had_bowel_movement ?? null,
     training_type:      overrides.training_type      ?? null,

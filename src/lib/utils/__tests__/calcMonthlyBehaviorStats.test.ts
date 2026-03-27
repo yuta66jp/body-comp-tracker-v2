@@ -26,7 +26,6 @@ function makeLog(
     is_refeed_day: false,
     is_eating_out: false,
     is_travel_day: false,
-    is_poor_sleep: null,
     created_at: null,
     updated_at: "2026-01-01T00:00:00Z",
     ...overrides,
@@ -160,7 +159,6 @@ describe("calcMonthlyBehaviorStats", () => {
         makeLog("2026-03-05", { is_eating_out: true }),
         makeLog("2026-03-06", { is_eating_out: true }),
         makeLog("2026-03-07", { is_travel_day: true }),
-        makeLog("2026-03-08", { is_poor_sleep: true }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
       expect(result[0]!.flagCounts).toEqual({
@@ -168,15 +166,14 @@ describe("calcMonthlyBehaviorStats", () => {
         is_refeed_day: 2,
         is_eating_out: 3,
         is_travel_day: 1,
-        is_poor_sleep: 1,
       });
     });
 
-    test("false / null は集計対象外", () => {
+    test("false は集計対象外", () => {
       const logs = [
         makeLog("2026-03-01", { is_cheat_day: false }),
-        makeLog("2026-03-02", { is_poor_sleep: null }),
-        makeLog("2026-03-03", { is_refeed_day: false }),
+        makeLog("2026-03-02", { is_refeed_day: false }),
+        makeLog("2026-03-03", { is_travel_day: false }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
       expect(result[0]!.flagCounts).toEqual({
@@ -184,7 +181,6 @@ describe("calcMonthlyBehaviorStats", () => {
         is_refeed_day: 0,
         is_eating_out: 0,
         is_travel_day: 0,
-        is_poor_sleep: 0,
       });
     });
   });
@@ -245,7 +241,6 @@ describe("calcMonthlyBehaviorStats", () => {
         is_refeed_day: 0,
         is_eating_out: 0,
         is_travel_day: 0,
-        is_poor_sleep: 0,
       });
     });
 

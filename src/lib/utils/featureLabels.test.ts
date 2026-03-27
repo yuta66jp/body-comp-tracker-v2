@@ -55,7 +55,7 @@ describe("getFeatureLabel", () => {
   });
 
   it("boolean 系ラベルに単位や括弧が含まれない", () => {
-    const boolKeys = ["had_bowel_movement", "is_cheat_day", "leg_flag", "is_poor_sleep"];
+    const boolKeys = ["had_bowel_movement", "is_cheat_day", "leg_flag"];
     for (const key of boolKeys) {
       const label = getFeatureLabel(key);
       expect(label).not.toMatch(/[（(]/);

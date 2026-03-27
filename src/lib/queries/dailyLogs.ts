@@ -43,7 +43,7 @@ import type { QueryResult } from "./queryResult";
  *
  * 取得列 (16列):
  *   log_date, weight, calories, protein, fat, carbs,
- *   is_cheat_day, is_refeed_day, is_eating_out, is_travel_day, is_poor_sleep,
+ *   is_cheat_day, is_refeed_day, is_eating_out, is_travel_day,
  *   sleep_hours, had_bowel_movement, training_type, work_mode, updated_at
  *
  * 除外列 (2列):
@@ -53,14 +53,14 @@ import type { QueryResult } from "./queryResult";
  * ## 用途別の列対応
  *   - calcReadiness          : log_date, weight
  *   - calcWeeklyReview       : log_date, calories, protein, fat, carbs,
- *                              is_cheat_day, is_refeed_day, is_eating_out, is_travel_day, is_poor_sleep
+ *                              is_cheat_day, is_refeed_day, is_eating_out, is_travel_day
  *   - calcDataQuality        : log_date, weight, calories
  *   - monthlyGoalVisualization: log_date, weight
  *   - calendarUtils          : log_date, weight, calories, had_bowel_movement, training_type, work_mode,
- *                              is_cheat_day, is_refeed_day, is_eating_out, is_travel_day, is_poor_sleep
+ *                              is_cheat_day, is_refeed_day, is_eating_out, is_travel_day
  *   - RecentLogsTable        : log_date, weight, calories, sleep_hours, had_bowel_movement,
  *                              training_type, work_mode, is_cheat_day, is_refeed_day,
- *                              is_eating_out, is_travel_day, is_poor_sleep
+ *                              is_eating_out, is_travel_day
  *   - ForecastChart          : log_date, weight
  *   - buildMonthStats        : log_date, weight, calories, protein
  *   - stale 判定             : updated_at (MAX を page.tsx で算出して fetchEnrichedLogs に渡す)
@@ -81,7 +81,7 @@ export async function fetchDashboardDailyLogs(): Promise<QueryResult<DashboardDa
     .from("daily_logs")
     .select(
       "log_date, weight, calories, protein, fat, carbs, " +
-      "is_cheat_day, is_refeed_day, is_eating_out, is_travel_day, is_poor_sleep, " +
+      "is_cheat_day, is_refeed_day, is_eating_out, is_travel_day, " +
       "sleep_hours, had_bowel_movement, training_type, work_mode, updated_at"
     )
     .order("log_date", { ascending: true });

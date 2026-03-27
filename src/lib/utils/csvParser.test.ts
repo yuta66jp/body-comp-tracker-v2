@@ -6,7 +6,6 @@ const NEW_FIELD_DEFAULTS = {
   is_refeed_day: false,
   is_eating_out: false,
   is_travel_day: false,
-  is_poor_sleep: false,
   sleep_hours: null,
   had_bowel_movement: null,
   training_type: null,
@@ -34,7 +33,7 @@ function toCSV(rows: Record<string, unknown>[], columns: string[]): string {
 
 const DAILY_LOG_COLUMNS = [
   "log_date", "weight", "calories", "protein", "fat", "carbs", "note",
-  "is_cheat_day", "is_refeed_day", "is_eating_out", "is_travel_day", "is_poor_sleep",
+  "is_cheat_day", "is_refeed_day", "is_eating_out", "is_travel_day",
   "sleep_hours", "had_bowel_movement", "training_type", "work_mode", "leg_flag",
 ];
 
@@ -287,8 +286,8 @@ describe("parseCSV", () => {
   // ---- 新カラム ----
   it("新カラム: boolean フィールドを正しくパースする", () => {
     const csv = [
-      "log_date,is_cheat_day,is_refeed_day,is_eating_out,is_poor_sleep,had_bowel_movement",
-      "2026-03-10,true,false,1,0,true",
+      "log_date,is_cheat_day,is_refeed_day,is_eating_out,had_bowel_movement",
+      "2026-03-10,true,false,1,true",
     ].join("\n");
 
     const result = parseCSV(csv);
@@ -297,7 +296,6 @@ describe("parseCSV", () => {
       is_cheat_day: true,
       is_refeed_day: false,
       is_eating_out: true,
-      is_poor_sleep: false,
       had_bowel_movement: true,
     });
   });
@@ -394,7 +392,7 @@ describe("round-trip: export → import", () => {
       log_date: "2026-03-20", weight: 65.0, calories: 2000,
       protein: 150, fat: 50, carbs: 200,
       note: "chicken, rice",
-      is_cheat_day: false, is_refeed_day: false, is_eating_out: false, is_travel_day: false, is_poor_sleep: false,
+      is_cheat_day: false, is_refeed_day: false, is_eating_out: false, is_travel_day: false,
       sleep_hours: null, had_bowel_movement: false,
       training_type: null, work_mode: null, leg_flag: null,
     }];
@@ -413,7 +411,7 @@ describe("round-trip: export → import", () => {
       log_date: "2026-03-21", weight: 64.5, calories: 1800,
       protein: 130, fat: 45, carbs: 180,
       note: 'say "hello" today',
-      is_cheat_day: false, is_refeed_day: false, is_eating_out: false, is_travel_day: false, is_poor_sleep: false,
+      is_cheat_day: false, is_refeed_day: false, is_eating_out: false, is_travel_day: false,
       sleep_hours: null, had_bowel_movement: false,
       training_type: null, work_mode: null, leg_flag: null,
     }];
@@ -430,7 +428,7 @@ describe("round-trip: export → import", () => {
       log_date: "2026-03-22", weight: 64.0, calories: 1900,
       protein: 140, fat: 40, carbs: 190,
       note: "朝: オートミール\n昼: チキン\n夜: サラダ",
-      is_cheat_day: false, is_refeed_day: false, is_eating_out: false, is_travel_day: false, is_poor_sleep: false,
+      is_cheat_day: false, is_refeed_day: false, is_eating_out: false, is_travel_day: false,
       sleep_hours: 7, had_bowel_movement: true,
       training_type: "chest", work_mode: "office", leg_flag: false,
     }];
@@ -450,7 +448,7 @@ describe("round-trip: export → import", () => {
         log_date: "2026-03-23", weight: 63.5, calories: 1750,
         protein: 120, fat: 38, carbs: 170,
         note: "line1\nline2",
-        is_cheat_day: false, is_refeed_day: false, is_eating_out: false, is_travel_day: false, is_poor_sleep: false,
+        is_cheat_day: false, is_refeed_day: false, is_eating_out: false, is_travel_day: false,
         sleep_hours: null, had_bowel_movement: false,
         training_type: null, work_mode: null, leg_flag: null,
       },
@@ -458,7 +456,7 @@ describe("round-trip: export → import", () => {
         log_date: "2026-03-24", weight: 63.0, calories: 1800,
         protein: 130, fat: 40, carbs: 175,
         note: null,
-        is_cheat_day: true, is_refeed_day: false, is_eating_out: false, is_travel_day: false, is_poor_sleep: false,
+        is_cheat_day: true, is_refeed_day: false, is_eating_out: false, is_travel_day: false,
         sleep_hours: 6.5, had_bowel_movement: true,
         training_type: "back", work_mode: "remote", leg_flag: false,
       },
@@ -481,7 +479,7 @@ describe("round-trip: export → import", () => {
       log_date: "2026-03-25", weight: 62.8, calories: 2100,
       protein: 160, fat: 55, carbs: 210,
       note: "test note",
-      is_cheat_day: true, is_refeed_day: true, is_eating_out: true, is_travel_day: true, is_poor_sleep: true,
+      is_cheat_day: true, is_refeed_day: true, is_eating_out: true, is_travel_day: true,
       sleep_hours: 5.5, had_bowel_movement: true,
       training_type: "quads", work_mode: "remote", leg_flag: true,
     }];
@@ -495,7 +493,6 @@ describe("round-trip: export → import", () => {
     expect(row.is_refeed_day).toBe(true);
     expect(row.is_eating_out).toBe(true);
     expect(row.is_travel_day).toBe(true);
-    expect(row.is_poor_sleep).toBe(true);
     expect(row.sleep_hours).toBe(5.5);
     expect(row.had_bowel_movement).toBe(true);
     expect(row.training_type).toBe("quads");

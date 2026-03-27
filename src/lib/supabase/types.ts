@@ -69,7 +69,6 @@ export type Database = {
           id: string
           is_cheat_day: boolean
           is_eating_out: boolean
-          is_poor_sleep: boolean | null
           is_refeed_day: boolean
           is_travel_day: boolean
           leg_flag: boolean | null
@@ -91,7 +90,6 @@ export type Database = {
           id?: string
           is_cheat_day?: boolean
           is_eating_out?: boolean
-          is_poor_sleep?: boolean | null
           is_refeed_day?: boolean
           is_travel_day?: boolean
           leg_flag?: boolean | null
@@ -113,7 +111,6 @@ export type Database = {
           id?: string
           is_cheat_day?: boolean
           is_eating_out?: boolean
-          is_poor_sleep?: boolean | null
           is_refeed_day?: boolean
           is_travel_day?: boolean
           leg_flag?: boolean | null

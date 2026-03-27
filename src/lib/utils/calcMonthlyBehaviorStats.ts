@@ -5,7 +5,7 @@
  *   - 便通日数 (had_bowel_movement === true の日数)
  *   - トレーニング部位別日数 (training_type の有効値ごと)
  *   - 仕事モード別日数 (work_mode の有効値ごと)
- *   - 特殊日フラグ別日数 (is_cheat_day / is_refeed_day / is_eating_out / is_travel_day / is_poor_sleep)
+ *   - 特殊日フラグ別日数 (is_cheat_day / is_refeed_day / is_eating_out / is_travel_day)
  *
  * null 扱いの方針 (既存仕様に準拠):
  *   - had_bowel_movement: null = 未記録 → 集計対象外。true のみ日数としてカウント。false は「便通なし」だがカウントしない
@@ -45,8 +45,6 @@ export interface MonthlyBehaviorStats {
     is_refeed_day: number;
     is_eating_out: number;
     is_travel_day: number;
-    /** is_poor_sleep は入力 UI 廃止済みだが DB データが残るため集計対象とする */
-    is_poor_sleep: number;
   };
 }
 
@@ -108,7 +106,6 @@ export function calcMonthlyBehaviorStats(
       is_refeed_day: dayLogs.filter((e) => e.is_refeed_day === true).length,
       is_eating_out: dayLogs.filter((e) => e.is_eating_out === true).length,
       is_travel_day: dayLogs.filter((e) => e.is_travel_day === true).length,
-      is_poor_sleep: dayLogs.filter((e) => e.is_poor_sleep === true).length,
     };
 
     return { month, bowelDays, trainingCounts, workModeCounts, flagCounts };

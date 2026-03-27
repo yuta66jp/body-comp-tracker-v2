@@ -45,7 +45,6 @@ function makeDailyLog(
     is_refeed_day: false,
     is_eating_out: false,
     is_travel_day: false,
-    is_poor_sleep: false,
     leg_flag: false,
     updated_at: "2026-03-01T00:00:00Z",
     ...overrides,
