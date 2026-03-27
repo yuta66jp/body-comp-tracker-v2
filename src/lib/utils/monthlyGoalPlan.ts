@@ -27,6 +27,8 @@
  *   既存アプリに明示的な月間閾値がないため本ファイルで定数化する。
  */
 
+import { parseLocalDateStr } from "./date";
+
 // ─── 警告閾値定数 ────────────────────────────────────────────────────────────
 
 /**
@@ -194,7 +196,7 @@ function validateInput(input: MonthlyGoalPlanInput): MonthlyGoalError[] {
 
   if (
     !input.goalDeadlineDate ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(input.goalDeadlineDate)
+    parseLocalDateStr(input.goalDeadlineDate) === null
   ) {
     errors.push({ code: "INVALID_DEADLINE" });
     return errors; // 日付依存の検証はスキップ

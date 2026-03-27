@@ -206,6 +206,44 @@ describe("buildMonthlyGoalPlan", () => {
       expect(plan.errors[0]!.code).toBe("INVALID_DEADLINE");
     });
 
+    describe("goalDeadlineDate が実在しない日付 → INVALID_DEADLINE", () => {
+      test.each([
+        ["2月30日", "2026-02-30"],
+        ["4月31日", "2026-04-31"],
+        ["13月1日", "2026-13-01"],
+        ["0月1日",  "2026-00-01"],
+      ])("%s (%s) は弾かれる", (_label, date) => {
+        const plan = buildMonthlyGoalPlan(makeInput({ goalDeadlineDate: date }));
+        expect(plan.isValid).toBe(false);
+        expect(plan.errors[0]!.code).toBe("INVALID_DEADLINE");
+        expect(plan.entries).toHaveLength(0);
+      });
+
+      test("うるう年の 2026-02-29 は弾かれる（2026 は平年）", () => {
+        const plan = buildMonthlyGoalPlan(
+          makeInput({ goalDeadlineDate: "2026-02-29" })
+        );
+        expect(plan.isValid).toBe(false);
+        expect(plan.errors[0]!.code).toBe("INVALID_DEADLINE");
+      });
+
+      test("うるう年の 2024-02-29 は通る", () => {
+        const plan = buildMonthlyGoalPlan(
+          makeInput({ today: "2024-02-01", goalDeadlineDate: "2024-02-29" })
+        );
+        expect(plan.isValid).toBe(true);
+        expect(plan.errors).toHaveLength(0);
+      });
+
+      test("2026-02-28 は通る", () => {
+        const plan = buildMonthlyGoalPlan(
+          makeInput({ today: "2026-02-01", goalDeadlineDate: "2026-02-28" })
+        );
+        expect(plan.isValid).toBe(true);
+        expect(plan.errors).toHaveLength(0);
+      });
+    });
+
     test("goalDeadlineDate が期限月 < currentMonth → DEADLINE_IN_PAST", () => {
       const plan = buildMonthlyGoalPlan(
         makeInput({
