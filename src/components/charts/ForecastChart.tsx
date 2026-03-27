@@ -26,6 +26,8 @@ interface ForecastChartProps {
   sma7: Array<{ date: string; value: number }>;
   goalWeight?: number;
   contestDate?: string;
+  /** "Cut" | "Bulk" — contestDate 参照線のラベル切り替えに使用 */
+  phase?: string;
   /** #101 の plan entries。渡すと月次目標ステップラインを描画し monthlyTarget は非表示になる */
   monthlyGoalEntries?: MonthlyGoalEntry[];
 }
@@ -52,6 +54,7 @@ export function ForecastChart({
   sma7,
   goalWeight,
   contestDate,
+  phase,
   monthlyGoalEntries,
 }: ForecastChartProps) {
   const [rangeTab, setRangeTab] = useState<RangeTab>("default");
@@ -246,7 +249,7 @@ export function ForecastChart({
               x={contestDate}
               stroke="#ef4444"
               strokeWidth={2}
-              label={{ value: "大会", fontSize: 10, fill: "#ef4444", position: "top" }}
+              label={{ value: phase === "Bulk" ? "目標日" : "大会", fontSize: 10, fill: "#ef4444", position: "top" }}
             />
           )}
 

@@ -32,6 +32,8 @@ import type {
 interface MonthlyGoalPlanSectionProps {
   goalWeight: number | null;
   contestDate: string | null;
+  /** "Cut" | "Bulk" — deadline 文言の切り替えに使用 */
+  phase?: string;
   currentWeight: number | null;
   today: string;
   overrides: MonthlyGoalOverride[];
@@ -40,22 +42,24 @@ interface MonthlyGoalPlanSectionProps {
 
 // ─── 表示ラベル ───────────────────────────────────────────────────────────────
 
-const ERROR_LABELS: Record<MonthlyGoalErrorCode, string> = {
-  INVALID_DEADLINE:           "コンテスト日の形式が不正です",
-  INVALID_CURRENT_WEIGHT:     "現在体重を取得できません。体重を記録してください",
-  INVALID_GOAL_WEIGHT:        "目標体重を設定してください",
-  INVALID_OVERRIDE_WEIGHT:    "手動設定の体重が不正です。計画をリセットします",
-  DEADLINE_IN_PAST:           "コンテスト日が過去です",
-  NO_MONTHS:                  "計画対象月がありません",
-  OVERRIDE_MONTH_OUT_OF_RANGE: "計画期間外の月に手動設定が含まれています",
-};
+function buildErrorLabels(deadlineLabel: string): Record<MonthlyGoalErrorCode, string> {
+  return {
+    INVALID_DEADLINE:           `${deadlineLabel}の形式が不正です`,
+    INVALID_CURRENT_WEIGHT:     "現在体重を取得できません。体重を記録してください",
+    INVALID_GOAL_WEIGHT:        "目標体重を設定してください",
+    INVALID_OVERRIDE_WEIGHT:    "手動設定の体重が不正です。計画をリセットします",
+    DEADLINE_IN_PAST:           `${deadlineLabel}が過去です`,
+    NO_MONTHS:                  "計画対象月がありません",
+    OVERRIDE_MONTH_OUT_OF_RANGE: "計画期間外の月に手動設定が含まれています",
+  };
+}
 
-function warningLabel(w: MonthlyGoalWarning): string {
+function warningLabel(w: MonthlyGoalWarning, deadlineLabel: string): string {
   switch (w.code) {
     case "ALREADY_AT_GOAL":
       return "現在体重が既に目標体重に達しています";
     case "DEADLINE_TOO_CLOSE":
-      return "コンテスト日まで残り1ヶ月以下です";
+      return `${deadlineLabel}まで残り1ヶ月以下です`;
     case "HIGH_MONTHLY_DELTA":
       return `${fmtMonth(w.month!)} の目標変化量 ${Math.abs(w.value!).toFixed(1)} kg が推奨上限 ${w.threshold} kg/月 を超えています`;
     case "WRONG_DIRECTION":
@@ -104,16 +108,20 @@ const inputCls =
 export function MonthlyGoalPlanSection({
   goalWeight,
   contestDate,
+  phase,
   currentWeight,
   today,
   overrides,
   onOverridesChange,
 }: MonthlyGoalPlanSectionProps) {
+  const deadlineLabel = phase === "Bulk" ? "目標日" : "コンテスト日";
+  const ERROR_LABELS = buildErrorLabels(deadlineLabel);
+
   // ── 欠損チェック (plan を構築する前提条件) ────────────────────────────────
   if (!contestDate) {
     return (
       <PrereqMessage icon="info">
-        コンテスト日を設定してください（上の設定から）
+        {deadlineLabel}を設定してください（上の設定から）
       </PrereqMessage>
     );
   }
@@ -140,6 +148,7 @@ export function MonthlyGoalPlanSection({
       today={today}
       overrides={overrides}
       onOverridesChange={onOverridesChange}
+      deadlineLabel={deadlineLabel}
     />
   );
 }
@@ -174,6 +183,7 @@ interface PlanContentProps {
   today: string;
   overrides: MonthlyGoalOverride[];
   onOverridesChange: (overrides: MonthlyGoalOverride[]) => void;
+  deadlineLabel: string;
 }
 
 function PlanContent({
@@ -183,7 +193,9 @@ function PlanContent({
   today,
   overrides,
   onOverridesChange,
+  deadlineLabel,
 }: PlanContentProps) {
+  const ERROR_LABELS = buildErrorLabels(deadlineLabel);
   // プランを overrides + 他パラメータから算出
   // override 配列が source of truth。buildMonthlyGoalPlan が全体を再構築する。
   const plan = useMemo(
@@ -418,7 +430,7 @@ function PlanContent({
               className="flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 px-4 py-2.5 text-xs text-amber-700"
             >
               <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-              <span>{warningLabel(w)}</span>
+              <span>{warningLabel(w, deadlineLabel)}</span>
             </div>
           ))}
         </div>

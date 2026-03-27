@@ -57,6 +57,8 @@ function KpiCard({ label, value, unit, sub, icon, accent, iconColor, trendDir, t
 
 export function KpiCards({ logs, settings, currentWeight }: KpiCardsProps) {
   const sorted = [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date));
+  const isCut = settings.currentPhase !== "Bulk";
+  const deadlineLabel = isCut ? "大会日" : "目標日";
 
   // --- 基準日 (todayStr) ---
   // 以降の全暦日計算で共通して使う。JST 固定で UTC サーバー上でもズレない。
@@ -136,7 +138,7 @@ export function KpiCards({ logs, settings, currentWeight }: KpiCardsProps) {
         sub={
           daysLeft !== null && daysLeft > 0 && weeksLeft !== null
             ? `${weeksLeft} 週 / ${contestDate}`
-            : (contestDate ?? "コンテスト日未設定")
+            : (contestDate ?? `${deadlineLabel}未設定`)
         }
         icon={<CalendarClock size={18} />}
         accent="bg-violet-50"
