@@ -130,6 +130,8 @@ export async function fetchEnrichedLogs(
     };
   }
 
+  // 列を明示指定すると supabase-js が戻り値型を絞り込むため単純キャストで対応する。
+  // AnalyticsCache["payload"] (Json) は後続の runtime validation で具体型に絞る。
   const row = data as Pick<AnalyticsCache, "payload" | "updated_at">;
   const updatedAt = row.updated_at;
 
@@ -153,6 +155,7 @@ export async function fetchEnrichedLogs(
 
   return {
     availability: getEnrichedLogsAvailability(updatedAt, latestRawLogUpdatedAt),
+    // runtime validation 通過後: supabase JSONB の Json 型から具体的な行型へキャスト。
     rows: row.payload as unknown as EnrichedLogPayloadRow[],
     updatedAt,
   };
@@ -203,8 +206,11 @@ export async function fetchFactorAnalysis(
     };
   }
 
+  // 列を明示指定すると supabase-js が戻り値型を絞り込むため単純キャストで対応する。
+  // AnalyticsCache["payload"] (Json) は後続の runtime validation で具体型に絞る。
   const row = data as Pick<AnalyticsCache, "payload" | "updated_at">;
   const updatedAt = row.updated_at;
+  // JSONB payload を中間型で受け取り、runtime validation で shape を確認する。
   const rawPayload = row.payload as Record<string, unknown>;
 
   // runtime validation: payload は plain object でなければならない
