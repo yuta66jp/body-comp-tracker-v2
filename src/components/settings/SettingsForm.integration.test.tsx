@@ -223,7 +223,96 @@ describe("SettingsForm — 保存中ステータス", () => {
   });
 });
 
-// ─── シナリオ 4: フォームの初期値反映 ──────────────────────────────────────
+// ─── シナリオ 4: PFC kcal 整合性警告 ────────────────────────────────────────
+
+describe("SettingsForm — PFC kcal 整合性警告", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  /**
+   * target_protein_g / target_fat_g / target_carbs_g / target_calories_kcal を
+   * 持つ Setting[] を生成するヘルパー。
+   * PFC 由来 kcal = P×4 + F×9 + C×4。
+   */
+  function makeMacroSettings(
+    protein: number,
+    fat: number,
+    carbs: number,
+    calories: number
+  ): Setting[] {
+    return [
+      { key: "target_protein_g",     value_num: protein,  value_str: null, updated_at: null },
+      { key: "target_fat_g",         value_num: fat,      value_str: null, updated_at: null },
+      { key: "target_carbs_g",       value_num: carbs,    value_str: null, updated_at: null },
+      { key: "target_calories_kcal", value_num: calories, value_str: null, updated_at: null },
+    ];
+  }
+
+  // 基準値: P=150g, F=60g, C=200g → 150×4 + 60×9 + 200×4 = 1940 kcal
+
+  it("差分が閾値以内（100 kcal）のとき警告が表示されない", () => {
+    // target: 2040 → |2040 - 1940| = 100 ≤ 100 → 警告なし
+    render(<SettingsForm initialSettings={makeMacroSettings(150, 60, 200, 2040)} />);
+    expect(screen.queryByText(/どちらを正として管理するか/)).not.toBeInTheDocument();
+  });
+
+  it("差分が閾値超過（101 kcal 以上）のとき警告が表示される", () => {
+    // target: 2100 → |2100 - 1940| = 160 > 100 → 警告あり
+    render(<SettingsForm initialSettings={makeMacroSettings(150, 60, 200, 2100)} />);
+    expect(screen.getByText(/どちらを正として管理するか/)).toBeInTheDocument();
+  });
+
+  it("警告メッセージに目標カロリー・PFC由来kcal・差分が含まれる", () => {
+    // target: 2100, PFC: 1940, diff: 160
+    render(<SettingsForm initialSettings={makeMacroSettings(150, 60, 200, 2100)} />);
+    const warning = screen.getByText(/どちらを正として管理するか/);
+    expect(warning.textContent).toContain("2100");
+    expect(warning.textContent).toContain("1940");
+    expect(warning.textContent).toContain("160");
+  });
+
+  it("PFC が未入力のとき警告が表示されない", () => {
+    // calories のみ入力 → PFC 由来 kcal が null → 警告なし
+    const settings: Setting[] = [
+      { key: "target_calories_kcal", value_num: 2000, value_str: null, updated_at: null },
+    ];
+    render(<SettingsForm initialSettings={settings} />);
+    expect(screen.queryByText(/どちらを正として管理するか/)).not.toBeInTheDocument();
+  });
+
+  it("target_calories_kcal が未入力のとき警告が表示されない", () => {
+    // PFC のみ入力 → calories が NaN → 警告なし
+    const settings: Setting[] = [
+      { key: "target_protein_g", value_num: 150, value_str: null, updated_at: null },
+      { key: "target_fat_g",     value_num: 60,  value_str: null, updated_at: null },
+      { key: "target_carbs_g",   value_num: 200, value_str: null, updated_at: null },
+    ];
+    render(<SettingsForm initialSettings={settings} />);
+    expect(screen.queryByText(/どちらを正として管理するか/)).not.toBeInTheDocument();
+  });
+
+  it("警告が表示されていても保存ボタンが有効のまま（保存をブロックしない）", () => {
+    mockSaveSettings.mockResolvedValue({ ok: true });
+    render(<SettingsForm initialSettings={makeMacroSettings(150, 60, 200, 2100)} />);
+    expect(screen.getByText(/どちらを正として管理するか/)).toBeInTheDocument();
+    const saveButton = screen.getByRole("button", { name: /保存/ });
+    expect(saveButton).not.toBeDisabled();
+  });
+
+  it("入力変更で警告表示がリアルタイムに更新される", () => {
+    // 初期: target=2100, PFC=1940 → 差分 160 → 警告あり
+    render(<SettingsForm initialSettings={makeMacroSettings(150, 60, 200, 2100)} />);
+    expect(screen.getByText(/どちらを正として管理するか/)).toBeInTheDocument();
+
+    // target_calories_kcal を 1940 に変更 → 差分 0 → 警告消える
+    const calInput = screen.getByPlaceholderText("2000") as HTMLInputElement;
+    fireEvent.change(calInput, { target: { value: "1940" } });
+    expect(screen.queryByText(/どちらを正として管理するか/)).not.toBeInTheDocument();
+  });
+});
+
+// ─── シナリオ 5: フォームの初期値反映 ──────────────────────────────────────
 
 describe("SettingsForm — 初期値の反映", () => {
   it("initialSettings の数値フィールドがフォームに反映される", () => {
