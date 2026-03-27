@@ -16,6 +16,7 @@ import {
   getEnrichedLogsAvailability,
   getXgboostAvailability,
   errorAvailability,
+  unavailableAvailability,
 } from "@/lib/analytics/status";
 import type { AnalyticsAvailability } from "@/lib/analytics/status";
 import type { AnalyticsCache, EnrichedLogPayloadRow } from "@/lib/supabase/types";
@@ -53,6 +54,35 @@ export interface FactorAnalysisResult {
   meta: FactorMeta | null;
   /** analytics_cache.updated_at。unavailable / error のときは null */
   updatedAt: string | null;
+}
+
+// ── payload バリデーション ─────────────────────────────────────────────────────
+
+/**
+ * enriched_logs の各行が最低限の shape を満たすか検証する。
+ * UI が参照する必須フィールドの存在を確認する:
+ *   - log_date: string（主キー、日付表示に使用）
+ *   - weight_sma7: キーが存在する（値は number | null）
+ *   - tdee_estimated: キーが存在する（値は number | null）
+ */
+function isValidEnrichedLogRow(val: unknown): boolean {
+  if (typeof val !== "object" || val === null) return false;
+  const v = val as Record<string, unknown>;
+  return (
+    typeof v.log_date === "string" &&
+    "weight_sma7" in v &&
+    "tdee_estimated" in v
+  );
+}
+
+/**
+ * xgboost_importance の各 feature エントリが最低限の shape を満たすか検証する。
+ * UI が必ず参照する `importance: number` / `pct: number` の存在を確認する。
+ */
+function isValidFactorEntryShape(val: unknown): boolean {
+  if (typeof val !== "object" || val === null) return false;
+  const v = val as Record<string, unknown>;
+  return typeof v.importance === "number" && typeof v.pct === "number";
 }
 
 // ── クエリ関数 ────────────────────────────────────────────────────────────────
@@ -102,6 +132,25 @@ export async function fetchEnrichedLogs(
 
   const row = data as Pick<AnalyticsCache, "payload" | "updated_at">;
   const updatedAt = row.updated_at;
+
+  // runtime validation: payload は配列でなければならない
+  if (!Array.isArray(row.payload)) {
+    console.error(
+      "[analytics] enriched_logs: payload validation failed — expected array, got",
+      typeof row.payload
+    );
+    return { availability: unavailableAvailability(), rows: [], updatedAt: null };
+  }
+
+  // runtime validation: 各行が最低限の shape を満たすか検証する
+  const invalidIndex = row.payload.findIndex((el) => !isValidEnrichedLogRow(el));
+  if (invalidIndex !== -1) {
+    console.error(
+      `[analytics] enriched_logs: payload validation failed — row[${invalidIndex}] is missing required fields (log_date: string, weight_sma7, tdee_estimated)`
+    );
+    return { availability: unavailableAvailability(), rows: [], updatedAt: null };
+  }
+
   return {
     availability: getEnrichedLogsAvailability(updatedAt, latestRawLogUpdatedAt),
     rows: row.payload as unknown as EnrichedLogPayloadRow[],
@@ -158,8 +207,27 @@ export async function fetchFactorAnalysis(
   const updatedAt = row.updated_at;
   const rawPayload = row.payload as Record<string, unknown>;
 
+  // runtime validation: payload は plain object でなければならない
+  if (typeof rawPayload !== "object" || rawPayload === null || Array.isArray(rawPayload)) {
+    console.error(
+      "[analytics] xgboost_importance: payload validation failed — expected plain object, got",
+      Array.isArray(rawPayload) ? "array" : typeof rawPayload
+    );
+    return { availability: unavailableAvailability(), payload: null, meta: null, updatedAt: null };
+  }
+
   // _meta / _stability を分離して残りを FactorEntry として扱う
   const { _meta, _stability, ...entries } = rawPayload;
+
+  // runtime validation: 各 feature エントリが最低限の shape を満たすか検証する
+  for (const [key, val] of Object.entries(entries)) {
+    if (!isValidFactorEntryShape(val)) {
+      console.error(
+        `[analytics] xgboost_importance: payload validation failed — entry "${key}" is missing required fields (importance: number, pct: number)`
+      );
+      return { availability: unavailableAvailability(), payload: null, meta: null, updatedAt: null };
+    }
+  }
   const stabilityMap = (_stability ?? null) as Record<string, StabilityEntry> | null;
   const mergedEntries = mergeStability(entries as Record<string, FactorEntry>, stabilityMap);
 
