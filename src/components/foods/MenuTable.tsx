@@ -191,6 +191,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
             </select>
             <input
               type="number"
+              inputMode="decimal"
               min={1}
               max={9999}
               value={addAmount}

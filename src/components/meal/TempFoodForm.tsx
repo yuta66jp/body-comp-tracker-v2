@@ -127,6 +127,7 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
         <input
           id="temp-food-grams"
           type="number"
+          inputMode="decimal"
           min={0}
           placeholder="200"
           value={form.grams}
@@ -144,6 +145,7 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
             <input
               id="temp-food-calories"
               type="number"
+              inputMode="decimal"
               min={0}
               placeholder="350"
               value={form.calories}
@@ -157,6 +159,7 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
             <input
               id="temp-food-protein"
               type="number"
+              inputMode="decimal"
               min={0}
               placeholder="25"
               value={form.protein}
@@ -170,6 +173,7 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
             <input
               id="temp-food-fat"
               type="number"
+              inputMode="decimal"
               min={0}
               placeholder="12"
               value={form.fat}
@@ -183,6 +187,7 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
             <input
               id="temp-food-carbs"
               type="number"
+              inputMode="decimal"
               min={0}
               placeholder="30"
               value={form.carbs}

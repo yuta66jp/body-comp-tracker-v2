@@ -349,7 +349,7 @@ export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerPro
             {weight === null ? (
               <input type="number" disabled placeholder="削除予定" className={inputClearedCls} />
             ) : (
-              <input type="number" step="0.1" min="0" placeholder="70.5" value={weight}
+              <input type="number" inputMode="decimal" step="0.1" min="0" placeholder="70.5" value={weight}
                 onChange={(e) => { setWeight(e.target.value); setWeightTouched(true); }}
                 className={`${inputCls} ${weight !== "" ? "pr-8" : ""}`} />
             )}
@@ -474,7 +474,7 @@ export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerPro
               {sleepHours === null ? (
                 <input type="number" disabled placeholder="削除予定" className={inputClearedCls} />
               ) : (
-                <input type="number" step="0.5" min="0" max="24" placeholder="7.5"
+                <input type="number" inputMode="decimal" step="0.5" min="0" max="24" placeholder="7.5"
                   value={sleepHours}
                   onChange={(e) => { setSleepHours(e.target.value); setSleepHoursTouched(true); }}
                   className={`${inputCls} ${sleepHours !== "" ? "pr-8" : ""}`} />

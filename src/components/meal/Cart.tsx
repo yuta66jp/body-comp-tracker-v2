@@ -150,6 +150,7 @@ export function Cart({ items, onChange }: CartProps) {
                 <div className="flex items-center gap-1">
                   <input
                     type="number"
+                    inputMode="decimal"
                     min={0}
                     max={9999}
                     value={item.food.name in editingGrams ? editingGrams[item.food.name] : item.grams}
