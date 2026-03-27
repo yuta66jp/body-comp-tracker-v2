@@ -334,8 +334,8 @@ export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerPro
       {/* 日付・体重・メモ */}
       <div className={`grid gap-3 ${sidebar ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-3"}`}>
         <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">日付</label>
-          <input type="date" value={date} onChange={(e) => handleDateChange(e.target.value)} className={inputCls} />
+          <label htmlFor="meal-log-date" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">日付</label>
+          <input id="meal-log-date" type="date" value={date} onChange={(e) => handleDateChange(e.target.value)} className={inputCls} />
           {/* 既存ログあり / 新規入力 バッジ */}
           {hydratedLog ? (
             <p className="mt-1 text-xs font-medium text-amber-600">既存ログあり — 差分のみ編集できます</p>
@@ -344,12 +344,12 @@ export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerPro
           )}
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">体重 (kg)</label>
+          <label htmlFor="meal-log-weight" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">体重 (kg)</label>
           <div className="relative">
             {weight === null ? (
               <input type="number" disabled placeholder="削除予定" className={inputClearedCls} />
             ) : (
-              <input type="number" inputMode="decimal" step="0.1" min="0" placeholder="70.5" value={weight}
+              <input id="meal-log-weight" type="number" inputMode="decimal" step="0.1" min="0" placeholder="70.5" value={weight}
                 onChange={(e) => { setWeight(e.target.value); setWeightTouched(true); }}
                 className={`${inputCls} ${weight !== "" ? "pr-8" : ""}`} />
             )}
@@ -387,12 +387,12 @@ export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerPro
           )}
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">メモ</label>
+          <label htmlFor="meal-log-note" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">メモ</label>
           <div className="relative">
             {note === null ? (
               <input type="text" disabled placeholder="削除予定" className={inputClearedCls} />
             ) : (
-              <input type="text" placeholder="任意" value={note}
+              <input id="meal-log-note" type="text" placeholder="任意" value={note}
                 onChange={(e) => { setNote(e.target.value); setNoteTouched(true); }}
                 className={`${inputCls} ${note !== "" ? "pr-8" : ""}`} />
             )}
@@ -469,12 +469,12 @@ export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerPro
         <div className={`grid gap-3 ${sidebar ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
           {/* 睡眠時間 */}
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-500">睡眠時間 (h)</label>
+            <label htmlFor="meal-log-sleep-hours" className="mb-1.5 block text-xs font-medium text-slate-500">睡眠時間 (h)</label>
             <div className="relative">
               {sleepHours === null ? (
                 <input type="number" disabled placeholder="削除予定" className={inputClearedCls} />
               ) : (
-                <input type="number" inputMode="decimal" step="0.5" min="0" max="24" placeholder="7.5"
+                <input id="meal-log-sleep-hours" type="number" inputMode="decimal" step="0.5" min="0" max="24" placeholder="7.5"
                   value={sleepHours}
                   onChange={(e) => { setSleepHours(e.target.value); setSleepHoursTouched(true); }}
                   className={`${inputCls} ${sleepHours !== "" ? "pr-8" : ""}`} />
