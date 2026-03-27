@@ -22,6 +22,11 @@ interface SeasonComparisonAccordionProps {
   seasons: string[];
   currentSeason: string;
   isCut?: boolean;
+  /**
+   * true (default / Cut)  : 今季列・差列を表示
+   * false (Bulk)           : 今季列・差列を非表示（過去シーズン参照モード）
+   */
+  showCurrentSeason?: boolean;
 }
 
 // ─── ヘルパー ────────────────────────────────────────────────────────────────
@@ -72,6 +77,7 @@ export function SeasonComparisonAccordion({
   seasons,
   currentSeason,
   isCut = true,
+  showCurrentSeason = true,
 }: SeasonComparisonAccordionProps) {
   const [openSeason, setOpenSeason] = useState<string | null>(null);
 
@@ -108,9 +114,11 @@ export function SeasonComparisonAccordion({
       {/* ── ヘッダー ── */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-5 py-3">
         <p className="text-sm font-bold text-slate-700">シーズン比較</p>
-        <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-500">
-          {currentSeason}
-        </span>
+        {showCurrentSeason && (
+          <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-500">
+            {currentSeason}
+          </span>
+        )}
       </div>
 
       {/* ── アコーディオン行 (新しい順に表示) ── */}
@@ -150,7 +158,7 @@ export function SeasonComparisonAccordion({
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  {finisherDiff !== null && (
+                  {showCurrentSeason && finisherDiff !== null && (
                     <span
                       className={`text-xs tabular-nums ${
                         finisherAhead === null
@@ -185,8 +193,12 @@ export function SeasonComparisonAccordion({
                       <tr className="border-b border-slate-100 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                         <th className="px-4 py-2 text-left">基準点</th>
                         <th className="px-3 py-2 text-right">{season}</th>
-                        <th className="px-3 py-2 text-right text-red-400">{currentSeason}</th>
-                        <th className="px-4 py-2 text-right">差</th>
+                        {showCurrentSeason && (
+                          <th className="px-3 py-2 text-right text-red-400">{currentSeason}</th>
+                        )}
+                        {showCurrentSeason && (
+                          <th className="px-4 py-2 text-right">差</th>
+                        )}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
@@ -214,18 +226,22 @@ export function SeasonComparisonAccordion({
                                 <span className="text-slate-300">—</span>
                               )}
                             </td>
-                            <td className="px-3 py-2 text-right tabular-nums">
-                              {curVal !== null ? (
-                                <span className="font-semibold text-red-500">
-                                  {curVal.toFixed(1)}<span className="ml-0.5 text-[9px] font-normal text-slate-300">kg</span>
-                                </span>
-                              ) : (
-                                <span className="text-slate-300">—</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-2 text-right tabular-nums">
-                              <DiffCell current={curVal} past={pastVal} isCut={isCut} />
-                            </td>
+                            {showCurrentSeason && (
+                              <td className="px-3 py-2 text-right tabular-nums">
+                                {curVal !== null ? (
+                                  <span className="font-semibold text-red-500">
+                                    {curVal.toFixed(1)}<span className="ml-0.5 text-[9px] font-normal text-slate-300">kg</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-300">—</span>
+                                )}
+                              </td>
+                            )}
+                            {showCurrentSeason && (
+                              <td className="px-4 py-2 text-right tabular-nums">
+                                <DiffCell current={curVal} past={pastVal} isCut={isCut} />
+                              </td>
+                            )}
                           </tr>
                         );
                       })}
@@ -238,17 +254,19 @@ export function SeasonComparisonAccordion({
         })}
       </div>
 
-      {/* ── 凡例 ── */}
-      <div className="flex flex-wrap items-center gap-4 border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400">
-        <span className="flex items-center gap-1">
-          <TrendingDown size={11} className="text-emerald-600" />
-          {isCut ? "今季が前回より軽い（先行）" : "今季が前回より重い（先行）"}
-        </span>
-        <span className="flex items-center gap-1">
-          <TrendingUp size={11} className="text-amber-600" />
-          {isCut ? "今季が前回より重い（遅れ）" : "今季が前回より軽い（遅れ）"}
-        </span>
-      </div>
+      {/* ── 凡例 — Bulk 時非表示 ── */}
+      {showCurrentSeason && (
+        <div className="flex flex-wrap items-center gap-4 border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400">
+          <span className="flex items-center gap-1">
+            <TrendingDown size={11} className="text-emerald-600" />
+            {isCut ? "今季が前回より軽い（先行）" : "今季が前回より重い（先行）"}
+          </span>
+          <span className="flex items-center gap-1">
+            <TrendingUp size={11} className="text-amber-600" />
+            {isCut ? "今季が前回より重い（遅れ）" : "今季が前回より軽い（遅れ）"}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
