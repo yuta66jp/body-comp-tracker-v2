@@ -316,8 +316,10 @@ describe("getMobileTrainingLabel", () => {
     expect(getMobileTrainingLabel(WITH_TAGS, null)).toBeNull();
   });
 
-  it("training_type = off → null を返す（off は非表示）", () => {
-    expect(getMobileTrainingLabel(NO_TAGS, "off")).toBeNull();
+  it("training_type = off → オフ ラベルを返す（月全体のトレーニング配分確認のため表示する）", () => {
+    const result = getMobileTrainingLabel(NO_TAGS, "off");
+    expect(result).not.toBeNull();
+    expect(result!.label).toBe("オフ");
   });
 
   it("training_type = null → null を返す", () => {

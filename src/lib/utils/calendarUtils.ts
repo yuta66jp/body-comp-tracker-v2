@@ -104,10 +104,10 @@ export function buildConditionTags(params: {
  *
  * 優先度ルール（モバイル限定）:
  *   1. 特殊日がある場合: null を返す（dayTags 行で既に表示済み）
- *   2. 特殊日がなく training_type が有効かつ off 以外: 短縮ラベルを返す
- *   3. それ以外（off / null / 未記録 / 無効値）: null（表示なし）
+ *   2. 特殊日がなく training_type が有効値（off を含む）: 短縮ラベルを返す
+ *   3. それ以外（null / 未記録 / 無効値）: null（表示なし）
  *
- * off は表示しない（表示領域が限られるため視覚ノイズを避ける）。
+ * off も表示する（月全体のトレーニング配分を見るために必要）。
  * PC 表示（sm:flex の conditionTags）では引き続き training_type を表示する。
  */
 export function getMobileTrainingLabel(
@@ -116,8 +116,8 @@ export function getMobileTrainingLabel(
 ): { label: string; colorClass: string } | null {
   // 特殊日がある場合は training_type を表示しない
   if (dayTags.length > 0) return null;
-  // off / null / 無効値は表示しない
-  if (!trainingType || trainingType === "off" || !isValidTrainingType(trainingType)) return null;
+  // null / 無効値は表示しない（off は有効値として表示する）
+  if (!trainingType || !isValidTrainingType(trainingType)) return null;
   return {
     label:      TRAINING_TYPE_LABELS[trainingType],
     colorClass: "bg-indigo-100 text-indigo-700",
