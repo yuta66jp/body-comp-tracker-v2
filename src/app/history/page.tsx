@@ -38,7 +38,7 @@ export default async function HistoryPage() {
 
   const currentSeasonLabel = settings.currentSeason
     ? settings.currentSeason
-    : `${currentLogs.at(-1)?.log_date.slice(0, 4) ?? new Date().getFullYear()}_Current`;
+    : `${currentLogs.at(-1)?.log_date.slice(0, 4) ?? toJstDateStr().slice(0, 4)}_Current`;
 
   const seasonMeta = calcSeasonMeta(careerLogs);
 
