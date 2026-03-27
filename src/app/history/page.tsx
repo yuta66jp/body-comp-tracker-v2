@@ -86,7 +86,7 @@ export default async function HistoryPage() {
       )}
       {settingsResult.kind === "error" && (
         <div className="mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
-          設定データの取得中にエラーが発生しました。目標日・シーズン名がデフォルト値になります。
+          {`設定データの取得中にエラーが発生しました。${deadlineLabel}・シーズン名がデフォルト値になります。`}
         </div>
       )}
 
@@ -101,7 +101,7 @@ export default async function HistoryPage() {
           <span className="ml-1 font-semibold text-red-500">{contestDate}</span>
         </span>
         <span className="text-slate-300">
-          ※ 設定ページの「現在のシーズン」「{deadlineLabel}」で変更できます
+          {`※ 設定ページの「現在のシーズン」「${deadlineLabel}」で変更できます`}
         </span>
       </div>
 
