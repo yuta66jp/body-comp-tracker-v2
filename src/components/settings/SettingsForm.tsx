@@ -208,6 +208,11 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
   // 今日の JST 日付 (月次計画の起点として利用)
   const today = useMemo(() => toJstDateStr(), []);
 
+  // フェーズに応じた deadline 文言 (values はリアクティブなため切り替えが即反映される)
+  const isBulk = values["current_phase"] === "Bulk";
+  const deadlineLabel = isBulk ? "目標日" : "コンテスト日";
+  const seasonSectionTitle = isBulk ? "シーズン・目標" : "シーズン・コンテスト";
+
   /** PFC由来kcal と target_calories_kcal の差分（絶対値 > 100 kcal で警告）*/
   const pfcConsistencyWarning = useMemo((): string | null => {
     const targetCal = parseFloat(values["target_calories_kcal"] ?? "");
@@ -288,15 +293,15 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
       <div>
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-slate-700">シーズン・コンテスト</h2>
-            <p className="mt-0.5 text-xs text-slate-400">大会日・シーズン名・フェーズを設定します</p>
+            <h2 className="text-sm font-semibold text-slate-700">{seasonSectionTitle}</h2>
+            <p className="mt-0.5 text-xs text-slate-400">{deadlineLabel}・シーズン名・フェーズを設定します</p>
           </div>
           <button
             type="button"
             onClick={() => toggleSection("season")}
             aria-expanded={openSections.has("season")}
             aria-controls="settings-panel-season"
-            aria-label={`シーズン・コンテストを${openSections.has("season") ? "閉じる" : "開く"}`}
+            aria-label={`${seasonSectionTitle}を${openSections.has("season") ? "閉じる" : "開く"}`}
             className="sm:hidden ml-3 flex-shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
           >
             <ChevronDown
@@ -315,7 +320,11 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
               <FieldItem
                 key={key}
                 fieldKey={key}
-                meta={FIELDS[key]!}
+                meta={
+                  key === "contest_date"
+                    ? { ...FIELDS[key]!, label: deadlineLabel }
+                    : FIELDS[key]!
+                }
                 value={values[key] ?? ""}
                 error={fieldErrors[key]}
                 onChange={(val) => set(key, val)}
@@ -386,13 +395,14 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
       <FormSection
         id="plan"
         title="月次目標計画"
-        subtitle="コンテスト日・目標体重をもとに月末目標体重を自動配分します"
+        subtitle={`${deadlineLabel}・目標体重をもとに月末目標体重を自動配分します`}
         isOpen={openSections.has("plan")}
         onToggle={() => toggleSection("plan")}
       >
         <MonthlyGoalPlanSection
           goalWeight={(() => { const v = parseFloat(values["goal_weight"] ?? ""); return isFinite(v) ? v : null; })()}
           contestDate={values["contest_date"] || null}
+          phase={values["current_phase"] ?? "Cut"}
           currentWeight={currentWeight}
           today={today}
           overrides={monthlyPlanOverrides}

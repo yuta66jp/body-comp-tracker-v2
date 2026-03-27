@@ -247,6 +247,7 @@ export default async function DashboardPage() {
               sma7={sma7}
               goalWeight={goalWeight}
               contestDate={contestDate}
+              phase={phase}
               monthlyGoalEntries={
                 monthlyGoalPlan?.isValid && monthlyGoalPlan.entries.length > 0
                   ? monthlyGoalPlan.entries

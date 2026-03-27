@@ -72,13 +72,13 @@ const STATUS_CONFIG = {
     icon: AlertTriangle,
   },
   no_contest: {
-    label: "大会日未設定",
+    label: "", // phase に応じて動的に上書き (see getStatusLabel)
     color: "text-slate-500",
     bg: "bg-slate-50 border-slate-200",
     icon: HelpCircle,
   },
   contest_imminent: {
-    label: "大会直前",
+    label: "", // phase に応じて動的に上書き (see getStatusLabel)
     color: "text-slate-600",
     bg: "bg-slate-50 border-slate-200",
     icon: CalendarDays,
@@ -245,8 +245,17 @@ export function GoalNavigator({
     metrics.days_to_contest
   );
 
+  const deadlineLabel = isCut ? "大会日" : "目標日";
+
   const statusCfg = STATUS_CONFIG[status];
   const StatusIcon = statusCfg.icon;
+  // no_contest / contest_imminent ラベルは phase によって異なるため動的に解決する
+  const statusLabel =
+    status === "no_contest"
+      ? `${deadlineLabel}未設定`
+      : status === "contest_imminent"
+      ? `${deadlineLabel}直前`
+      : statusCfg.label;
 
   // ── 設定欠落フォールバック ──
   const missingGoal = goalWeight === null;
@@ -280,7 +289,7 @@ export function GoalNavigator({
             className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${statusCfg.color} ${statusCfg.bg}`}
           >
             <StatusIcon size={11} />
-            {statusCfg.label}
+            {statusLabel}
           </span>
         </div>
       </div>
@@ -383,7 +392,7 @@ export function GoalNavigator({
           {/* 大会直前 fallback: PACE_CALC_MIN_DAYS 未満では週次ペース算出不可 */}
           {isTooCloseToContest && (
             <p className="mt-1 text-[11px] text-slate-400">
-              大会まで {daysLeft2W} 日のためペース算出なし
+              {deadlineLabel}まで {daysLeft2W} 日のためペース算出なし
             </p>
           )}
         </div>
