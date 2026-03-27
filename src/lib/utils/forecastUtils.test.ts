@@ -85,6 +85,35 @@ describe("calcEwLinearForecast", () => {
     // 下降トレンドなので予測値が下がっていること
     expect(result[13].value).toBeLessThan(70.0);
   });
+
+  // ── 非有限値ガード ────────────────────────────────────────────────────────────
+
+  it("value に NaN を含む場合は空配列を返す", () => {
+    const sma7 = makeSma7(20, latestLogDate, 70.0, 0.0);
+    sma7[10].value = NaN;
+    expect(calcEwLinearForecast(sma7, latestLogDate)).toEqual([]);
+  });
+
+  it("value に Infinity を含む場合は空配列を返す", () => {
+    const sma7 = makeSma7(20, latestLogDate, 70.0, 0.0);
+    sma7[5].value = Infinity;
+    expect(calcEwLinearForecast(sma7, latestLogDate)).toEqual([]);
+  });
+
+  it("value に -Infinity を含む場合は空配列を返す", () => {
+    const sma7 = makeSma7(20, latestLogDate, 70.0, 0.0);
+    sma7[5].value = -Infinity;
+    expect(calcEwLinearForecast(sma7, latestLogDate)).toEqual([]);
+  });
+
+  it("正常系: 返り値の全 value が有限値である", () => {
+    const sma7 = makeSma7(20, latestLogDate, 70.0, -0.05);
+    const result = calcEwLinearForecast(sma7, latestLogDate);
+    expect(result.length).toBeGreaterThan(0);
+    for (const p of result) {
+      expect(Number.isFinite(p.value)).toBe(true);
+    }
+  });
 });
 
 describe("buildForecastMap", () => {
