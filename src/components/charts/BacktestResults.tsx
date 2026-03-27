@@ -14,6 +14,7 @@ import {
 import { AlertTriangle, TrendingUp, TrendingDown, Minus, Info } from "lucide-react";
 import type { ForecastBacktestRun, ForecastBacktestMetric } from "@/lib/supabase/types";
 import { makeTooltipFormatter } from "@/lib/utils/rechartsFormatter";
+import { MODEL_DESCRIPTIONS, ModelInfoTooltip } from "./ModelInfoTooltip";
 
 // ── 定数 ─────────────────────────────────────────────────────────────────────
 
@@ -256,7 +257,12 @@ export function BacktestResults({ run, metrics }: Props) {
                   className="border-b border-slate-50 hover:bg-slate-50"
                 >
                   <td className="py-2 pr-4 font-medium" style={{ color: cfg?.color }}>
-                    {cfg?.label ?? model}
+                    <span className="inline-flex items-center">
+                      {cfg?.label ?? model}
+                      {MODEL_DESCRIPTIONS[model] && (
+                        <ModelInfoTooltip description={MODEL_DESCRIPTIONS[model]!} />
+                      )}
+                    </span>
                   </td>
                   {HORIZONS.map((h) => {
                     const m = metrics.find(
