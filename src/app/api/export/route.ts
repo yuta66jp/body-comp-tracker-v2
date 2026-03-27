@@ -15,6 +15,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+// ── バリデーション ────────────────────────────────────────────────────────────
+
+const ALLOWED_TABLES = ["daily_logs", "food_master", "predictions"] as const;
+
+/**
+ * 日付パラメータのフォーマット検証。
+ *
+ * - `YYYY-MM-DD` 形式かつ実在する日付のみ true を返す。
+ * - 空文字は呼び出し側で除外してから渡すこと（空文字は false になる）。
+ */
+export function isValidDateParam(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const [y, m, d] = s.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return (
+    date.getFullYear() === y &&
+    date.getMonth() + 1 === m &&
+    date.getDate() === d
+  );
+}
+
 function toCSV(rows: Record<string, unknown>[], columns: string[]): string {
   const header = columns.join(",");
   const body = rows.map((row) =>
@@ -37,6 +58,17 @@ export async function GET(req: NextRequest) {
   const start = searchParams.get("start") ?? "";
   const end = searchParams.get("end") ?? "";
   const table = searchParams.get("table") ?? "daily_logs";
+
+  // ── 入力バリデーション（DB 呼び出し前） ─────────────────────────────────────
+  if (!(ALLOWED_TABLES as readonly string[]).includes(table)) {
+    return NextResponse.json({ error: "Invalid table" }, { status: 400 });
+  }
+  if (start && !isValidDateParam(start)) {
+    return NextResponse.json({ error: "Invalid start date" }, { status: 400 });
+  }
+  if (end && !isValidDateParam(end)) {
+    return NextResponse.json({ error: "Invalid end date" }, { status: 400 });
+  }
 
   const supabase = createClient();
 
