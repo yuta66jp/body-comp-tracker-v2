@@ -27,7 +27,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 import type { ReadinessMetrics } from "@/lib/utils/calcReadiness";
-import { calcGoalStatus, calcKcalCorrection } from "@/lib/utils/calcReadiness";
+import { calcGoalStatus, calcKcalCorrection, PACE_CALC_MIN_DAYS } from "@/lib/utils/calcReadiness";
 import type { MonthlyGoalProgress } from "@/lib/utils/calcMonthlyGoalProgress";
 
 interface GoalNavigatorProps {
@@ -76,6 +76,12 @@ const STATUS_CONFIG = {
     color: "text-slate-500",
     bg: "bg-slate-50 border-slate-200",
     icon: HelpCircle,
+  },
+  contest_imminent: {
+    label: "大会直前",
+    color: "text-slate-600",
+    bg: "bg-slate-50 border-slate-200",
+    icon: CalendarDays,
   },
   unknown: {
     label: "データ不足",
@@ -205,8 +211,13 @@ export function GoalNavigator({
   // 必要ペース: calcReadiness の required_rate_kg_per_2weeks を参照
   // ただし 7d avg ベースで再計算（calcReadiness は current_weight ベース）
   const daysLeft2W = metrics.days_to_contest;
+
+  // 大会直前フラグ: PACE_CALC_MIN_DAYS 未満では週次ペースが非現実的な値になるため算出しない
+  const isTooCloseToContest =
+    daysLeft2W !== null && daysLeft2W >= 0 && daysLeft2W < PACE_CALC_MIN_DAYS;
+
   const requiredRateKg2W =
-    remainingKg !== null && daysLeft2W !== null && daysLeft2W > 0
+    remainingKg !== null && daysLeft2W !== null && daysLeft2W >= PACE_CALC_MIN_DAYS
       ? (-remainingKg / daysLeft2W) * 14
       : null;
 
@@ -369,6 +380,12 @@ export function GoalNavigator({
                 : "text-emerald-600"
             }
           />
+          {/* 大会直前 fallback: PACE_CALC_MIN_DAYS 未満では週次ペース算出不可 */}
+          {isTooCloseToContest && (
+            <p className="mt-1 text-[11px] text-slate-400">
+              大会まで {daysLeft2W} 日のためペース算出なし
+            </p>
+          )}
         </div>
 
         <Divider />

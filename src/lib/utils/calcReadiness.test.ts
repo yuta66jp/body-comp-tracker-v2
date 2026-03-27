@@ -9,7 +9,14 @@
  *   - 残り週数 (daysLeft / 7) の表示値
  */
 
-import { calcReadiness, calcRequiredPacePerTwoWeeks, calcActualPacePerTwoWeeks, calcGoalReachDate } from "./calcReadiness";
+import {
+  calcReadiness,
+  calcRequiredPacePerTwoWeeks,
+  calcActualPacePerTwoWeeks,
+  calcGoalReachDate,
+  calcGoalStatus,
+  PACE_CALC_MIN_DAYS,
+} from "./calcReadiness";
 import type { DailyLog } from "@/lib/supabase/types";
 
 // ─── テスト用ヘルパー ──────────────────────────────────────────────────────────
@@ -318,6 +325,146 @@ describe("calcGoalReachDate", () => {
     const r = calcGoalReachDate(65.0, 5 / 14, 70.0, today);
     expect(r.status).toBe("projected");
     expect(r.date).toBe("2026-03-29");
+  });
+});
+
+// ─── calcReadiness: 大会直前ガード (PACE_CALC_MIN_DAYS) ──────────────────────
+
+describe("calcReadiness 大会直前ガード", () => {
+  const today = "2026-03-15";
+
+  function buildLogs(n: number): DailyLog[] {
+    return Array.from({ length: n }, (_, i) => {
+      const date = daysAgo(today, n - 1 - i);
+      return makeDailyLog(date, 70 - i * 0.05);
+    });
+  }
+
+  test("PACE_CALC_MIN_DAYS 定数は 7", () => {
+    expect(PACE_CALC_MIN_DAYS).toBe(7);
+  });
+
+  test("days_to_contest = 1 → required_rate は null (非現実的なペースを出さない)", () => {
+    const logs = buildLogs(14);
+    const metrics = calcReadiness(
+      logs,
+      { contest_date: daysAgo(today, -1), goal_weight: 68 }, // 明日
+      today
+    );
+    expect(metrics.required_rate_kg_per_week).toBeNull();
+    expect(metrics.required_rate_kg_per_2weeks).toBeNull();
+  });
+
+  test("days_to_contest = 3 → required_rate は null", () => {
+    const logs = buildLogs(14);
+    const metrics = calcReadiness(
+      logs,
+      { contest_date: daysAgo(today, -3), goal_weight: 68 },
+      today
+    );
+    expect(metrics.required_rate_kg_per_week).toBeNull();
+    expect(metrics.required_rate_kg_per_2weeks).toBeNull();
+  });
+
+  test("days_to_contest = 6 (PACE_CALC_MIN_DAYS - 1) → required_rate は null", () => {
+    const logs = buildLogs(14);
+    const metrics = calcReadiness(
+      logs,
+      { contest_date: daysAgo(today, -6), goal_weight: 68 },
+      today
+    );
+    expect(metrics.required_rate_kg_per_week).toBeNull();
+    expect(metrics.required_rate_kg_per_2weeks).toBeNull();
+  });
+
+  test("days_to_contest = 7 (PACE_CALC_MIN_DAYS) → required_rate は非 null", () => {
+    const logs = buildLogs(14);
+    const metrics = calcReadiness(
+      logs,
+      { contest_date: daysAgo(today, -7), goal_weight: 68 },
+      today
+    );
+    // 7日 = 1週間 → weeksLeft = 1, required = (68 - current) / 1
+    expect(metrics.required_rate_kg_per_week).not.toBeNull();
+    expect(metrics.required_rate_kg_per_2weeks).not.toBeNull();
+  });
+
+  test("days_to_contest = 14 → required_rate は通常通り計算される", () => {
+    const logs = buildLogs(14);
+    const metrics = calcReadiness(
+      logs,
+      { contest_date: daysAgo(today, -14), goal_weight: 68 },
+      today
+    );
+    expect(metrics.required_rate_kg_per_week).not.toBeNull();
+    // current ≈ 70 - 13*0.05 = 69.35, goal = 68 → remaining ≈ 1.35
+    // weeks = 14/7 = 2 → required ≈ -1.35/2 ≈ -0.675 kg/週
+    expect(metrics.required_rate_kg_per_week).toBeCloseTo(-1.35 / 2, 1);
+  });
+});
+
+// ─── calcGoalStatus ───────────────────────────────────────────────────────────
+
+describe("calcGoalStatus", () => {
+  // ── contest_imminent ──
+  test("daysToContest = 0 (大会当日) → contest_imminent", () => {
+    expect(calcGoalStatus(-1.0, -1.0, 2.0, 0)).toBe("contest_imminent");
+  });
+
+  test("daysToContest = 1 → contest_imminent", () => {
+    expect(calcGoalStatus(-1.0, -1.0, 2.0, 1)).toBe("contest_imminent");
+  });
+
+  test("daysToContest = 3 → contest_imminent", () => {
+    expect(calcGoalStatus(-1.0, -1.0, 2.0, 3)).toBe("contest_imminent");
+  });
+
+  test("daysToContest = PACE_CALC_MIN_DAYS - 1 = 6 → contest_imminent", () => {
+    expect(calcGoalStatus(-1.0, -1.0, 2.0, PACE_CALC_MIN_DAYS - 1)).toBe("contest_imminent");
+  });
+
+  test("daysToContest = PACE_CALC_MIN_DAYS = 7 → contest_imminent にならない", () => {
+    const result = calcGoalStatus(-1.0, -1.0, 2.0, PACE_CALC_MIN_DAYS);
+    expect(result).not.toBe("contest_imminent");
+  });
+
+  test("daysToContest = 14 → contest_imminent にならない", () => {
+    const result = calcGoalStatus(-1.0, -1.0, 2.0, 14);
+    expect(result).not.toBe("contest_imminent");
+  });
+
+  // 目標達成済みなら days < PACE_CALC_MIN_DAYS でも achieved を優先
+  test("残り3日 + 目標達成済み → achieved (contest_imminent より優先)", () => {
+    expect(calcGoalStatus(-0.1, -1.0, 0.1, 3)).toBe("achieved");
+  });
+
+  // ── no_contest ──
+  test("daysToContest が null → no_contest", () => {
+    expect(calcGoalStatus(-1.0, -1.0, 2.0, null)).toBe("no_contest");
+  });
+
+  test("daysToContest が負 (過去) → no_contest", () => {
+    expect(calcGoalStatus(-1.0, -1.0, 2.0, -1)).toBe("no_contest");
+  });
+
+  // ── 通常ケース ──
+  test("ratio >= 1.0 → on_track", () => {
+    // actual = -1.2, required = -1.0 → ratio = 1.2 ≥ 1.0
+    expect(calcGoalStatus(-1.2, -1.0, 2.0, 30)).toBe("on_track");
+  });
+
+  test("ratio 0.5〜1.0 → adjust", () => {
+    // actual = -0.6, required = -1.0 → ratio = 0.6
+    expect(calcGoalStatus(-0.6, -1.0, 2.0, 30)).toBe("adjust");
+  });
+
+  test("ratio < 0.5 → behind", () => {
+    // actual = -0.3, required = -1.0 → ratio = 0.3
+    expect(calcGoalStatus(-0.3, -1.0, 2.0, 30)).toBe("behind");
+  });
+
+  test("required = null かつ days >= PACE_CALC_MIN_DAYS → unknown", () => {
+    expect(calcGoalStatus(-1.0, null, 2.0, 30)).toBe("unknown");
   });
 });
 
