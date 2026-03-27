@@ -3,6 +3,7 @@
 import { saveDailyLog } from "./saveDailyLog";
 import type { SaveDailyLogInput } from "./saveDailyLog";
 import type { ParsedRow } from "@/lib/utils/csvParser";
+import { revalidateAfterDailyLogMutation } from "@/lib/cache/revalidate";
 
 export type ImportDailyLogsResult =
   | { ok: true; count: number; skipped: number }
@@ -19,7 +20,12 @@ export type ImportDailyLogsResult =
  * - 日付 / 数値範囲 / enum バリデーションを通常保存と同じ経路で実施
  * - leg_flag は training_type から buildUpdatePayload 内で導出（CSV の値を使わない）
  * - save_daily_log_partial RPC で atomic UPDATE → INSERT
- * - 保存後の revalidate は saveDailyLog 内で通常保存と同等に走る
+ *
+ * revalidate の扱い:
+ * - 行単位の revalidate は抑止（saveDailyLog に skipRevalidate: true を渡す）
+ * - 全行保存完了後に 1 回だけ revalidateAfterDailyLogMutation() を呼ぶ
+ * - 呼び出し元 (ImportSection.tsx) は BATCH_SIZE 単位でこの action を呼ぶため、
+ *   revalidate はバッチ 1 回につき 1 回になる（行単位ではなくなる）
  *
  * @returns ok:true の場合は count（成功件数）と skipped（スキップ件数）を返す
  */
@@ -52,12 +58,18 @@ export async function importDailyLogs(
       work_mode: row.work_mode,
     };
 
-    const result = await saveDailyLog(input);
+    // skipRevalidate: true でバッチ中の行単位 revalidate を抑止する
+    const result = await saveDailyLog(input, { skipRevalidate: true });
     if (result.ok) {
       count++;
     } else {
       skipped++;
     }
+  }
+
+  // バッチ内で 1 件でも保存成功したら、ここで 1 回だけ revalidate する
+  if (count > 0) {
+    revalidateAfterDailyLogMutation();
   }
 
   return { ok: true, count, skipped };

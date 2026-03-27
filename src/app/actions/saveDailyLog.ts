@@ -46,8 +46,20 @@ export type SaveDailyLogResult =
   | { ok: true }
   | { ok: false; message: string };
 
+/**
+ * saveDailyLog のオプション。
+ *
+ * skipRevalidate: true を渡すと保存後の revalidatePath 呼び出しを省略する。
+ * CSV バッチインポートなど、複数行を連続保存する場合に呼び出し元で
+ * 1 回だけ revalidate したいときに使う。通常の単体保存では渡さなくてよい。
+ */
+export type SaveDailyLogOptions = {
+  skipRevalidate?: boolean;
+};
+
 export async function saveDailyLog(
-  input: SaveDailyLogInput
+  input: SaveDailyLogInput,
+  options?: SaveDailyLogOptions
 ): Promise<SaveDailyLogResult> {
   // --- サーバー側バリデーション ---
   // parseLocalDateStr は形式・月範囲・実在日付をローカル解釈で厳密検証する。
@@ -128,7 +140,10 @@ export async function saveDailyLog(
   }
 
   // --- On-demand revalidation ---
-  revalidateAfterDailyLogMutation();
+  // skipRevalidate: true の場合は呼び出し元で一括 revalidate するため省略する
+  if (!options?.skipRevalidate) {
+    revalidateAfterDailyLogMutation();
+  }
 
   return { ok: true };
 }
