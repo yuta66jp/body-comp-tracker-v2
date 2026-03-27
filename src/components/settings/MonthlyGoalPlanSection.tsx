@@ -331,6 +331,7 @@ function PlanContent({
                       <div className="flex items-center justify-end gap-1">
                         <input
                           type="number"
+                          inputMode="decimal"
                           step="0.1"
                           min="20"
                           max="200"
