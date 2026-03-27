@@ -41,7 +41,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger(__name__)
 
 KCAL_PER_KG_FAT = 7_200  # Hall et al., 2012 (旧6800から統一)
-SMA_WINDOW = 7
+SMA_WINDOW = 7  # 7日窓: 体重の週間周期変動（週1トレーニング・曜日による食事パターン）をならすため採用。
+                # 水分・塩分・便通による単日±2 kg ノイズの影響を 1/7 に分散させる。
+                # これより短いと週次リズムがノイズとして残り、長いと月次の実トレンドへの追従が遅れる。
 
 
 # ── 純粋ロジック層 ─────────────────────────────────────────────────────────────
@@ -76,7 +78,11 @@ def enrich_data(df: pd.DataFrame) -> pd.DataFrame:
     weight_sma7_delta = df["weight_sma7"].diff()  # kg/day (SMA7 の差分: ≒ (w_t - w_{t-6}) / 6)
     tdee_candidates = df["calories"] - weight_sma7_delta * KCAL_PER_KG_FAT
     df["tdee_estimated"] = tdee_candidates.rolling(
-        window=SMA_WINDOW, min_periods=3
+        window=SMA_WINDOW, min_periods=3  # min_periods=3: 3日分あれば中央値推定を開始する。
+        #   mean より median を採用するのは、カロリー記録が飛び抜けた日（祭典・絶食）でも
+        #   推定 TDEE が大きく乱れないようにするため（外れ値ロバスト性）。
+        #   1〜2 日では外れ値と正常値の区別がつかないため 3 を下限にしている。
+        #   7 日揃っていない初期・欠損区間でもデータが揃い次第 TDEE を早期に提供できる。
     ).median()
 
     return df
@@ -100,7 +106,7 @@ def build_enriched_payload(df: pd.DataFrame) -> list[dict]:
     work = df.copy()
     work["log_date"] = work["log_date"].dt.strftime("%Y-%m-%d")
 
-    # 後方 SMA_WINDOW 日の TDEE 平均 (min_periods=3 で枠が足りない場合は None)
+    # 後方 SMA_WINDOW 日の TDEE 平均 (min_periods=3: tdee_estimated と同じ閾値で早期提供)
     work["avg_tdee_7d"] = work["tdee_estimated"].rolling(
         window=SMA_WINDOW, min_periods=3
     ).mean()
