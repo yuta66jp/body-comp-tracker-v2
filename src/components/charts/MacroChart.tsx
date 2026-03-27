@@ -10,8 +10,8 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import type { TooltipValueType } from "recharts";
 import type { DailyLog } from "@/lib/supabase/types";
+import { makeTooltipFormatter } from "@/lib/utils/rechartsFormatter";
 import { lastNEntries } from "@/lib/utils/timeWindow";
 
 interface MacroChartProps {
@@ -44,7 +44,7 @@ export function MacroChart({ logs, days = 30 }: MacroChartProps) {
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={20} />
           <YAxis tick={{ fontSize: 11 }} width={36} unit="g" />
-          <Tooltip formatter={(v: TooltipValueType | undefined, name: number | string | undefined) => [`${v} g`, name ?? ""]} />
+          <Tooltip formatter={makeTooltipFormatter((v) => `${v} g`)} />
           <Legend />
           <Bar dataKey="タンパク質" stackId="macro" fill="#3b82f6" />
           <Bar dataKey="脂質" stackId="macro" fill="#f59e0b" />
