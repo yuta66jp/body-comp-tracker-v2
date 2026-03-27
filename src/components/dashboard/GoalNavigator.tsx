@@ -36,8 +36,8 @@ interface GoalNavigatorProps {
   phase: string;
   goalWeight: number | null;
   contestDate: string | null;
-  /** 直近の推定 TDEE (kcal). 表示参考値として利用 */
-  avgTdee: number | null;
+  /** 直近 7 暦日の平均摂取カロリー (kcal/日). 目標摂取の算出基準 */
+  avgCalories: number | null;
   /** 今月目標に対する進捗 (calcMonthlyGoalProgress の結果) */
   monthlyGoalProgress: MonthlyGoalProgress;
   /** 当月内の最小実測体重 (kg) */
@@ -194,7 +194,7 @@ export function GoalNavigator({
   metrics,
   phase,
   goalWeight,
-  avgTdee,
+  avgCalories,
   monthlyGoalProgress,
   currentMonthMinWeight,
 }: GoalNavigatorProps) {
@@ -252,10 +252,10 @@ export function GoalNavigator({
   const missingGoal = goalWeight === null;
 
   // ── kcal 表示の補足 ──
-  // avgTdee があれば推奨摂取量も計算
+  // 現在の平均摂取カロリー + 推奨調整 で目標摂取を算出
   const recommendedIntake =
-    avgTdee !== null && kcalCorrection !== null
-      ? Math.round(avgTdee + kcalCorrection)
+    avgCalories !== null && kcalCorrection !== null
+      ? Math.round(avgCalories + kcalCorrection)
       : null;
 
   return (
@@ -407,7 +407,7 @@ export function GoalNavigator({
               {recommendedIntake !== null && (
                 <MetricRow
                   label="目標摂取"
-                  value={`${recommendedIntake.toLocaleString()} kcal`}
+                  value={`${recommendedIntake.toLocaleString()} kcal/日`}
                   valueColor="text-slate-700"
                 />
               )}
@@ -423,7 +423,7 @@ export function GoalNavigator({
               {recommendedIntake !== null && (
                 <MetricRow
                   label="目標摂取"
-                  value={`${recommendedIntake.toLocaleString()} kcal`}
+                  value={`${recommendedIntake.toLocaleString()} kcal/日`}
                   valueColor="text-slate-700"
                 />
               )}
