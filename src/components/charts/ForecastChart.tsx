@@ -177,7 +177,14 @@ export function ForecastChart({
         </div>
       </div>
 
-      <ResponsiveContainer width="100%" height={380}>
+      {predictions.length === 0 ? (
+        <div className="flex h-[380px] flex-col items-center justify-center gap-2 text-center">
+          <p className="text-sm font-medium text-slate-500">予測データがありません</p>
+          <p className="text-xs text-slate-400">ML バッチ（predict.py）実行後に表示されます</p>
+        </div>
+      ) : null}
+
+      {predictions.length > 0 && <ResponsiveContainer width="100%" height={380}>
         <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis
@@ -306,7 +313,7 @@ export function ForecastChart({
             />
           )}
         </ComposedChart>
-      </ResponsiveContainer>
+      </ResponsiveContainer>}
     </div>
   );
 }
