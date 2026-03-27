@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, AlertCircle, Loader2, PenLine, X, Undo2 } from "lucide-react";
+import { Loader2, PenLine, X, Undo2 } from "lucide-react";
+import { Toast } from "@/components/ui/Toast";
 import { saveDailyLog } from "@/app/actions/saveDailyLog";
 import { FoodPicker } from "./FoodPicker";
 import { Cart, calcCartTotals } from "./Cart";
@@ -592,18 +593,7 @@ export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerPro
       </div>
 
       {/* 保存ボタン */}
-      <div className="flex items-center justify-end gap-3">
-        {status === "error" && (
-          <span className="flex items-center gap-1.5 text-xs font-medium text-rose-500 max-w-xs text-right">
-            <AlertCircle size={14} className="shrink-0" />
-            {errorMessage || "保存に失敗しました"}
-          </span>
-        )}
-        {status === "saved" && (
-          <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
-            <CheckCircle2 size={14} /> 保存しました
-          </span>
-        )}
+      <div className="flex items-center justify-end">
         <button
           onClick={handleSave}
           disabled={status === "saving" || !hasContent}
@@ -614,6 +604,13 @@ export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerPro
             : <>保存</>}
         </button>
       </div>
+
+      {/* Toast 通知（fixed 配置・保存成功/失敗） */}
+      <Toast
+        type={status === "error" ? "error" : "success"}
+        message={status === "error" ? (errorMessage || "保存に失敗しました") : "保存しました"}
+        visible={status === "saved" || status === "error"}
+      />
     </div>
   );
 
