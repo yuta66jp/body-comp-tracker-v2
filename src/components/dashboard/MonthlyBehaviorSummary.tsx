@@ -82,8 +82,8 @@ export function MonthlyBehaviorSummary({ stats }: MonthlyBehaviorSummaryProps) {
 
                   {/* 便通 */}
                   <td className="py-2.5 pr-3 text-right tabular-nums text-slate-600 whitespace-nowrap">
-                    {s.bowelCount > 0 ? (
-                      <span className="font-semibold text-teal-700">{s.bowelCount}回</span>
+                    {s.bowelDays > 0 ? (
+                      <span className="font-semibold text-teal-700">{s.bowelDays}日</span>
                     ) : (
                       <span className="text-slate-300">—</span>
                     )}

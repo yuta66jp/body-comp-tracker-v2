@@ -35,7 +35,7 @@ function makeLog(
 
 describe("calcMonthlyBehaviorStats", () => {
   describe("便通集計", () => {
-    test("had_bowel_movement === true のみカウントする", () => {
+    test("had_bowel_movement === true のみ日数としてカウントする", () => {
       const logs = [
         makeLog("2026-03-01", { had_bowel_movement: true }),
         makeLog("2026-03-02", { had_bowel_movement: false }),
@@ -43,16 +43,16 @@ describe("calcMonthlyBehaviorStats", () => {
         makeLog("2026-03-04", { had_bowel_movement: true }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
-      expect(result[0].bowelCount).toBe(2);
+      expect(result[0].bowelDays).toBe(2);
     });
 
-    test("had_bowel_movement が全て null の月は bowelCount = 0", () => {
+    test("had_bowel_movement が全て null の月は bowelDays = 0", () => {
       const logs = [
         makeLog("2026-03-01", { had_bowel_movement: null }),
         makeLog("2026-03-02", { had_bowel_movement: null }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
-      expect(result[0].bowelCount).toBe(0);
+      expect(result[0].bowelDays).toBe(0);
     });
 
     test("had_bowel_movement === false は集計対象外", () => {
@@ -61,7 +61,7 @@ describe("calcMonthlyBehaviorStats", () => {
         makeLog("2026-03-02", { had_bowel_movement: false }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
-      expect(result[0].bowelCount).toBe(0);
+      expect(result[0].bowelDays).toBe(0);
     });
   });
 
@@ -199,9 +199,9 @@ describe("calcMonthlyBehaviorStats", () => {
       const result = calcMonthlyBehaviorStats(logs);
       // 2026-03 が先 (降順)
       expect(result[0].month).toBe("2026-03");
-      expect(result[0].bowelCount).toBe(2);
+      expect(result[0].bowelDays).toBe(2);
       expect(result[1].month).toBe("2026-02");
-      expect(result[1].bowelCount).toBe(1);
+      expect(result[1].bowelDays).toBe(1);
     });
 
     test("months パラメータで返す月数を制限できる", () => {
@@ -237,7 +237,7 @@ describe("calcMonthlyBehaviorStats", () => {
       const logs = [makeLog("2026-03-01")];
       const result = calcMonthlyBehaviorStats(logs);
       expect(result).toHaveLength(1);
-      expect(result[0].bowelCount).toBe(0);
+      expect(result[0].bowelDays).toBe(0);
       expect(result[0].trainingCounts).toEqual({});
       expect(result[0].workModeCounts).toEqual({});
       expect(result[0].flagCounts).toEqual({
@@ -270,7 +270,7 @@ describe("calcMonthlyBehaviorStats", () => {
         }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
-      expect(result[0].bowelCount).toBe(1);
+      expect(result[0].bowelDays).toBe(1);
       expect(result[0].trainingCounts).toEqual({ chest: 1, back: 1 });
       expect(result[0].workModeCounts).toEqual({ remote: 1, office: 1 });
       expect(result[0].flagCounts.is_cheat_day).toBe(1);

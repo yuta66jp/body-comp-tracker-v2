@@ -2,16 +2,16 @@
  * calcMonthlyBehaviorStats — 月別行動・生活集計
  *
  * 月ごとに以下を集計する pure function:
- *   - 便通日数 (had_bowel_movement === true の件数)
- *   - トレーニング部位別件数 (training_type の有効値ごと)
- *   - 仕事モード別件数 (work_mode の有効値ごと)
- *   - 特殊日フラグ別件数 (is_cheat_day / is_refeed_day / is_eating_out / is_travel_day / is_poor_sleep)
+ *   - 便通日数 (had_bowel_movement === true の日数)
+ *   - トレーニング部位別日数 (training_type の有効値ごと)
+ *   - 仕事モード別日数 (work_mode の有効値ごと)
+ *   - 特殊日フラグ別日数 (is_cheat_day / is_refeed_day / is_eating_out / is_travel_day / is_poor_sleep)
  *
  * null 扱いの方針 (既存仕様に準拠):
- *   - had_bowel_movement: null = 未記録 → 集計対象外。true のみカウント。false は「便通なし」だがカウントしない
+ *   - had_bowel_movement: null = 未記録 → 集計対象外。true のみ日数としてカウント。false は「便通なし」だがカウントしない
  *   - training_type: null = 未記録 → 集計対象外。"off" は「オフ日」として有効値かつカウント対象
  *   - work_mode: null = 未記録 → 集計対象外。"off" は「休日」として有効値かつカウント対象
- *   - 特殊日フラグ: true のみカウント。false / null は集計対象外
+ *   - 特殊日フラグ: true のみ日数としてカウント。false / null は集計対象外
  */
 
 import type { DashboardDailyLog } from "@/lib/supabase/types";
@@ -25,21 +25,21 @@ import type { TrainingType, WorkMode } from "./trainingType";
 
 export interface MonthlyBehaviorStats {
   month: string; // "YYYY-MM"
-  /** had_bowel_movement === true の件数 */
-  bowelCount: number;
+  /** had_bowel_movement === true の日数 */
+  bowelDays: number;
   /**
-   * training_type 別件数。
+   * training_type 別日数。
    * null / 無効値は除外。"off"（オフ日）は含む。
-   * キーが存在しない = その部位のログが1件もない。
+   * キーが存在しない = その部位のログが1日もない。
    */
   trainingCounts: Partial<Record<TrainingType, number>>;
   /**
-   * work_mode 別件数。
+   * work_mode 別日数。
    * null / 無効値は除外。"off"（休日）は含む。
-   * キーが存在しない = そのモードのログが1件もない。
+   * キーが存在しない = そのモードのログが1日もない。
    */
   workModeCounts: Partial<Record<WorkMode, number>>;
-  /** 特殊日フラグ別件数。各フラグ === true の件数。 */
+  /** 特殊日フラグ別日数。各フラグ === true の日数。 */
   flagCounts: {
     is_cheat_day: number;
     is_refeed_day: number;
@@ -79,8 +79,8 @@ export function calcMonthlyBehaviorStats(
   }
 
   return entries.map(([month, dayLogs]) => {
-    // 便通: had_bowel_movement === true の件数
-    const bowelCount = dayLogs.filter(
+    // 便通: had_bowel_movement === true の日数
+    const bowelDays = dayLogs.filter(
       (e) => e.had_bowel_movement === true,
     ).length;
 
@@ -111,7 +111,7 @@ export function calcMonthlyBehaviorStats(
       is_poor_sleep: dayLogs.filter((e) => e.is_poor_sleep === true).length,
     };
 
-    return { month, bowelCount, trainingCounts, workModeCounts, flagCounts };
+    return { month, bowelDays, trainingCounts, workModeCounts, flagCounts };
   });
 }
 
