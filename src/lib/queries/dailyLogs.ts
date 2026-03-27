@@ -117,6 +117,8 @@ export async function fetchMacroDailyLogs(days = 60): Promise<QueryResult<MacroD
     console.error("[fetchMacroDailyLogs] daily_logs fetch error:", error.message, { code: error.code });
     return { kind: "error", message: error.message };
   }
+  // 列を明示指定すると supabase-js が戻り値型を絞り込むため unknown 経由でキャストする。
+  // MacroDailyLog は取得列と 1:1 対応しており、未取得列は含まない。
   const sorted = ((data as unknown as MacroDailyLog[]) ?? []).reverse();
   return { kind: "ok", data: sorted };
 }
@@ -157,6 +159,8 @@ export async function fetchTdeeDailyLogs(limit = 180): Promise<QueryResult<TdeeD
     console.error("[fetchTdeeDailyLogs] daily_logs fetch error:", error.message, { code: error.code });
     return { kind: "error", message: error.message };
   }
+  // 列を明示指定すると supabase-js が戻り値型を絞り込むため unknown 経由でキャストする。
+  // TdeeDailyLog は取得列と 1:1 対応しており、未取得列は含まない。
   const sorted = ((data as unknown as TdeeDailyLog[]) ?? []).reverse();
   return { kind: "ok", data: sorted };
 }
