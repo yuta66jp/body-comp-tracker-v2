@@ -201,7 +201,7 @@ export function BacktestComparison({
         <table className="w-full min-w-[600px] text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              <th className="px-4 py-2.5 text-left">モデル</th>
+              <th className="w-36 px-4 py-2.5 text-left">モデル</th>
               {HORIZONS.map((h) => (
                 <th key={h} colSpan={2} className="border-l border-slate-100 px-3 py-2.5 text-center">
                   D+{h}日先
