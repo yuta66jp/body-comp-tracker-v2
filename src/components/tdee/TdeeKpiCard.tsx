@@ -1,9 +1,24 @@
 "use client";
 
+/**
+ * TdeeKpiCard — TDEE 分析 KPI 表示
+ *
+ * #360: 「収支の解釈」セクションを InsightCard UI に置き換え。
+ *   - 以前: 平文テキスト + 信頼度バッジ (右端)
+ *   - 以降: InsightCard (status dot + title + detail + 信頼度バッジ)
+ *   - 信頼度 (low / medium / high) が status の色に直結し、一目で把握できる
+ *   - confidence.reason はカードの detail に組み込み、埋もれない設計に
+ *
+ * 既存の計算ロジック (calcTdee.ts) は変更しない。
+ */
+
 import { ShieldCheck, ShieldAlert, Shield } from "lucide-react";
 import type { TdeeConfidence } from "@/lib/utils/calcTdee";
 import { AnalyticsStatusNote } from "@/components/analytics/AnalyticsStatusNote";
 import type { AnalyticsAvailability } from "@/lib/analytics/status";
+import { InsightCard } from "@/components/ui/InsightCard";
+import type { InsightItem, InsightStatus } from "@/lib/utils/weeklyInsights";
+import { extractTdeeComparisonNote } from "@/lib/utils/weeklyInsights";
 
 interface TdeeKpiCardProps {
   avgTdee:                 number | null;
@@ -17,6 +32,8 @@ interface TdeeKpiCardProps {
   /** enriched_logs の新鮮さ（stale 時に補助注記を表示） */
   enrichedAvailability?:   AnalyticsAvailability;
 }
+
+// ─── ヘルパー ────────────────────────────────────────────────────────────────
 
 function SignedKcal({ value, label }: { value: number | null; label?: string }) {
   if (value === null) return <span className="text-gray-300">—</span>;
@@ -42,6 +59,7 @@ function SignedKg({ value }: { value: number | null }) {
   );
 }
 
+/** 信頼度バッジ (InsightCard の badge prop として渡す) */
 function ConfidenceBadge({ confidence }: { confidence: TdeeConfidence }) {
   const cfg = {
     high:   { icon: ShieldCheck, color: "text-emerald-600 bg-emerald-50 border-emerald-200", label: "信頼度: 高" },
@@ -57,6 +75,66 @@ function ConfidenceBadge({ confidence }: { confidence: TdeeConfidence }) {
   );
 }
 
+/**
+ * balance / confidence から InsightItem を導出する。
+ *
+ * status の決め方:
+ *   - confidence.level が "low" → caution (信頼度が低い = 参考程度)
+ *   - balance が null → neutral
+ *   - |balance| < 100 (均衡) → neutral
+ *   - deficit (balance < -100) → ok (TDEE ページは phase 非依存; 赤字は一般に減量方向)
+ *   - surplus (balance > 100) → caution
+ *
+ * TDEE は推定値のため、surplus でも "alert" にはしない。
+ * confidence が低い場合は balance の良否に関わらず caution を使用する。
+ */
+function buildInterpretationInsightItem(
+  balance: number | null,
+  interpretation: string,
+  confidence: TdeeConfidence,
+): InsightItem {
+  if (balance === null) {
+    return {
+      status: "neutral",
+      title: "データ不足のため収支を算出できません",
+      detail: confidence.reason,
+    };
+  }
+
+  let status: InsightStatus;
+  let title: string;
+
+  if (confidence.level === "low") {
+    // 信頼度が低い場合は方向に関わらず caution
+    status = "caution";
+  } else if (Math.abs(balance) < 100) {
+    status = "neutral";
+  } else if (balance < 0) {
+    status = "ok";     // 赤字 = 減量方向
+  } else {
+    status = "caution"; // 余剰 = 増量方向 (phase 不明のため断定しない)
+  }
+
+  if (Math.abs(balance) < 100) {
+    title = "収支は概ね均衡";
+  } else if (balance < 0) {
+    title = "減量方向の収支";
+  } else {
+    title = "増量方向の収支";
+  }
+
+  // interpretation から direction 文を除いた比較部分を detail に使う
+  // (title と direction が重複しないように)
+  const comparisonNote = extractTdeeComparisonNote(interpretation);
+  const detail = comparisonNote
+    ? `${comparisonNote} ${confidence.reason}`
+    : confidence.reason;
+
+  return { status, title, detail };
+}
+
+// ─── メインコンポーネント ────────────────────────────────────────────────────
+
 export function TdeeKpiCard({
   avgTdee,
   theoreticalTdee,
@@ -68,6 +146,12 @@ export function TdeeKpiCard({
   interpretation,
   enrichedAvailability,
 }: TdeeKpiCardProps) {
+  const interpretationItem = buildInterpretationInsightItem(
+    balance,
+    interpretation,
+    confidence,
+  );
+
   return (
     <div className="space-y-4">
       {/* 上段: 3 KPI カード */}
@@ -152,18 +236,23 @@ export function TdeeKpiCard({
         </div>
       </div>
 
-      {/* 下段: 解釈補助文 + 信頼度 */}
+      {/* 下段: 収支の解釈 (InsightCard UI) */}
       <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-gray-700">収支の解釈</p>
-            <p className="mt-1.5 text-sm text-gray-600 leading-relaxed">{interpretation}</p>
-          </div>
-          <div className="shrink-0">
-            <ConfidenceBadge confidence={confidence} />
-            <p className="mt-1.5 text-xs text-gray-400 sm:text-right">{confidence.reason}</p>
-          </div>
-        </div>
+        <p className="mb-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+          収支の解釈
+        </p>
+        {/*
+          InsightCard の status 色が confidence.level と収支方向を反映する。
+          badge として ConfidenceBadge を右端に配置し、信頼度が埋もれない設計に。
+          detail には比較注記 + 信頼度の理由を組み込む。
+        */}
+        <InsightCard
+          item={interpretationItem}
+          badge={<ConfidenceBadge confidence={confidence} />}
+        />
+        <p className="mt-1.5 text-[11px] text-slate-400">
+          ※ TDEE は推定値です。信頼度・理由を確認のうえ参考にしてください。
+        </p>
       </div>
     </div>
   );

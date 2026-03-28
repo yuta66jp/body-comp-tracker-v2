@@ -13,8 +13,11 @@
  *
  * レイアウト:
  *   ヘッダー: タイトル / 期間 / 停滞バッジ
- *   本体 2列: 左=数値統計（体重・カロリー・バランス差のみ）、右=所見箇条書き
+ *   本体 2列: 左=数値統計（体重・カロリー・バランス差のみ）、右=所見カード
  *   フッター: データ品質スコア / ローリング集計の注記
+ *
+ * #360: 所見セクションを bullet 箇条書きから InsightCard UI に変更。
+ *       モバイルでも所見を表示するよう変更（以前は lg+ のみ）。
  */
 
 import {
@@ -33,6 +36,8 @@ import type { WeeklyReviewData, StagnationLevel } from "@/lib/utils/calcWeeklyRe
 import { DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayTags";
 import { AnalyticsStatusNote } from "@/components/analytics/AnalyticsStatusNote";
 import type { AnalyticsAvailability } from "@/lib/analytics/status";
+import { InsightCardList } from "@/components/ui/InsightCard";
+import { deriveWeeklyInsightItems } from "@/lib/utils/weeklyInsights";
 
 interface Props {
   data: WeeklyReviewData;
@@ -142,7 +147,10 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
   const stCfg = STAGNATION_CONFIG[data.stagnation.level];
   const StIcon = stCfg.icon;
 
-  const { weight, nutrition, tdee, quality, findings } = data;
+  const { weight, nutrition, tdee, quality } = data;
+
+  // 所見カード用データを導出 (既存 findings string[] とは別に生成)
+  const insightItems = deriveWeeklyInsightItems(data, phase);
 
   // 体重トレンドアイコン
   const TrendIcon =
@@ -293,30 +301,17 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
           )}
         </div>
 
-        {/* ── 右列: 所見 (モバイル非表示) ── */}
-        <div className="hidden lg:block p-5">
+        {/* ── 右列: 所見カード ── */}
+        {/*
+          #360: 以前は "hidden lg:block" でモバイル非表示だったが、
+          InsightCard 導入に合わせてモバイルでも表示する。
+          モバイル時は border-t でセパレーターを入れ、左列の下に続く。
+        */}
+        <div className="border-t border-slate-100 p-5 lg:border-t-0">
           <p className="mb-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
             所見
           </p>
-          {findings.length > 0 ? (
-            <ul className="space-y-2.5">
-              {findings.map((f, i) => (
-                <li key={i} className="flex gap-2 text-sm leading-relaxed text-slate-700">
-                  <span className="mt-0.5 shrink-0 text-slate-300">•</span>
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-slate-400">所見を生成するにはデータが必要です</p>
-          )}
-
-          {/* 品質補足 (stagnation.qualityNote) */}
-          {data.stagnation.qualityNote && (
-            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              ⚠ {data.stagnation.qualityNote}
-            </div>
-          )}
+          <InsightCardList items={insightItems} />
         </div>
       </div>
 
