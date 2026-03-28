@@ -1,12 +1,55 @@
 /**
- * TDEE (Total Daily Energy Expenditure) 逆算ユーティリティ
+ * TDEE 補助計算ユーティリティ
  *
- * TDEE = 体重変化から逆算。
- * 脂肪 1kg = 7,200 kcal (エビデンスベース: Hall et al., 2012)
- * ※旧コードの 6,800 との不一致を 7,200 に統一。
+ * ■ 責務の境界
+ *   このファイルは TDEE の canonical 計算源ではない。
+ *   canonical source は ml-pipeline/enrich.py (batch) であり、
+ *   その出力 (tdee_estimated / avg_tdee_7d / avg_calories_7d) を
+ *   analytics_cache["enriched_logs"] に保存する。
+ *   フロントエンドは canonical 値を表示・整形・fallback するだけでよい。
+ *
+ * ■ このファイルの関数は 3 種類に分類される
+ *
+ *   1. theoretical (理論計算 / シミュレーション)
+ *      実測データを使わず、数式・パラメータだけで算出する。
+ *      canonical 実測値とは別物として扱うこと。
+ *        - calcBmr              : Mifflin-St Jeor 式 BMR
+ *        - calcTheoreticalTdee  : BMR × 活動係数
+ *        - calcMetabolicSim     : 代謝適応シミュレーション (将来体重予測)
+ *
+ *   2. helper (表示補助 / canonical 値を入力とする派生計算)
+ *      canonical の tdee_estimated / avg_tdee_7d を入力として受け取り、
+ *      UI 表示用の派生値・信頼度・解釈文を算出する。
+ *      これらは canonical を「再計算」するのではなく、「解釈支援」する関数。
+ *        - calcEnergyBalance                 : 収支差分 (摂取 - TDEE)
+ *        - calcTheoreticalWeightChangePerWeek: 収支差分 → 理論体重変化 kg/週
+ *        - calcTdeeConfidence                : TDEE 推定値の信頼度判定
+ *        - buildTdeeInterpretation           : 収支・変化率の解釈補助文
+ *
+ *   3. reference (参照用 / 本番 UI では未呼び出し)
+ *      テスト検証・ロジック確認・将来実装の参照として残す。
+ *      enrich.py が canonical source のため、これらを本番で canonical の
+ *      代替として使ってはならない。
+ *        - calcTdeeFromChange : 点推定版 TDEE 逆算 (enrich.py と同一係数・異なる平滑化)
+ *        - smoothTdeeSeries   : enrich.py の rolling median を TS で再現 (batch 値を再平滑化しない)
+ *
+ * ■ 係数 KCAL_PER_KG_FAT の二重定義について
+ *   canonical 計算は enrich.py 側の KCAL_PER_KG_FAT = 7200 を使用する。
+ *   TS 側の定義は theoretical 関数 (calcMetabolicSim 等) および
+ *   helper 関数 (calcTheoreticalWeightChangePerWeek) が同係数を必要とするため存在する。
+ *   係数を変更する場合は enrich.py と calcTdee.ts の両方を必ず更新すること。
  */
 import { toJstDateStr, parseLocalDateStr, daysBetween } from "./date";
 
+/**
+ * 脂肪 1 kg あたりのエネルギー量 (kcal)。
+ * エビデンス: Hall et al., 2012。旧コードの 6,800 から 7,200 に統一済み。
+ *
+ * ⚠ 二重定義: enrich.py の KCAL_PER_KG_FAT と同じ値。
+ *   canonical 計算 (TDEE 逆算) は enrich.py 側が担う。
+ *   この定数は theoretical 関数・helper 関数のみで使用する。
+ *   係数変更時は enrich.py と両方を更新すること。
+ */
 export const KCAL_PER_KG_FAT = 7_200;
 
 interface TdeeInput {
@@ -17,8 +60,15 @@ interface TdeeInput {
 }
 
 /**
- * 体重変化と摂取カロリーから TDEE を逆算する。
+ * @category reference
+ *
+ * 体重変化と摂取カロリーから TDEE を点推定する。
  * TDEE = 摂取カロリー - (体重変化 × 7200 / 日数)
+ *
+ * ⚠ 本番 UI では呼ばれていない (テスト・ロジック参照用)。
+ *   canonical TDEE は enrich.py の weight_sma7.diff() + rolling median で算出される。
+ *   enrich.py は weekly SMA で短期ノイズを除去するため、この関数より安定した推定を与える。
+ *   この関数を canonical の代替として本番で使ってはならない。
  */
 export function calcTdeeFromChange({
   weightKgStart,
@@ -32,7 +82,10 @@ export function calcTdeeFromChange({
 }
 
 /**
+ * @category theoretical
+ *
  * Mifflin-St Jeor 式で基礎代謝 (BMR) を計算する。
+ * 実測ログを使わない理論計算。calcTheoreticalTdee の内部関数として使用する。
  */
 export function calcBmr(params: {
   weightKg: number;
@@ -51,13 +104,20 @@ export interface SimPoint {
 }
 
 /**
+ * @category theoretical
+ *
  * 代謝適応シミュレーション (旧版 run_metabolic_simulation() を移植)
  *
- * 体重が減るにつれて TDEE も低下する（代謝適応）という現象をモデル化。
+ * 体重が減るにつれて TDEE も低下する（代謝適応）という現象をモデル化する
+ * 将来体重推移のシミュレーション。
  * ADAPTATION_FACTOR = 30 kcal/kg (旧版踏襲)
  *
+ * canonical の tdee_estimated を起点として入力するが、
+ * シミュレーション出力は実測値ではなく理論的な予測値である。
+ * ForecastChart 等で将来体重の見通しを示す用途を想定。
+ *
  * @param currentWeight  直近の体重 (kg)
- * @param currentTdee    直近の推定 TDEE (kcal)
+ * @param currentTdee    直近の推定 TDEE (kcal) — canonical (avg_tdee_7d) を渡すこと
  * @param planIntake     今後の想定摂取カロリー (kcal/日) — 直近平均を使用
  * @param targetDate     シミュレーション終了日 (YYYY-MM-DD)
  * @param startDate      開始日 (YYYY-MM-DD, 省略時は今日)
@@ -99,7 +159,14 @@ export function calcMetabolicSim(
 }
 
 /**
- * BMR × 活動係数で理論 TDEE を算出する。
+ * @category theoretical
+ *
+ * BMR × 活動係数で理論 TDEE を算出する (Mifflin-St Jeor ベース)。
+ *
+ * 実測ログを使わない理論計算であり、canonical TDEE (enrich.py の tdee_estimated) とは別物。
+ * 用途: canonical 値が未計算 (batch 未実行) な場合の fallback 表示、
+ *       および設定値に基づく「おおよその目安」としての参考表示。
+ * TDEE ページでは canonical 値と並列で表示し、ユーザーが比較できるようにしている。
  */
 export function calcTheoreticalTdee(params: {
   weightKg: number;
@@ -111,12 +178,17 @@ export function calcTheoreticalTdee(params: {
   return calcBmr(params) * params.activityFactor;
 }
 
-// ── Phase 3-B 追加 ──────────────────────────────────────────────────────────
+// ── 表示補助 (helper) ──────────────────────────────────────────────────────
 
 /**
+ * @category helper
+ *
  * 収支差分 = 平均摂取 kcal - 平均実測 TDEE (kcal/日)
  *   マイナス = 消費が上回る = 減量方向
  *   プラス   = 摂取が上回る = 増量方向
+ *
+ * 入力に canonical 値 (avg_tdee_7d, avg_calories_7d) を渡すこと。
+ * TDEE ページの TdeeKpiCard に渡す収支表示に使用する。
  */
 export function calcEnergyBalance(
   avgIntake: number | null,
@@ -127,8 +199,13 @@ export function calcEnergyBalance(
 }
 
 /**
+ * @category helper
+ *
  * 収支差分 (kcal/日) から理論体重変化 kg/週 を算出する。
- * 係数: KCAL_PER_KG_FAT = 7,200 kcal/kg (calcTdeeFromChange と同一定義)
+ * 係数: KCAL_PER_KG_FAT = 7,200 kcal/kg (enrich.py と同一係数)
+ *
+ * calcEnergyBalance() の出力 (canonical 由来の収支) を入力として受け取る。
+ * TDEE ページの「理論体重変化」表示に使用する。
  */
 export function calcTheoreticalWeightChangePerWeek(
   balanceKcalPerDay: number | null
@@ -145,9 +222,17 @@ export interface TdeeConfidence {
 }
 
 /**
+ * @category reference
+ *
  * 日次 TDEE 系列に後方ローリング中央値 (rolling median) を適用する。
  *
- * 用途: 体水分・塩分・便通等で生じる短期ノイズを吸収し、週次判断に使いやすい値に平滑化する。
+ * ⚠ 本番 UI では呼ばれていない (テスト・ロジック参照用)。
+ *   enrich.py が tdee_estimated を計算する際に同等の処理を行っており、
+ *   フロントエンドは batch 出力の tdee_estimated をそのまま使えばよい。
+ *   canonical 値に対してこの関数で再平滑化してはならない。
+ *
+ * 用途: enrich.py の rolling median ロジックを TS 側でテスト検証するため。
+ *       将来的にフロントで暫定 TDEE を表示する必要が生じた場合の参照実装。
  * 設計:
  *   - 後方窓 (index i − windowSize + 1 〜 i) を使うので未来データへの依存なし。
  *   - minPeriods 未満の有効サンプルしか集まらない場合は null を返す（無理推定しない）。
@@ -175,7 +260,13 @@ export function smoothTdeeSeries(
 }
 
 /**
+ * @category helper
+ *
  * TDEE 推定の信頼度を判定する。
+ *
+ * canonical 値 (tdee_estimated) が存在するか、直近7日の記録密度・変動幅を元に
+ * UI 表示用の信頼度ラベルと説明文を返す。
+ * TDEE ページの TdeeKpiCard に渡す用途。
  *
  * 判定基準:
  *   high   : calories + weight ともに直近7エントリ中 6日以上記録 かつ 体重標準偏差 ≤ 1.5 kg かつ TDEE σ ≤ 350 kcal
@@ -224,7 +315,12 @@ export function calcTdeeConfidence(params: {
 }
 
 /**
- * 理論変化 kg/週 と実測変化 kg/週 を比較して解釈補助文を返す。
+ * @category helper
+ *
+ * 収支差分・理論変化・実測変化を比較して解釈補助文を返す。
+ *
+ * TDEE ページの TdeeKpiCard に渡す「判断材料テキスト」生成用。
+ * canonical 由来の値 (calcEnergyBalance / 実測体重変化) を入力として受け取る。
  */
 export function buildTdeeInterpretation(
   balance: number | null,
