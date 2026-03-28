@@ -279,7 +279,7 @@ export function BacktestPolicyComparison({ metrics }: Props) {
                         >
                           {fmt3(allM?.mae)}
                           {isAllBest && (
-                            <span className="ml-0.5 text-[9px] text-blue-400" aria-label="最良">★</span>
+                            <span className="ml-1 text-xs text-blue-400" aria-label="最良">★</span>
                           )}
                         </td>
                         {/* 通常日 MAE / 全件除外バッジ */}
@@ -297,7 +297,7 @@ export function BacktestPolicyComparison({ metrics }: Props) {
                                 {fmt3(exM?.mae)}
                               </span>
                               {isExBest && (
-                                <span className="ml-0.5 text-[9px] text-violet-400" aria-label="最良">★</span>
+                                <span className="ml-1 text-xs text-violet-400" aria-label="最良">★</span>
                               )}
                             </>
                           )}
