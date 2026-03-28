@@ -1,8 +1,10 @@
 /**
  * forecast_backtest_runs / forecast_backtest_metrics テーブルの read 責務を集約する。
  *
- * - fetchLatestRuns()   : 最新 20 件の run を取得し、daily / sma7 それぞれの最新 run を返す
- * - fetchMetrics()      : 指定 run_id のメトリクスを取得する
+ * - fetchLatestRuns()          : 最新 20 件の run を取得し、daily / sma7 それぞれの最新 run を返す
+ * - fetchMetrics()             : 指定 run_id のメトリクスを取得する
+ * - fetchFlaggedLogsForRun()   : 指定日付範囲の cheat / travel フラグ付き daily_logs を取得する
+ *                                (除外日一覧の再導出に使用)
  *
  * write 系はここに含めない。
  * UI 固有の表示文言はここに含めない。
@@ -79,4 +81,35 @@ export async function fetchMetrics(runId: string): Promise<QueryResult<ForecastB
     return { kind: "error", message: error.message };
   }
   return { kind: "ok", data: (data as ForecastBacktestMetric[]) ?? [] };
+}
+
+/**
+ * 指定日付範囲の daily_logs から cheat / travel フラグのある行を取得する。
+ *
+ * 用途: BacktestExcludedDates コンポーネントが除外日一覧を再導出するために使用する。
+ *       (除外日は DB に保存されていないため、フロント側で run.config + daily_logs から再構築する)
+ *
+ * ベストエフォート: エラー時は空配列を返しページをブロックしない。
+ * 意図的に QueryResult 化しない: 除外日一覧表示は補助情報であり、失敗してもページ全体に影響しない。
+ *
+ * @param minDate - 取得開始日 (YYYY-MM-DD、含む)
+ * @param maxDate - 取得終了日 (YYYY-MM-DD、含む)
+ */
+export async function fetchFlaggedLogsForRun(
+  minDate: string,
+  maxDate: string,
+): Promise<Array<{ log_date: string; is_cheat_day: boolean | null; is_travel_day: boolean | null }>> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("daily_logs")
+    .select("log_date, is_cheat_day, is_travel_day")
+    .gte("log_date", minDate)
+    .lte("log_date", maxDate)
+    .order("log_date", { ascending: true });
+
+  if (error) {
+    console.error("[fetchFlaggedLogsForRun] daily_logs fetch error:", error.message);
+    return [];
+  }
+  return (data as Array<{ log_date: string; is_cheat_day: boolean | null; is_travel_day: boolean | null }>) ?? [];
 }

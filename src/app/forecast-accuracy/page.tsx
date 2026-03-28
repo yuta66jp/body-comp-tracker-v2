@@ -1,9 +1,11 @@
 import { BacktestResults } from "@/components/charts/BacktestResults";
 import { BacktestComparison } from "@/components/charts/BacktestComparison";
 import { BacktestPolicyComparison } from "@/components/charts/BacktestPolicyComparison";
+import { BacktestExcludedDates } from "@/components/charts/BacktestExcludedDates";
 import { ForecastAccuracyRefreshButton } from "@/components/charts/ForecastAccuracyRefreshButton";
 import { BarChart2 } from "lucide-react";
-import { fetchLatestRuns, fetchMetrics } from "@/lib/queries/backtest";
+import { fetchLatestRuns, fetchMetrics, fetchFlaggedLogsForRun } from "@/lib/queries/backtest";
+import { parseRunConfig, buildExclusionList } from "@/lib/utils/backtestExclusion";
 import { PageShell } from "@/components/ui/PageShell";
 
 export const revalidate = 3600; // 1時間キャッシュ (バッチは週1回)
@@ -64,14 +66,30 @@ export default async function ForecastAccuracyPage() {
     );
   }
 
-  // metrics を並列取得
-  const [dailyMetricsResult, sma7MetricsResult] = await Promise.all([
+  // metrics と除外日用フラグログを並列取得
+  const [dailyMetricsResult, sma7MetricsResult, flaggedLogs] = await Promise.all([
     dailyRun ? fetchMetrics(dailyRun.id) : Promise.resolve({ kind: "ok" as const, data: [] }),
     sma7Run ? fetchMetrics(sma7Run.id) : Promise.resolve({ kind: "ok" as const, data: [] }),
+    // dailyRun の除外日一覧再導出用 (ベストエフォート: 失敗しても空配列)
+    dailyRun?.train_min_date && dailyRun?.train_max_date
+      ? fetchFlaggedLogsForRun(dailyRun.train_min_date, dailyRun.train_max_date)
+      : Promise.resolve([]),
   ]);
 
   const dailyMetrics = dailyMetricsResult.kind === "ok" ? dailyMetricsResult.data : [];
   const sma7Metrics = sma7MetricsResult.kind === "ok" ? sma7MetricsResult.data : [];
+
+  // dailyRun の除外日一覧を再導出 (exclude_flagged_plus_recovery policy が存在する場合のみ表示)
+  const hasExcludePolicy = dailyMetrics.some((m) => m.eval_policy === "exclude_flagged_plus_recovery");
+  const excludedDateEntries = (() => {
+    if (!hasExcludePolicy || !dailyRun) return null;
+    const { recoveryDays, manualEventPeriods } = parseRunConfig(dailyRun.config);
+    return {
+      entries: buildExclusionList(flaggedLogs, recoveryDays, manualEventPeriods),
+      recoveryDays,
+      manualEventPeriods,
+    };
+  })();
 
   return (
     <PageShell
@@ -94,6 +112,17 @@ export default async function ForecastAccuracyPage() {
             exclude policy 行がない旧 run では BacktestPolicyComparison が null を返すため表示されない。 */}
         {dailyMetrics.length > 0 && (
           <BacktestPolicyComparison metrics={dailyMetrics} />
+        )}
+
+        {/* ── 除外対象日の確認 (#370) ──
+            exclude_flagged_plus_recovery policy が存在する run のみ表示。
+            daily_logs のフラグと run.config から除外日一覧を再導出して表示する。 */}
+        {excludedDateEntries && (
+          <BacktestExcludedDates
+            entries={excludedDateEntries.entries}
+            recoveryDays={excludedDateEntries.recoveryDays}
+            manualEventPeriods={excludedDateEntries.manualEventPeriods}
+          />
         )}
 
         {/* ── 単日評価の詳細 ── */}
