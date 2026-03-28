@@ -215,7 +215,7 @@ export default async function DashboardPage() {
           {/* シーズンバッジ */}
           {currentSeason && (
             <div className="flex items-center gap-2">
-              <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+              <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
                 📅 {currentSeason}
               </span>
             </div>

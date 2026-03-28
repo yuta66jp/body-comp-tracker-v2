@@ -56,7 +56,7 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
                     {(() => {
                       const season = seasonMap?.get(log.log_date) ?? currentSeason;
                       return season ? (
-                        <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-blue-500">
+                        <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-blue-500 dark:bg-blue-900/30 dark:text-blue-400">
                           {season}
                         </span>
                       ) : null;
