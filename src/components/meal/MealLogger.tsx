@@ -70,9 +70,16 @@ interface MealLoggerProps {
   sidebar?: boolean; // サイドバーモード: 常時展開・縦レイアウト
   /** サイドバーモード時のみ有効。false にすると内部ヘッダー行を非表示にする */
   showHeader?: boolean;
+  /**
+   * 保存成功時に呼び出されるコールバック。
+   * modal / bottom sheet コンテナが setOpen(false) を渡すことで
+   * 保存成功後に自動クローズする。
+   * 省略時は従来通り（フォームリセットのみ・閉じない）。
+   */
+  onSaveSuccess?: () => void;
 }
 
-export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerProps) {
+export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }: MealLoggerProps) {
   // 既存ログ（SWR キャッシュ。日付変更時の hydrate に使用）
   const { data: logs, mutate: mutateLogs } = useDailyLogs();
 
@@ -299,6 +306,8 @@ export function MealLogger({ sidebar = false, showHeader = true }: MealLoggerPro
         // SWR キャッシュを更新して次回 hydrate に最新ログを反映させる
         void mutateLogs();
         setTimeout(() => setStatus("idle"), 2000);
+        // 保存成功コールバック: Toast が少し見えてから modal / sheet を閉じる
+        if (onSaveSuccess) setTimeout(onSaveSuccess, 800);
       }
     } catch (e) {
       // saveDailyLog が予期しない例外を throw した場合のフォールバック。
