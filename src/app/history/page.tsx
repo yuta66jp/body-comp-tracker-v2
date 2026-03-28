@@ -1,3 +1,4 @@
+import { StatusNotice } from "@/components/ui/StatusNotice";
 import { DaysOutChart } from "@/components/history/DaysOutChart";
 import { SeasonLowChart } from "@/components/history/SeasonLowChart";
 import { SeasonComparisonTable } from "@/components/history/SeasonComparisonTable";
@@ -83,14 +84,14 @@ export default async function HistoryPage() {
 
       {/* Read error banners — graceful degradation: コンテンツはブロックしない */}
       {careerLogsResult.kind === "error" && (
-        <div className="mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+        <StatusNotice status="error" className="mb-4">
           キャリアデータの取得中にエラーが発生しました。ページを再読み込みしてください。
-        </div>
+        </StatusNotice>
       )}
       {settingsResult.kind === "error" && (
-        <div className="mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+        <StatusNotice status="error" className="mb-4">
           {`設定データの取得中にエラーが発生しました。${deadlineLabel}・シーズン名がデフォルト値になります。`}
-        </div>
+        </StatusNotice>
       )}
 
       {/* Bulk 参照モード注記 */}

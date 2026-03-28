@@ -29,6 +29,7 @@ import {
 import type { ReadinessMetrics } from "@/lib/utils/calcReadiness";
 import { calcGoalStatus, calcKcalCorrection, PACE_CALC_MIN_DAYS } from "@/lib/utils/calcReadiness";
 import type { MonthlyGoalProgress } from "@/lib/utils/calcMonthlyGoalProgress";
+import { SectionLabel } from "@/components/ui/SectionLabel";
 
 interface GoalNavigatorProps {
   metrics: ReadinessMetrics;
@@ -130,13 +131,6 @@ function paceGapLabel(gap: number | null, isCut: boolean): string {
 
 // ─── サブセクション ─────────────────────────────────────────────────────────
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-slate-400">
-      {children}
-    </p>
-  );
-}
 
 function MetricRow({
   label,
@@ -298,10 +292,7 @@ export function GoalNavigator({
       <div className="grid grid-cols-1 gap-0 sm:grid-cols-[1fr_auto_1fr_auto_1fr]">
         {/* ─── 列1: 体重進捗 ─── */}
         <div className="flex flex-col gap-1.5 p-5">
-          <SectionLabel>
-            <Target size={11} className="inline mr-1" />
-            体重進捗
-          </SectionLabel>
+          <SectionLabel icon={<Target size={11} />}>体重進捗</SectionLabel>
 
           {missingGoal ? (
             <p className="text-xs text-slate-400">目標体重が未設定です</p>
@@ -348,12 +339,13 @@ export function GoalNavigator({
 
         {/* ─── 列2: ペース分析 ─── */}
         <div className="flex flex-col gap-1.5 border-t border-slate-100 p-5 sm:border-t-0">
-          <SectionLabel>
-            {actualRateKg2W !== null && actualRateKg2W < 0 ? (
-              <TrendingDown size={11} className="inline mr-1" />
-            ) : (
-              <TrendingUp size={11} className="inline mr-1" />
-            )}
+          <SectionLabel
+            icon={
+              actualRateKg2W !== null && actualRateKg2W < 0
+                ? <TrendingDown size={11} />
+                : <TrendingUp size={11} />
+            }
+          >
             ペース分析
           </SectionLabel>
 
@@ -401,10 +393,7 @@ export function GoalNavigator({
 
         {/* ─── 列3: 調整提案 ─── */}
         <div className="flex flex-col gap-1.5 border-t border-slate-100 p-5 sm:border-t-0">
-          <SectionLabel>
-            <Utensils size={11} className="inline mr-1" />
-            調整提案
-          </SectionLabel>
+          <SectionLabel icon={<Utensils size={11} />}>調整提案</SectionLabel>
 
           {kcalCorrection !== null && Math.abs(kcalCorrection) >= 50 && (
             <>
@@ -462,10 +451,9 @@ export function GoalNavigator({
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
             {/* セクションラベル + 状態バッジ */}
             <div className="flex items-center gap-2 shrink-0">
-              <CalendarDays size={12} className="text-slate-400" />
-              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+              <SectionLabel icon={<CalendarDays size={12} />} mb="mb-0">
                 今月目標進捗
-              </span>
+              </SectionLabel>
               <span
                 className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
                   MONTHLY_STATE_CONFIG[monthlyGoalProgress.state].color

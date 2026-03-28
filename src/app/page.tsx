@@ -1,3 +1,4 @@
+import { StatusNotice } from "@/components/ui/StatusNotice";
 import { KpiCards } from "@/components/dashboard/KpiCards";
 import { ForecastChart } from "@/components/charts/ForecastChart";
 import { LogsAndSummaryTabs } from "@/components/dashboard/LogsAndSummaryTabs";
@@ -202,14 +203,14 @@ export default async function DashboardPage() {
         <>
           {/* Read error banners — graceful degradation: コンテンツはブロックしない */}
           {logsResult.kind === "error" && (
-            <div className="rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+            <StatusNotice status="error">
               ログデータの取得中にエラーが発生しました。ページを再読み込みしてください。
-            </div>
+            </StatusNotice>
           )}
           {settingsResult.kind === "error" && (
-            <div className="rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+            <StatusNotice status="error">
               設定データの取得中にエラーが発生しました。一部の表示がデフォルト値になります。
-            </div>
+            </StatusNotice>
           )}
           {/* シーズンバッジ */}
           {currentSeason && (
@@ -255,10 +256,10 @@ export default async function DashboardPage() {
               }
             />
           ) : (
-            <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5 text-sm text-amber-700">
+            <StatusNotice status="caution">
               <p className="mb-1 font-semibold">体重予測グラフ</p>
               <p>ML バッチ（predict.py）が実行されると表示されます。毎日 AM 3:00 JST に自動実行されます。</p>
-            </div>
+            </StatusNotice>
           )}
           <LogsAndSummaryTabs
             logs={logs}

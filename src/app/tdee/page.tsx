@@ -6,6 +6,7 @@
 // 係数: KCAL_PER_KG_FAT = 7200 kcal/kg (Hall et al., 2012)
 // 7日平均 TDEE: enrichedRows の avg_tdee_7d (enrich.py で事前計算済み)
 // 7日平均カロリー: enrichedRows の avg_calories_7d (enrich.py で事前計算済み)
+import { StatusNotice } from "@/components/ui/StatusNotice";
 import { TdeeKpiCard } from "@/components/tdee/TdeeKpiCard";
 import { TdeeDetailChart } from "@/components/tdee/TdeeDetailChart";
 import { TdeeDailyTable } from "@/components/tdee/TdeeDailyTable";
@@ -191,37 +192,37 @@ export default async function TdeePage() {
 
       {/* Read error banners — graceful degradation: コンテンツはブロックしない */}
       {rawLogsResult.kind === "error" && (
-        <div className="mb-5 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+        <StatusNotice status="error" className="mb-5">
           ログデータの取得中にエラーが発生しました。ページを再読み込みしてください。
           グラフ・表は取得エラー前のデータを表示しています。
-        </div>
+        </StatusNotice>
       )}
       {settingsResult.kind === "error" && (
-        <div className="mb-5 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+        <StatusNotice status="error" className="mb-5">
           設定データの取得中にエラーが発生しました。理論 TDEE の計算に設定値を使用できません。
-        </div>
+        </StatusNotice>
       )}
 
       {/* enriched_logs の状態バナー（コンテンツはブロックしない） */}
       {enrichedAvailability.status === "error" && (
-        <div className="mb-5 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+        <StatusNotice status="error" className="mb-5">
           実測 TDEE のデータ取得中にエラーが発生しました。
           しばらく待ってからページを再読み込みしてください。
           理論 TDEE・平均摂取カロリー・体重推移は引き続き表示しています。
-        </div>
+        </StatusNotice>
       )}
       {enrichedAvailability.status === "unavailable" && (
-        <div className="mb-5 rounded-2xl border border-amber-100 bg-amber-50 px-5 py-3 text-sm text-amber-700">
+        <StatusNotice status="caution" className="mb-5">
           実測 TDEE は ML バッチ（enrich.py）が未実行のため表示できません（未計算）。
           理論 TDEE・平均摂取カロリー・体重推移は引き続き表示しています。
-        </div>
+        </StatusNotice>
       )}
       {enrichedAvailability.status === "stale" && (
-        <div className="mb-5 rounded-2xl border border-amber-100 bg-amber-50 px-5 py-3 text-sm text-amber-700">
+        <StatusNotice status="caution" className="mb-5">
           実測 TDEE は再計算前のデータを表示しています（最終更新: {enrichedAvailability.lastUpdatedDate}、
           {enrichedAvailability.staleDays}日前の計算）。
           直近入力が反映されるのは次回バッチ実行後（毎日 AM 3:00 JST）です。
-        </div>
+        </StatusNotice>
       )}
 
       <div className="space-y-6">

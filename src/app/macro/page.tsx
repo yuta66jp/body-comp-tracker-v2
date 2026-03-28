@@ -1,3 +1,4 @@
+import { StatusNotice } from "@/components/ui/StatusNotice";
 import { MacroKpiCards } from "@/components/macro/MacroKpiCards";
 import { MacroStackedChart } from "@/components/macro/MacroStackedChart";
 import { MacroDailyTable } from "@/components/macro/MacroDailyTable";
@@ -43,9 +44,9 @@ export default async function MacroPage() {
 
       {/* error banner — graceful degradation: ページ全体はブロックしない */}
       {logsResult.kind === "error" && (
-        <div className="mb-5 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+        <StatusNotice status="error" className="mb-5">
           ログデータの取得中にエラーが発生しました。ページを再読み込みしてください。
-        </div>
+        </StatusNotice>
       )}
 
       {logs.length === 0 ? (
