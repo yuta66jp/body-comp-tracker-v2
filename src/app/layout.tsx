@@ -21,6 +21,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
+      {/* テーマ初期化スクリプト: レンダリング前に .dark クラスを適用し FOUC を防ぐ */}
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||(t!=='light')&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark');}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body
         className={`${GeistSans.variable} ${GeistMono.variable} antialiased dark:bg-slate-950`}
       >
