@@ -38,6 +38,7 @@ import { AnalyticsStatusNote } from "@/components/analytics/AnalyticsStatusNote"
 import type { AnalyticsAvailability } from "@/lib/analytics/status";
 import { InsightCardList } from "@/components/ui/InsightCard";
 import { deriveWeeklyInsightItems } from "@/lib/utils/weeklyInsights";
+import { SectionLabel } from "@/components/ui/SectionLabel";
 
 interface Props {
   data: WeeklyReviewData;
@@ -129,16 +130,6 @@ function StatRow({
   );
 }
 
-function SectionLabel({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-1.5 mb-2">
-      <span className="text-slate-400">{icon}</span>
-      <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
-        {children}
-      </span>
-    </div>
-  );
-}
 
 // ─── メインコンポーネント ────────────────────────────────────────────────────
 
@@ -277,9 +268,7 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
           {/* 特殊日サマリー */}
           {data.specialDays.totalTaggedDays > 0 && (
             <div>
-              <p className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-slate-400">
-                今週の特殊日
-              </p>
+              <SectionLabel mb="mb-1.5">今週の特殊日</SectionLabel>
               <div className="flex flex-wrap gap-1.5">
                 {data.specialDays.cheatDays > 0 && (
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${DAY_TAG_BADGE_COLORS.is_cheat_day}`}>
@@ -308,9 +297,7 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
           モバイル時は border-t でセパレーターを入れ、左列の下に続く。
         */}
         <div className="border-t border-slate-100 p-5 lg:border-t-0">
-          <p className="mb-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
-            所見
-          </p>
+          <SectionLabel mb="mb-3">所見</SectionLabel>
           <InsightCardList items={insightItems} />
         </div>
       </div>

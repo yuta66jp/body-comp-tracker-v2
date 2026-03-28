@@ -23,6 +23,8 @@ import {
 } from "@/lib/utils/featureLabels";
 import { AnalyticsStatusNote } from "@/components/analytics/AnalyticsStatusNote";
 import type { AnalyticsAvailability } from "@/lib/analytics/status";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import type { StatusBadgeVariant } from "@/components/ui/StatusBadge";
 
 // FactorMeta / FactorEntry は factorAnalysisUtils からの re-export が必要な場合に備えて公開
 export type { FactorMeta, FactorEntry };
@@ -45,10 +47,15 @@ function confidenceLevel(sampleCount: number): "high" | "medium" | "low" {
   return "low";
 }
 
-const CONFIDENCE_CFG = {
-  high:   { label: "参考度: 高",   className: "text-emerald-600 bg-emerald-50 border-emerald-200" },
-  medium: { label: "参考度: 中",   className: "text-amber-700  bg-amber-50  border-amber-200"   },
-  low:    { label: "参考度: 低め", className: "text-rose-600   bg-rose-50   border-rose-200"     },
+const CONFIDENCE_STATUS: Record<"high" | "medium" | "low", StatusBadgeVariant> = {
+  high:   "ok",
+  medium: "caution",
+  low:    "alert",
+};
+const CONFIDENCE_LABEL: Record<"high" | "medium" | "low", string> = {
+  high:   "参考度: 高",
+  medium: "参考度: 中",
+  low:    "参考度: 低め",
 };
 
 function formatDateRange(from: string | null, to: string | null): string {
@@ -113,16 +120,16 @@ function AnalysisPremise({ meta }: { meta: FactorMeta | null | undefined }) {
   }
 
   const level = confidenceLevel(meta.sample_count);
-  const cfg = CONFIDENCE_CFG[level];
   const dropped = meta.dropped_count ?? null;
 
   return (
     <div className="mb-5 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3.5">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-semibold text-gray-500">分析前提</p>
-        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${cfg.className}`}>
-          {cfg.label}
-        </span>
+        <StatusBadge
+          status={CONFIDENCE_STATUS[level]}
+          label={CONFIDENCE_LABEL[level]}
+        />
       </div>
 
       <dl className="mt-2.5 grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs sm:grid-cols-4">
@@ -157,26 +164,36 @@ function AnalysisPremise({ meta }: { meta: FactorMeta | null | undefined }) {
 }
 
 // stability ラベルごとの表示設定
-const STABILITY_CFG: Record<
-  StabilityLabel,
-  { label: string; className: string; tooltip: string } | null
-> = {
-  high:        { label: "安定", className: "text-emerald-600 bg-emerald-50 border-emerald-200", tooltip: "重要度がデータの変動に対して安定しています" },
-  medium:      { label: "中程度", className: "text-amber-700 bg-amber-50 border-amber-200",    tooltip: "ある程度安定していますが解釈には注意が必要です" },
-  low:         { label: "不安定", className: "text-rose-600 bg-rose-50 border-rose-200",       tooltip: "データの揺らぎで重要度が変わりやすく、強い解釈は避けてください" },
-  unavailable: null,  // バッジ非表示
+const STABILITY_STATUS: Partial<Record<StabilityLabel, StatusBadgeVariant>> = {
+  high:   "ok",
+  medium: "caution",
+  low:    "alert",
+  // unavailable: バッジ非表示
+};
+const STABILITY_LABEL: Partial<Record<StabilityLabel, string>> = {
+  high:   "安定",
+  medium: "中程度",
+  low:    "不安定",
+};
+const STABILITY_TOOLTIP: Partial<Record<StabilityLabel, string>> = {
+  high:   "重要度がデータの変動に対して安定しています",
+  medium: "ある程度安定していますが解釈には注意が必要です",
+  low:    "データの揺らぎで重要度が変わりやすく、強い解釈は避けてください",
 };
 
 /** stability 補助バッジ（"unavailable" は null を返す） */
 function StabilityBadge({ stability }: { stability: StabilityLabel }) {
-  const cfg = STABILITY_CFG[stability];
-  if (!cfg) return null;
+  const status = STABILITY_STATUS[stability];
+  const label = STABILITY_LABEL[stability];
+  if (!status || !label) return null;
   return (
-    <span
-      title={cfg.tooltip}
-      className={`ml-1.5 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold leading-none ${cfg.className}`}
-    >
-      {cfg.label}
+    <span className="ml-1.5">
+      <StatusBadge
+        status={status}
+        label={label}
+        title={STABILITY_TOOLTIP[stability]}
+        size="xs"
+      />
     </span>
   );
 }

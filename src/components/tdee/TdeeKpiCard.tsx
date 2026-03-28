@@ -19,6 +19,8 @@ import type { AnalyticsAvailability } from "@/lib/analytics/status";
 import { InsightCard } from "@/components/ui/InsightCard";
 import type { InsightItem, InsightStatus } from "@/lib/utils/weeklyInsights";
 import { extractTdeeComparisonNote } from "@/lib/utils/weeklyInsights";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { SectionLabel } from "@/components/ui/SectionLabel";
 
 interface TdeeKpiCardProps {
   avgTdee:                 number | null;
@@ -61,17 +63,28 @@ function SignedKg({ value }: { value: number | null }) {
 
 /** 信頼度バッジ (InsightCard の badge prop として渡す) */
 function ConfidenceBadge({ confidence }: { confidence: TdeeConfidence }) {
-  const cfg = {
-    high:   { icon: ShieldCheck, color: "text-emerald-600 bg-emerald-50 border-emerald-200", label: "信頼度: 高" },
-    medium: { icon: Shield,      color: "text-amber-600 bg-amber-50 border-amber-200",       label: "信頼度: 中" },
-    low:    { icon: ShieldAlert,  color: "text-rose-500 bg-rose-50 border-rose-200",          label: "信頼度: 低" },
-  }[confidence.level];
-  const Icon = cfg.icon;
+  const ICON_MAP = {
+    high:   <ShieldCheck size={12} />,
+    medium: <Shield size={12} />,
+    low:    <ShieldAlert size={12} />,
+  };
+  const STATUS_MAP = {
+    high:   "ok",
+    medium: "caution",
+    low:    "alert",
+  } as const;
+  const LABEL_MAP = {
+    high:   "信頼度: 高",
+    medium: "信頼度: 中",
+    low:    "信頼度: 低",
+  };
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${cfg.color}`}>
-      <Icon size={12} />
-      {cfg.label}
-    </span>
+    <StatusBadge
+      status={STATUS_MAP[confidence.level]}
+      label={LABEL_MAP[confidence.level]}
+      icon={ICON_MAP[confidence.level]}
+      size="md"
+    />
   );
 }
 
@@ -238,9 +251,7 @@ export function TdeeKpiCard({
 
       {/* 下段: 収支の解釈 (InsightCard UI) */}
       <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-        <p className="mb-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
-          収支の解釈
-        </p>
+        <SectionLabel mb="mb-3">収支の解釈</SectionLabel>
         {/*
           InsightCard の status 色が confidence.level と収支方向を反映する。
           badge として ConfidenceBadge を右端に配置し、信頼度が埋もれない設計に。
