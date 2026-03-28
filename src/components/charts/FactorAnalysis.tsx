@@ -5,8 +5,6 @@ import {
   ResponsiveContainer, Cell, LabelList,
 } from "recharts";
 import type { RenderableText } from "recharts";
-import { makeTooltipFormatter, buildTooltipStyle } from "@/lib/utils/rechartsFormatter";
-import { useIsDark } from "@/lib/hooks/useIsDark";
 import {
   type FactorEntry,
   type FactorMeta,
@@ -311,8 +309,6 @@ function FactorInterpretation({
 }
 
 export function FactorAnalysis({ data, updatedAt, meta, analyticsAvailability }: FactorAnalysisProps) {
-  const isDark = useIsDark();
-  const tooltipStyle = buildTooltipStyle(isDark);
   const { rows: sorted, filteredOutCount } = prepareFactorRows(data);
 
   // 有効な結果がゼロ件の場合: 代替表示
@@ -373,7 +369,26 @@ export function FactorAnalysis({ data, updatedAt, meta, analyticsAvailability }:
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
           <XAxis type="number" tick={{ fontSize: 11 }} unit="%" domain={[0, 100]} />
           <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={130} />
-          <Tooltip {...tooltipStyle} formatter={makeTooltipFormatter((v) => `${v}%`, () => "重要度（相対値）")} />
+          <Tooltip
+            content={(tooltipProps: any) => {
+              const { active, payload, label } = tooltipProps;
+              if (!active || !payload?.length) return null;
+              const val = payload[0]?.value;
+              return (
+                <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                  {label != null && (
+                    <p className="mb-0.5 font-medium text-gray-700 dark:text-slate-200">{String(label)}</p>
+                  )}
+                  <p className="text-gray-500 dark:text-slate-400">
+                    重要度（相対値）:{" "}
+                    <span className="font-medium text-gray-700 dark:text-slate-200">
+                      {typeof val === "number" ? `${val}%` : "—"}
+                    </span>
+                  </p>
+                </div>
+              );
+            }}
+          />
           <Bar dataKey="pct" radius={[0, 4, 4, 0]}>
             <LabelList dataKey="pct" position="right" formatter={(v: RenderableText) => `${v ?? ""}%`} style={{ fontSize: 11, fill: "#6b7280" }} />
             {chartData.map((_, i) => (

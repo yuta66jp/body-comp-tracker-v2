@@ -11,18 +11,9 @@ import {
   LabelList,
   ResponsiveContainer,
 } from "recharts";
-import type { TooltipValueType, RenderableText } from "recharts";
+import type { RenderableText } from "recharts";
 import type { SeasonMeta } from "@/lib/utils/calcSeason";
 import { useIsDark } from "@/lib/hooks/useIsDark";
-import { buildTooltipStyle } from "@/lib/utils/rechartsFormatter";
-
-interface SeasonLowTooltipEntry {
-  payload?: {
-    delta?: number | null;
-    isCurrent?: boolean;
-    peakDate?: string | null;
-  };
-}
 
 interface SeasonLowChartProps {
   seasons: SeasonMeta[];       // 過去シーズン（career_logs）
@@ -37,7 +28,6 @@ export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) 
   const isDark = useIsDark();
   const gridColor = isDark ? "#334155" : "#f0f0f0";
   const tickColor = isDark ? "#94a3b8" : "#64748b";
-  const tooltipStyle = buildTooltipStyle(isDark);
 
   const data = seasons.map((s, i) => {
     const prev = seasons[i - 1];
@@ -76,15 +66,26 @@ export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) 
             tickFormatter={(v: number) => `${v}kg`}
           />
           <Tooltip
-            {...tooltipStyle}
-            formatter={(v: TooltipValueType | undefined, _: number | string | undefined, entry: SeasonLowTooltipEntry) => {
-              const { delta, isCurrent, peakDate } = entry?.payload ?? {};
-              const deltaStr = delta !== null && delta !== undefined
-                ? ` (前年比 ${delta > 0 ? "+" : ""}${delta.toFixed(1)}kg)`
-                : "";
-              const tag = isCurrent ? " [今季]" : "";
-              const dateStr = peakDate ? ` / ${peakDate}` : "";
-              return [`${Number(v).toFixed(1)} kg${deltaStr}${dateStr}${tag}`, "仕上がり体重"];
+            content={(tooltipProps: any) => {
+              const { active, payload } = tooltipProps;
+              if (!active || !payload?.length) return null;
+              const entry = payload[0];
+              if (!entry) return null;
+              const v = entry.value;
+              const d = entry.payload as { delta?: number | null; isCurrent?: boolean; peakDate?: string | null };
+              const weight = typeof v === "number" ? `${v.toFixed(1)} kg` : "—";
+              const deltaStr = d.delta !== null && d.delta !== undefined
+                ? ` (前年比 ${d.delta > 0 ? "+" : ""}${d.delta.toFixed(1)}kg)` : "";
+              const tag = d.isCurrent ? " [今季]" : "";
+              const dateStr = d.peakDate ? ` / ${d.peakDate}` : "";
+              return (
+                <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                  <p className="text-gray-500 dark:text-slate-400">仕上がり体重</p>
+                  <p className="mt-0.5 font-medium text-gray-700 dark:text-slate-200">
+                    {weight}{deltaStr}{dateStr}{tag}
+                  </p>
+                </div>
+              );
             }}
           />
           <Bar dataKey="weight" radius={[6, 6, 0, 0]}>
