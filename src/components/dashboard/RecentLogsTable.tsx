@@ -49,7 +49,7 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
             const calDelta = getCalDelta(log);
 
             return (
-              <tr key={log.log_date}>
+              <tr key={log.log_date} className="transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800">
                 <td className="py-2 pr-4">
                   <div className="font-mono text-xs font-medium text-slate-600 dark:text-slate-300">{log.log_date}</div>
                   <div className="mt-0.5 flex flex-wrap gap-1">
