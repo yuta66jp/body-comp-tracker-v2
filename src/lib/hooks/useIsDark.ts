@@ -8,33 +8,29 @@
  * ## 変更履歴
  *   #380: prefers-color-scheme: dark の変化を監視する実装で追加
  *   #382: テーマ切り替え追加に伴い、html.dark クラスの監視に切り替え
+ *         - 初期値を lazy initializer で html.dark クラスから直接読む
+ *         - MutationObserver で以降の変化を検知する
  *         - 手動テーマ (light / dark) および system モードの両方に対応
- *         - MutationObserver で classList 変化を検知する
  *
- * SSR では常に false を返す（初期ヒドレーションの不一致を防ぐ）。
+ * SSR では document が存在しないため false を返す。
+ * クライアントでは FOUC 防止スクリプトが hydration 前に .dark を設定済みのため、
+ * lazy initializer が正しい初期値を返す。
  */
 import { useState, useEffect } from "react";
 
 export function useIsDark(): boolean {
-  // SSR では false。クライアント初回レンダリング後に useEffect が MutationObserver を設定し
-  // .dark クラスの変化があれば更新される。
-  const [isDark, setIsDark] = useState<boolean>(false);
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    if (typeof document === "undefined") return false;
+    return document.documentElement.classList.contains("dark");
+  });
 
   useEffect(() => {
-    if (typeof document === "undefined") return;
     const el = document.documentElement;
-    // MutationObserver で classList の変化を検知する
     const observer = new MutationObserver(() => {
       setIsDark(el.classList.contains("dark"));
     });
     observer.observe(el, { attributes: true, attributeFilter: ["class"] });
-    // 購読開始時の現在値を返す (observer は変化のみ検知するため)
-    // effect 内での同期 setState を避けるため setTimeout(fn, 0) で非同期化する
-    const id = setTimeout(() => setIsDark(el.classList.contains("dark")), 0);
-    return () => {
-      clearTimeout(id);
-      observer.disconnect();
-    };
+    return () => observer.disconnect();
   }, []);
 
   return isDark;
