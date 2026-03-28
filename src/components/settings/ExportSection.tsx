@@ -55,7 +55,7 @@ export function ExportSection() {
           </div>
           <button
             onClick={() => download("daily_logs")}
-            className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
+            className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 dark:bg-blue-800 dark:hover:bg-blue-700"
           >
             <Download size={15} />
             CSV ダウンロード
