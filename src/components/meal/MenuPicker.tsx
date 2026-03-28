@@ -51,40 +51,40 @@ export function MenuPicker({ foods, onAddSet }: MenuPickerProps) {
   return (
     <div className="flex flex-col gap-2">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" size={16} />
         <input
           type="text"
           placeholder="セットメニューを検索..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+          className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-500"
         />
       </div>
 
       {isLoading ? (
-        <p className="py-4 text-center text-sm text-gray-400">読み込み中...</p>
+        <p className="py-4 text-center text-sm text-gray-400 dark:text-slate-500">読み込み中...</p>
       ) : filtered.length === 0 ? (
-        <p className="py-4 text-center text-sm text-gray-400">
+        <p className="py-4 text-center text-sm text-gray-400 dark:text-slate-500">
           {menus.length === 0 ? "セットメニューが未登録です（食品DBから追加できます）" : "該当なし"}
         </p>
       ) : (
-        <ul className="max-h-56 overflow-y-auto rounded-lg border border-gray-100 bg-white">
+        <ul className="max-h-56 overflow-y-auto rounded-lg border border-gray-100 bg-white dark:border-slate-700 dark:bg-slate-900">
           {filtered.map((menu) => {
             const kcal = totalKcal(menu.name);
             return (
               <li
                 key={menu.name}
-                className="flex items-center justify-between border-b border-gray-50 px-3 py-2 last:border-0 hover:bg-gray-50"
+                className="flex items-center justify-between border-b border-gray-50 px-3 py-2 last:border-0 hover:bg-gray-50 dark:border-slate-700/60 dark:hover:bg-slate-800"
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-800">{menu.name}</p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-sm font-medium text-gray-800 dark:text-slate-200">{menu.name}</p>
+                  <p className="text-xs text-gray-400 dark:text-slate-500">
                     {menu.recipe.length} 品 &nbsp;|&nbsp; 計 {kcal} kcal
                   </p>
                 </div>
                 <button
                   onClick={() => handleAdd(menu.name)}
-                  className="ml-3 flex flex-shrink-0 items-center gap-1 rounded-full bg-amber-500 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600"
+                  className="ml-3 flex flex-shrink-0 items-center gap-1 rounded-full bg-amber-500 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600 dark:bg-amber-700 dark:hover:bg-amber-600"
                 >
                   まとめて追加
                   <ChevronRight size={12} />
