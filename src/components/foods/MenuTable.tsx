@@ -130,12 +130,12 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-slate-700">セットメニュー</h2>
-          <p className="text-xs text-slate-400">複数食品をまとめてログ登録</p>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">セットメニュー</h2>
+          <p className="text-xs text-slate-400 dark:text-slate-500">複数食品をまとめてログ登録</p>
         </div>
         <button
           onClick={startNew}
-          className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600"
+          className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 dark:bg-amber-700 dark:hover:bg-amber-600"
         >
           <Plus size={15} />
           新規セット
@@ -144,16 +144,16 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
 
       {/* 編集フォーム */}
       {editing && (
-        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 space-y-3">
+        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 space-y-3 dark:border-amber-700/50 dark:bg-amber-900/20">
           <div className="flex items-center gap-2">
             <input
               type="text"
               placeholder="セット名（例: 鶏飯セット）"
               value={editing.name}
               onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-              className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-400"
+              className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
             />
-            <button onClick={() => setEditing(null)} className="text-gray-400 hover:text-gray-600">
+            <button onClick={() => setEditing(null)} className="text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300">
               <X size={18} />
             </button>
           </div>
@@ -169,8 +169,8 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
                   onClick={() => { setAddCategory(cat); setAddFood(""); }}
                   className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                     addCategory === cat
-                      ? "bg-amber-500 text-white"
-                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                      ? "bg-amber-500 text-white dark:bg-amber-700"
+                      : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
                   }`}
                 >
                   {cat}
@@ -182,7 +182,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
             <select
               value={addFood}
               onChange={(e) => setAddFood(e.target.value)}
-              className="flex-1 rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm outline-none focus:border-amber-400"
+              className="flex-1 rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm outline-none focus:border-amber-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             >
               <option value="">食品を選択...</option>
               {filteredFoodsForAdd.map((f) => (
@@ -196,13 +196,13 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
               max={9999}
               value={addAmount}
               onChange={(e) => setAddAmount(e.target.value)}
-              className="w-20 rounded-lg border border-gray-200 bg-white px-2 py-2 text-right text-sm outline-none focus:border-amber-400"
+              className="w-20 rounded-lg border border-gray-200 bg-white px-2 py-2 text-right text-sm outline-none focus:border-amber-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             />
-            <span className="self-center text-xs text-gray-400">g</span>
+            <span className="self-center text-xs text-gray-400 dark:text-slate-500">g</span>
             <button
               onClick={addItemToEditing}
               disabled={!addFood}
-              className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-40"
+              className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-40 dark:bg-amber-700 dark:hover:bg-amber-600"
             >
               <Plus size={14} />
             </button>
@@ -210,7 +210,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
 
           {/* レシピ一覧（カロリー降順で表示）*/}
           {editing.items.length > 0 && (
-            <ul className="rounded-lg border border-gray-100 bg-white divide-y divide-gray-50">
+            <ul className="rounded-lg border border-gray-100 bg-white divide-y divide-gray-50 dark:border-slate-700 dark:bg-slate-900 dark:divide-slate-700/60">
               {[...editing.items]
                 .sort((a, b) => {
                   const fa = foodMap.get(a.name);
@@ -226,18 +226,18 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
                   const originalIdx = editing.items.findIndex((i) => i.name === ri.name);
                   return (
                     <li key={ri.name} className="flex items-center justify-between px-3 py-2 text-sm">
-                      <span className="text-gray-800">{ri.name}</span>
-                      <div className="flex items-center gap-3 text-xs text-gray-400">
+                      <span className="text-gray-800 dark:text-slate-200">{ri.name}</span>
+                      <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-slate-500">
                         <span>{ri.amount}g</span>
-                        <span className="text-gray-600 font-medium">{kcal} kcal</span>
-                        <button onClick={() => removeItemFromEditing(originalIdx)} className="text-gray-300 hover:text-rose-500">
+                        <span className="text-gray-600 font-medium dark:text-slate-300">{kcal} kcal</span>
+                        <button onClick={() => removeItemFromEditing(originalIdx)} className="text-gray-300 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400">
                           <Trash2 size={15} />
                         </button>
                       </div>
                     </li>
                   );
                 })}
-              <li className="px-3 py-2 text-right text-xs font-semibold text-gray-700">
+              <li className="px-3 py-2 text-right text-xs font-semibold text-gray-700 dark:text-slate-300">
                 計 {calcRecipeKcal(editing.items, foodMap)} kcal
               </li>
             </ul>
@@ -247,12 +247,12 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
 
           <div className="flex items-center justify-end gap-3">
             {saveSuccess && (
-              <p className="text-xs font-medium text-emerald-600">✓ セットを保存しました</p>
+              <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">✓ セットを保存しました</p>
             )}
             <button
               onClick={handleSave}
               disabled={isSaving || saveSuccess}
-              className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-60 disabled:cursor-not-allowed dark:bg-blue-800 dark:hover:bg-blue-700"
             >
               <Save size={14} />
               {isSaving ? "保存中..." : "保存"}
@@ -263,7 +263,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
 
       {/* ── メニュー一覧 ── */}
       {menus.length === 0 ? (
-        <p className="py-8 text-center text-sm text-slate-400">
+        <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
           セットメニューが登録されていません
         </p>
       ) : (
@@ -274,35 +274,35 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
               const kcal = calcRecipeKcal(menu.recipe, foodMap);
               const isOpen = expandedMenu === menu.name;
               return (
-                <div key={menu.name} className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+                <div key={menu.name} className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
                   {/* カードヘッダー */}
                   <div className="flex items-start gap-2 px-4 py-3">
                     <button
                       onClick={() => setExpandedMenu(isOpen ? null : menu.name)}
                       className="min-w-0 flex-1 text-left"
                     >
-                      <div className="text-sm font-semibold text-slate-800">{menu.name}</div>
-                      <div className="mt-0.5 flex items-baseline gap-1.5 text-xs text-slate-400">
+                      <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">{menu.name}</div>
+                      <div className="mt-0.5 flex items-baseline gap-1.5 text-xs text-slate-400 dark:text-slate-500">
                         <span>{menu.recipe.length} 品</span>
-                        <span className="text-slate-300">·</span>
-                        <span className="tabular-nums text-base font-bold text-slate-700">{kcal}</span>
+                        <span className="text-slate-300 dark:text-slate-600">·</span>
+                        <span className="tabular-nums text-base font-bold text-slate-700 dark:text-slate-200">{kcal}</span>
                         <span>kcal</span>
                         {isOpen
-                          ? <ChevronUp size={13} className="ml-1 text-slate-400" />
-                          : <ChevronDown size={13} className="ml-1 text-slate-400" />}
+                          ? <ChevronUp size={13} className="ml-1 text-slate-400 dark:text-slate-500" />
+                          : <ChevronDown size={13} className="ml-1 text-slate-400 dark:text-slate-500" />}
                       </div>
                     </button>
                     <div className="flex flex-shrink-0 items-center gap-1">
                       <button
                         onClick={() => startEdit(menu)}
-                        className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-blue-500 hover:bg-blue-50"
+                        className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                       >
                         編集
                       </button>
                       <button
                         onClick={() => handleDelete(menu.name)}
                         disabled={isPending}
-                        className="p-2 -mr-1 text-slate-300 hover:text-rose-500 disabled:opacity-40"
+                        className="p-2 -mr-1 text-slate-300 hover:text-rose-500 disabled:opacity-40 dark:text-slate-600 dark:hover:text-rose-400"
                         aria-label={`${menu.name}を削除`}
                       >
                         <Trash2 size={15} />
@@ -311,14 +311,14 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
                   </div>
                   {/* 展開: 食材リスト */}
                   {isOpen && (
-                    <div className="border-t border-slate-50 bg-slate-50 px-4 py-3 space-y-1.5">
+                    <div className="border-t border-slate-50 bg-slate-50 px-4 py-3 space-y-1.5 dark:border-slate-700/60 dark:bg-slate-800/60">
                       {menu.recipe.map((ri, i) => {
                         const food = foodMap.get(ri.name);
                         const itemKcal = food ? Math.round(((food.calories ?? 0) * ri.amount) / 100) : 0;
                         return (
-                          <div key={i} className="flex justify-between text-xs text-slate-600">
+                          <div key={i} className="flex justify-between text-xs text-slate-600 dark:text-slate-300">
                             <span>{ri.name}</span>
-                            <span className="tabular-nums text-slate-400">{ri.amount}g · {itemKcal} kcal</span>
+                            <span className="tabular-nums text-slate-400 dark:text-slate-500">{ri.amount}g · {itemKcal} kcal</span>
                           </div>
                         );
                       })}
@@ -330,7 +330,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
           </div>
 
           {/* デスクトップ: リスト (md+) */}
-          <ul className="hidden md:block rounded-2xl border border-gray-100 bg-white shadow-sm divide-y divide-gray-50">
+          <ul className="hidden md:block rounded-2xl border border-gray-100 bg-white shadow-sm divide-y divide-gray-50 dark:border-slate-700 dark:bg-slate-900 dark:shadow-none dark:divide-slate-700/60">
             {menus.map((menu) => {
               const kcal = calcRecipeKcal(menu.recipe, foodMap);
               const isOpen = expandedMenu === menu.name;
@@ -341,35 +341,35 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
                       onClick={() => setExpandedMenu(isOpen ? null : menu.name)}
                       className="flex flex-1 items-center gap-2 text-left"
                     >
-                      {isOpen ? <ChevronUp size={15} className="text-gray-400" /> : <ChevronDown size={15} className="text-gray-400" />}
-                      <span className="text-sm font-medium text-gray-800">{menu.name}</span>
-                      <span className="text-xs text-gray-400">{menu.recipe.length} 品 / {kcal} kcal</span>
+                      {isOpen ? <ChevronUp size={15} className="text-gray-400 dark:text-slate-500" /> : <ChevronDown size={15} className="text-gray-400 dark:text-slate-500" />}
+                      <span className="text-sm font-medium text-gray-800 dark:text-slate-100">{menu.name}</span>
+                      <span className="text-xs text-gray-400 dark:text-slate-500">{menu.recipe.length} 品 / {kcal} kcal</span>
                     </button>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => startEdit(menu)}
-                        className="rounded px-2 py-1 text-xs text-blue-500 hover:bg-blue-50"
+                        className="rounded px-2 py-1 text-xs text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                       >
                         編集
                       </button>
                       <button
                         onClick={() => handleDelete(menu.name)}
                         disabled={isPending}
-                        className="text-gray-300 hover:text-rose-500 disabled:opacity-40"
+                        className="text-gray-300 hover:text-rose-500 disabled:opacity-40 dark:text-slate-600 dark:hover:text-rose-400"
                       >
                         <Trash2 size={15} />
                       </button>
                     </div>
                   </div>
                   {isOpen && (
-                    <ul className="border-t border-gray-50 bg-gray-50 px-6 py-2 space-y-1">
+                    <ul className="border-t border-gray-50 bg-gray-50 px-6 py-2 space-y-1 dark:border-slate-700/60 dark:bg-slate-800/60">
                       {menu.recipe.map((ri, i) => {
                         const food = foodMap.get(ri.name);
                         const itemKcal = food ? Math.round(((food.calories ?? 0) * ri.amount) / 100) : 0;
                         return (
-                          <li key={i} className="flex justify-between text-xs text-gray-600">
+                          <li key={i} className="flex justify-between text-xs text-gray-600 dark:text-slate-300">
                             <span>{ri.name}</span>
-                            <span>{ri.amount}g — {itemKcal} kcal</span>
+                            <span className="dark:text-slate-500">{ri.amount}g — {itemKcal} kcal</span>
                           </li>
                         );
                       })}

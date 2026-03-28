@@ -146,7 +146,7 @@ function MetricRow({
   return (
     <div className="flex items-baseline justify-between gap-2">
       <span className="shrink-0 text-xs text-slate-500 dark:text-slate-400">{label}</span>
-      <span className={`text-right font-semibold tabular-nums ${valueColor ?? "text-slate-800 dark:text-slate-100"}`}>
+      <span className={`text-right font-semibold tabular-nums ${valueColor ?? "text-slate-800 dark:text-slate-300"}`}>
         {value}
         {note && <span className="ml-1 text-[10px] font-normal text-slate-400 dark:text-slate-500">{note}</span>}
       </span>
@@ -267,7 +267,7 @@ export function GoalNavigator({
       <div className={`flex items-center justify-between border-b px-5 py-3 ${statusCfg.bg}`}>
         <div className="flex items-center gap-2">
           <Gauge size={16} className={statusCfg.color} />
-          <span className="text-sm font-bold text-slate-700 dark:text-slate-200">目標達成ナビ</span>
+          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">目標達成ナビ</span>
         </div>
         <div className="flex items-center gap-2">
           <span
@@ -301,7 +301,7 @@ export function GoalNavigator({
               <MetricRow
                 label={`現在 (${refWeightLabel})`}
                 value={`${fmt1(refWeight)} kg`}
-                valueColor="text-slate-900 dark:text-slate-100"
+                valueColor="text-slate-900 dark:text-slate-300"
               />
               <MetricRow label="目標" value={`${fmt1(goalWeight)} kg`} />
               <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
@@ -352,7 +352,7 @@ export function GoalNavigator({
           <MetricRow
             label="必要ペース"
             value={fmtRate2W(requiredRateKg2W)}
-            valueColor={requiredRateKg2W === null ? "text-slate-400 dark:text-slate-500" : "text-slate-700 dark:text-slate-200"}
+            valueColor={requiredRateKg2W === null ? "text-slate-400 dark:text-slate-500" : "text-slate-700 dark:text-slate-300"}
             note={requiredRateKg2W !== null ? "(7日平均ベース)" : undefined}
           />
           <MetricRow
@@ -367,7 +367,7 @@ export function GoalNavigator({
             }
             note="(14日線形)"
           />
-          <div className="my-1 border-t border-slate-100" />
+          <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
           <MetricRow
             label="差"
             value={paceGapLabel(paceGap, isCut)}
@@ -406,7 +406,7 @@ export function GoalNavigator({
                 <MetricRow
                   label="目標摂取"
                   value={`${recommendedIntake.toLocaleString()} kcal/日`}
-                  valueColor="text-slate-700 dark:text-slate-200"
+                  valueColor="text-slate-700 dark:text-slate-300"
                 />
               )}
             </>
@@ -422,7 +422,7 @@ export function GoalNavigator({
                 <MetricRow
                   label="目標摂取"
                   value={`${recommendedIntake.toLocaleString()} kcal/日`}
-                  valueColor="text-slate-700 dark:text-slate-200"
+                  valueColor="text-slate-700 dark:text-slate-300"
                 />
               )}
             </>
@@ -467,7 +467,7 @@ export function GoalNavigator({
             {monthlyGoalProgress.comparisonWeight !== null && (
               <span className="text-xs text-slate-500 dark:text-slate-400">
                 現在:{" "}
-                <span className="font-semibold tabular-nums text-slate-700 dark:text-slate-200">
+                <span className="font-semibold tabular-nums text-slate-700 dark:text-slate-300">
                   {monthlyGoalProgress.comparisonWeight.toFixed(1)} kg
                 </span>
               </span>
@@ -477,7 +477,7 @@ export function GoalNavigator({
             {currentMonthMinWeight !== null && currentMonthMinWeight !== undefined && (
               <span className="text-xs text-slate-500 dark:text-slate-400">
                 当月最小:{" "}
-                <span className="font-semibold tabular-nums text-slate-700 dark:text-slate-200">
+                <span className="font-semibold tabular-nums text-slate-700 dark:text-slate-300">
                   {currentMonthMinWeight.toFixed(1)} kg
                 </span>
               </span>
@@ -486,7 +486,7 @@ export function GoalNavigator({
             {/* 今月末目標 */}
             <span className="text-xs text-slate-500 dark:text-slate-400">
               今月末目標:{" "}
-              <span className="font-semibold text-slate-700 tabular-nums dark:text-slate-200">
+              <span className="font-semibold text-slate-700 tabular-nums dark:text-slate-300">
                 {monthlyGoalProgress.monthlyTargetWeight?.toFixed(1) ?? "—"} kg
               </span>
             </span>
@@ -500,12 +500,12 @@ export function GoalNavigator({
                     monthlyGoalProgress.state === "achieved"
                       ? "text-emerald-600 dark:text-emerald-400"
                       : Math.abs(monthlyGoalProgress.deltaKg) < 0.5
-                      ? "text-slate-700 dark:text-slate-200"
+                      ? "text-slate-700 dark:text-slate-300"
                       : isCut && monthlyGoalProgress.deltaKg > 0
                       ? "text-rose-600 dark:text-rose-400"
                       : !isCut && monthlyGoalProgress.deltaKg < 0
                       ? "text-amber-600 dark:text-amber-400"
-                      : "text-slate-700 dark:text-slate-200"
+                      : "text-slate-700 dark:text-slate-300"
                   }`}
                 >
                   {monthlyGoalProgress.deltaKg > 0 ? "+" : ""}
@@ -518,7 +518,7 @@ export function GoalNavigator({
             {monthlyGoalProgress.requiredPaceKgPerWeek !== null && (
               <span className="text-xs text-slate-500 dark:text-slate-400">
                 残必要ペース:{" "}
-                <span className="font-semibold tabular-nums text-slate-700 dark:text-slate-200">
+                <span className="font-semibold tabular-nums text-slate-700 dark:text-slate-300">
                   {monthlyGoalProgress.requiredPaceKgPerWeek > 0 ? "+" : ""}
                   {monthlyGoalProgress.requiredPaceKgPerWeek.toFixed(1)} kg/週
                 </span>

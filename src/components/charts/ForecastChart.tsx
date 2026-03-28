@@ -20,6 +20,7 @@ import { buildMonthlyGoalDateMap } from "@/lib/utils/monthlyGoalVisualization";
 import { buildForecastMap, calcEwLinearForecast, buildYAxisConfig } from "@/lib/utils/forecastUtils";
 import type { RangeTab } from "@/lib/utils/forecastUtils";
 import { useIsDark } from "@/lib/hooks/useIsDark";
+import { buildTooltipStyle } from "@/lib/utils/rechartsFormatter";
 
 interface ForecastChartProps {
   logs: DashboardDailyLog[];
@@ -65,6 +66,7 @@ export function ForecastChart({
     grid:     isDark ? "#334155" : "#f1f5f9",
     tickText: isDark ? "#94a3b8" : "#64748b",
   };
+  const tooltipStyle = buildTooltipStyle(isDark);
 
   const today = toJstDateStr();
 
@@ -224,6 +226,7 @@ export function ForecastChart({
               },
             )}
             labelFormatter={(label: unknown) => String(label)}
+            {...tooltipStyle}
           />
           <Legend
             formatter={(value: string) => {

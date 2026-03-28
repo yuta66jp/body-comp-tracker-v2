@@ -42,7 +42,7 @@ function KpiCard({ label, value, unit, sub, icon, accent, iconColor, trendDir, t
         </div>
       </div>
       <div className="mt-3 flex items-baseline gap-1">
-        <span className="text-[2rem] font-bold leading-none tracking-tight text-slate-900 dark:text-slate-100">{value}</span>
+        <span className="text-[2rem] font-bold leading-none tracking-tight text-slate-900 dark:text-slate-300">{value}</span>
         {unit && <span className="text-sm font-medium text-slate-400 dark:text-slate-500">{unit}</span>}
       </div>
       {sub && (
@@ -124,8 +124,8 @@ export function KpiCards({ logs, settings, currentWeight }: KpiCardsProps) {
         unit="kg"
         sub={slopePerWeek !== null ? trendLabel : undefined}
         icon={<Weight size={18} />}
-        accent="bg-blue-50"
-        iconColor="text-blue-600"
+        accent="bg-blue-50 dark:bg-blue-900/30"
+        iconColor="text-blue-600 dark:text-blue-400"
         trendDir={slopePerWeek !== null ? trendDir : undefined}
         trendPositive="down"
       />
@@ -141,16 +141,16 @@ export function KpiCards({ logs, settings, currentWeight }: KpiCardsProps) {
             : (contestDate ?? `${deadlineLabel}未設定`)
         }
         icon={<CalendarClock size={18} />}
-        accent="bg-violet-50"
-        iconColor="text-violet-600"
+        accent="bg-violet-50 dark:bg-violet-900/30"
+        iconColor="text-violet-600 dark:text-violet-400"
       />
 
       {/* 目標到達予定日 */}
       <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
         <div className="flex items-start justify-between">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">目標到達予定</p>
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50">
-            <Target size={18} className="text-teal-600" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 dark:bg-teal-900/30">
+            <Target size={18} className="text-teal-600 dark:text-teal-400" />
           </div>
         </div>
         <div className="mt-3">

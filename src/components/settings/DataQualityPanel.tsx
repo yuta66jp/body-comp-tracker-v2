@@ -15,21 +15,21 @@ interface Props {
 }
 
 function scoreColor(score: number): string {
-  if (score >= 90) return "text-emerald-600";
-  if (score >= 70) return "text-amber-600";
-  return "text-rose-600";
+  if (score >= 90) return "text-emerald-600 dark:text-emerald-400";
+  if (score >= 70) return "text-amber-600 dark:text-amber-400";
+  return "text-rose-600 dark:text-rose-400";
 }
 
 function scoreBg(score: number): string {
-  if (score >= 90) return "bg-emerald-50";
-  if (score >= 70) return "bg-amber-50";
-  return "bg-rose-50";
+  if (score >= 90) return "bg-emerald-50 dark:bg-emerald-900/20";
+  if (score >= 70) return "bg-amber-50 dark:bg-amber-900/20";
+  return "bg-rose-50 dark:bg-rose-900/20";
 }
 
 function scoreBorder(score: number): string {
-  if (score >= 90) return "border-emerald-200";
-  if (score >= 70) return "border-amber-200";
-  return "border-rose-200";
+  if (score >= 90) return "border-emerald-200 dark:border-emerald-700/50";
+  if (score >= 70) return "border-amber-200 dark:border-amber-700/50";
+  return "border-rose-200 dark:border-rose-700/50";
 }
 
 function scoreLabel(score: number): string {
@@ -40,7 +40,7 @@ function scoreLabel(score: number): string {
 
 function WindowSection({ title, w }: { title: string; w: QualityWindow }) {
   return (
-    <div className={`rounded-xl border p-4 ${scoreBg(w.score)} ${scoreBorder(w.score)} dark:bg-opacity-20`}>
+    <div className={`rounded-xl border p-4 ${scoreBg(w.score)} ${scoreBorder(w.score)}`}>
       <div className="mb-3 flex items-center justify-between">
         <span className="font-semibold text-gray-700 dark:text-slate-200">{title}</span>
         <span className={`rounded-full px-3 py-1 text-sm font-bold ${scoreColor(w.score)}`}>
@@ -55,19 +55,19 @@ function WindowSection({ title, w }: { title: string; w: QualityWindow }) {
         </div>
         <div>
           <dt className="text-xs text-gray-500 dark:text-slate-400">体重欠損日数</dt>
-          <dd className={`font-medium ${w.weightMissingDays > 0 ? "text-amber-700" : "text-emerald-600"}`}>
+          <dd className={`font-medium ${w.weightMissingDays > 0 ? "text-amber-700 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`}>
             {w.weightMissingDays} 日
           </dd>
         </div>
         <div>
           <dt className="text-xs text-gray-500 dark:text-slate-400">カロリー欠損日数</dt>
-          <dd className={`font-medium ${w.caloriesMissingDays > 0 ? "text-amber-700" : "text-emerald-600"}`}>
+          <dd className={`font-medium ${w.caloriesMissingDays > 0 ? "text-amber-700 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`}>
             {w.caloriesMissingDays} 日
           </dd>
         </div>
         <div>
           <dt className="text-xs text-gray-500 dark:text-slate-400">異常値候補</dt>
-          <dd className={`font-medium ${w.anomalies.length > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+          <dd className={`font-medium ${w.anomalies.length > 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}>
             {w.anomalies.length} 件
           </dd>
         </div>
@@ -133,10 +133,10 @@ export function DataQualityPanel({ report }: Props) {
             <span className="text-xs text-gray-500">{label}</span>
             <span className={`font-bold tabular-nums ${scoreColor(w.score)}`}>{w.score}<span className="text-xs font-normal">/100</span></span>
             {w.weightMissingDays > 0 && (
-              <span className="text-xs text-amber-600">体重欠損 {w.weightMissingDays}日</span>
+              <span className="text-xs text-amber-600 dark:text-amber-400">体重欠損 {w.weightMissingDays}日</span>
             )}
             {w.anomalies.length > 0 && (
-              <span className="text-xs text-rose-600">異常値 {w.anomalies.length}件</span>
+              <span className="text-xs text-rose-600 dark:text-rose-400">異常値 {w.anomalies.length}件</span>
             )}
           </div>
         ))}
@@ -159,7 +159,7 @@ export function DataQualityPanel({ report }: Props) {
               重複日付
             </p>
             {report.duplicateDates.length === 0 ? (
-              <p className="text-sm text-emerald-600">なし</p>
+              <p className="text-sm text-emerald-600 dark:text-emerald-400">なし</p>
             ) : (
               <ul className="flex flex-wrap gap-2">
                 {report.duplicateDates.map((d) => (
@@ -174,13 +174,13 @@ export function DataQualityPanel({ report }: Props) {
           {/* スコア凡例 */}
           <div className="flex flex-wrap gap-4 text-xs text-gray-400 dark:text-slate-500">
             <span>
-              <span className="font-semibold text-emerald-600">90〜100</span>: 良好
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400">90〜100</span>: 良好
             </span>
             <span>
-              <span className="font-semibold text-amber-600">70〜89</span>: 注意
+              <span className="font-semibold text-amber-600 dark:text-amber-400">70〜89</span>: 注意
             </span>
             <span>
-              <span className="font-semibold text-rose-600">0〜69</span>: 要確認
+              <span className="font-semibold text-rose-600 dark:text-rose-400">0〜69</span>: 要確認
             </span>
             <span className="ml-auto">体重欠損 −10 / カロリー欠損 −5 / 異常値 −15</span>
           </div>

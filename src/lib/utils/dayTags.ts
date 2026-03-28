@@ -36,10 +36,10 @@ export const DAY_TAG_LABELS: Record<DayTag, string> = {
 
 /** バッジ用カラークラス (非アクティブ時: リスト表示など) */
 export const DAY_TAG_BADGE_COLORS: Record<DayTag, string> = {
-  is_cheat_day:  "bg-rose-100 text-rose-700",
-  is_refeed_day: "bg-amber-100 text-amber-700",
-  is_eating_out: "bg-blue-100 text-blue-700",
-  is_travel_day: "bg-teal-100 text-teal-700",
+  is_cheat_day:  "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+  is_refeed_day: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  is_eating_out: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  is_travel_day: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
 };
 
 /** トグルボタン用カラークラス (アクティブ時) */

@@ -40,7 +40,7 @@ interface TdeeKpiCardProps {
 function SignedKcal({ value, label }: { value: number | null; label?: string }) {
   if (value === null) return <span className="text-gray-300 dark:text-slate-600">—</span>;
   const sign = value > 0 ? "+" : "";
-  const color = value < -50 ? "text-emerald-600" : value > 50 ? "text-rose-500" : "text-gray-800 dark:text-slate-200";
+  const color = value < -50 ? "text-emerald-600" : value > 50 ? "text-rose-500" : "text-gray-800 dark:text-slate-300";
   return (
     <span className={color}>
       {sign}{value.toLocaleString()}
@@ -52,7 +52,7 @@ function SignedKcal({ value, label }: { value: number | null; label?: string }) 
 function SignedKg({ value }: { value: number | null }) {
   if (value === null) return <span className="text-gray-300 dark:text-slate-600">—</span>;
   const sign = value > 0 ? "+" : "";
-  const color = value < -0.05 ? "text-emerald-600" : value > 0.05 ? "text-rose-500" : "text-gray-800 dark:text-slate-200";
+  const color = value < -0.05 ? "text-emerald-600" : value > 0.05 ? "text-rose-500" : "text-gray-800 dark:text-slate-300";
   return (
     <span className={color}>
       {sign}{value.toFixed(2)}
@@ -172,7 +172,7 @@ export function TdeeKpiCard({
         {/* 平均摂取 kcal */}
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
           <p className="text-sm font-medium text-gray-500 dark:text-slate-400">平均摂取（直近7日）</p>
-          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-slate-100">
+          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-slate-300">
             {avgCalories !== null ? Math.round(avgCalories).toLocaleString() : "—"}
             <span className="ml-1 text-base font-normal text-gray-400 dark:text-slate-500">kcal</span>
           </p>
@@ -238,7 +238,7 @@ export function TdeeKpiCard({
             {measuredWeightChange !== null ? (
               <SignedKg value={measuredWeightChange} />
             ) : (
-              <span className="text-gray-300">—</span>
+              <span className="text-gray-300 dark:text-slate-600">—</span>
             )}
           </p>
           <p className="mt-1 text-xs text-gray-400 dark:text-slate-500">
@@ -250,7 +250,7 @@ export function TdeeKpiCard({
       </div>
 
       {/* 下段: 収支の解釈 (InsightCard UI) */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
         <SectionLabel mb="mb-3">収支の解釈</SectionLabel>
         {/*
           InsightCard の status 色が confidence.level と収支方向を反映する。

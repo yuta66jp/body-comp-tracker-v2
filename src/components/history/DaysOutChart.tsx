@@ -13,6 +13,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { TooltipValueType } from "recharts";
+import { useIsDark } from "@/lib/hooks/useIsDark";
+import { buildTooltipStyle } from "@/lib/utils/rechartsFormatter";
 
 const MAX_DEFAULT_PAST = 2; // デフォルトで表示する過去シーズン数
 
@@ -49,6 +51,10 @@ function lastNonNullDaysOut(
 
 export function DaysOutChart({ data, seasons, currentSeason, todayDaysOut }: DaysOutChartProps) {
   const [showAll, setShowAll] = useState(false);
+  const isDark = useIsDark();
+  const gridColor = isDark ? "#334155" : "#f0f0f0";
+  const tickColor = isDark ? "#94a3b8" : "#64748b";
+  const tooltipStyle = buildTooltipStyle(isDark);
 
   const sortedSeasons = [...seasons].sort((a, b) => {
     if (a === currentSeason) return 1;
@@ -67,29 +73,30 @@ export function DaysOutChart({ data, seasons, currentSeason, todayDaysOut }: Day
   }
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-      <h2 className="mb-1 text-base font-semibold text-gray-700">シーズン比較（大会日基準）</h2>
-      <p className="mb-4 text-xs text-gray-400">
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+      <h2 className="mb-1 text-base font-semibold text-gray-700 dark:text-slate-200">シーズン比較（大会日基準）</h2>
+      <p className="mb-4 text-xs text-gray-400 dark:text-slate-500">
         X 軸: 大会日を 0 として遡った日数 | Y 軸: 体重 7 日移動平均 (kg)
       </p>
       <ResponsiveContainer width="100%" height={320}>
         <LineChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+          <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
           <XAxis
             dataKey="daysOut"
             type="number"
             domain={["dataMin", 0]}
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 11, fill: tickColor }}
             tickFormatter={(v: number) => `${v}日`}
-            label={{ value: "大会まで", position: "insideBottomRight", fontSize: 10, offset: -4 }}
+            label={{ value: "大会まで", position: "insideBottomRight", fontSize: 10, offset: -4, fill: tickColor }}
           />
           <YAxis
             domain={["auto", "auto"]}
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 11, fill: tickColor }}
             width={48}
             tickFormatter={(v: number) => `${v}kg`}
           />
           <Tooltip
+            {...tooltipStyle}
             formatter={(v: TooltipValueType | undefined, name: number | string | undefined) => [
               v != null ? `${Number(v).toFixed(1)} kg` : "—",
               name ?? "",
@@ -174,7 +181,7 @@ export function DaysOutChart({ data, seasons, currentSeason, todayDaysOut }: Day
           <button
             type="button"
             onClick={() => setShowAll((v) => !v)}
-            className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+            className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-slate-600 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
           >
             {showAll
               ? "シーズンを折りたたむ"

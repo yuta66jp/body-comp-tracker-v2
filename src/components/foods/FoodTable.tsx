@@ -32,7 +32,7 @@ type SortKey = "name" | "calories" | "protein" | "fat" | "carbs";
 type SortDir = "asc" | "desc";
 
 function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; sortDir: SortDir }) {
-  if (col !== sortKey) return <ChevronsUpDown size={12} className="inline ml-1 text-slate-300" />;
+  if (col !== sortKey) return <ChevronsUpDown size={12} className="inline ml-1 text-slate-300 dark:text-slate-600" />;
   return sortDir === "asc"
     ? <ChevronUp size={12} className="inline ml-1 text-blue-500" />
     : <ChevronDown size={12} className="inline ml-1 text-blue-500" />;
@@ -156,12 +156,12 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
 
   // th 側: padding / font のみ。整列もクリック領域も button 側で担う
   const thSortCls = () =>
-    "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400";
+    "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500";
 
   // ソートボタン: w-full flex で th 全体に広げ、列の種別で整列を切り替える
   const sortBtnCls = (key: SortKey) =>
     `w-full flex items-center ${key === "name" ? "justify-start" : "justify-end"} ` +
-    "select-none cursor-pointer hover:text-slate-700 transition-colors " +
+    "select-none cursor-pointer hover:text-slate-700 dark:hover:text-slate-200 transition-colors " +
     "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 " +
     "focus-visible:outline-blue-400 rounded-sm";
 
@@ -171,27 +171,27 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
     <div className="flex flex-col gap-4">
       {/* ── 検索（mobile: 最上位 / desktop: 2番目）── */}
       <div className="relative order-1 md:order-2">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={15} />
         <input
           type="text"
           placeholder="食品名で検索..."
           value={query}
           onChange={(e) => { setQuery(e.target.value); setVisibleCount(15); }}
-          className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+          className="w-full rounded-xl border border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40"
         />
       </div>
 
       {/* ── セクションヘッダー（mobile: 2番目 / desktop: 最上位）── */}
       <div className="flex items-center justify-between order-2 md:order-1">
         <div>
-          <h2 className="text-sm font-semibold text-slate-700">食品マスタ</h2>
-          <p className="text-xs text-slate-400">100g あたりの栄養値</p>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">食品マスタ</h2>
+          <p className="text-xs text-slate-400 dark:text-slate-500">100g あたりの栄養値</p>
         </div>
         <button
           onClick={() => {
             if (showForm) { closeForm(); } else { setShowForm(true); setError(null); }
           }}
-          className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 dark:bg-blue-800 dark:hover:bg-blue-700"
         >
           <Plus size={15} />
           追加
@@ -207,8 +207,8 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
               onClick={() => { setCategory(cat); setVisibleCount(15); }}
               className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 category === cat
-                  ? "bg-blue-600 text-white"
-                  : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                  ? "bg-blue-600 text-white dark:bg-blue-800"
+                  : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
               }`}
             >
               {cat}
@@ -219,12 +219,12 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
 
       {/* ── 追加フォーム ── */}
       {showForm && (
-        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 order-4">
-          <p className="mb-3 text-sm font-semibold text-slate-700">新規食品を追加 (100g あたり)</p>
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 dark:border-blue-800/50 dark:bg-blue-900/20 p-4 order-4">
+          <p className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">新規食品を追加 (100g あたり)</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {(["name", "calories", "protein", "fat", "carbs"] as const).map((field) => (
               <div key={field}>
-                <label className="mb-1 block text-xs font-medium text-slate-500">
+                <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
                   {{ name: "食品名", calories: "kcal", protein: "P (g)", fat: "F (g)", carbs: "C (g)" }[field]}
                 </label>
                 <input
@@ -233,14 +233,14 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
                   min="0"
                   value={form[field]}
                   onChange={(e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-blue-400"
+                  className="w-full rounded-lg border border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-2 py-1.5 text-sm outline-none focus:border-blue-400"
                 />
               </div>
             ))}
 
             {/* カテゴリ（既存から選択 or 新規入力） */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">カテゴリ</label>
+              <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">カテゴリ</label>
               {!newCategoryMode ? (
                 <select
                   value={form.category}
@@ -252,7 +252,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
                       setForm((prev) => ({ ...prev, category: e.target.value }));
                     }
                   }}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-blue-400"
+                  className="w-full rounded-lg border border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-2 py-1.5 text-sm outline-none focus:border-blue-400"
                 >
                   <option value="">なし</option>
                   {categories.filter((c) => c !== "すべて").map((cat) => (
@@ -268,12 +268,12 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
                     value={form.category}
                     autoFocus
                     onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
-                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-blue-400"
+                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-2 py-1.5 text-sm outline-none focus:border-blue-400"
                   />
                   <button
                     type="button"
                     onClick={() => { setNewCategoryMode(false); setForm((prev) => ({ ...prev, category: "" })); }}
-                    className="shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-500 hover:bg-slate-50"
+                    className="shrink-0 rounded-lg border border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300 px-2 py-1.5 text-xs text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-600"
                     title="既存から選択に戻る"
                   >
                     戻る
@@ -289,7 +289,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
             )}
             <button
               onClick={closeForm}
-              className="rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-sm hover:bg-slate-50"
+              className="rounded-lg border border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300 px-4 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-600"
             >
               キャンセル
             </button>
@@ -305,10 +305,10 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
       )}
 
       {/* ── 食品リスト ── */}
-      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden order-5">
+      <div className="rounded-2xl border border-slate-100 bg-white dark:border-slate-700 dark:bg-slate-900 shadow-sm dark:shadow-none overflow-hidden order-5">
 
         {/* モバイル: カードリスト (md 未満) */}
-        <div className="md:hidden divide-y divide-slate-50">
+        <div className="md:hidden divide-y divide-slate-50 dark:divide-slate-700/60">
           {filtered.length === 0 ? (
             <p className="py-8 text-center text-sm text-slate-400">
               {query || category !== "すべて" ? "該当なし" : "食品が登録されていません"}
@@ -319,29 +319,29 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
                 <div className="min-w-0 flex-1">
                   {/* 食品名 + カテゴリバッジ */}
                   <div className="flex flex-wrap items-baseline gap-1.5">
-                    <span className="text-sm font-medium text-slate-800">{food.name}</span>
+                    <span className="text-sm font-medium text-slate-800 dark:text-slate-100">{food.name}</span>
                     {food.category && (
-                      <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+                      <span className="rounded-full bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400">
                         {food.category}
                       </span>
                     )}
                   </div>
                   {/* kcal */}
                   <div className="mt-0.5 flex items-baseline gap-1">
-                    <span className="tabular-nums text-base font-bold text-slate-700">{food.calories}</span>
-                    <span className="text-xs text-slate-400">kcal</span>
+                    <span className="tabular-nums text-base font-bold text-slate-700 dark:text-slate-200">{food.calories}</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500">kcal</span>
                   </div>
                   {/* PFC */}
-                  <div className="mt-1 flex items-center gap-3 text-xs text-slate-500">
-                    <span>P <span className="font-medium text-slate-700 tabular-nums">{food.protein}g</span></span>
-                    <span>F <span className="font-medium text-slate-700 tabular-nums">{food.fat}g</span></span>
-                    <span>C <span className="font-medium text-slate-700 tabular-nums">{food.carbs}g</span></span>
+                  <div className="mt-1 flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                    <span>P <span className="font-medium text-slate-700 dark:text-slate-200 tabular-nums">{food.protein}g</span></span>
+                    <span>F <span className="font-medium text-slate-700 dark:text-slate-200 tabular-nums">{food.fat}g</span></span>
+                    <span>C <span className="font-medium text-slate-700 dark:text-slate-200 tabular-nums">{food.carbs}g</span></span>
                   </div>
                 </div>
                 <button
                   onClick={() => handleDelete(food.name)}
                   disabled={isPending}
-                  className="flex-shrink-0 p-2 -mr-1 text-slate-300 hover:text-rose-500 disabled:opacity-40"
+                  className="flex-shrink-0 p-2 -mr-1 text-slate-300 dark:text-slate-600 hover:text-rose-500 disabled:opacity-40"
                   aria-label={`${food.name}を削除`}
                 >
                   <Trash2 size={15} />
@@ -354,7 +354,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
         {/* デスクトップ: テーブル (md+) */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="border-b border-slate-100 bg-slate-50">
+            <thead className="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
               <tr>
                 <th
                   className={thSortCls()}
@@ -396,7 +396,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
                     C (g) <SortIcon col="carbs" sortKey={sortKey} sortDir={sortDir} />
                   </button>
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                   カテゴリ
                 </th>
                 <th className="px-4 py-3" />
@@ -411,18 +411,18 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
                 </tr>
               ) : (
                 visibleFoods.map((food) => (
-                  <tr key={food.name} className="border-b border-slate-50 hover:bg-slate-50">
-                    <td className="px-4 py-2.5 font-medium text-slate-800">{food.name}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">{food.calories}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">{food.protein}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">{food.fat}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">{food.carbs}</td>
-                    <td className="px-4 py-2.5 text-slate-400 text-xs">{food.category ?? "—"}</td>
+                  <tr key={food.name} className="border-b border-slate-50 dark:border-slate-700/60 hover:bg-slate-50 dark:hover:bg-slate-800">
+                    <td className="px-4 py-2.5 font-medium text-slate-800 dark:text-slate-100">{food.name}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-600 dark:text-slate-300">{food.calories}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-600 dark:text-slate-300">{food.protein}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-600 dark:text-slate-300">{food.fat}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-600 dark:text-slate-300">{food.carbs}</td>
+                    <td className="px-4 py-2.5 text-slate-400 dark:text-slate-500 text-xs">{food.category ?? "—"}</td>
                     <td className="px-4 py-2.5 text-right">
                       <button
                         onClick={() => handleDelete(food.name)}
                         disabled={isPending}
-                        className="text-slate-300 hover:text-rose-500 disabled:opacity-40"
+                        className="text-slate-300 dark:text-slate-600 hover:text-rose-500 disabled:opacity-40"
                         aria-label={`${food.name}を削除`}
                       >
                         <Trash2 size={15} />
@@ -437,7 +437,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
 
         {/* さらに表示ボタン（mobile / desktop 共通） */}
         {visibleCount < filtered.length && (
-          <div className="border-t border-slate-100 px-4 py-2 text-center">
+          <div className="border-t border-slate-100 dark:border-slate-700 px-4 py-2 text-center">
             <button
               onClick={() => setVisibleCount((c) => c + 15)}
               className="text-xs font-medium text-blue-600 hover:text-blue-700"
@@ -448,9 +448,9 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
         )}
 
         {/* 件数フッター（mobile / desktop 共通） */}
-        <div className="border-t border-slate-100 px-4 py-2 text-xs text-slate-400">
+        <div className="border-t border-slate-100 dark:border-slate-700 px-4 py-2 text-xs text-slate-400 dark:text-slate-500">
           {filtered.length} 件中 {Math.min(visibleCount, filtered.length)} 件を表示
-          {category !== "すべて" && <span className="ml-1 text-blue-500">（{category}）</span>}
+          {category !== "すべて" && <span className="ml-1 text-blue-500">{category}</span>}
         </div>
       </div>
     </div>

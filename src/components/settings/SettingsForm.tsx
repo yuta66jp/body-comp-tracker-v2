@@ -139,8 +139,8 @@ function FieldItem({
               className={`flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-all ${
                 value === opt
                   ? opt === "Cut"
-                    ? "border-blue-400 bg-blue-600 text-white shadow-sm"
-                    : "border-emerald-400 bg-emerald-600 text-white shadow-sm"
+                    ? "border-blue-400 bg-blue-600 text-white shadow-sm dark:border-blue-600 dark:bg-blue-900/30 dark:text-blue-300"
+                    : "border-emerald-400 bg-emerald-600 text-white shadow-sm dark:border-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300"
                   : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:bg-slate-600"
               }`}
             >
@@ -430,7 +430,7 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
         <button
           onClick={handleSave}
           disabled={status === "saving"}
-          className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md disabled:opacity-40"
+          className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md disabled:opacity-40 dark:bg-blue-800 dark:hover:bg-blue-700"
         >
           {status === "saving"
             ? <><Loader2 size={14} className="animate-spin" /> 保存中...</>

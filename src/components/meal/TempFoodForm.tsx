@@ -94,22 +94,22 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
   }
 
   const inputCls =
-    "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400";
+    "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-500 dark:focus:bg-slate-700 dark:focus:ring-blue-900/30";
   const errorInputCls =
-    "w-full rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-slate-800 outline-none transition-colors focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100 placeholder:text-slate-400";
+    "w-full rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-slate-800 outline-none transition-colors focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100 placeholder:text-slate-400 dark:border-rose-600/70 dark:bg-rose-900/30 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-rose-500 dark:focus:bg-rose-900/30 dark:focus:ring-rose-900/20";
 
   return (
     <form
       onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
-      className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3"
+      className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-700/50 dark:bg-amber-900/20"
     >
-      <p className="text-xs text-amber-700 font-medium">
+      <p className="text-xs text-amber-700 font-medium dark:text-amber-400">
         食品DBに登録しない一時食品。摂取量の栄養値を直接入力してください。
       </p>
 
       {/* 食品名 */}
       <div>
-        <label htmlFor="temp-food-name" className="mb-1 block text-xs font-medium text-slate-500">食品名 <span className="text-rose-500">*</span></label>
+        <label htmlFor="temp-food-name" className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">食品名 <span className="text-rose-500">*</span></label>
         <input
           id="temp-food-name"
           type="text"
@@ -123,7 +123,7 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
 
       {/* グラム数（任意） */}
       <div>
-        <label htmlFor="temp-food-grams" className="mb-1 block text-xs font-medium text-slate-500">グラム数（任意）</label>
+        <label htmlFor="temp-food-grams" className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">グラム数（任意）</label>
         <input
           id="temp-food-grams"
           type="number"
@@ -138,10 +138,10 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
 
       {/* 栄養値（摂取量そのもの） */}
       <div>
-        <p className="mb-1.5 text-xs font-medium text-slate-500">栄養値（この食品の摂取量全体） <span className="text-rose-500">*</span></p>
+        <p className="mb-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">栄養値（この食品の摂取量全体） <span className="text-rose-500">*</span></p>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label htmlFor="temp-food-calories" className="mb-1 block text-[11px] text-slate-400">カロリー (kcal)</label>
+            <label htmlFor="temp-food-calories" className="mb-1 block text-[11px] text-slate-400 dark:text-slate-500">カロリー (kcal)</label>
             <input
               id="temp-food-calories"
               type="number"
@@ -155,7 +155,7 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
             {errors.calories && <p className="mt-1 text-xs text-rose-500">{errors.calories}</p>}
           </div>
           <div>
-            <label htmlFor="temp-food-protein" className="mb-1 block text-[11px] text-slate-400">たんぱく質 (g)</label>
+            <label htmlFor="temp-food-protein" className="mb-1 block text-[11px] text-slate-400 dark:text-slate-500">たんぱく質 (g)</label>
             <input
               id="temp-food-protein"
               type="number"
@@ -169,7 +169,7 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
             {errors.protein && <p className="mt-1 text-xs text-rose-500">{errors.protein}</p>}
           </div>
           <div>
-            <label htmlFor="temp-food-fat" className="mb-1 block text-[11px] text-slate-400">脂質 (g)</label>
+            <label htmlFor="temp-food-fat" className="mb-1 block text-[11px] text-slate-400 dark:text-slate-500">脂質 (g)</label>
             <input
               id="temp-food-fat"
               type="number"
@@ -183,7 +183,7 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
             {errors.fat && <p className="mt-1 text-xs text-rose-500">{errors.fat}</p>}
           </div>
           <div>
-            <label htmlFor="temp-food-carbs" className="mb-1 block text-[11px] text-slate-400">炭水化物 (g)</label>
+            <label htmlFor="temp-food-carbs" className="mb-1 block text-[11px] text-slate-400 dark:text-slate-500">炭水化物 (g)</label>
             <input
               id="temp-food-carbs"
               type="number"
@@ -204,8 +204,8 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
         disabled={justAdded}
         className={`flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-colors ${
           justAdded
-            ? "bg-green-500 cursor-default"
-            : "bg-amber-500 hover:bg-amber-600"
+            ? "bg-green-500 cursor-default dark:bg-green-700"
+            : "bg-amber-500 hover:bg-amber-600 dark:bg-amber-700 dark:hover:bg-amber-600"
         }`}
       >
         {justAdded ? (

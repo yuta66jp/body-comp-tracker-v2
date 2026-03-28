@@ -5,7 +5,8 @@ import {
   ResponsiveContainer, Cell, LabelList,
 } from "recharts";
 import type { RenderableText } from "recharts";
-import { makeTooltipFormatter } from "@/lib/utils/rechartsFormatter";
+import { makeTooltipFormatter, buildTooltipStyle } from "@/lib/utils/rechartsFormatter";
+import { useIsDark } from "@/lib/hooks/useIsDark";
 import {
   type FactorEntry,
   type FactorMeta,
@@ -310,6 +311,8 @@ function FactorInterpretation({
 }
 
 export function FactorAnalysis({ data, updatedAt, meta, analyticsAvailability }: FactorAnalysisProps) {
+  const isDark = useIsDark();
+  const tooltipStyle = buildTooltipStyle(isDark);
   const { rows: sorted, filteredOutCount } = prepareFactorRows(data);
 
   // 有効な結果がゼロ件の場合: 代替表示
@@ -370,7 +373,7 @@ export function FactorAnalysis({ data, updatedAt, meta, analyticsAvailability }:
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
           <XAxis type="number" tick={{ fontSize: 11 }} unit="%" domain={[0, 100]} />
           <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={130} />
-          <Tooltip formatter={makeTooltipFormatter((v) => `${v}%`, () => "重要度（相対値）")} />
+          <Tooltip {...tooltipStyle} formatter={makeTooltipFormatter((v) => `${v}%`, () => "重要度（相対値）")} />
           <Bar dataKey="pct" radius={[0, 4, 4, 0]}>
             <LabelList dataKey="pct" position="right" formatter={(v: RenderableText) => `${v ?? ""}%`} style={{ fontSize: 11, fill: "#6b7280" }} />
             {chartData.map((_, i) => (

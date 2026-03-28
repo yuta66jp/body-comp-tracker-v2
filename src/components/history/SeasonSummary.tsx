@@ -64,7 +64,7 @@ export function SeasonSummary({ stats }: SeasonSummaryProps) {
                   {s.endWeight?.toFixed(1) ?? "—"}
                 </td>
                 <td className={`py-2 pr-4 text-right text-xs font-semibold ${
-                  delta === null ? "text-slate-300" : delta < 0 ? "text-emerald-600" : "text-rose-500"
+                  delta === null ? "text-slate-300 dark:text-slate-600" : delta < 0 ? "text-emerald-600" : "text-rose-500"
                 }`}>
                   {delta !== null ? `${delta > 0 ? "+" : ""}${delta.toFixed(1)}` : "—"}
                 </td>
