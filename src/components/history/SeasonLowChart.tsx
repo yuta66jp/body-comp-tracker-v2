@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import type { TooltipValueType, RenderableText } from "recharts";
 import type { SeasonMeta } from "@/lib/utils/calcSeason";
+import { useIsDark } from "@/lib/hooks/useIsDark";
 
 interface SeasonLowTooltipEntry {
   payload?: {
@@ -32,6 +33,10 @@ const PAST_COLORS = ["#d1d5db", "#9ca3af", "#6b7280", "#4b5563", "#334155"];
 const CURRENT_COLOR = "#3b82f6";
 
 export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) {
+  const isDark = useIsDark();
+  const gridColor = isDark ? "#334155" : "#f0f0f0";
+  const tickColor = isDark ? "#94a3b8" : "#64748b";
+
   const data = seasons.map((s, i) => {
     const prev = seasons[i - 1];
     const delta = prev ? s.peakWeight - prev.peakWeight : null;
@@ -55,16 +60,16 @@ export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) 
   let pastIdx = 0;
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-      <h2 className="mb-1 text-base font-semibold text-gray-700">年別 仕上がり体重（Season Low）</h2>
-      <p className="mb-4 text-xs text-gray-400">各シーズンの最小体重 = 仕上がり体重</p>
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+      <h2 className="mb-1 text-base font-semibold text-gray-700 dark:text-slate-200">年別 仕上がり体重（Season Low）</h2>
+      <p className="mb-4 text-xs text-gray-400 dark:text-slate-500">各シーズンの最小体重 = 仕上がり体重</p>
       <ResponsiveContainer width="100%" height={260}>
         <BarChart data={data} margin={{ top: 24, right: 8, bottom: 4, left: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-          <XAxis dataKey="season" tick={{ fontSize: 10 }} />
+          <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+          <XAxis dataKey="season" tick={{ fontSize: 10, fill: tickColor }} />
           <YAxis
             domain={[Math.floor(minW) - 1, Math.ceil(maxW) + 1]}
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 11, fill: tickColor }}
             width={44}
             tickFormatter={(v: number) => `${v}kg`}
           />
@@ -94,6 +99,7 @@ export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) 
               dataKey="weight"
               position="top"
               fontSize={12}
+              fill={tickColor}
               formatter={(v: RenderableText) => typeof v === "number" ? `${v.toFixed(1)}kg` : ""}
             />
           </Bar>
@@ -104,7 +110,7 @@ export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) 
       <div className="mt-4 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
+            <tr className="border-b border-gray-100 text-left text-xs text-gray-500 dark:border-slate-700 dark:text-slate-400">
               <th className="pb-2 pr-4 font-medium">シーズン</th>
               <th className="pb-2 pr-4 font-medium text-right">大会日</th>
               <th className="pb-2 pr-4 font-medium text-right">仕上がり体重</th>
@@ -115,26 +121,26 @@ export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) 
             {data.map((row) => (
               <tr
                 key={row.season}
-                className={`border-b border-gray-50 hover:bg-gray-50 ${row.isCurrent ? "font-semibold" : ""}`}
+                className={`border-b border-gray-50 hover:bg-gray-50 dark:border-slate-700/60 dark:hover:bg-slate-800 ${row.isCurrent ? "font-semibold" : ""}`}
               >
-                <td className="py-2 pr-4 text-gray-800">
+                <td className="py-2 pr-4 text-gray-800 dark:text-slate-200">
                   {row.season}
                   {row.isCurrent && (
-                    <span className="ml-1.5 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600">
+                    <span className="ml-1.5 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
                       今季
                     </span>
                   )}
                 </td>
-                <td className="py-2 pr-4 text-right text-gray-500">{row.targetDate}</td>
-                <td className="py-2 pr-4 text-right font-semibold text-gray-800">
+                <td className="py-2 pr-4 text-right text-gray-500 dark:text-slate-400">{row.targetDate}</td>
+                <td className="py-2 pr-4 text-right font-semibold text-gray-800 dark:text-slate-200">
                   {row.weight.toFixed(1)} kg
                 </td>
                 <td className={`py-2 text-right text-sm font-medium ${
                   row.delta === null
-                    ? "text-gray-300"
+                    ? "text-gray-300 dark:text-slate-600"
                     : row.delta < 0
-                    ? "text-emerald-600"
-                    : "text-rose-500"
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-rose-500 dark:text-rose-400"
                 }`}>
                   {row.delta !== null
                     ? `${row.delta > 0 ? "+" : ""}${row.delta.toFixed(1)} kg`
