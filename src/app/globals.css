@@ -57,3 +57,20 @@ body {
 }
 .dark ::-webkit-scrollbar-thumb { background: #475569; }
 .dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+/* ─── Recharts tooltip: ダークモード上書き ──────────────────────────────────
+   Recharts は defaultStyle として background-color: rgba(255,255,255,0.96) を
+   inline style で適用するため、contentStyle prop だけでは確実に上書きできない。
+   !important で inline style を上書きし、全チャートのツールチップを統一する。
+   ライトモードには影響しない（.dark 下のみ）。 */
+.dark .recharts-default-tooltip {
+  background-color: #1e293b !important;  /* slate-800: ダークカード背景 */
+  border: 1px solid #334155 !important;  /* slate-700: 境界線 */
+  border-radius: 8px;
+}
+.dark p.recharts-tooltip-label {
+  color: #e2e8f0 !important;  /* slate-200: ラベル文字色 */
+}
+.dark .recharts-tooltip-item {
+  color: #cbd5e1 !important;  /* slate-300: 数値・系列名文字色 */
+}
