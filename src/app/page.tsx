@@ -212,14 +212,6 @@ export default async function DashboardPage() {
               設定データの取得中にエラーが発生しました。一部の表示がデフォルト値になります。
             </StatusNotice>
           )}
-          {/* シーズンバッジ */}
-          {currentSeason && (
-            <div className="flex items-center gap-2">
-              <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                📅 {currentSeason}
-              </span>
-            </div>
-          )}
         </>
       }
     >
@@ -229,7 +221,7 @@ export default async function DashboardPage() {
         </p>
       ) : logs.length > 0 ? (
         <>
-          <KpiCards logs={logs} settings={settings} avgTdee={latestTdee} currentWeight={readinessMetrics.current_weight} />
+          <KpiCards logs={logs} settings={settings} avgTdee={latestTdee} currentWeight={readinessMetrics.current_weight} currentSeason={currentSeason} />
           <GoalNavigator
             metrics={readinessMetrics}
             phase={phase}
