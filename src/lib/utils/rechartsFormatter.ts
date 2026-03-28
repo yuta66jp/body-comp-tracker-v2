@@ -43,10 +43,13 @@ export function buildTooltipStyle(isDark: boolean): {
       backgroundColor: "#1e293b",
       border:          "1px solid #334155",
       borderRadius:    "8px",
-      boxShadow:       "0 4px 6px -1px rgba(0,0,0,0.5)",
+      // boxShadow を意図的に省略:
+      // シャドウが周囲を暗くすることで相対コントラストが上がり、
+      // ツールチップ本体が「白く浮いて見える」効果が生じるため。
+      // フラットなダークカードとして背景に自然に馴染ませる。
     },
-    labelStyle: { color: "#cbd5e1" },
-    itemStyle:  { color: "#94a3b8" },
+    labelStyle: { color: "#e2e8f0" },
+    itemStyle:  { color: "#cbd5e1" },
   };
 }
 
