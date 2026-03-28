@@ -148,7 +148,7 @@ export function KpiCards({ logs, settings, currentWeight, currentSeason }: KpiCa
         iconColor="text-violet-600 dark:text-violet-400"
         tag={
           currentSeason ? (
-            <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">
+            <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">
               大会: {currentSeason.replace(/_/g, " ")}
             </span>
           ) : undefined
