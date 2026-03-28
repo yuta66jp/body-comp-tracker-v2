@@ -46,15 +46,15 @@ export function MobileMealLoggerSheet() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:shadow-none lg:max-w-md"
+        className="flex w-full items-center gap-2.5 rounded-xl border border-slate-100 bg-white px-3.5 py-2.5 shadow-sm transition-all hover:bg-slate-50 hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:shadow-none dark:hover:bg-slate-800/60 lg:max-w-xs"
       >
-        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/30">
-          <PenLine size={18} className="text-blue-600 dark:text-blue-400" />
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-900/30">
+          <PenLine size={15} className="text-blue-600 dark:text-blue-400" />
         </div>
         <span className="flex-1 text-left text-sm font-semibold text-slate-700 dark:text-slate-200">
           食事・体重を記録する
         </span>
-        <ChevronRight size={16} className="flex-shrink-0 text-slate-300 dark:text-slate-600" />
+        <ChevronRight size={14} className="flex-shrink-0 text-slate-300 dark:text-slate-600" />
       </button>
 
       {/* ── Backdrop ── */}
