@@ -41,12 +41,12 @@ export function MobileMealLoggerSheet() {
   }, [open]);
 
   return (
-    <div>
+    <div className="flex justify-center">
       {/* ── Trigger ── */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 py-3.5 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 active:bg-blue-200 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30"
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 py-3.5 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 active:bg-blue-200 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30 lg:max-w-sm"
       >
         <PenLine size={16} />
         食事・体重を記録する
