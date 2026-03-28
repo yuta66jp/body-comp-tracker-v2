@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { AlertTriangle, TrendingUp, TrendingDown, Minus, Info } from "lucide-react";
 import type { ForecastBacktestRun, ForecastBacktestMetric } from "@/lib/supabase/types";
+import { makeTooltipFormatter, buildTooltipStyle } from "@/lib/utils/rechartsFormatter";
 import { MODEL_DESCRIPTIONS, ModelInfoTooltip } from "./ModelInfoTooltip";
 import { useIsDark } from "@/lib/hooks/useIsDark";
 
@@ -95,6 +96,8 @@ export function BacktestResults({ run, metrics }: Props) {
     grid:     isDark ? "#334155" : "#f1f5f9",
     tickText: isDark ? "#94a3b8" : "#64748b",
   };
+  const tooltipStyle = buildTooltipStyle(isDark);
+
   // #363 以降の run は複数 policy の行を含む。
   // BacktestResults は all_days policy（全日ベースライン）のみを表示対象にする。
   const allDaysMetrics = metrics.filter((m) => m.eval_policy === "all_days");
@@ -160,23 +163,11 @@ export function BacktestResults({ run, metrics }: Props) {
               stroke={chartColors.axis}
             />
             <Tooltip
-              content={(tooltipProps: any) => {
-                const { active, payload, label } = tooltipProps;
-                if (!active || !payload?.length) return null;
-                return (
-                  <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-slate-700 dark:bg-slate-800">
-                    {label != null && (
-                      <p className="mb-1 font-medium text-gray-600 dark:text-slate-400">{String(label)}</p>
-                    )}
-                    {(payload as any[]).map((entry: any, i: number) => (
-                      <p key={i} className="text-gray-700 dark:text-slate-300" style={{ color: MODEL_CONFIG[entry.dataKey]?.color }}>
-                        {MODEL_CONFIG[entry.dataKey]?.label ?? entry.dataKey}:{" "}
-                        {typeof entry.value === "number" ? `${entry.value.toFixed(3)} kg` : "—"}
-                      </p>
-                    ))}
-                  </div>
-                );
-              }}
+              {...tooltipStyle}
+              formatter={makeTooltipFormatter(
+                (v) => `${v.toFixed(3)} kg`,
+                (name) => MODEL_CONFIG[name]?.label ?? name,
+              )}
             />
             <Legend
               formatter={(name: string) => MODEL_CONFIG[name]?.label ?? name}
