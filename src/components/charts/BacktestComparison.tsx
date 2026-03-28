@@ -53,6 +53,7 @@ function buildMaeMap(
 ): Map<string, number> {
   const m = new Map<string, number>();
   for (const row of metrics) {
+    if (row.mae === null) continue; // n_used=0 の policy 行をスキップ
     m.set(`${row.model_name}:${row.horizon_days}`, row.mae);
   }
   return m;
@@ -91,22 +92,28 @@ export function BacktestComparison({
   dailyMetrics,
   sma7Metrics,
 }: BacktestComparisonProps) {
-  const hasDailyData = dailyMetrics.length > 0;
-  const hasSma7Data = sma7Metrics.length > 0;
+  // #363 以降の run は複数 policy の行を含む。
+  // BacktestComparison は評価軸（単日 vs 7日均）の比較が目的のため、
+  // ベースラインである all_days policy のみを使用する。
+  const dailyAll = dailyMetrics.filter((m) => m.eval_policy === "all_days");
+  const sma7All  = sma7Metrics.filter((m) => m.eval_policy === "all_days");
+
+  const hasDailyData = dailyAll.length > 0;
+  const hasSma7Data = sma7All.length > 0;
 
   if (!hasDailyData && !hasSma7Data) return null;
 
-  const dailyMap = buildMaeMap(dailyMetrics);
-  const sma7Map = buildMaeMap(sma7Metrics);
+  const dailyMap = buildMaeMap(dailyAll);
+  const sma7Map = buildMaeMap(sma7All);
 
   // ホライズン別ベスト MAE (ノイズ除去率計算用)
   const dailyBest: Record<Horizon, { model: string; mae: number } | null> = {
-    7: bestMae(dailyMap, 7),
+    7:  bestMae(dailyMap, 7),
     14: bestMae(dailyMap, 14),
     30: bestMae(dailyMap, 30),
   };
   const sma7Best: Record<Horizon, { model: string; mae: number } | null> = {
-    7: bestMae(sma7Map, 7),
+    7:  bestMae(sma7Map, 7),
     14: bestMae(sma7Map, 14),
     30: bestMae(sma7Map, 30),
   };
@@ -230,9 +237,9 @@ export function BacktestComparison({
                   </td>
                   {HORIZONS.map((h) => {
                     const dailyMae = dailyMap.get(`${model}:${h}`) ?? null;
-                    const sma7Mae = sma7Map.get(`${model}:${h}`) ?? null;
+                    const sma7Mae  = sma7Map.get(`${model}:${h}`) ?? null;
                     const isDailyBest = dailyBest[h]?.model === model;
-                    const isSma7Best = sma7Best[h]?.model === model;
+                    const isSma7Best  = sma7Best[h]?.model === model;
                     return (
                       <Fragment key={`${model}-${h}`}>
                         <td

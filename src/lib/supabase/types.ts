@@ -162,40 +162,49 @@ export type Database = {
         Row: {
           bias: number | null
           computed_at: string
+          eval_policy: string
           extra: Json
           horizon_days: number
           id: string
-          mae: number
+          mae: number | null
           mape: number | null
           model_name: string
+          n_excluded: number
           n_predictions: number
-          rmse: number
+          n_total: number
+          rmse: number | null
           run_id: string
         }
         Insert: {
           bias?: number | null
           computed_at?: string
+          eval_policy?: string
           extra?: Json
           horizon_days: number
           id?: string
-          mae: number
+          mae?: number | null
           mape?: number | null
           model_name: string
+          n_excluded?: number
           n_predictions?: number
-          rmse: number
+          n_total?: number
+          rmse?: number | null
           run_id: string
         }
         Update: {
           bias?: number | null
           computed_at?: string
+          eval_policy?: string
           extra?: Json
           horizon_days?: number
           id?: string
-          mae?: number
+          mae?: number | null
           mape?: number | null
           model_name?: string
+          n_excluded?: number
           n_predictions?: number
-          rmse?: number
+          n_total?: number
+          rmse?: number | null
           run_id?: string
         }
         Relationships: [
@@ -508,7 +517,7 @@ export const Constants = {
   },
 } as const
 
-// Convenience type aliases
+// ── Convenience type aliases ──────────────────────────────────────────────────
 export type DailyLog = Database["public"]["Tables"]["daily_logs"]["Row"];
 
 /**
@@ -542,12 +551,12 @@ export type MacroDailyLog = Pick<DailyLog, "log_date" | "weight" | "calories" | 
  */
 export type TdeeDailyLog = Pick<DailyLog, "log_date" | "weight" | "calories">;
 
-export type FoodMaster = Database["public"]["Tables"]["food_master"]["Row"];
-export type MenuMaster = Database["public"]["Tables"]["menu_master"]["Row"];
-export type Setting = Database["public"]["Tables"]["settings"]["Row"];
-export type Prediction = Database["public"]["Tables"]["predictions"]["Row"];
+export type FoodMaster  = Database["public"]["Tables"]["food_master"]["Row"];
+export type MenuMaster  = Database["public"]["Tables"]["menu_master"]["Row"];
+export type Setting     = Database["public"]["Tables"]["settings"]["Row"];
+export type Prediction  = Database["public"]["Tables"]["predictions"]["Row"];
 export type AnalyticsCache = Database["public"]["Tables"]["analytics_cache"]["Row"];
-export type CareerLog = Database["public"]["Tables"]["career_logs"]["Row"];
+export type CareerLog   = Database["public"]["Tables"]["career_logs"]["Row"];
 
 /** menu_master.recipe JSONB の要素型 (旧版: {name, amount}) */
 export interface RecipeItem {
@@ -580,7 +589,7 @@ export interface EnrichedLogPayloadRow {
   avg_calories_7d?: number | null;
 }
 
-// Backtest table aliases
+// ── Backtest table aliases ────────────────────────────────────────────────────
 export type ForecastBacktestRun =
   Database["public"]["Tables"]["forecast_backtest_runs"]["Row"];
 export type ForecastBacktestMetric =

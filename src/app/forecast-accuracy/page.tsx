@@ -1,5 +1,6 @@
 import { BacktestResults } from "@/components/charts/BacktestResults";
 import { BacktestComparison } from "@/components/charts/BacktestComparison";
+import { BacktestPolicyComparison } from "@/components/charts/BacktestPolicyComparison";
 import { ForecastAccuracyRefreshButton } from "@/components/charts/ForecastAccuracyRefreshButton";
 import { BarChart2 } from "lucide-react";
 import { fetchLatestRuns, fetchMetrics } from "@/lib/queries/backtest";
@@ -82,13 +83,20 @@ export default async function ForecastAccuracyPage() {
       }
     >
       <div className="space-y-6">
-        {/* ── 単日 vs 7日平均 比較 (新セクション) ── */}
+        {/* ── 単日 vs 7日平均 比較 ── */}
         <BacktestComparison
           dailyMetrics={dailyMetrics}
           sma7Metrics={sma7Metrics}
         />
 
-        {/* ── 単日評価の詳細 (既存) ── */}
+        {/* ── 全日 vs イベント除外 評価条件別比較 (#364) ──
+            dailyMetrics に all_days / exclude_flagged_plus_recovery の両 policy 行が含まれる場合に表示。
+            exclude policy 行がない旧 run では BacktestPolicyComparison が null を返すため表示されない。 */}
+        {dailyMetrics.length > 0 && (
+          <BacktestPolicyComparison metrics={dailyMetrics} />
+        )}
+
+        {/* ── 単日評価の詳細 ── */}
         {dailyRun && dailyMetricsResult.kind === "ok" && dailyMetrics.length > 0 ? (
           <div>
             <h2 className="mb-3 text-sm font-bold text-slate-600">

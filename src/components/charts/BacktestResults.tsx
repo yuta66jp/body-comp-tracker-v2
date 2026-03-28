@@ -55,6 +55,7 @@ function fmtDate(iso: string): string {
 function bestModels(metrics: ForecastBacktestMetric[]): Record<number, string> {
   const best: Record<number, { mae: number; model: string }> = {};
   for (const m of metrics) {
+    if (m.mae === null) continue; // n_used=0 の policy 行をスキップ
     const prev = best[m.horizon_days];
     if (!prev || m.mae < prev.mae) {
       best[m.horizon_days] = { mae: m.mae, model: m.model_name };
@@ -79,7 +80,7 @@ function buildChartData(metrics: ForecastBacktestMetric[]) {
     const row: Record<string, string | number> = { horizon: `${h}日先` };
     for (const model of MODEL_ORDER) {
       const m = metrics.find((x) => x.horizon_days === h && x.model_name === model);
-      if (m) row[model] = Number(m.mae.toFixed(3));
+      if (m && m.mae !== null) row[model] = Number(m.mae.toFixed(3));
     }
     return row;
   });
@@ -88,8 +89,12 @@ function buildChartData(metrics: ForecastBacktestMetric[]) {
 // ── コンポーネント ────────────────────────────────────────────────────────────
 
 export function BacktestResults({ run, metrics }: Props) {
-  const best = bestModels(metrics);
-  const chartData = buildChartData(metrics);
+  // #363 以降の run は複数 policy の行を含む。
+  // BacktestResults は all_days policy（全日ベースライン）のみを表示対象にする。
+  const allDaysMetrics = metrics.filter((m) => m.eval_policy === "all_days");
+
+  const best = bestModels(allDaysMetrics);
+  const chartData = buildChartData(allDaysMetrics);
 
   return (
     <div className="space-y-6">
@@ -110,7 +115,7 @@ export function BacktestResults({ run, metrics }: Props) {
         {HORIZONS.map((h) => {
           const winner = best[h];
           const cfg = winner ? MODEL_CONFIG[winner] : null;
-          const metric = metrics.find((m) => m.horizon_days === h && m.model_name === winner);
+          const metric = allDaysMetrics.find((m) => m.horizon_days === h && m.model_name === winner);
           return (
             <div
               key={h}
@@ -178,10 +183,10 @@ export function BacktestResults({ run, metrics }: Props) {
           const ranked = MODEL_ORDER
             .map((model) => ({
               model,
-              metric: metrics.find((x) => x.horizon_days === h && x.model_name === model),
+              metric: allDaysMetrics.find((x) => x.horizon_days === h && x.model_name === model),
             }))
-            .filter((x): x is { model: string; metric: typeof metrics[number] } => x.metric !== undefined)
-            .sort((a, b) => a.metric.mae - b.metric.mae);
+            .filter((x): x is { model: string; metric: typeof allDaysMetrics[number] } => x.metric !== undefined)
+            .sort((a, b) => (a.metric.mae ?? Infinity) - (b.metric.mae ?? Infinity));
           return (
             <div key={h} className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
               <h3 className="mb-2.5 text-sm font-semibold text-slate-700">{h} 日先</h3>
@@ -265,7 +270,7 @@ export function BacktestResults({ run, metrics }: Props) {
                     </span>
                   </td>
                   {HORIZONS.map((h) => {
-                    const m = metrics.find(
+                    const m = allDaysMetrics.find(
                       (x) => x.horizon_days === h && x.model_name === model
                     );
                     const isBest = best[h] === model;
