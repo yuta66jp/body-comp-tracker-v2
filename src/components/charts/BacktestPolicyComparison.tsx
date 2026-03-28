@@ -87,11 +87,41 @@ function bestModelForPolicy(
   return best;
 }
 
+/**
+ * policy × horizon の組み合わせごとに最良 MAE 値を返す。
+ * キー: "${policy}:${horizon_days}"
+ * null MAE（全件除外行）は比較対象外。同率最良は複数セルにマーキングされる。
+ */
+function bestMaePerColumn(
+  metrics: ForecastBacktestMetric[],
+): Map<string, number> {
+  const best = new Map<string, number>();
+  for (const m of metrics) {
+    if (m.mae === null) continue;
+    const key = `${m.eval_policy}:${m.horizon_days}`;
+    const cur = best.get(key);
+    if (cur === undefined || m.mae < cur) best.set(key, m.mae);
+  }
+  return best;
+}
+
+/** 浮動小数点の誤差を考慮した「最良MAE」判定 */
+function isBestMae(
+  mae: number | null | undefined,
+  best: number | undefined,
+): boolean {
+  if (mae == null || best == null) return false;
+  return Math.abs(mae - best) < 1e-9;
+}
+
 // ── コンポーネント ────────────────────────────────────────────────────────────
 
 export function BacktestPolicyComparison({ metrics }: Props) {
   const hasExcludePolicy = metrics.some((m) => m.eval_policy === POLICY_EXCLUDE);
   if (!hasExcludePolicy) return null;
+
+  // デスクトップテーブル用: 各 policy × horizon 列の最良 MAE
+  const bestMaes = bestMaePerColumn(metrics);
 
   // 除外概要: すべての exclude 行のうち n_total > 0 の代表値として h=7, NeuralProphet を優先
   const summaryRow =
@@ -237,11 +267,20 @@ export function BacktestPolicyComparison({ metrics }: Props) {
                     const allM = findMetric(metrics, model, h, POLICY_ALL);
                     const exM  = findMetric(metrics, model, h, POLICY_EXCLUDE);
                     const allExcluded = exM ? exM.n_predictions === 0 : false;
+                    const isAllBest = isBestMae(allM?.mae, bestMaes.get(`${POLICY_ALL}:${h}`));
+                    const isExBest  = isBestMae(exM?.mae,  bestMaes.get(`${POLICY_EXCLUDE}:${h}`));
                     return (
                       <Fragment key={`${model}-${h}`}>
                         {/* 全日 MAE */}
-                        <td className="border-l border-slate-100 px-3 py-2.5 text-center font-mono tabular-nums text-slate-600">
+                        <td
+                          className={`border-l border-slate-100 px-3 py-2.5 text-center font-mono tabular-nums ${
+                            isAllBest ? "font-bold text-blue-700" : "text-slate-600"
+                          }`}
+                        >
                           {fmt3(allM?.mae)}
+                          {isAllBest && (
+                            <span className="ml-0.5 text-[9px] text-blue-400" aria-label="最良">★</span>
+                          )}
                         </td>
                         {/* 通常日 MAE / 全件除外バッジ */}
                         <td className="px-3 py-2.5 text-center font-mono tabular-nums">
@@ -253,7 +292,14 @@ export function BacktestPolicyComparison({ metrics }: Props) {
                               全件除外
                             </span>
                           ) : (
-                            <span className="text-violet-700">{fmt3(exM?.mae)}</span>
+                            <>
+                              <span className={isExBest ? "font-bold text-violet-700" : "text-violet-600"}>
+                                {fmt3(exM?.mae)}
+                              </span>
+                              {isExBest && (
+                                <span className="ml-0.5 text-[9px] text-violet-400" aria-label="最良">★</span>
+                              )}
+                            </>
                           )}
                         </td>
                         {/* 除外数 */}
@@ -272,6 +318,7 @@ export function BacktestPolicyComparison({ metrics }: Props) {
 
       {/* ── フッター注記 ── */}
       <div className="border-t border-slate-50 bg-slate-50 px-5 py-2.5 text-[11px] text-slate-400">
+        ★ = 各 horizon 列の最良 MAE（同率の場合は複数）。
         全日 = イベントを含む全評価サンプルで評価 / 通常日 = cheat_day · travel_day と回復 2 日を除外して評価。
         全件除外 = 除外条件により評価対象サンプルがゼロになった状態（データ欠損ではない）。
         † 除外数は実日数ではなくホライズンごとの評価サンプル数（予測点数）。除外数が少ないほど精度差は参考程度。
