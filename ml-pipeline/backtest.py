@@ -24,9 +24,20 @@ backtest.py — 体重予測モデルの walk-forward 精度評価
 
 評価指標: MAE / RMSE / MAPE / bias / n_predictions
 
+評価ポリシー (--eval-policies):
+  all_days:
+    全予測点を評価対象にする (従来動作)
+  exclude_flagged_plus_recovery:
+    is_cheat_day / is_travel_day が True の日と、その後 recovery_days 日間を除外する
+    手動 event period が指定されている場合は、その期間と recovery_days 日間も除外する
+    チートデイや旅行による短期体重ブレを除いた通常日の精度を評価できる
+
+  同一 run に対して複数 policy の metrics を算出し、DB に保存する。
+  (#364 で比較表示に利用する)
+
 保存先:
   - forecast_backtest_runs        (実行メタ情報、config.series_type で識別)
-  - forecast_backtest_metrics     (モデル/ホライズン別集計)
+  - forecast_backtest_metrics     (モデル/ホライズン/eval_policy 別集計)
   - forecast_backtest_predictions (個別予測点)
 
 実行:
@@ -36,6 +47,9 @@ backtest.py — 体重予測モデルの walk-forward 精度評価
   python ml-pipeline/backtest.py --origin-step-days 14    # 起点間隔を広げる
   python ml-pipeline/backtest.py --horizons 7 14 30       # ホライズン指定
   python ml-pipeline/backtest.py --feature-set baseline   # 再現メタ (デフォルト)
+  python ml-pipeline/backtest.py --recovery-days 3        # 回復期間を変更 (デフォルト: 2)
+  python ml-pipeline/backtest.py --event-periods 2026-03-01:2026-03-10  # 手動イベント期間
+  python ml-pipeline/backtest.py --eval-policies all_days exclude_flagged_plus_recovery
 """
 
 import argparse
@@ -45,7 +59,7 @@ import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from typing import Callable, Optional
+from typing import Callable, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -81,6 +95,67 @@ _MODEL_VERSION             = "neuralprophet-v1"
 SERIES_DAILY = "daily"
 SERIES_SMA7  = "sma7"
 
+# ── 評価ポリシー ─────────────────────────────────────────────────────────────────
+
+# 全予測点を評価対象にする (従来動作・比較ベースライン)
+POLICY_ALL_DAYS = "all_days"
+
+# チートデイ / 旅行日と回復期間を除外した通常日のみ評価する
+# 手動 event period も優先適用して除外する
+POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY = "exclude_flagged_plus_recovery"
+
+_DEFAULT_EVAL_POLICIES = [POLICY_ALL_DAYS, POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY]
+
+# イベント後の回復期間 (日数)。デフォルト 2 日:
+#   チートデイの翌日〜翌々日は水分変動が残りやすいため除外する。
+#   旅行も同様。イベント種別ごとの自動調整はこの Issue のスコープ外 (#363)。
+_DEFAULT_RECOVERY_DAYS = 2
+
+
+# ── 手動 event period ──────────────────────────────────────────────────────────
+
+@dataclass
+class ManualEventPeriod:
+    """手動で指定するイベント期間 (旅行・遠征など長期逸脱)。
+
+    exclude_flagged_plus_recovery ポリシーでは、この期間と
+    end_date の後 recovery_days 日間を除外対象に加える。
+
+    daily_logs の is_cheat_day / is_travel_day フラグで捕捉できない稀な
+    長期逸脱を手動で指定するためのもの。
+    標準的なチートデイや短期旅行は DB フラグ側で管理する。
+
+    フィールド:
+      start_date : イベント開始日 (含む)
+      end_date   : イベント終了日 (含む)。start_date <= end_date であること。
+    """
+    start_date: date
+    end_date: date
+
+
+def parse_event_period(s: str) -> ManualEventPeriod:
+    """'YYYY-MM-DD:YYYY-MM-DD' 形式の文字列を ManualEventPeriod に変換する。
+
+    CLI の --event-periods 引数パーサとして使用する。
+    """
+    parts = s.split(":")
+    if len(parts) != 2:
+        raise argparse.ArgumentTypeError(
+            f"イベント期間は 'START:END' 形式で指定してください (例: 2026-03-01:2026-03-10). 受け取った値: {s!r}"
+        )
+    try:
+        start = date.fromisoformat(parts[0].strip())
+        end   = date.fromisoformat(parts[1].strip())
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"日付を ISO 形式 (YYYY-MM-DD) で指定してください: {exc}"
+        ) from exc
+    if start > end:
+        raise argparse.ArgumentTypeError(
+            f"start_date ({start}) は end_date ({end}) 以前である必要があります"
+        )
+    return ManualEventPeriod(start_date=start, end_date=end)
+
 
 # ── 実験 config ─────────────────────────────────────────────────────────────────
 
@@ -92,12 +167,15 @@ class BacktestConfig:
     純粋ロジック関数はこの config のみを参照し、モジュール定数を直参照しない。
 
     フィールド:
-      series_type      : 評価軸 ("daily" / "sma7")
-      horizons         : 評価するホライズン日数リスト
-      max_origins      : walk-forward の最大起点数 (直近優先)
-      origin_step_days : 起点のサンプリング間隔 (日)
-      np_epochs        : NeuralProphet のエポック数
-      feature_set      : 使用特徴量セットの識別子 (再現メタ用; 現状は "baseline" のみ)
+      series_type           : 評価軸 ("daily" / "sma7")
+      horizons              : 評価するホライズン日数リスト
+      max_origins           : walk-forward の最大起点数 (直近優先)
+      origin_step_days      : 起点のサンプリング間隔 (日)
+      np_epochs             : NeuralProphet のエポック数
+      feature_set           : 使用特徴量セットの識別子 (再現メタ用; 現状は "baseline" のみ)
+      eval_policies         : 算出する評価ポリシーのリスト
+      recovery_days         : イベント日後の回復除外期間 (日数)
+      manual_event_periods  : 手動指定のイベント期間リスト (長期逸脱を DB フラグ外で除外)
 
     内部定数 (変更不可):
       min_train_rows_np        : NP に必要な最低学習データ数
@@ -110,6 +188,11 @@ class BacktestConfig:
     origin_step_days: int       = _DEFAULT_ORIGIN_STEP
     np_epochs:        int       = _DEFAULT_NP_EPOCHS
     feature_set:      str       = _DEFAULT_FEATURE_SET
+
+    # 評価ポリシー設定
+    eval_policies:        list[str]              = field(default_factory=lambda: list(_DEFAULT_EVAL_POLICIES))
+    recovery_days:        int                    = _DEFAULT_RECOVERY_DAYS
+    manual_event_periods: list[ManualEventPeriod] = field(default_factory=list)
 
     # 内部固定値 (CLI 引数なし。変えるときはコードレビュー必須)
     min_train_rows_np:       int = _MIN_TRAIN_ROWS_NP
@@ -126,6 +209,9 @@ def build_config(args: argparse.Namespace) -> BacktestConfig:
         origin_step_days=args.origin_step_days,
         np_epochs=args.np_epochs,
         feature_set=args.feature_set,
+        eval_policies=args.eval_policies,
+        recovery_days=args.recovery_days,
+        manual_event_periods=args.event_periods,
     )
 
 
@@ -149,8 +235,17 @@ def get_client():
 # ── データ取得 ─────────────────────────────────────────────────────────────────
 
 def fetch_weight_history(sb) -> pd.DataFrame:
-    """daily_logs から weight が存在するレコードを日付昇順で取得する。"""
-    resp = sb.from_("daily_logs").select("log_date,weight").order("log_date").execute()
+    """daily_logs から weight が存在するレコードを日付昇順で取得する。
+
+    is_cheat_day / is_travel_day は evaluation policy の除外マスク生成に使用する。
+    どちらも BOOLEAN NOT NULL DEFAULT FALSE のため NULL にはならない。
+    """
+    resp = (
+        sb.from_("daily_logs")
+        .select("log_date,weight,is_cheat_day,is_travel_day")
+        .order("log_date")
+        .execute()
+    )
     df = pd.DataFrame(resp.data)
     if df.empty:
         log.warning("daily_logs に重量データがありません")
@@ -401,6 +496,151 @@ def compute_metrics(errors: list[float], actuals: list[float]) -> dict:
     return {"mae": mae, "rmse": rmse, "mape": mape, "bias": bias}
 
 
+# ── 評価ポリシー: 除外日集合の構築 ──────────────────────────────────────────────
+
+def build_exclusion_dates(
+    df: pd.DataFrame,
+    recovery_days: int,
+    manual_event_periods: Sequence[ManualEventPeriod],
+) -> set[date]:
+    """評価から除外する日付の集合を構築する。
+
+    除外対象:
+      1. df に is_cheat_day=True の行がある日 + 後続 recovery_days 日間
+      2. df に is_travel_day=True の行がある日 + 後続 recovery_days 日間
+      3. manual_event_periods の各期間内の全日 + end_date 後 recovery_days 日間
+
+    is_cheat_day / is_travel_day カラムが df に存在しない場合はスキップする
+    (テスト用 DataFrame など、フラグカラムがない場合の安全対策)。
+
+    引数:
+      df                   : 体重履歴 DataFrame (log_date, weight[, is_cheat_day, is_travel_day])
+      recovery_days        : イベント日後の回復期間 (日数)
+      manual_event_periods : 手動指定のイベント期間リスト
+
+    戻り値:
+      除外対象の日付の集合 (set[date])
+    """
+    excluded: set[date] = set()
+
+    def _add_with_recovery(event_date: date) -> None:
+        """event_date 当日と後続 recovery_days 日間を除外集合に追加する。"""
+        for i in range(recovery_days + 1):
+            excluded.add(event_date + timedelta(days=i))
+
+    # 1. DB フラグ由来の除外: is_cheat_day
+    if "is_cheat_day" in df.columns:
+        for d in df.loc[df["is_cheat_day"] == True, "log_date"].dt.date:
+            _add_with_recovery(d)
+
+    # 2. DB フラグ由来の除外: is_travel_day
+    if "is_travel_day" in df.columns:
+        for d in df.loc[df["is_travel_day"] == True, "log_date"].dt.date:
+            _add_with_recovery(d)
+
+    # 3. 手動 event period 由来の除外 (DB フラグで捕捉できない長期逸脱)
+    for ep in manual_event_periods:
+        cur = ep.start_date
+        while cur <= ep.end_date:
+            excluded.add(cur)
+            cur += timedelta(days=1)
+        # end_date の後 recovery_days 日間も除外
+        for i in range(1, recovery_days + 1):
+            excluded.add(ep.end_date + timedelta(days=i))
+
+    return excluded
+
+
+# ── 評価ポリシー: PolicyMetrics と集計 ──────────────────────────────────────────
+
+@dataclass
+class PolicyMetrics:
+    """1 つの evaluation policy に対する metrics 集計結果。
+
+    フィールド:
+      policy     : ポリシー名 (POLICY_ALL_DAYS / POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY)
+      n_total    : policy 適用前の総予測点数
+      n_used     : policy 適用後の評価対象点数
+      n_excluded : 除外された点数 (n_total - n_used)
+      mae        : Mean Absolute Error (kg)。n_used=0 の場合は None
+      rmse       : Root Mean Squared Error (kg)。n_used=0 の場合は None
+      bias       : 平均誤差 (pred - actual)。正=上振れ傾向。n_used=0 の場合は None
+      mape       : Mean Absolute Percentage Error (%)。actual に 0 が含まれる場合や
+                   n_used=0 の場合は None
+    """
+    policy:     str
+    n_total:    int
+    n_used:     int
+    n_excluded: int
+    mae:        Optional[float]
+    rmse:       Optional[float]
+    bias:       Optional[float]
+    mape:       Optional[float]
+
+
+def compute_policy_metrics(
+    records: list[tuple],
+    exclusion_dates: set[date],
+    policies: Sequence[str],
+) -> list[PolicyMetrics]:
+    """複数の evaluation policy に対して metrics を計算する。
+
+    records の各要素は (error, actual, predicted, origin_date, target_date) の 5-tuple。
+    target_date が exclusion_dates に含まれる場合、exclude 系 policy では除外される。
+
+    引数:
+      records         : run_backtest が返す 1 モデル × 1 ホライズンの予測結果リスト
+      exclusion_dates : build_exclusion_dates() が返す除外日集合
+      policies        : 計算対象のポリシー名リスト
+
+    戻り値:
+      PolicyMetrics のリスト (policies と同じ順序)
+    """
+    n_total = len(records)
+    result: list[PolicyMetrics] = []
+
+    for policy in policies:
+        if policy == POLICY_ALL_DAYS:
+            used = records
+        elif policy == POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY:
+            used = [r for r in records if r[4] not in exclusion_dates]
+        else:
+            log.warning("未知の eval_policy をスキップ: %s", policy)
+            continue
+
+        n_used = len(used)
+        n_excluded = n_total - n_used
+
+        if not used:
+            result.append(PolicyMetrics(
+                policy=policy,
+                n_total=n_total,
+                n_used=0,
+                n_excluded=n_excluded,
+                mae=None,
+                rmse=None,
+                bias=None,
+                mape=None,
+            ))
+            continue
+
+        errors  = [r[0] for r in used]
+        actuals = [r[1] for r in used]
+        m = compute_metrics(errors, actuals)
+        result.append(PolicyMetrics(
+            policy=policy,
+            n_total=n_total,
+            n_used=n_used,
+            n_excluded=n_excluded,
+            mae=m["mae"],
+            rmse=m["rmse"],
+            bias=m["bias"],
+            mape=m["mape"],
+        ))
+
+    return result
+
+
 # ── walk-forward バックテスト ─────────────────────────────────────────────────
 
 # 結果型: {model_name: {horizon: [(error, actual, predicted, origin_date, target_date)]}}
@@ -495,9 +735,24 @@ def save_results(
     config の全パラメータを runs.config JSONB に記録することで、
     後から実験条件を再現・比較できる。
     feature_set / series_type (= target_type) も再現メタとして保存する。
+
+    評価ポリシー:
+      config.eval_policies の各ポリシーについて metrics を算出し、
+      forecast_backtest_metrics に 1 行ずつ保存する。
+      UNIQUE 制約: (run_id, model_name, horizon_days, eval_policy)
+      #364 では run_id + eval_policy で比較クエリを行う。
     """
     run_id = str(uuid.uuid4())
     origins = select_origins(df, config)
+
+    # 除外日集合を構築 (exclude_flagged_plus_recovery ポリシーで使用)
+    exclusion_dates = build_exclusion_dates(
+        df, config.recovery_days, config.manual_event_periods
+    )
+    log.info(
+        "評価ポリシー除外日: %d 日 (recovery_days=%d, manual_periods=%d)",
+        len(exclusion_dates), config.recovery_days, len(config.manual_event_periods),
+    )
 
     # 1. runs テーブルに実行メタ情報を挿入
     run_row = {
@@ -513,7 +768,8 @@ def save_results(
             f"feature_set={config.feature_set}, "
             f"origins={len(origins)}, "
             f"np_epochs={config.np_epochs}, "
-            f"step={config.origin_step_days}d"
+            f"step={config.origin_step_days}d, "
+            f"policies={config.eval_policies}"
         ),
         # 再現メタ: この config を使えば同じ実験を再現できる
         "config": {
@@ -527,13 +783,20 @@ def save_results(
             "min_train_rows_np":       config.min_train_rows_np,
             "min_train_rows_baseline": config.min_train_rows_baseline,
             "sma7_min_periods":        config.sma7_min_periods,
+            # 評価ポリシー設定 (#364 での再現・比較に使用)
+            "eval_policies":           config.eval_policies,
+            "recovery_days":           config.recovery_days,
+            "manual_event_periods": [
+                {"start": ep.start_date.isoformat(), "end": ep.end_date.isoformat()}
+                for ep in config.manual_event_periods
+            ],
         },
     }
     sb.from_("forecast_backtest_runs").insert(run_row).execute()
     log.info("runs に挿入: run_id=%s, series_type=%s, feature_set=%s",
              run_id, config.series_type, config.feature_set)
 
-    # 2. metrics テーブルに集計結果を挿入
+    # 2. metrics テーブルに集計結果を挿入 (policy ごとに 1 行)
     metric_rows = []
     pred_rows   = []
 
@@ -546,27 +809,43 @@ def save_results(
                 )
                 continue
 
+            # 全 policy の metrics を一括計算
+            policy_metrics_list = compute_policy_metrics(
+                records, exclusion_dates, config.eval_policies
+            )
+
+            for pm in policy_metrics_list:
+                if pm.mae is None:
+                    # 全件除外 → mae/rmse/bias/mape は NULL だが行自体は保存する。
+                    # #364 が run_id + eval_policy で比較クエリする際、
+                    # 「policy が存在しない」と「全件除外だった」を区別できるようにするため。
+                    log.warning(
+                        "  %s h=%dd policy=%s: 有効な評価点なし (n_total=%d, n_excluded=%d)。"
+                        "metrics=NULL で保存します。",
+                        model_name, horizon, pm.policy, pm.n_total, pm.n_excluded,
+                    )
+
+                metric_rows.append({
+                    "run_id":        run_id,
+                    "model_name":    model_name,
+                    "horizon_days":  horizon,
+                    "eval_policy":   pm.policy,
+                    "mae":           round(pm.mae,  4) if pm.mae  is not None else None,
+                    "rmse":          round(pm.rmse, 4) if pm.rmse is not None else None,
+                    "mape":          round(pm.mape, 4) if pm.mape is not None else None,
+                    "bias":          round(pm.bias, 4) if pm.bias is not None else None,
+                    "n_predictions": pm.n_used,       # n_used と同義 (後方互換)
+                    "n_total":       pm.n_total,
+                    "n_excluded":    pm.n_excluded,
+                    "extra":         {},
+                })
+
+            # 個別予測点の記録 (policy に依存しない raw 予測値)
             errors       = [r[0] for r in records]
             actuals      = [r[1] for r in records]
             preds        = [r[2] for r in records]
             origins_list = [r[3] for r in records]
             targets      = [r[4] for r in records]
-
-            m = compute_metrics(errors, actuals)
-
-            metric_rows.append({
-                "run_id":        run_id,
-                "model_name":    model_name,
-                "horizon_days":  horizon,
-                "mae":           round(m["mae"],  4),
-                "rmse":          round(m["rmse"], 4),
-                "mape":          round(m["mape"], 4) if m["mape"] is not None else None,
-                "bias":          round(m["bias"], 4),
-                "n_predictions": len(records),
-                "extra":         {},
-            })
-
-            # 個別予測点の記録
             for err, act, pred, orig, tgt in zip(
                 errors, actuals, preds, origins_list, targets
             ):
@@ -627,6 +906,48 @@ def log_summary(results: BacktestResults, config: BacktestConfig) -> None:
             )
 
 
+# ── ポリシー別サマリーログ ──────────────────────────────────────────────────────
+
+def log_policy_summary(
+    results: BacktestResults,
+    config: BacktestConfig,
+    exclusion_dates: set[date],
+) -> None:
+    """evaluation policy ごとの metrics サマリーをログ出力する。
+
+    all_days と exclude_flagged_plus_recovery を並べて出力することで、
+    イベント除外前後の精度差を確認できる。
+    """
+    log.info(
+        "=== policy 別サマリー (series_type=%s, recovery_days=%d, n_excluded_dates=%d) ===",
+        config.series_type, config.recovery_days, len(exclusion_dates),
+    )
+    for model_name in results:
+        for horizon in config.horizons:
+            records = results[model_name].get(horizon, [])
+            if not records:
+                continue
+            policy_metrics_list = compute_policy_metrics(
+                records, exclusion_dates, config.eval_policies
+            )
+            for pm in policy_metrics_list:
+                if pm.mae is None:
+                    log.info(
+                        "  %-20s h=%2dd  [%-40s]  n_used=0 (n_total=%d, n_excluded=%d)",
+                        model_name, horizon, pm.policy, pm.n_total, pm.n_excluded,
+                    )
+                else:
+                    mape_str = f"{pm.mape:.2f}%" if pm.mape is not None else "N/A"
+                    log.info(
+                        "  %-20s h=%2dd  [%-40s]  "
+                        "MAE=%.3f  RMSE=%.3f  MAPE=%s  bias=%.3f  "
+                        "n_used=%d  n_excluded=%d",
+                        model_name, horizon, pm.policy,
+                        pm.mae, pm.rmse, mape_str, pm.bias,
+                        pm.n_used, pm.n_excluded,
+                    )
+
+
 # ── メイン ─────────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -683,14 +1004,53 @@ def main() -> None:
             "将来の比較実験例: baseline / conditions / conditions_legs"
         ),
     )
+    parser.add_argument(
+        "--eval-policies",
+        nargs="+",
+        default=list(_DEFAULT_EVAL_POLICIES),
+        dest="eval_policies",
+        choices=[POLICY_ALL_DAYS, POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY],
+        metavar="POLICY",
+        help=(
+            "算出する評価ポリシー (スペース区切りで複数指定可)。"
+            f"デフォルト: {_DEFAULT_EVAL_POLICIES}。"
+            f"選択肢: {POLICY_ALL_DAYS} / {POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY}"
+        ),
+    )
+    parser.add_argument(
+        "--recovery-days",
+        type=int,
+        default=_DEFAULT_RECOVERY_DAYS,
+        dest="recovery_days",
+        help=(
+            "チートデイ / 旅行日後の回復期間 (日数)。"
+            f"デフォルト: {_DEFAULT_RECOVERY_DAYS}。"
+            "この日数分だけ、イベント日の翌日以降も除外される。"
+        ),
+    )
+    parser.add_argument(
+        "--event-periods",
+        nargs="*",
+        default=[],
+        dest="event_periods",
+        type=parse_event_period,
+        metavar="START:END",
+        help=(
+            "手動指定のイベント期間 (旅行・遠征など長期逸脱)。"
+            "形式: 'YYYY-MM-DD:YYYY-MM-DD' (スペース区切りで複数指定可)。"
+            "例: --event-periods 2026-03-01:2026-03-10 2026-04-05:2026-04-08"
+        ),
+    )
     args = parser.parse_args()
 
     config = build_config(args)
     log.info(
         "実験 config: series_type=%s, feature_set=%s, horizons=%s, "
-        "max_origins=%d, origin_step_days=%d, np_epochs=%d",
+        "max_origins=%d, origin_step_days=%d, np_epochs=%d, "
+        "eval_policies=%s, recovery_days=%d, manual_event_periods=%d件",
         config.series_type, config.feature_set, config.horizons,
         config.max_origins, config.origin_step_days, config.np_epochs,
+        config.eval_policies, config.recovery_days, len(config.manual_event_periods),
     )
 
     # supabase は実行系でのみ使用する (純粋ロジック層に依存を持ち込まない)
@@ -710,6 +1070,12 @@ def main() -> None:
 
     results = run_backtest(df, config)
     log_summary(results, config)
+
+    # policy 別サマリー (除外前後の比較)
+    exclusion_dates = build_exclusion_dates(
+        df, config.recovery_days, config.manual_event_periods
+    )
+    log_policy_summary(results, config, exclusion_dates)
 
     run_id = save_results(sb, df, results, config)
     log.info(
