@@ -41,6 +41,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger(__name__)
 
 KCAL_PER_KG_FAT = 7_200  # Hall et al., 2012 (旧6800から統一)
+# ⚠ フロント側にも同名定数 (src/lib/utils/calcTdee.ts) が存在する。
+#   canonical 計算はこちら (enrich.py) が担う。TS 側は theoretical 関数・helper 関数用。
+#   この値を変更する場合は calcTdee.ts の KCAL_PER_KG_FAT も同時に更新すること。
 SMA_WINDOW = 7  # 7日窓: 体重の週間周期変動（週1トレーニング・曜日による食事パターン）をならすため採用。
                 # 水分・塩分・便通による単日±2 kg ノイズの影響を 1/7 に分散させる。
                 # これより短いと週次リズムがノイズとして残り、長いと月次の実トレンドへの追従が遅れる。
