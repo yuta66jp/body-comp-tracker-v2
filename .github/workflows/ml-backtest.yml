@@ -5,7 +5,32 @@ on:
   # 日次バッチ(ml-daily.yml)より後に起動して最新データを使う
   schedule:
     - cron: "0 19 * * 5"
-  workflow_dispatch: # 手動実行も可能
+
+  # 手動実行。manual event period を指定して backtest を再実行する場合に使用する。
+  # スケジュール実行は入力なしで常にデフォルト動作を維持する。
+  workflow_dispatch:
+    inputs:
+      enable_manual_event_period:
+        description: '手動イベント期間を除外対象に追加する (true にすると start_date / end_date が有効になる)'
+        type: boolean
+        default: false
+        required: true
+      start_date:
+        description: '除外開始日 (YYYY-MM-DD) — enable_manual_event_period=true の場合に有効'
+        type: string
+        default: ''
+      end_date:
+        description: '除外終了日 (YYYY-MM-DD, 開始日以降) — enable_manual_event_period=true の場合に有効'
+        type: string
+        default: ''
+      recovery_days:
+        description: 'イベント日後の回復期間 (日数, デフォルト 2) — cheat/travel フラグにも適用される'
+        type: string
+        default: '2'
+      reason:
+        description: 'イベント内容メモ (例: 遠征 / 海外旅行 / チートウィーク) — スペースはアンダースコア推奨'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -28,9 +53,44 @@ jobs:
       - name: Install dependencies
         run: pip install -r ml-pipeline/requirements.txt
 
+      # workflow_dispatch 時のみ追加 CLI 引数を組み立てる。
+      # schedule 実行時は github.event_name == "schedule" のため EXTRA_ARGS は空になり、
+      # 通常の週次実行と全く同じ挙動を維持する。
+      - name: Build extra backtest args (workflow_dispatch only)
+        id: build_args
+        shell: bash
+        run: |
+          EXTRA_ARGS=""
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # recovery_days: デフォルト (2) 以外が指定された場合のみ追加
+            RECOVERY="${{ inputs.recovery_days }}"
+            if [[ -n "$RECOVERY" && "$RECOVERY" != "2" ]]; then
+              EXTRA_ARGS="--recovery-days $RECOVERY"
+            fi
+
+            # manual event period: enable フラグが true かつ開始・終了日が指定された場合のみ追加
+            if [[ "${{ inputs.enable_manual_event_period }}" == "true" ]]; then
+              START="${{ inputs.start_date }}"
+              END="${{ inputs.end_date }}"
+              # スペースをアンダースコアに変換してシェル展開を安全にする
+              REASON=$(echo "${{ inputs.reason }}" | tr ' ' '_')
+              if [[ -n "$START" && -n "$END" ]]; then
+                if [[ -n "$REASON" ]]; then
+                  EXTRA_ARGS="$EXTRA_ARGS --event-periods ${START}:${END}:${REASON}"
+                else
+                  EXTRA_ARGS="$EXTRA_ARGS --event-periods ${START}:${END}"
+                fi
+              else
+                echo "::warning::enable_manual_event_period=true ですが start_date または end_date が未指定です。manual event period は追加されません。"
+              fi
+            fi
+          fi
+          echo "extra_args=$EXTRA_ARGS" >> "$GITHUB_OUTPUT"
+          echo "Backtest extra_args: '$EXTRA_ARGS'"
+
       - name: Run forecast backtest (daily)
-        run: python ml-pipeline/backtest.py
+        run: python ml-pipeline/backtest.py ${{ steps.build_args.outputs.extra_args }}
         continue-on-error: true
 
       - name: Run forecast backtest (sma7)
-        run: python ml-pipeline/backtest.py --series-type sma7
+        run: python ml-pipeline/backtest.py --series-type sma7 ${{ steps.build_args.outputs.extra_args }}

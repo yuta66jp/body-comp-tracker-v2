@@ -41,7 +41,8 @@ const SOURCE_LABELS: Record<ExcludedSource, string> = {
 interface Props {
   entries: ExcludedDateEntry[];
   recoveryDays: number;
-  manualEventPeriods: Array<{ start: string; end: string }>;
+  /** reason は #371 で追加されたオプションフィールド。旧 run には存在しない場合がある。 */
+  manualEventPeriods: Array<{ start: string; end: string; reason?: string }>;
 }
 
 // ── コンポーネント ────────────────────────────────────────────────────────
@@ -120,6 +121,11 @@ export function BacktestExcludedDates({
                 <span key={i} className="font-mono">
                   {i > 0 && " / "}
                   {ep.start}〜{ep.end}
+                  {ep.reason && (
+                    <span className="ml-1 font-sans not-italic text-violet-600">
+                      ({ep.reason})
+                    </span>
+                  )}
                 </span>
               ))}
             </>

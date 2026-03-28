@@ -552,6 +552,7 @@ class TestManualEventPeriod:
         ep = parse_event_period("2026-03-01:2026-03-10")
         assert ep.start_date == date(2026, 3, 1)
         assert ep.end_date   == date(2026, 3, 10)
+        assert ep.reason == ""  # reason 未指定はデフォルト空文字
 
     def test_parse_single_day_period(self):
         ep = parse_event_period("2026-04-05:2026-04-05")
@@ -562,6 +563,23 @@ class TestManualEventPeriod:
         ep = parse_event_period(" 2026-03-01 : 2026-03-10 ")
         assert ep.start_date == date(2026, 3, 1)
         assert ep.end_date   == date(2026, 3, 10)
+
+    def test_parse_with_reason(self):
+        """START:END:REASON 形式で reason が正しくパースされる。"""
+        ep = parse_event_period("2026-03-01:2026-03-10:遠征")
+        assert ep.start_date == date(2026, 3, 1)
+        assert ep.end_date   == date(2026, 3, 10)
+        assert ep.reason     == "遠征"
+
+    def test_parse_with_reason_underscores(self):
+        """reason にアンダースコアが含まれても正常にパースされる (スペース代替)。"""
+        ep = parse_event_period("2026-04-01:2026-04-07:海外旅行_7日間")
+        assert ep.reason == "海外旅行_7日間"
+
+    def test_parse_with_reason_strips_whitespace(self):
+        """reason の前後スペースはトリムされる。"""
+        ep = parse_event_period("2026-03-01:2026-03-05: チートウィーク ")
+        assert ep.reason == "チートウィーク"
 
     def test_parse_invalid_format_raises(self):
         import argparse as _ap
