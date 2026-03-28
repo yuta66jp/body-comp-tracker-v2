@@ -146,7 +146,7 @@ function MetricRow({
   return (
     <div className="flex items-baseline justify-between gap-2">
       <span className="shrink-0 text-xs text-slate-500 dark:text-slate-400">{label}</span>
-      <span className={`text-right font-semibold tabular-nums ${valueColor ?? "text-slate-800 dark:text-slate-100"}`}>
+      <span className={`text-right font-semibold tabular-nums ${valueColor ?? "text-slate-800 dark:text-slate-200"}`}>
         {value}
         {note && <span className="ml-1 text-[10px] font-normal text-slate-400 dark:text-slate-500">{note}</span>}
       </span>
@@ -301,7 +301,7 @@ export function GoalNavigator({
               <MetricRow
                 label={`現在 (${refWeightLabel})`}
                 value={`${fmt1(refWeight)} kg`}
-                valueColor="text-slate-900 dark:text-slate-100"
+                valueColor="text-slate-900 dark:text-slate-200"
               />
               <MetricRow label="目標" value={`${fmt1(goalWeight)} kg`} />
               <div className="my-1 border-t border-slate-100 dark:border-slate-700" />

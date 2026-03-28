@@ -172,7 +172,7 @@ export function TdeeKpiCard({
         {/* 平均摂取 kcal */}
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
           <p className="text-sm font-medium text-gray-500 dark:text-slate-400">平均摂取（直近7日）</p>
-          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-slate-100">
+          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-slate-200">
             {avgCalories !== null ? Math.round(avgCalories).toLocaleString() : "—"}
             <span className="ml-1 text-base font-normal text-gray-400 dark:text-slate-500">kcal</span>
           </p>

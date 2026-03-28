@@ -142,7 +142,7 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
         <div className="mt-1 flex items-baseline gap-0.5 leading-none flex-wrap">
           {data?.log.weight != null ? (
             <>
-              <span className="text-xs sm:text-sm font-bold text-slate-800 leading-none dark:text-slate-100">
+              <span className="text-xs sm:text-sm font-bold text-slate-800 leading-none dark:text-slate-200">
                 {data.log.weight.toFixed(1)}
               </span>
               <span className="text-[9px] text-slate-400 dark:text-slate-500">kg</span>

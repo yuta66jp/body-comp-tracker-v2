@@ -121,7 +121,7 @@ function StatRow({
   return (
     <div className="flex items-baseline justify-between gap-3 py-0.5">
       <span className="shrink-0 text-xs text-slate-500 dark:text-slate-400">{label}</span>
-      <span className={`text-right text-sm font-semibold tabular-nums ${valueColor ?? "text-slate-800 dark:text-slate-100"}`}>
+      <span className={`text-right text-sm font-semibold tabular-nums ${valueColor ?? "text-slate-800 dark:text-slate-200"}`}>
         {value}
         {unit && <span className="ml-0.5 text-xs font-normal text-slate-400 dark:text-slate-500">{unit}</span>}
         {sub && <span className="ml-1 text-xs font-normal text-slate-400 dark:text-slate-500">{sub}</span>}

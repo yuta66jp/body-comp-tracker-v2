@@ -88,7 +88,7 @@ export function MacroKpiCards({ kpi, targets, diff, phase }: MacroKpiCardsProps)
         {/* kcal カード */}
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
           <p className="text-sm font-medium text-gray-500 dark:text-slate-400">週平均カロリー</p>
-          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-slate-100">
+          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-slate-200">
             {weekly.avgCalories !== null ? Math.round(weekly.avgCalories).toLocaleString() : "—"}
             <span className="ml-1 text-base font-normal text-gray-400 dark:text-slate-500">kcal</span>
           </p>
@@ -126,7 +126,7 @@ export function MacroKpiCards({ kpi, targets, diff, phase }: MacroKpiCardsProps)
                 : <Minus size={20} className="text-gray-300 dark:text-slate-600" />
             ) : <Minus size={20} className="text-gray-300 dark:text-slate-600" />}
           </div>
-          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-slate-100">
+          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-slate-200">
             {weightChangeRate !== null
               ? `${weightChangeRate > 0 ? "+" : ""}${weightChangeRate.toFixed(2)}%`
               : "—"}
@@ -148,7 +148,7 @@ export function MacroKpiCards({ kpi, targets, diff, phase }: MacroKpiCardsProps)
         {macros.map(({ key, label, actual, prevActual, unit }) => (
           <div key={key} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
             <p className="text-sm font-medium text-gray-500 dark:text-slate-400">{label}（週平均）</p>
-            <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-slate-100">
+            <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-slate-200">
               {actual !== null ? `${Math.round(actual)}` : "—"}
               <span className="ml-1 text-sm font-normal text-gray-400 dark:text-slate-500">{unit}</span>
             </p>
