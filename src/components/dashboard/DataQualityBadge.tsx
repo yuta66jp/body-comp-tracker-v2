@@ -18,9 +18,9 @@ function scoreColor(score: number): string {
 }
 
 function scoreBg(score: number): string {
-  if (score >= 90) return "bg-emerald-50 border-emerald-200";
-  if (score >= 70) return "bg-amber-50 border-amber-200";
-  return "bg-rose-50 border-rose-200";
+  if (score >= 90) return "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-700/50";
+  if (score >= 70) return "bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-700/50";
+  return "bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-700/50";
 }
 
 function scoreLabel(score: number): string {
@@ -55,11 +55,11 @@ export function DataQualityBadge({ report }: Props) {
       </span>
 
       {/* 区切り */}
-      <span className="hidden text-slate-300 sm:inline">|</span>
+      <span className="hidden text-slate-300 dark:text-slate-600 sm:inline">|</span>
 
       {/* 詳細チップ */}
       {hasIssues ? (
-        <span className="flex flex-wrap gap-2 text-slate-600">
+        <span className="flex flex-wrap gap-2 text-slate-600 dark:text-slate-300">
           {period7.weightMissingDays > 0 && (
             <span>⚠ 体重欠損 <b>{period7.weightMissingDays}</b> 日</span>
           )}
@@ -74,10 +74,10 @@ export function DataQualityBadge({ report }: Props) {
           )}
         </span>
       ) : (
-        <span className="text-emerald-600">直近7日のデータは問題なし</span>
+        <span className="text-emerald-600 dark:text-emerald-400">直近7日のデータは問題なし</span>
       )}
 
-      <span className="ml-auto hidden text-slate-400 sm:inline">
+      <span className="ml-auto hidden text-slate-400 dark:text-slate-500 sm:inline">
         直近7日
       </span>
     </div>

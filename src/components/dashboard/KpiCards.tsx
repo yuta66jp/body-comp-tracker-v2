@@ -34,16 +34,16 @@ function KpiCard({ label, value, unit, sub, icon, accent, iconColor, trendDir, t
   const trendColor = isGood === null ? "text-slate-400" : isGood ? "text-emerald-600" : "text-rose-500";
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+    <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
       <div className="flex items-start justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{label}</p>
         <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${accent}`}>
           <span className={iconColor}>{icon}</span>
         </div>
       </div>
       <div className="mt-3 flex items-baseline gap-1">
-        <span className="text-[2rem] font-bold leading-none tracking-tight text-slate-900">{value}</span>
-        {unit && <span className="text-sm font-medium text-slate-400">{unit}</span>}
+        <span className="text-[2rem] font-bold leading-none tracking-tight text-slate-900 dark:text-slate-100">{value}</span>
+        {unit && <span className="text-sm font-medium text-slate-400 dark:text-slate-500">{unit}</span>}
       </div>
       {sub && (
         <div className={`mt-2 flex items-center gap-1 text-xs font-medium ${trendDir ? trendColor : "text-slate-400"}`}>
@@ -146,9 +146,9 @@ export function KpiCards({ logs, settings, currentWeight }: KpiCardsProps) {
       />
 
       {/* 目標到達予定日 */}
-      <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+      <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
         <div className="flex items-start justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">目標到達予定</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">目標到達予定</p>
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50">
             <Target size={18} className="text-teal-600" />
           </div>
@@ -165,12 +165,12 @@ export function KpiCards({ logs, settings, currentWeight }: KpiCardsProps) {
           </span>
         </div>
         {goalReachDate && goalWeight !== null && (
-          <p className="mt-2 text-xs text-slate-400">
+          <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
             {goalWeight.toFixed(1)} kg 到達の推定日（7日平均 + 30日トレンド）
           </p>
         )}
         {!goalWeight && (
-          <p className="mt-2 text-xs text-slate-300">目標体重未設定</p>
+          <p className="mt-2 text-xs text-slate-300 dark:text-slate-600">目標体重未設定</p>
         )}
       </div>
     </div>

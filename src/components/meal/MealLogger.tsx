@@ -327,16 +327,16 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
   });
 
   const inputCls =
-    "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400";
+    "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800 dark:focus:border-blue-500 dark:focus:ring-blue-900/40";
   // 明示的クリア状態（null）のときの入力欄スタイル（pr-8 不要 — オーバーレイボタンは外に出す）
   const inputClearedCls =
-    "w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-400 placeholder:text-rose-300 outline-none opacity-75 cursor-default";
+    "w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-400 placeholder:text-rose-300 outline-none opacity-75 cursor-default dark:border-rose-700/50 dark:bg-rose-900/20 dark:text-rose-400 dark:placeholder:text-rose-700/70";
 
   const chipCls = (active: boolean) =>
     `rounded-xl border px-3 py-2 text-xs font-semibold transition-colors ${
       active
         ? "border-blue-400 bg-blue-600 text-white"
-        : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:bg-slate-100"
+        : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300 dark:hover:border-slate-500 dark:hover:bg-slate-600"
     }`;
 
   const content = (
@@ -441,7 +441,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
 
       {/* 既存ログのマクロ表示（カートで復元不可なため参照用に表示） */}
       {hydratedLog && (hydratedLog.calories !== null || hydratedLog.protein !== null) && (
-        <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+        <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-400">
           <span className="font-semibold">記録済みマクロ:</span>{" "}
           {hydratedLog.calories !== null && <span>{hydratedLog.calories} kcal</span>}
           {hydratedLog.protein  !== null && <span> / P {hydratedLog.protein}g</span>}
@@ -464,7 +464,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
               className={`rounded-xl border px-3 py-2 text-xs font-semibold transition-colors ${
                 tags[tag as keyof typeof tags]
                   ? DAY_TAG_ACTIVE_COLORS[tag]
-                  : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:bg-slate-100"
+                  : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300 dark:hover:border-slate-500 dark:hover:bg-slate-600"
               }`}
             >
               {DAY_TAG_LABELS[tag]}
@@ -642,12 +642,12 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
 
   // 通常モード（使用箇所なし・後方互換のため残す）
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white shadow-sm">
+    <div className="rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
       <div className="flex items-center gap-2.5 px-5 py-4">
         <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50">
           <PenLine size={15} className="text-blue-600" />
         </div>
-        <span className="text-sm font-semibold text-slate-700">食事ログを入力</span>
+        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">食事ログを入力</span>
       </div>
       {content}
     </div>

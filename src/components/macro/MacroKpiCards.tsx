@@ -53,14 +53,14 @@ function getPaceInfo(rate: number, isBulk: boolean): PaceInfo {
 }
 
 function DiffBadge({ value, unit }: { value: number | null; unit: string }) {
-  if (value === null) return <span className="text-slate-300">—</span>;
+  if (value === null) return <span className="text-slate-300 dark:text-slate-600">—</span>;
   const sign = value > 0 ? "+" : "";
   const color = value > 0 ? "text-rose-500" : value < 0 ? "text-emerald-600" : "text-slate-400";
   return <span className={`text-sm font-medium ${color}`}>{sign}{value.toLocaleString()} {unit}</span>;
 }
 
 function WeekDelta({ curr, prev, unit }: { curr: number | null; prev: number | null; unit: string }) {
-  if (curr === null || prev === null) return <span className="text-xs text-slate-300">前週データなし</span>;
+  if (curr === null || prev === null) return <span className="text-xs text-slate-300 dark:text-slate-600">前週データなし</span>;
   const d = Math.round(curr) - Math.round(prev);
   const sign = d > 0 ? "+" : "";
   const color = d < 0 ? "text-emerald-600" : d > 0 ? "text-rose-500" : "text-slate-400";
@@ -86,14 +86,14 @@ export function MacroKpiCards({ kpi, targets, diff, phase }: MacroKpiCardsProps)
       {/* 上段: kcal + 週次体重変化 */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {/* kcal カード */}
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <p className="text-sm font-medium text-gray-500">週平均カロリー</p>
-          <p className="mt-2 text-3xl font-bold text-gray-900">
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+          <p className="text-sm font-medium text-gray-500 dark:text-slate-400">週平均カロリー</p>
+          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-slate-100">
             {weekly.avgCalories !== null ? Math.round(weekly.avgCalories).toLocaleString() : "—"}
-            <span className="ml-1 text-base font-normal text-gray-400">kcal</span>
+            <span className="ml-1 text-base font-normal text-gray-400 dark:text-slate-500">kcal</span>
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-3">
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-gray-400 dark:text-slate-500">
               目標: {targets.calories !== null ? `${targets.calories.toLocaleString()} kcal` : "未設定"}
             </span>
             <DiffBadge value={diff.calories} unit="kcal" />
@@ -101,10 +101,10 @@ export function MacroKpiCards({ kpi, targets, diff, phase }: MacroKpiCardsProps)
           <div className="mt-1">
             <WeekDelta curr={weekly.avgCalories} prev={prevWeekly.avgCalories} unit="kcal" />
           </div>
-          <p className="mt-1.5 text-xs text-slate-400">直近7記録日の平均</p>
+          <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">直近7記録日の平均</p>
           {/* TDEE 接続導線 */}
           {diff.calories !== null && (
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
               {diff.calories > 100
                 ? "目標を超過 — 収支は TDEE 画面で確認できます"
                 : diff.calories < -100
@@ -115,18 +115,18 @@ export function MacroKpiCards({ kpi, targets, diff, phase }: MacroKpiCardsProps)
         </div>
 
         {/* 週次体重変化カード */}
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-500">週次体重変化</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-slate-400">週次体重変化</p>
             {pace !== null ? (
               weightChangeRate! < 0
                 ? <TrendingDown size={20} className={pace.color} />
                 : weightChangeRate! > 0
                 ? <TrendingUp size={20} className={pace.color} />
-                : <Minus size={20} className="text-gray-300" />
-            ) : <Minus size={20} className="text-gray-300" />}
+                : <Minus size={20} className="text-gray-300 dark:text-slate-600" />
+            ) : <Minus size={20} className="text-gray-300 dark:text-slate-600" />}
           </div>
-          <p className="mt-2 text-3xl font-bold text-gray-900">
+          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-slate-100">
             {weightChangeRate !== null
               ? `${weightChangeRate > 0 ? "+" : ""}${weightChangeRate.toFixed(2)}%`
               : "—"}
@@ -134,10 +134,10 @@ export function MacroKpiCards({ kpi, targets, diff, phase }: MacroKpiCardsProps)
           {pace !== null ? (
             <>
               <p className={`mt-1 text-sm font-medium ${pace.color}`}>{pace.label}</p>
-              <p className="mt-0.5 text-xs text-slate-500">{pace.note}</p>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{pace.note}</p>
             </>
           ) : (
-            <p className="mt-1 text-sm font-medium text-gray-400">—</p>
+            <p className="mt-1 text-sm font-medium text-gray-400 dark:text-slate-500">—</p>
           )}
           <p className="mt-2 text-xs text-slate-400">直近7記録日 vs 前7記録日 の平均体重比</p>
         </div>
@@ -146,14 +146,14 @@ export function MacroKpiCards({ kpi, targets, diff, phase }: MacroKpiCardsProps)
       {/* 下段: P / F / C 目標差分カード */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {macros.map(({ key, label, actual, prevActual, unit }) => (
-          <div key={key} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-            <p className="text-sm font-medium text-gray-500">{label}（週平均）</p>
-            <p className="mt-2 text-2xl font-bold text-gray-900">
+          <div key={key} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+            <p className="text-sm font-medium text-gray-500 dark:text-slate-400">{label}（週平均）</p>
+            <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-slate-100">
               {actual !== null ? `${Math.round(actual)}` : "—"}
-              <span className="ml-1 text-sm font-normal text-gray-400">{unit}</span>
+              <span className="ml-1 text-sm font-normal text-gray-400 dark:text-slate-500">{unit}</span>
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-3">
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-gray-400 dark:text-slate-500">
                 目標: {targets[key] !== null ? `${targets[key]} ${unit}` : "未設定"}
               </span>
               <DiffBadge value={diff[key]} unit={unit} />
@@ -161,7 +161,7 @@ export function MacroKpiCards({ kpi, targets, diff, phase }: MacroKpiCardsProps)
             <div className="mt-1">
               <WeekDelta curr={actual} prev={prevActual} unit={unit} />
             </div>
-            <p className="mt-1.5 text-xs text-slate-400">直近7記録日の平均</p>
+            <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">直近7記録日の平均</p>
           </div>
         ))}
       </div>

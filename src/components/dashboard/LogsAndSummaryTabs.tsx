@@ -37,8 +37,8 @@ export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason,
   const [tab, setTab] = useState<Tab>("logs");
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white shadow-sm">
-      <div role="tablist" className="flex border-b border-slate-100">
+    <div className="rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+      <div role="tablist" className="flex border-b border-slate-100 dark:border-slate-700">
         {(["logs", "calendar", "monthly"] as Tab[]).map((t) => (
           <button
             key={t}
@@ -49,8 +49,8 @@ export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason,
             onClick={() => setTab(t)}
             className={`flex-1 px-3 py-3.5 text-sm font-semibold transition-colors ${
               tab === t
-                ? "border-b-2 border-blue-600 text-blue-600"
-                : "text-slate-400 hover:text-slate-600"
+                ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400"
+                : "text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
             }`}
           >
             {TAB_LABELS[t]}
@@ -81,7 +81,7 @@ export function LogsAndSummaryTabs({ logs, monthStats, seasonMap, currentSeason,
             {monthStats.length > 0
               ? <SeasonSummary stats={[...monthStats].reverse()} />
               : !monthlyGoalSummaryRows?.length && (
-                  <p className="py-8 text-center text-sm text-slate-400">データがありません</p>
+                  <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">データがありません</p>
                 )
             }
             {/* 月次計画 vs 実績 */}

@@ -50,44 +50,44 @@ interface GoalNavigatorProps {
 const STATUS_CONFIG = {
   achieved: {
     label: "目標達成",
-    color: "text-emerald-600",
-    bg: "bg-emerald-50 border-emerald-200",
+    color: "text-emerald-600 dark:text-emerald-400",
+    bg: "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-700/50",
     icon: CheckCircle2,
   },
   on_track: {
     label: "順調",
-    color: "text-emerald-600",
-    bg: "bg-emerald-50 border-emerald-200",
+    color: "text-emerald-600 dark:text-emerald-400",
+    bg: "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-700/50",
     icon: CheckCircle2,
   },
   adjust: {
     label: "要調整",
-    color: "text-amber-600",
-    bg: "bg-amber-50 border-amber-200",
+    color: "text-amber-600 dark:text-amber-400",
+    bg: "bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-700/50",
     icon: CircleDot,
   },
   behind: {
     label: "遅れ気味",
-    color: "text-rose-600",
-    bg: "bg-rose-50 border-rose-200",
+    color: "text-rose-600 dark:text-rose-400",
+    bg: "bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-700/50",
     icon: AlertTriangle,
   },
   no_contest: {
     label: "", // phase に応じて動的に上書き (see getStatusLabel)
-    color: "text-slate-500",
-    bg: "bg-slate-50 border-slate-200",
+    color: "text-slate-500 dark:text-slate-400",
+    bg: "bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-600",
     icon: HelpCircle,
   },
   contest_imminent: {
     label: "", // phase に応じて動的に上書き (see getStatusLabel)
-    color: "text-slate-600",
-    bg: "bg-slate-50 border-slate-200",
+    color: "text-slate-600 dark:text-slate-400",
+    bg: "bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-600",
     icon: CalendarDays,
   },
   unknown: {
     label: "データ不足",
-    color: "text-slate-400",
-    bg: "bg-slate-50 border-slate-200",
+    color: "text-slate-400 dark:text-slate-500",
+    bg: "bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-600",
     icon: HelpCircle,
   },
 } as const;
@@ -95,11 +95,11 @@ const STATUS_CONFIG = {
 // ─── 今月目標進捗 状態表示マップ ─────────────────────────────────────────────
 
 const MONTHLY_STATE_CONFIG = {
-  achieved:           { label: "今月達成済", color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200" },
-  on_track:           { label: "計画内",     color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200" },
-  slightly_behind:    { label: "やや遅れ",   color: "text-amber-600",   bg: "bg-amber-50 border-amber-200"   },
-  replan_recommended: { label: "再計画推奨", color: "text-rose-600",    bg: "bg-rose-50 border-rose-200"     },
-  unavailable:        { label: "データ不足", color: "text-slate-400",   bg: "bg-slate-50 border-slate-200"   },
+  achieved:           { label: "今月達成済", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-700/50" },
+  on_track:           { label: "計画内",     color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-700/50" },
+  slightly_behind:    { label: "やや遅れ",   color: "text-amber-600 dark:text-amber-400",     bg: "bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-700/50"         },
+  replan_recommended: { label: "再計画推奨", color: "text-rose-600 dark:text-rose-400",       bg: "bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-700/50"             },
+  unavailable:        { label: "データ不足", color: "text-slate-400 dark:text-slate-500",     bg: "bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-600"               },
 } as const;
 
 // ─── ヘルパー関数 ────────────────────────────────────────────────────────────
@@ -145,17 +145,17 @@ function MetricRow({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-2">
-      <span className="shrink-0 text-xs text-slate-500">{label}</span>
-      <span className={`text-right font-semibold tabular-nums ${valueColor ?? "text-slate-800"}`}>
+      <span className="shrink-0 text-xs text-slate-500 dark:text-slate-400">{label}</span>
+      <span className={`text-right font-semibold tabular-nums ${valueColor ?? "text-slate-800 dark:text-slate-100"}`}>
         {value}
-        {note && <span className="ml-1 text-[10px] font-normal text-slate-400">{note}</span>}
+        {note && <span className="ml-1 text-[10px] font-normal text-slate-400 dark:text-slate-500">{note}</span>}
       </span>
     </div>
   );
 }
 
 function Divider() {
-  return <div className="hidden sm:block w-px bg-slate-100 self-stretch" />;
+  return <div className="hidden sm:block w-px bg-slate-100 self-stretch dark:bg-slate-700" />;
 }
 
 /** 調整提案の理由を一行で生成 */
@@ -262,19 +262,19 @@ export function GoalNavigator({
       : null;
 
   return (
-    <div className={`rounded-2xl border bg-white shadow-sm overflow-hidden`}>
+    <div className={`rounded-2xl border bg-white shadow-sm overflow-hidden dark:border-slate-700 dark:bg-slate-900 dark:shadow-none`}>
       {/* ── ヘッダー ── */}
       <div className={`flex items-center justify-between border-b px-5 py-3 ${statusCfg.bg}`}>
         <div className="flex items-center gap-2">
           <Gauge size={16} className={statusCfg.color} />
-          <span className="text-sm font-bold text-slate-700">目標達成ナビ</span>
+          <span className="text-sm font-bold text-slate-700 dark:text-slate-200">目標達成ナビ</span>
         </div>
         <div className="flex items-center gap-2">
           <span
             className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
               isCut
-                ? "bg-blue-100 text-blue-700"
-                : "bg-emerald-100 text-emerald-600"
+                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                : "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400"
             }`}
           >
             {phase}
@@ -295,16 +295,16 @@ export function GoalNavigator({
           <SectionLabel icon={<Target size={11} />}>体重進捗</SectionLabel>
 
           {missingGoal ? (
-            <p className="text-xs text-slate-400">目標体重が未設定です</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">目標体重が未設定です</p>
           ) : (
             <>
               <MetricRow
                 label={`現在 (${refWeightLabel})`}
                 value={`${fmt1(refWeight)} kg`}
-                valueColor="text-slate-900"
+                valueColor="text-slate-900 dark:text-slate-100"
               />
               <MetricRow label="目標" value={`${fmt1(goalWeight)} kg`} />
-              <div className="my-1 border-t border-slate-100" />
+              <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
               <MetricRow
                 label="残り"
                 value={
@@ -338,7 +338,7 @@ export function GoalNavigator({
         <Divider />
 
         {/* ─── 列2: ペース分析 ─── */}
-        <div className="flex flex-col gap-1.5 border-t border-slate-100 p-5 sm:border-t-0">
+        <div className="flex flex-col gap-1.5 border-t border-slate-100 p-5 sm:border-t-0 dark:border-slate-700">
           <SectionLabel
             icon={
               actualRateKg2W !== null && actualRateKg2W < 0
@@ -352,7 +352,7 @@ export function GoalNavigator({
           <MetricRow
             label="必要ペース"
             value={fmtRate2W(requiredRateKg2W)}
-            valueColor={requiredRateKg2W === null ? "text-slate-400" : "text-slate-700"}
+            valueColor={requiredRateKg2W === null ? "text-slate-400 dark:text-slate-500" : "text-slate-700 dark:text-slate-200"}
             note={requiredRateKg2W !== null ? "(7日平均ベース)" : undefined}
           />
           <MetricRow
@@ -383,7 +383,7 @@ export function GoalNavigator({
           />
           {/* 大会直前 fallback: PACE_CALC_MIN_DAYS 未満では週次ペース算出不可 */}
           {isTooCloseToContest && (
-            <p className="mt-1 text-[11px] text-slate-400">
+            <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
               {deadlineLabel}まで {daysLeft2W} 日のためペース算出なし
             </p>
           )}
@@ -392,7 +392,7 @@ export function GoalNavigator({
         <Divider />
 
         {/* ─── 列3: 調整提案 ─── */}
-        <div className="flex flex-col gap-1.5 border-t border-slate-100 p-5 sm:border-t-0">
+        <div className="flex flex-col gap-1.5 border-t border-slate-100 p-5 sm:border-t-0 dark:border-slate-700">
           <SectionLabel icon={<Utensils size={11} />}>調整提案</SectionLabel>
 
           {kcalCorrection !== null && Math.abs(kcalCorrection) >= 50 && (
@@ -406,7 +406,7 @@ export function GoalNavigator({
                 <MetricRow
                   label="目標摂取"
                   value={`${recommendedIntake.toLocaleString()} kcal/日`}
-                  valueColor="text-slate-700"
+                  valueColor="text-slate-700 dark:text-slate-200"
                 />
               )}
             </>
@@ -422,23 +422,23 @@ export function GoalNavigator({
                 <MetricRow
                   label="目標摂取"
                   value={`${recommendedIntake.toLocaleString()} kcal/日`}
-                  valueColor="text-slate-700"
+                  valueColor="text-slate-700 dark:text-slate-200"
                 />
               )}
             </>
           )}
           {kcalCorrection === null && !missingGoal && (
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-400 dark:text-slate-500">
               ペースデータが蓄積されると表示されます
             </p>
           )}
           {missingGoal && (
-            <p className="text-xs text-slate-400">目標体重が未設定です</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">目標体重が未設定です</p>
           )}
 
           {/* 理由の一行説明 */}
           <div className="mt-auto pt-2">
-            <p className="text-[11px] leading-relaxed text-slate-400">
+            <p className="text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">
               {buildReasonLabel(paceGap, kcalCorrection, isCut)}
             </p>
           </div>
@@ -447,7 +447,7 @@ export function GoalNavigator({
 
       {/* ── 今月目標進捗 ── */}
       {monthlyGoalProgress.state !== "unavailable" && (
-        <div className="border-t border-slate-100 px-5 py-3">
+        <div className="border-t border-slate-100 px-5 py-3 dark:border-slate-700">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
             {/* セクションラベル + 状態バッジ */}
             <div className="flex items-center gap-2 shrink-0">
@@ -465,9 +465,9 @@ export function GoalNavigator({
 
             {/* 現在体重 (最新実測値) */}
             {monthlyGoalProgress.comparisonWeight !== null && (
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
                 現在:{" "}
-                <span className="font-semibold tabular-nums text-slate-700">
+                <span className="font-semibold tabular-nums text-slate-700 dark:text-slate-200">
                   {monthlyGoalProgress.comparisonWeight.toFixed(1)} kg
                 </span>
               </span>
@@ -475,37 +475,37 @@ export function GoalNavigator({
 
             {/* 当月最小体重 */}
             {currentMonthMinWeight !== null && currentMonthMinWeight !== undefined && (
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
                 当月最小:{" "}
-                <span className="font-semibold tabular-nums text-slate-700">
+                <span className="font-semibold tabular-nums text-slate-700 dark:text-slate-200">
                   {currentMonthMinWeight.toFixed(1)} kg
                 </span>
               </span>
             )}
 
             {/* 今月末目標 */}
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-slate-500 dark:text-slate-400">
               今月末目標:{" "}
-              <span className="font-semibold text-slate-700 tabular-nums">
+              <span className="font-semibold text-slate-700 tabular-nums dark:text-slate-200">
                 {monthlyGoalProgress.monthlyTargetWeight?.toFixed(1) ?? "—"} kg
               </span>
             </span>
 
             {/* 差分 */}
             {monthlyGoalProgress.deltaKg !== null && (
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
                 差分:{" "}
                 <span
                   className={`font-semibold tabular-nums ${
                     monthlyGoalProgress.state === "achieved"
-                      ? "text-emerald-600"
+                      ? "text-emerald-600 dark:text-emerald-400"
                       : Math.abs(monthlyGoalProgress.deltaKg) < 0.5
-                      ? "text-slate-700"
+                      ? "text-slate-700 dark:text-slate-200"
                       : isCut && monthlyGoalProgress.deltaKg > 0
-                      ? "text-rose-600"
+                      ? "text-rose-600 dark:text-rose-400"
                       : !isCut && monthlyGoalProgress.deltaKg < 0
-                      ? "text-amber-600"
-                      : "text-slate-700"
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-slate-700 dark:text-slate-200"
                   }`}
                 >
                   {monthlyGoalProgress.deltaKg > 0 ? "+" : ""}
@@ -516,13 +516,13 @@ export function GoalNavigator({
 
             {/* 残必要ペース */}
             {monthlyGoalProgress.requiredPaceKgPerWeek !== null && (
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
                 残必要ペース:{" "}
-                <span className="font-semibold tabular-nums text-slate-700">
+                <span className="font-semibold tabular-nums text-slate-700 dark:text-slate-200">
                   {monthlyGoalProgress.requiredPaceKgPerWeek > 0 ? "+" : ""}
                   {monthlyGoalProgress.requiredPaceKgPerWeek.toFixed(1)} kg/週
                 </span>
-                <span className="ml-1 text-[10px] text-slate-400">
+                <span className="ml-1 text-[10px] text-slate-400 dark:text-slate-500">
                   (残{monthlyGoalProgress.daysToMonthEnd}日)
                 </span>
               </span>
@@ -537,7 +537,7 @@ export function GoalNavigator({
       )}
 
       {/* ── フッター注記 ── */}
-      <div className="border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400">
+      <div className="border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
         体重進捗は 7 日移動平均ベース / 今月進捗は最新体重ベース / ペースは 14 日線形回帰・kg/2週 表示 / 推定値のため目安としてご利用ください
       </div>
     </div>

@@ -36,7 +36,7 @@ export function RecentLogsCards({ logs, seasonMap, currentSeason }: RecentLogsCa
   }
 
   return (
-    <div className="divide-y divide-slate-50">
+    <div className="divide-y divide-slate-50 dark:divide-slate-700/60">
       {sorted.map((log) => {
         const delta = computeWeightDelta(ascending, log);
         const DeltaIcon =
@@ -55,12 +55,12 @@ export function RecentLogsCards({ logs, seasonMap, currentSeason }: RecentLogsCa
           >
             {/* 左: 日付 + バッジ */}
             <div className="min-w-0 flex-1">
-              <div className="font-mono text-xs font-medium text-slate-600">
+              <div className="font-mono text-xs font-medium text-slate-600 dark:text-slate-300">
                 {log.log_date}
               </div>
               <div className="mt-0.5 flex flex-wrap gap-1">
                 {season && (
-                  <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-blue-500">
+                  <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-blue-500 dark:bg-blue-900/30 dark:text-blue-400">
                     {season}
                   </span>
                 )}
@@ -74,7 +74,7 @@ export function RecentLogsCards({ logs, seasonMap, currentSeason }: RecentLogsCa
                 ))}
               </div>
               {(conditionSummary || log.sleep_hours !== null) && (
-                <div className="mt-0.5 text-[10px] leading-snug text-slate-400">
+                <div className="mt-0.5 text-[10px] leading-snug text-slate-400 dark:text-slate-500">
                   {[
                     conditionSummary,
                     log.sleep_hours !== null ? `${log.sleep_hours}h` : null,
@@ -88,10 +88,10 @@ export function RecentLogsCards({ logs, seasonMap, currentSeason }: RecentLogsCa
             {/* 右: 体重 + カロリー */}
             <div className="flex-shrink-0 text-right">
               <div className="flex items-baseline justify-end gap-1">
-                <span className="font-semibold text-slate-800">
+                <span className="font-semibold text-slate-800 dark:text-slate-100">
                   {log.weight?.toFixed(1)}
                 </span>
-                <span className="text-xs text-slate-400">kg</span>
+                <span className="text-xs text-slate-400 dark:text-slate-500">kg</span>
                 {delta !== null && DeltaIcon && (
                   <span
                     className={`inline-flex items-center gap-0.5 text-xs font-semibold ${
@@ -107,14 +107,14 @@ export function RecentLogsCards({ logs, seasonMap, currentSeason }: RecentLogsCa
                   </span>
                 )}
               </div>
-              <div className="mt-0.5 text-xs text-slate-500">
+              <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                 {log.calories !== null ? (
                   <>
                     {log.calories.toLocaleString()}
-                    <span className="ml-0.5 text-[10px] text-slate-400">kcal</span>
+                    <span className="ml-0.5 text-[10px] text-slate-400 dark:text-slate-500">kcal</span>
                   </>
                 ) : (
-                  <span className="text-slate-300">—</span>
+                  <span className="text-slate-300 dark:text-slate-600">—</span>
                 )}
               </div>
             </div>

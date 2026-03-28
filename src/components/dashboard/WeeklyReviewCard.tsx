@@ -55,26 +55,26 @@ const STAGNATION_CONFIG: Record<
 > = {
   advancing: {
     label: "順調",
-    color: "text-emerald-600",
-    bg: "bg-emerald-50 border-emerald-200",
+    color: "text-emerald-600 dark:text-emerald-400",
+    bg: "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-700/50",
     icon: CheckCircle2,
   },
   watching: {
     label: "要観察",
-    color: "text-amber-700",
-    bg: "bg-amber-50 border-amber-200",
+    color: "text-amber-700 dark:text-amber-400",
+    bg: "bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-700/50",
     icon: CircleDot,
   },
   suspected: {
     label: "停滞疑い",
-    color: "text-rose-700",
-    bg: "bg-rose-50 border-rose-200",
+    color: "text-rose-700 dark:text-rose-400",
+    bg: "bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-700/50",
     icon: AlertTriangle,
   },
   data_insufficient: {
     label: "データ不足",
-    color: "text-slate-500",
-    bg: "bg-slate-50 border-slate-200",
+    color: "text-slate-500 dark:text-slate-400",
+    bg: "bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-600",
     icon: HelpCircle,
   },
 };
@@ -120,11 +120,11 @@ function StatRow({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-0.5">
-      <span className="shrink-0 text-xs text-slate-500">{label}</span>
-      <span className={`text-right text-sm font-semibold tabular-nums ${valueColor ?? "text-slate-800"}`}>
+      <span className="shrink-0 text-xs text-slate-500 dark:text-slate-400">{label}</span>
+      <span className={`text-right text-sm font-semibold tabular-nums ${valueColor ?? "text-slate-800 dark:text-slate-100"}`}>
         {value}
-        {unit && <span className="ml-0.5 text-xs font-normal text-slate-400">{unit}</span>}
-        {sub && <span className="ml-1 text-xs font-normal text-slate-400">{sub}</span>}
+        {unit && <span className="ml-0.5 text-xs font-normal text-slate-400 dark:text-slate-500">{unit}</span>}
+        {sub && <span className="ml-1 text-xs font-normal text-slate-400 dark:text-slate-500">{sub}</span>}
       </span>
     </div>
   );
@@ -173,13 +173,13 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
       : "text-emerald-600";
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
       {/* ── ヘッダー ── */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-slate-100 bg-slate-50 px-5 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-slate-100 bg-slate-50 px-5 py-3 dark:border-slate-700 dark:bg-slate-800">
         <div className="flex items-center gap-2">
-          <ClipboardList size={15} className="text-slate-500" />
-          <span className="text-sm font-bold text-slate-700">直近7日サマリー</span>
-          <span className="text-xs text-slate-400">{data.weekLabel}</span>
+          <ClipboardList size={15} className="text-slate-500 dark:text-slate-400" />
+          <span className="text-sm font-bold text-slate-700 dark:text-slate-200">直近7日サマリー</span>
+          <span className="text-xs text-slate-400 dark:text-slate-500">{data.weekLabel}</span>
         </div>
         <span
           className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${stCfg.color} ${stCfg.bg}`}
@@ -192,7 +192,7 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
       {/* ── 本体 ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2">
         {/* ── 左列: 数値統計 ── */}
-        <div className="space-y-5 border-b border-slate-100 p-5 lg:border-b-0 lg:border-r">
+        <div className="space-y-5 border-b border-slate-100 p-5 lg:border-b-0 lg:border-r dark:border-slate-700">
           {/* 体重 */}
           <div>
             <SectionLabel icon={<TrendIcon size={12} className={trendColor} />}>
@@ -296,14 +296,14 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
           InsightCard 導入に合わせてモバイルでも表示する。
           モバイル時は border-t でセパレーターを入れ、左列の下に続く。
         */}
-        <div className="border-t border-slate-100 p-5 lg:border-t-0">
+        <div className="border-t border-slate-100 p-5 lg:border-t-0 dark:border-slate-700">
           <SectionLabel mb="mb-3">所見</SectionLabel>
           <InsightCardList items={insightItems} />
         </div>
       </div>
 
       {/* ── フッター ── */}
-      <div className="flex items-center justify-between border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400">
+      <div className="flex items-center justify-between border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
         <span>ローリング集計（今日を含む直近7暦日）/ トレンドは直近14暦日の線形回帰 / あくまで推定値</span>
         <span className={`font-semibold ${qualityScoreColor(quality.score)}`}>
           品質 {quality.score}/100

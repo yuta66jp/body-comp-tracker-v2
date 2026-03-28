@@ -22,7 +22,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
+        className={`${GeistSans.variable} ${GeistMono.variable} antialiased dark:bg-slate-950`}
       >
         <NavBar />
         <div className="mx-auto max-w-screen-xl px-4">
