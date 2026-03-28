@@ -816,22 +816,24 @@ def save_results(
 
             for pm in policy_metrics_list:
                 if pm.mae is None:
-                    # 除外後に評価点なし → 警告のみ、保存しない
+                    # 全件除外 → mae/rmse/bias/mape は NULL だが行自体は保存する。
+                    # #364 が run_id + eval_policy で比較クエリする際、
+                    # 「policy が存在しない」と「全件除外だった」を区別できるようにするため。
                     log.warning(
-                        "  %s h=%dd policy=%s: 有効な評価点なし (n_total=%d, n_excluded=%d)。スキップ。",
+                        "  %s h=%dd policy=%s: 有効な評価点なし (n_total=%d, n_excluded=%d)。"
+                        "metrics=NULL で保存します。",
                         model_name, horizon, pm.policy, pm.n_total, pm.n_excluded,
                     )
-                    continue
 
                 metric_rows.append({
                     "run_id":        run_id,
                     "model_name":    model_name,
                     "horizon_days":  horizon,
                     "eval_policy":   pm.policy,
-                    "mae":           round(pm.mae,  4),
-                    "rmse":          round(pm.rmse, 4),
+                    "mae":           round(pm.mae,  4) if pm.mae  is not None else None,
+                    "rmse":          round(pm.rmse, 4) if pm.rmse is not None else None,
                     "mape":          round(pm.mape, 4) if pm.mape is not None else None,
-                    "bias":          round(pm.bias, 4),
+                    "bias":          round(pm.bias, 4) if pm.bias is not None else None,
                     "n_predictions": pm.n_used,       # n_used と同義 (後方互換)
                     "n_total":       pm.n_total,
                     "n_excluded":    pm.n_excluded,

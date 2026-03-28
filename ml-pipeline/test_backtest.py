@@ -786,6 +786,24 @@ class TestComputePolicyMetrics:
             "除外後の MAE は除外前より低くなるはず (大エラー日を除いたため)"
         )
 
+    def test_all_excluded_policy_metrics_has_none_mae_but_valid_counts(self):
+        """全件除外でも PolicyMetrics が返り、n_total/n_excluded が正しく入ること。
+        (save_results が行を保存できるよう、n_used=0 でも PolicyMetrics を返す必要がある)"""
+        targets = [date(2026, 2, 1), date(2026, 2, 2)]
+        records = self._make_records([0.1, -0.2], [70.0, 70.0], targets)
+        exclusion = set(targets)  # 全件除外
+
+        result = compute_policy_metrics(
+            records, exclusion, [POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY]
+        )
+        pm = result[0]
+        assert pm.n_total    == 2
+        assert pm.n_used     == 0
+        assert pm.n_excluded == 2
+        assert pm.mae  is None
+        assert pm.rmse is None
+        assert pm.bias is None
+
 
 # ── BacktestConfig 評価ポリシー設定 ────────────────────────────────────────────
 
