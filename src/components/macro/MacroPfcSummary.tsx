@@ -34,9 +34,9 @@ export function MacroPfcSummary({ ratio }: MacroPfcSummaryProps) {
   }
 
   const segments: BarSegment[] = [
-    { label: "P", pct: ratio.proteinPct, kcal: ratio.proteinKcal, color: "bg-blue-500",   textColor: "text-blue-600" },
-    { label: "F", pct: ratio.fatPct,     kcal: ratio.fatKcal,     color: "bg-amber-400",  textColor: "text-amber-600" },
-    { label: "C", pct: ratio.carbsPct,   kcal: ratio.carbsKcal,   color: "bg-emerald-500",textColor: "text-emerald-600" },
+    { label: "P", pct: ratio.proteinPct, kcal: ratio.proteinKcal, color: "bg-blue-500 dark:bg-blue-500/75",    textColor: "text-blue-600" },
+    { label: "F", pct: ratio.fatPct,     kcal: ratio.fatKcal,     color: "bg-amber-400 dark:bg-amber-400/75",  textColor: "text-amber-600" },
+    { label: "C", pct: ratio.carbsPct,   kcal: ratio.carbsKcal,   color: "bg-emerald-500 dark:bg-emerald-500/75", textColor: "text-emerald-600" },
   ];
 
   return (
