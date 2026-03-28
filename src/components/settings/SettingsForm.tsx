@@ -110,13 +110,11 @@ function FormSection({ id, title, subtitle, isOpen, onToggle, children, border =
 // ─── フィールド描画ヘルパー ────────────────────────────────────────────────────
 
 function FieldItem({
-  fieldKey,
   meta,
   value,
   error,
   onChange,
 }: {
-  fieldKey: string;
   meta: FieldMeta;
   value: string;
   error?: string;
@@ -319,7 +317,7 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
             {SEASON_FIELD_KEYS.map((key) => (
               <FieldItem
                 key={key}
-                fieldKey={key}
+
                 meta={
                   key === "contest_date"
                     ? { ...FIELDS[key]!, label: deadlineLabel }

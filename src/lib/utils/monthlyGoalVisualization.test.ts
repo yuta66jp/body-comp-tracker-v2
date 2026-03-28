@@ -13,7 +13,6 @@ import {
   buildMonthlyGoalComparisonRows,
   PLAN_GAP_THRESHOLD_KG,
 } from "./monthlyGoalVisualization";
-import type { MonthlyGoalSummaryRow } from "./monthlyGoalVisualization";
 import type { MonthlyGoalPlan } from "./monthlyGoalPlan";
 import { buildMonthlyGoalPlan } from "./monthlyGoalPlan";
 

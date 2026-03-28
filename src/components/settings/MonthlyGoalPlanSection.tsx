@@ -23,7 +23,6 @@ import { parseStrictNumber } from "@/lib/utils/parseNumber";
 import type {
   MonthlyGoalOverride,
   MonthlyGoalErrorCode,
-  MonthlyGoalWarningCode,
   MonthlyGoalWarning,
 } from "@/lib/utils/monthlyGoalPlan";
 
@@ -115,7 +114,6 @@ export function MonthlyGoalPlanSection({
   onOverridesChange,
 }: MonthlyGoalPlanSectionProps) {
   const deadlineLabel = phase === "Bulk" ? "目標日" : "コンテスト日";
-  const ERROR_LABELS = buildErrorLabels(deadlineLabel);
 
   // ── 欠損チェック (plan を構築する前提条件) ────────────────────────────────
   if (!contestDate) {

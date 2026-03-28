@@ -1,5 +1,4 @@
 import { buildForecastMap, calcEwLinearForecast, buildYAxisConfig } from "./forecastUtils";
-import type { RangeTab } from "./forecastUtils";
 
 // ─── calcEwLinearForecast ─────────────────────────────────────────────────────
 
