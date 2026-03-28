@@ -14,7 +14,7 @@ export function SkeletonBlock({ className }: SkeletonBlockProps) {
   return (
     <div
       aria-hidden="true"
-      className={`animate-pulse rounded-2xl bg-slate-200 ${className ?? ""}`}
+      className={`animate-pulse rounded-2xl bg-slate-200 dark:bg-slate-700 ${className ?? ""}`}
     />
   );
 }
