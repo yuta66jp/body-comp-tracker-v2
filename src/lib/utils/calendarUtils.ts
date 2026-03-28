@@ -50,9 +50,9 @@ export interface CalendarDayData {
 
 /** 勤務モード別バッジカラー (off / office / remote の3カテゴリ) */
 const WORK_MODE_COLOR: Record<string, string> = {
-  off:    "bg-amber-100 text-amber-700",
-  office: "bg-slate-100 text-slate-600",
-  remote: "bg-cyan-100 text-cyan-700",
+  off:    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  office: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400",
+  remote: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
 };
 
 /**
@@ -73,8 +73,8 @@ export function buildConditionTags(params: {
       key:        "bowel",
       label:      params.had_bowel_movement ? "便通" : "便通なし",
       colorClass: params.had_bowel_movement
-        ? "bg-green-100 text-green-700"
-        : "bg-slate-100 text-slate-500",
+        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+        : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400",
     });
   }
 
@@ -82,7 +82,7 @@ export function buildConditionTags(params: {
     tags.push({
       key:        "training",
       label:      TRAINING_TYPE_LABELS[params.training_type],
-      colorClass: "bg-indigo-100 text-indigo-700",
+      colorClass: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
     });
   }
 
@@ -120,7 +120,7 @@ export function getMobileTrainingLabel(
   if (!trainingType || !isValidTrainingType(trainingType)) return null;
   return {
     label:      TRAINING_TYPE_LABELS[trainingType],
-    colorClass: "bg-indigo-100 text-indigo-700",
+    colorClass: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
   };
 }
 
