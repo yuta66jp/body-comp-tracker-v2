@@ -344,7 +344,6 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
           {BODY_FIELD_KEYS.map((key) => (
             <FieldItem
               key={key}
-              fieldKey={key}
               meta={FIELDS[key]!}
               value={values[key] ?? ""}
               error={fieldErrors[key]}
@@ -366,7 +365,6 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
           {MACRO_TARGET_KEYS.map((key) => (
             <FieldItem
               key={key}
-              fieldKey={key}
               meta={MACRO_TARGET_FIELDS[key]!}
               value={values[key] ?? ""}
               error={fieldErrors[key]}
