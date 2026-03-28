@@ -2,6 +2,7 @@ import { SettingsForm } from "@/components/settings/SettingsForm";
 import { ExportSection } from "@/components/settings/ExportSection";
 import { ImportSection } from "@/components/settings/ImportSection";
 import { DataQualityPanel } from "@/components/settings/DataQualityPanel";
+import { ThemeSection } from "@/components/settings/ThemeSection";
 import { calcDataQuality } from "@/lib/utils/calcDataQuality";
 import { fetchSettingsRows } from "@/lib/queries/settings";
 import { fetchDailyLogsForSettings } from "@/lib/queries/dailyLogs";
@@ -43,6 +44,7 @@ export default async function SettingsPage() {
       )}
 
       <div className="space-y-6">
+        <ThemeSection />
         <SettingsForm initialSettings={settingsRows} currentWeight={currentWeight} />
         <DataQualityPanel report={qualityReport} />
 
