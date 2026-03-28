@@ -12,6 +12,7 @@ interface KpiCardsProps {
   settings: AppSettings;
   avgTdee: number | null;
   currentWeight: number | null;
+  currentSeason?: string | null;
 }
 
 interface KpiCardProps {
@@ -24,9 +25,10 @@ interface KpiCardProps {
   iconColor: string;
   trendDir?: "up" | "down" | "flat";
   trendPositive?: "up" | "down";
+  tag?: React.ReactNode;
 }
 
-function KpiCard({ label, value, unit, sub, icon, accent, iconColor, trendDir, trendPositive }: KpiCardProps) {
+function KpiCard({ label, value, unit, sub, icon, accent, iconColor, trendDir, trendPositive, tag }: KpiCardProps) {
   const TrendIcon = trendDir === "up" ? TrendingUp : trendDir === "down" ? TrendingDown : Minus;
   const isGood = trendDir === undefined || trendDir === "flat"
     ? null
@@ -35,6 +37,7 @@ function KpiCard({ label, value, unit, sub, icon, accent, iconColor, trendDir, t
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+      {tag && <div className="mb-2">{tag}</div>}
       <div className="flex items-start justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{label}</p>
         <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${accent}`}>
@@ -55,7 +58,7 @@ function KpiCard({ label, value, unit, sub, icon, accent, iconColor, trendDir, t
   );
 }
 
-export function KpiCards({ logs, settings, currentWeight }: KpiCardsProps) {
+export function KpiCards({ logs, settings, currentWeight, currentSeason }: KpiCardsProps) {
   const sorted = [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date));
   const isCut = settings.currentPhase !== "Bulk";
   const deadlineLabel = isCut ? "大会日" : "目標日";
@@ -143,6 +146,13 @@ export function KpiCards({ logs, settings, currentWeight }: KpiCardsProps) {
         icon={<CalendarClock size={18} />}
         accent="bg-violet-50 dark:bg-violet-900/30"
         iconColor="text-violet-600 dark:text-violet-400"
+        tag={
+          currentSeason ? (
+            <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">
+              大会: {currentSeason.replace(/_/g, " ")}
+            </span>
+          ) : undefined
+        }
       />
 
       {/* 目標到達予定日 */}
