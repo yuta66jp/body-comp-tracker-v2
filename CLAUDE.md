@@ -32,26 +32,33 @@ body-comp-tracker-v2/
 ├── src/
 │   ├── app/                        # Next.js App Router
 │   │   ├── page.tsx                # Dashboard (メイン)
-│   │   ├── layout.tsx              # Root Layout
+│   │   ├── loading.tsx             # Dashboard loading skeleton
+│   │   ├── layout.tsx              # Root Layout (FOUC 防止スクリプト含む)
 │   │   ├── tdee/page.tsx           # TDEE 分析画面
+│   │   ├── tdee/loading.tsx        # TDEE loading skeleton
 │   │   ├── macro/page.tsx          # 栄養分析画面
+│   │   ├── macro/loading.tsx       # Macro loading skeleton
 │   │   ├── history/page.tsx        # 過去シーズン比較
+│   │   ├── history/loading.tsx     # History loading skeleton
+│   │   ├── foods/page.tsx          # 食品データベース画面
+│   │   ├── foods/loading.tsx       # Foods loading skeleton
 │   │   ├── settings/
 │   │   │   ├── page.tsx            # 設定画面
+│   │   │   ├── loading.tsx         # Settings loading skeleton
 │   │   │   └── actions.ts          # Server Actions (settings 保存)
 │   │   ├── actions/                # Server Actions (daily_logs 保存)
 │   │   │   ├── saveDailyLog.ts
 │   │   │   └── buildUpdatePayload.ts
 │   │   └── api/export/route.ts     # CSV エクスポート
 │   ├── components/                 # UIコンポーネント
-│   │   ├── dashboard/              # KpiCards, GoalNavigator, WeeklyReviewCard, LogsAndSummaryTabs, MonthlyCalendar
+│   │   ├── dashboard/              # KpiCards, GoalNavigator, WeeklyReviewCard, LogsAndSummaryTabs, MonthlyCalendar, MobileMealLoggerSheet
 │   │   ├── charts/                 # ForecastChart, FactorAnalysis
 │   │   ├── tdee/                   # TdeeKpiCard, TdeeDetailChart, TdeeDailyTable
 │   │   ├── macro/                  # MacroKpiCards, MacroPfcSummary, MacroStackedChart
-│   │   ├── settings/               # SettingsForm (+ integration test)
+│   │   ├── settings/               # SettingsForm (+ integration test), ThemeSection
 │   │   ├── analytics/              # AnalyticsStatusNote
 │   │   ├── meal/                   # MealLogger, FoodPicker, Cart
-│   │   └── ui/                     # 共通UI (Button, Card, etc.)
+│   │   └── ui/                     # 共通UI (Button, Card, Skeleton, etc.)
 │   ├── lib/
 │   │   ├── supabase/
 │   │   │   ├── client.ts           # Browser client
@@ -68,7 +75,10 @@ body-comp-tracker-v2/
 │   │   │   └── settingsSchema.ts   # settings 保存用バリデーション schema (Server Action と共有)
 │   │   ├── analytics/
 │   │   │   └── status.ts           # AnalyticsAvailability 型 (fresh/stale/unavailable/error)
-│   │   ├── hooks/                  # Client-side hooks (useDailyLogs 等)
+│   │   ├── hooks/                  # Client-side hooks
+│   │   │   ├── useTheme.ts         # ライト/ダーク/システム テーマ管理 (localStorage 保存)
+│   │   │   ├── useIsDark.ts        # html.dark クラス監視 (チャート系 dark 判定)
+│   │   │   └── ...                 # useDailyLogs 等
 │   │   └── utils/                  # 計算ヘルパー
 │   │       ├── date.ts             # JST 日付ユーティリティ (parseLocalDateStr, calcDaysLeft 等)
 │   │       ├── calendarUtils.ts    # 月間カレンダー表示用データ変換 (buildCalendarDayMap)
@@ -242,17 +252,37 @@ body-comp-tracker-v2/
 - 期間定義を画面ごとにバラバラにしない
 - 7暦日 (`dateRangeStr`) と 7記録日 (`slice(-7)`) は意味が異なる。混同しない
 
+### テーマ / ダークモード
+- **単一制御点**: `document.documentElement.classList.toggle("dark", isDark)` が唯一の切替口
+- **FOUC 防止スクリプト**: `app/layout.tsx` の `<head>` にインライン `<script>` を配置し、初回ペイント前に localStorage を読んで `.dark` を `<html>` に付与する。このスクリプトがないとダークモード設定でも白フラッシュが発生する
+- **CSS 変数 / バリアント**: `globals.css` が canonical カラーソース。`@variant dark (&:where(.dark, .dark *))` を使用（`@media prefers-color-scheme` ではない）
+- **`useTheme`** (`src/lib/hooks/useTheme.ts`): ライト / ダーク / システムの選択を管理し localStorage に保存。SSR 時は `useState` の遅延初期化が "system" を返す
+- **`useIsDark`** (`src/lib/hooks/useIsDark.ts`): `html.dark` クラスを `MutationObserver` で監視し boolean を返す。Recharts 等チャートの色切替専用
+- **`SkeletonBlock`** は必ず `dark:bg-slate-700` を含める。ないと暗背景で白いブロックとして見える
+- ダークモード対応するコンポーネントは Tailwind の `dark:` プレフィックスで記述し、インラインスタイルにハードコードしない
+
+### loading.tsx / ローディング Skeleton
+- `revalidate = 0`（デフォルト）のページは毎回 DB フェッチが走るため、`loading.tsx` がないとレイアウトシェル（白背景）が 1 秒前後露出する
+- `revalidate = 3600` 等のキャッシュが効くページは初回以降はキャッシュから即返却されるため loading.tsx の優先度は低い
+- `loading.tsx` は対応する `page.tsx` のレイアウト骨格をざっくり模倣する（PageShell + 主要ブロックのサイズ感）
+- `SkeletonBlock` / `SkeletonCardRow` を使う（`src/components/ui/Skeleton.tsx`）
+- 現在 `loading.tsx` を持つページ: dashboard, tdee, macro, history, foods, settings
+
 ### ダッシュボード設計
 - **KpiCards**: 前提条件・全体ステータス（残り日数・週数・大会日付・目標到達予定）
+  - **シーズンバッジ**: 「残り日数」KPI カード内の `tag` prop で表示（ページヘッダーには置かない）。大会カウントダウンと文脈が一致するため、ここに集約する
 - **GoalNavigator**: 「間に合うか」の判断（体重進捗・ペース分析・調整提案）
   - ペース分析の primary 単位は **kg/2週**。週次と2週次を混在させない
   - 残り日数 / 残り週数 / 大会日付は KpiCards に集約し GoalNavigator に再掲しない
 - **WeeklyReview**: 直近7暦日の実績振り返り（体重・栄養・エネルギーバランス・停滞検知）
 - 3 パネルで同じ意味の数値が重複しないように設計する
+- **食事ログ入口**: `MobileMealLoggerSheet` のトリガーはエントリーカード形式（白背景 + border-slate + shadow-sm + hover:shadow-md）。青背景ボタンではない。幅は `lg:max-w-xs`、左寄せ
+- **食品追加 (MealLogger)**: "食品を追加" セクションは初期非表示のコラプシブルアコーディオン。カート内アイテムがある場合はトリガーボタンにバッジ数を表示する
 - **LogsAndSummaryTabs** (下部タブ): 「直近ログ」「カレンダー」「月別サマリー」の 3 タブ切替
   - カレンダータブ: `MonthlyCalendar` コンポーネント（react-day-picker v9 ベース）
   - 体重・差分・カロリー・特殊日タグ・コンディションタグを月単位で俯瞰
   - 日曜始まり・土日祝セル色分け・祝日名表示・今日のリング表示
+  - **特殊日タグ表示ルール**: セルに表示するのは優先順位最上位の 1 件のみ（`DAY_TAG_DISPLAY_PRIORITY`: チートデイ > リフィード > 旅行 > 外食）。複数タグがある日も 1 件に絞る
   - 月別サマリータブ: `MonthlyGoalTable` + `SeasonSummary` で構成
     - `MonthlyGoalTable`: `buildMonthlyGoalComparisonRows`（`monthlyGoalVisualization.ts`）の出力を受け取り表示
       - 列: 月 / 月初体重 / 月末目標 / 実績月末 / 差分 / 状態 / 累積ズレ / 翌月必要（月初体重・翌月必要は `hidden sm:table-cell`）
