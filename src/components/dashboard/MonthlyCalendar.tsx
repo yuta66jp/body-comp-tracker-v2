@@ -55,6 +55,20 @@ const CalendarContext = createContext<CalendarCtx>({
 // 内側 div に固定高 + overflow-hidden を設定し、コンテンツ量に関わらず全セルを同一高にする
 const CELL_H = "h-24 sm:h-28";
 
+// ── 特殊日タグ表示優先順位 ────────────────────────────────────────────────────
+// 複数のタグが true の場合、最も優先度の高い 1 件だけをカレンダーセルに表示する。
+// 優先ルール:
+//   1. is_cheat_day  (チートデイ)  — 最も大きな食事逸脱
+//   2. is_refeed_day (リフィード)  — 意図的な炭水化物補充
+//   3. is_travel_day (旅行)        — 旅行は外食を包含するため外食より上位
+//   4. is_eating_out (外食)        — 最もよくある軽微な逸脱
+const DAY_TAG_DISPLAY_PRIORITY = [
+  "is_cheat_day",
+  "is_refeed_day",
+  "is_travel_day",
+  "is_eating_out",
+] as const;
+
 // ── 曜日タイプ判定 ────────────────────────────────────────────────────────────
 
 type WeekdayType = "weekday" | "saturday" | "sunday-holiday";
@@ -124,6 +138,13 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
     ? getMobileTrainingLabel(data.dayTags, data.log.training_type)
     : null;
 
+  // 特殊日タグを優先順位に従って 1 件に絞る
+  const topDayTag = data?.dayTags.length
+    ? (DAY_TAG_DISPLAY_PRIORITY
+        .map((key) => data.dayTags.find((t) => t.key === key))
+        .find((t) => t !== undefined) ?? data.dayTags[0] ?? null)
+    : null;
+
   return (
     <td className={tdCls}>
       <div className={innerCls}>
@@ -166,12 +187,12 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
         {/* ③ カロリー + 差分（近接表示: 1984k (+65)） */}
         {data?.log.calories != null && (
           <div className="mt-0.5 flex items-baseline gap-0.5 leading-none flex-wrap">
-            <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
+            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
               {data.log.calories.toLocaleString()}
             </span>
-            <span className="text-[8px] text-slate-400 dark:text-slate-500">k</span>
+            <span className="text-[9px] text-slate-400 dark:text-slate-500">k</span>
             {data?.calDelta != null && (
-              <span className={`text-[9px] font-medium leading-none ${
+              <span className={`text-[10px] font-medium leading-none ${
                 data.calDelta > 0
                   ? "text-blue-400"
                   : data.calDelta < 0
@@ -184,24 +205,19 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
           </div>
         )}
 
-        {/* ④ 特殊日タグ */}
-        {data?.dayTags && data.dayTags.length > 0 && (
-          <div className="mt-0.5 flex flex-wrap gap-0.5">
-            {data.dayTags.map((tag) => (
-              <span
-                key={tag.key}
-                className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none ${tag.colorClass}`}
-              >
-                {tag.label}
-              </span>
-            ))}
+        {/* ④ 特殊日タグ（優先順位最上位の 1 件のみ表示） */}
+        {topDayTag && (
+          <div className="mt-0.5">
+            <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold leading-none ${topDayTag.colorClass}`}>
+              {topDayTag.label}
+            </span>
           </div>
         )}
 
         {/* ④-mobile トレーニング部位（モバイルのみ・特殊日がない日） */}
         {mobileTrainingLabel && (
           <div className="mt-0.5 sm:hidden">
-            <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none ${mobileTrainingLabel.colorClass}`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold leading-none ${mobileTrainingLabel.colorClass}`}>
               {mobileTrainingLabel.label}
             </span>
           </div>
@@ -213,7 +229,7 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
             {data.conditionTags.map((tag) => (
               <span
                 key={tag.key}
-                className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none ${tag.colorClass}`}
+                className={`rounded-full px-1.5 py-0.5 text-xs font-semibold leading-none ${tag.colorClass}`}
               >
                 {tag.label}
               </span>
