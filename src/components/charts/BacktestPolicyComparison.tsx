@@ -121,15 +121,21 @@ export function BacktestPolicyComparison({ metrics }: Props) {
           </div>
         </div>
         <p className="mt-1 text-xs text-slate-500">
-          チートデイ・旅行日と回復期間（2日）を除いた通常日の予測精度と、全日評価を比較します。
+          <span className="font-medium text-slate-600">全日</span>はイベント日を含む全サンプルで評価、
+          <span className="font-medium text-violet-600">通常日</span>はチートデイ・旅行日と回復期間（2日）を除外したサンプルで評価します。
           <strong className="text-slate-600">
-            {" "}除外件数が少ない場合は精度差を過大評価しないでください。
+            {" "}除外サンプルが少ない場合は精度差を過大評価しないでください。
           </strong>
         </p>
         {summaryRow && summaryRow.n_total > 0 && (
           <p className="mt-1 text-[11px] text-slate-400">
-            除外状況（h=7 代表）: 全 {summaryRow.n_total} 件中{" "}
-            {summaryRow.n_excluded} 件除外 → 使用 {summaryRow.n_predictions} 件
+            除外状況（h=7, NP 代表）: 評価サンプル計 {summaryRow.n_total} 件中{" "}
+            {summaryRow.n_excluded} 件除外 → 評価使用 {summaryRow.n_predictions} 件
+            {summaryRow.n_excluded === 0 && (
+              <span className="ml-1 text-slate-400">
+                ※ 手動イベント期間未設定。自動タグ (cheat/travel) のみが除外対象です。
+              </span>
+            )}
           </p>
         )}
       </div>
@@ -167,7 +173,7 @@ export function BacktestPolicyComparison({ metrics }: Props) {
                 <div>
                   <p className="mb-0.5 font-medium text-violet-600">通常日 ★</p>
                   {allExcluded ? (
-                    <p className="text-slate-400">全件除外</p>
+                    <p className="text-slate-400">全件除外（除外条件により評価対象なし）</p>
                   ) : exBest ? (
                     <>
                       <p className="font-semibold text-slate-700">
@@ -187,7 +193,8 @@ export function BacktestPolicyComparison({ metrics }: Props) {
           );
         })}
         <p className="text-[10px] text-slate-400">
-          ★ = ホライズン別最良モデル / 除外 = イベント除外評価で使われなかった予測点数
+          ★ = ホライズン別最良モデル / 件数はホライズンごとの評価サンプル数（予測点数）。実日数ではない。
+          全件除外 = 除外条件により評価対象サンプルがゼロになった状態（データ欠損ではない）。
         </p>
       </div>
 
@@ -215,7 +222,7 @@ export function BacktestPolicyComparison({ metrics }: Props) {
                     全日
                   </th>
                   <th className="px-3 py-1.5 text-center text-violet-500">通常日</th>
-                  <th className="px-2 py-1.5 text-center text-slate-400">除外数</th>
+                  <th className="px-2 py-1.5 text-center text-slate-400">除外†</th>
                 </Fragment>
               ))}
             </tr>
@@ -239,7 +246,10 @@ export function BacktestPolicyComparison({ metrics }: Props) {
                         {/* 通常日 MAE / 全件除外バッジ */}
                         <td className="px-3 py-2.5 text-center font-mono tabular-nums">
                           {allExcluded ? (
-                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+                            <span
+                              className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-400"
+                              title="除外条件により評価対象サンプルがゼロになった状態。データ欠損ではありません。"
+                            >
                               全件除外
                             </span>
                           ) : (
@@ -262,9 +272,9 @@ export function BacktestPolicyComparison({ metrics }: Props) {
 
       {/* ── フッター注記 ── */}
       <div className="border-t border-slate-50 bg-slate-50 px-5 py-2.5 text-[11px] text-slate-400">
-        通常日 = チートデイ (is_cheat_day) · 旅行日 (is_travel_day) と回復 2 日を除外した日。
-        全件除外 = イベント除外後に評価可能な予測点がなかった条件。
-        除外数が少ないほど比較は参考程度。
+        全日 = イベントを含む全評価サンプルで評価 / 通常日 = cheat_day · travel_day と回復 2 日を除外して評価。
+        全件除外 = 除外条件により評価対象サンプルがゼロになった状態（データ欠損ではない）。
+        † 除外数は実日数ではなくホライズンごとの評価サンプル数（予測点数）。除外数が少ないほど精度差は参考程度。
       </div>
     </div>
   );

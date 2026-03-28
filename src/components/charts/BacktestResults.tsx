@@ -105,7 +105,7 @@ export function BacktestResults({ run, metrics }: Props) {
         <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs text-slate-500 sm:grid-cols-4">
           <div><span className="font-medium text-slate-600">実行日時:</span> {fmtDate(run.created_at)}</div>
           <div><span className="font-medium text-slate-600">データ期間:</span> {run.train_min_date ?? "—"} → {run.train_max_date ?? "—"}</div>
-          <div><span className="font-medium text-slate-600">データ点数:</span> {run.n_source_rows} 件</div>
+          <div><span className="font-medium text-slate-600">ログ日数:</span> {run.n_source_rows} 日（訓練データの実日数）</div>
           <div><span className="font-medium text-slate-600">メモ:</span> {run.notes ?? "—"}</div>
         </div>
       </div>
@@ -248,7 +248,7 @@ export function BacktestResults({ run, metrics }: Props) {
                   <th className="py-1 px-2 text-right font-normal">RMSE↓</th>
                   <th className="py-1 px-2 text-right font-normal">MAPE↓</th>
                   <th className="py-1 px-2 text-right font-normal">Bias</th>
-                  <th className="py-1 px-2 text-right font-normal">n</th>
+                  <th className="py-1 px-2 text-right font-normal" title="評価サンプル数（予測点数、実日数ではない）">n†</th>
                 </React.Fragment>
               ))}
             </tr>
@@ -307,6 +307,7 @@ export function BacktestResults({ run, metrics }: Props) {
         <p className="mt-2 text-xs text-slate-400">
           MAE↓ / RMSE↓ = 小さいほど良い。<strong className="text-blue-600">太字</strong>はホライズン内最良モデル。
           Bias: 正=予測が実測より高め傾向、負=低め傾向。
+          † n = 評価サンプル数（ホライズンごとの予測点数）。上記ログ日数とは異なる。
         </p>
       </div>
 
