@@ -121,7 +121,7 @@ function StatRow({
   return (
     <div className="flex items-baseline justify-between gap-3 py-0.5">
       <span className="shrink-0 text-xs text-slate-500 dark:text-slate-400">{label}</span>
-      <span className={`text-right text-sm font-semibold tabular-nums ${valueColor ?? "text-slate-800 dark:text-slate-200"}`}>
+      <span className={`text-right text-sm font-semibold tabular-nums ${valueColor ?? "text-slate-800 dark:text-slate-300"}`}>
         {value}
         {unit && <span className="ml-0.5 text-xs font-normal text-slate-400 dark:text-slate-500">{unit}</span>}
         {sub && <span className="ml-1 text-xs font-normal text-slate-400 dark:text-slate-500">{sub}</span>}
@@ -178,7 +178,7 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-slate-100 bg-slate-50 px-5 py-3 dark:border-slate-700 dark:bg-slate-800">
         <div className="flex items-center gap-2">
           <ClipboardList size={15} className="text-slate-500 dark:text-slate-400" />
-          <span className="text-sm font-bold text-slate-700 dark:text-slate-200">直近7日サマリー</span>
+          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">直近7日サマリー</span>
           <span className="text-xs text-slate-400 dark:text-slate-500">{data.weekLabel}</span>
         </div>
         <span

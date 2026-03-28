@@ -34,7 +34,7 @@ export function NavBar() {
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600">
             <span className="text-[11px] font-black tracking-tight text-white">BC</span>
           </div>
-          <span className="hidden text-sm font-bold text-slate-800 dark:text-slate-200 sm:block">Tracker</span>
+          <span className="hidden text-sm font-bold text-slate-800 dark:text-slate-300 sm:block">Tracker</span>
         </div>
 
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {

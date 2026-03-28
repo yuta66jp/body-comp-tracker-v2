@@ -28,7 +28,7 @@ export function PageShell({ children, title, titleSlot }: PageShellProps) {
   return (
     <main className="py-4 md:py-6">
       {titleSlot ?? (title && (
-        <h1 className="mb-4 text-xl font-bold text-slate-800 dark:text-slate-200 md:mb-6">{title}</h1>
+        <h1 className="mb-4 text-xl font-bold text-slate-800 dark:text-slate-300 md:mb-6">{title}</h1>
       ))}
       {children}
     </main>

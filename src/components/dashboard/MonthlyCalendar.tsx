@@ -142,7 +142,7 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
         <div className="mt-1 flex items-baseline gap-0.5 leading-none flex-wrap">
           {data?.log.weight != null ? (
             <>
-              <span className="text-xs sm:text-sm font-bold text-slate-800 leading-none dark:text-slate-200">
+              <span className="text-xs sm:text-sm font-bold text-slate-800 leading-none dark:text-slate-300">
                 {data.log.weight.toFixed(1)}
               </span>
               <span className="text-[9px] text-slate-400 dark:text-slate-500">kg</span>
@@ -259,7 +259,7 @@ export function MonthlyCalendar({ logs }: MonthlyCalendarProps) {
           months:        "w-full",
           month:         "w-full",
           month_caption: "flex items-center justify-between mb-3 px-1",
-          caption_label: "text-sm font-semibold text-slate-700 dark:text-slate-200",
+          caption_label: "text-sm font-semibold text-slate-700 dark:text-slate-300",
           nav:           "flex items-center gap-1",
           button_previous:
             "flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-400 " +

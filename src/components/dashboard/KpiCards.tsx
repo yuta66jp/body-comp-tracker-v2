@@ -42,7 +42,7 @@ function KpiCard({ label, value, unit, sub, icon, accent, iconColor, trendDir, t
         </div>
       </div>
       <div className="mt-3 flex items-baseline gap-1">
-        <span className="text-[2rem] font-bold leading-none tracking-tight text-slate-900 dark:text-slate-200">{value}</span>
+        <span className="text-[2rem] font-bold leading-none tracking-tight text-slate-900 dark:text-slate-300">{value}</span>
         {unit && <span className="text-sm font-medium text-slate-400 dark:text-slate-500">{unit}</span>}
       </div>
       {sub && (
