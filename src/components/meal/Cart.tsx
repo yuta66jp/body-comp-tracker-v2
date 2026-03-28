@@ -126,7 +126,7 @@ export function Cart({ items, onChange }: CartProps) {
 
   if (items.length === 0) {
     return (
-      <p className="py-4 text-center text-sm text-gray-400">
+      <p className="py-4 text-center text-sm text-gray-400 dark:text-slate-500">
         食品を追加してください
       </p>
     );
@@ -138,10 +138,10 @@ export function Cart({ items, onChange }: CartProps) {
         {items.map((item, i) => {
           if (item.kind === "regular") {
             return (
-              <li key={`regular-${item.food.name}`} className="flex items-center gap-2 rounded-lg border border-gray-100 bg-white px-3 py-2">
+              <li key={`regular-${item.food.name}`} className="flex items-center gap-2 rounded-lg border border-gray-100 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
                 <div className="flex-1 min-w-0">
-                  <p className="truncate text-sm font-medium text-gray-800">{item.food.name}</p>
-                  <p className="text-xs text-gray-400">
+                  <p className="truncate text-sm font-medium text-gray-800 dark:text-slate-100">{item.food.name}</p>
+                  <p className="text-xs text-gray-400 dark:text-slate-500">
                     {calcNutrient(item.food, item.grams, "calories")} kcal &nbsp;|&nbsp;
                     P {calcNutrient(item.food, item.grams, "protein")}g&nbsp;
                     F {calcNutrient(item.food, item.grams, "fat")}g&nbsp;
@@ -157,13 +157,13 @@ export function Cart({ items, onChange }: CartProps) {
                     value={item.food.name in editingGrams ? editingGrams[item.food.name] : item.grams}
                     onChange={(e) => handleGramsChange(item.food.name, e.target.value)}
                     onBlur={() => handleGramsBlur(i, item.food.name)}
-                    className="w-20 rounded border border-gray-200 px-2 py-2.5 text-right text-sm outline-none focus:border-blue-400"
+                    className="w-20 rounded border border-gray-200 px-2 py-2.5 text-right text-sm outline-none focus:border-blue-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                   />
                   <span className="text-xs text-gray-400">g</span>
                 </div>
                 <button
                   onClick={() => remove(i)}
-                  className="ml-1 p-2 text-gray-300 hover:text-rose-500"
+                  className="ml-1 p-2 text-gray-300 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400"
                   aria-label="削除"
                 >
                   <Trash2 size={15} />
@@ -173,13 +173,13 @@ export function Cart({ items, onChange }: CartProps) {
           } else {
             // 一時食品: 栄養値は入力済み固定値。grams は表示のみ。
             return (
-              <li key={`temp-${item.food.tempId}`} className="flex items-center gap-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
+              <li key={`temp-${item.food.tempId}`} className="flex items-center gap-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 dark:border-amber-700/50 dark:bg-amber-900/20">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <p className="truncate text-sm font-medium text-gray-800">{item.food.name}</p>
-                    <span className="flex-shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-200 text-amber-800">一時</span>
+                    <p className="truncate text-sm font-medium text-gray-800 dark:text-slate-100">{item.food.name}</p>
+                    <span className="flex-shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-200 text-amber-800 dark:bg-amber-800/50 dark:text-amber-300">一時</span>
                   </div>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 dark:text-slate-500">
                     {item.food.calories} kcal &nbsp;|&nbsp;
                     P {item.food.protein}g&nbsp;
                     F {item.food.fat}g&nbsp;
@@ -189,7 +189,7 @@ export function Cart({ items, onChange }: CartProps) {
                 </div>
                 <button
                   onClick={() => remove(i)}
-                  className="ml-1 p-2 text-gray-300 hover:text-rose-500"
+                  className="ml-1 p-2 text-gray-300 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400"
                   aria-label="削除"
                 >
                   <Trash2 size={15} />
@@ -201,12 +201,12 @@ export function Cart({ items, onChange }: CartProps) {
       </ul>
 
       {/* 合計行 */}
-      <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm">
-        <div className="flex items-center justify-between font-semibold text-gray-700">
+      <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm dark:bg-blue-900/30">
+        <div className="flex items-center justify-between font-semibold text-gray-700 dark:text-slate-200">
           <span>合計</span>
           <span className="text-base">{totals.calories.toLocaleString()} kcal</span>
         </div>
-        <div className="mt-1 flex gap-4 text-xs text-gray-500">
+        <div className="mt-1 flex gap-4 text-xs text-gray-500 dark:text-slate-400">
           <span>P <b>{totals.protein}</b>g</span>
           <span>F <b>{totals.fat}</b>g</span>
           <span>C <b>{totals.carbs}</b>g</span>

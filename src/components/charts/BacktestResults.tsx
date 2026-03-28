@@ -15,6 +15,7 @@ import { AlertTriangle, TrendingUp, TrendingDown, Minus, Info } from "lucide-rea
 import type { ForecastBacktestRun, ForecastBacktestMetric } from "@/lib/supabase/types";
 import { makeTooltipFormatter } from "@/lib/utils/rechartsFormatter";
 import { MODEL_DESCRIPTIONS, ModelInfoTooltip } from "./ModelInfoTooltip";
+import { useIsDark } from "@/lib/hooks/useIsDark";
 
 // ── 定数 ─────────────────────────────────────────────────────────────────────
 
@@ -89,6 +90,13 @@ function buildChartData(metrics: ForecastBacktestMetric[]) {
 // ── コンポーネント ────────────────────────────────────────────────────────────
 
 export function BacktestResults({ run, metrics }: Props) {
+  const isDark = useIsDark();
+  const chartColors = {
+    axis:     isDark ? "#94a3b8" : "#64748b",
+    grid:     isDark ? "#334155" : "#f1f5f9",
+    tickText: isDark ? "#94a3b8" : "#64748b",
+  };
+
   // #363 以降の run は複数 policy の行を含む。
   // BacktestResults は all_days policy（全日ベースライン）のみを表示対象にする。
   const allDaysMetrics = metrics.filter((m) => m.eval_policy === "all_days");
@@ -100,13 +108,13 @@ export function BacktestResults({ run, metrics }: Props) {
     <div className="space-y-6">
 
       {/* 実行メタ情報 */}
-      <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">バックテスト実行情報</h2>
-        <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs text-slate-500 sm:grid-cols-4">
-          <div><span className="font-medium text-slate-600">実行日時:</span> {fmtDate(run.created_at)}</div>
-          <div><span className="font-medium text-slate-600">データ期間:</span> {run.train_min_date ?? "—"} → {run.train_max_date ?? "—"}</div>
-          <div><span className="font-medium text-slate-600">ログ日数:</span> {run.n_source_rows} 日（訓練データの実日数）</div>
-          <div><span className="font-medium text-slate-600">メモ:</span> {run.notes ?? "—"}</div>
+      <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+        <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">バックテスト実行情報</h2>
+        <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs text-slate-500 dark:text-slate-400 sm:grid-cols-4">
+          <div><span className="font-medium text-slate-600 dark:text-slate-300">実行日時:</span> {fmtDate(run.created_at)}</div>
+          <div><span className="font-medium text-slate-600 dark:text-slate-300">データ期間:</span> {run.train_min_date ?? "—"} → {run.train_max_date ?? "—"}</div>
+          <div><span className="font-medium text-slate-600 dark:text-slate-300">ログ日数:</span> {run.n_source_rows} 日（訓練データの実日数）</div>
+          <div><span className="font-medium text-slate-600 dark:text-slate-300">メモ:</span> {run.notes ?? "—"}</div>
         </div>
       </div>
 
@@ -119,9 +127,9 @@ export function BacktestResults({ run, metrics }: Props) {
           return (
             <div
               key={h}
-              className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm"
+              className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none"
             >
-              <p className="text-xs text-slate-400 mb-1">{h} 日先 — 最良モデル</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mb-1">{h} 日先 — 最良モデル</p>
               <p
                 className="text-sm font-bold"
                 style={{ color: cfg?.color ?? "#64748b" }}
@@ -129,7 +137,7 @@ export function BacktestResults({ run, metrics }: Props) {
                 {cfg?.label ?? "—"}
               </p>
               {metric && (
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   MAE <span className="font-mono font-semibold">{fmt(metric.mae)}</span> kg
                 </p>
               )}
@@ -139,18 +147,19 @@ export function BacktestResults({ run, metrics }: Props) {
       </div>
 
       {/* MAE 比較チャート */}
-      <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-slate-700">
+      <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+        <h2 className="mb-4 text-sm font-semibold text-slate-700 dark:text-slate-200">
           MAE 比較（ホライズン別）
         </h2>
         <ResponsiveContainer width="100%" height={240}>
           <BarChart data={chartData} margin={{ top: 4, right: 16, bottom: 4, left: 8 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-            <XAxis dataKey="horizon" tick={{ fontSize: 12 }} />
+            <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+            <XAxis dataKey="horizon" tick={{ fontSize: 12, fill: chartColors.tickText }} stroke={chartColors.axis} />
             <YAxis
               tickFormatter={(v: number) => `${v.toFixed(2)}`}
-              label={{ value: "MAE (kg)", angle: -90, position: "insideLeft", fontSize: 11, dx: -4 }}
-              tick={{ fontSize: 11 }}
+              label={{ value: "MAE (kg)", angle: -90, position: "insideLeft", fontSize: 11, dx: -4, fill: chartColors.tickText }}
+              tick={{ fontSize: 11, fill: chartColors.tickText }}
+              stroke={chartColors.axis}
             />
             <Tooltip
               formatter={makeTooltipFormatter(
@@ -178,7 +187,7 @@ export function BacktestResults({ run, metrics }: Props) {
 
       {/* 詳細指標テーブル — モバイル: horizon 別ランクカード */}
       <div className="md:hidden space-y-3">
-        <h2 className="text-sm font-semibold text-slate-700">詳細指標（ホライズン別）</h2>
+        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">詳細指標（ホライズン別）</h2>
         {HORIZONS.map((h) => {
           const ranked = MODEL_ORDER
             .map((model) => ({
@@ -188,8 +197,8 @@ export function BacktestResults({ run, metrics }: Props) {
             .filter((x): x is { model: string; metric: typeof allDaysMetrics[number] } => x.metric !== undefined)
             .sort((a, b) => (a.metric.mae ?? Infinity) - (b.metric.mae ?? Infinity));
           return (
-            <div key={h} className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
-              <h3 className="mb-2.5 text-sm font-semibold text-slate-700">{h} 日先</h3>
+            <div key={h} className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+              <h3 className="mb-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200">{h} 日先</h3>
               <div className="space-y-1.5">
                 {ranked.map(({ model, metric }, rank) => {
                   const cfg = MODEL_CONFIG[model];
@@ -197,23 +206,23 @@ export function BacktestResults({ run, metrics }: Props) {
                   return (
                     <div
                       key={model}
-                      className={`flex items-center justify-between rounded-lg px-3 py-2 ${isBest ? "bg-blue-50" : "bg-slate-50"}`}
+                      className={`flex items-center justify-between rounded-lg px-3 py-2 ${isBest ? "bg-blue-50 dark:bg-blue-900/30" : "bg-slate-50 dark:bg-slate-800"}`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-4 flex-shrink-0 text-xs text-slate-400">{rank + 1}</span>
+                        <span className="w-4 flex-shrink-0 text-xs text-slate-400 dark:text-slate-500">{rank + 1}</span>
                         <span
                           className="h-2 w-2 flex-shrink-0 rounded-full"
                           style={{ backgroundColor: cfg?.color ?? "#94a3b8" }}
                         />
-                        <span className={`truncate text-xs font-medium ${isBest ? "text-blue-700" : "text-slate-600"}`}>
+                        <span className={`truncate text-xs font-medium ${isBest ? "text-blue-700 dark:text-blue-300" : "text-slate-600 dark:text-slate-300"}`}>
                           {cfg?.label ?? model}
                         </span>
                       </div>
                       <div className="flex items-center gap-3 flex-shrink-0 text-xs">
-                        <span className={`font-mono tabular-nums ${isBest ? "font-bold text-blue-600" : "text-slate-600"}`}>
+                        <span className={`font-mono tabular-nums ${isBest ? "font-bold text-blue-600 dark:text-blue-400" : "text-slate-600 dark:text-slate-300"}`}>
                           MAE {fmt(metric.mae)}
                         </span>
-                        <span className="text-slate-400 tabular-nums font-mono">
+                        <span className="text-slate-400 dark:text-slate-500 tabular-nums font-mono">
                           <BiasIcon bias={metric.bias ?? null} />
                         </span>
                       </div>
@@ -221,18 +230,18 @@ export function BacktestResults({ run, metrics }: Props) {
                   );
                 })}
               </div>
-              <p className="mt-2 text-[10px] text-slate-400">MAE (kg) 昇順 / Bias: 上振れ↑ 下振れ↓ 中立 —</p>
+              <p className="mt-2 text-[10px] text-slate-400 dark:text-slate-500">MAE (kg) 昇順 / Bias: 上振れ↑ 下振れ↓ 中立 —</p>
             </div>
           );
         })}
       </div>
 
       {/* 詳細指標テーブル — デスクトップ: フル指標テーブル */}
-      <div className="hidden md:block rounded-xl border border-slate-100 bg-white p-4 shadow-sm overflow-x-auto">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">詳細指標テーブル</h2>
+      <div className="hidden md:block rounded-xl border border-slate-100 bg-white p-4 shadow-sm overflow-x-auto dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+        <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">詳細指標テーブル</h2>
         <table className="w-full min-w-max text-xs">
           <thead>
-            <tr className="border-b border-slate-100 text-left text-slate-500">
+            <tr className="border-b border-slate-100 text-left text-slate-500 dark:border-slate-700 dark:text-slate-400">
               <th className="py-2 pr-4 font-medium">モデル</th>
               {HORIZONS.map((h) => (
                 <th key={h} colSpan={5} className="py-2 pr-4 font-medium text-center">
@@ -240,7 +249,7 @@ export function BacktestResults({ run, metrics }: Props) {
                 </th>
               ))}
             </tr>
-            <tr className="border-b border-slate-100 text-slate-400">
+            <tr className="border-b border-slate-100 text-slate-400 dark:border-slate-700 dark:text-slate-500">
               <th className="py-1 pr-4" />
               {HORIZONS.map((h) => (
                 <React.Fragment key={h}>
@@ -259,7 +268,7 @@ export function BacktestResults({ run, metrics }: Props) {
               return (
                 <tr
                   key={model}
-                  className="border-b border-slate-50 hover:bg-slate-50"
+                  className="border-b border-slate-50 hover:bg-slate-50 dark:border-slate-700/60 dark:hover:bg-slate-800"
                 >
                   <td className="py-2 pr-4 font-medium" style={{ color: cfg?.color }}>
                     <span className="inline-flex items-center">
@@ -277,23 +286,23 @@ export function BacktestResults({ run, metrics }: Props) {
                     return (
                       <React.Fragment key={h}>
                         <td
-                          className={`py-2 px-2 text-right font-mono ${isBest ? "font-bold text-blue-600" : "text-slate-600"}`}
+                          className={`py-2 px-2 text-right font-mono ${isBest ? "font-bold text-blue-600 dark:text-blue-400" : "text-slate-600 dark:text-slate-300"}`}
                         >
                           {fmt(m?.mae)}
                         </td>
-                        <td className="py-2 px-2 text-right font-mono text-slate-600">
+                        <td className="py-2 px-2 text-right font-mono text-slate-600 dark:text-slate-300">
                           {fmt(m?.rmse)}
                         </td>
-                        <td className="py-2 px-2 text-right font-mono text-slate-600">
+                        <td className="py-2 px-2 text-right font-mono text-slate-600 dark:text-slate-300">
                           {m?.mape != null ? `${fmt(m.mape, 2)}%` : "—"}
                         </td>
                         <td className="py-2 px-2 text-right">
-                          <span className="flex items-center justify-end gap-1 font-mono text-slate-600">
+                          <span className="flex items-center justify-end gap-1 font-mono text-slate-600 dark:text-slate-300">
                             {fmt(m?.bias)}
                             <BiasIcon bias={m?.bias ?? null} />
                           </span>
                         </td>
-                        <td className="py-2 px-2 text-right text-slate-400">
+                        <td className="py-2 px-2 text-right text-slate-400 dark:text-slate-500">
                           {m?.n_predictions ?? "—"}
                         </td>
                       </React.Fragment>
@@ -304,18 +313,18 @@ export function BacktestResults({ run, metrics }: Props) {
             })}
           </tbody>
         </table>
-        <p className="mt-2 text-xs text-slate-400">
-          MAE↓ / RMSE↓ = 小さいほど良い。<strong className="text-blue-600">太字</strong>はホライズン内最良モデル。
+        <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+          MAE↓ / RMSE↓ = 小さいほど良い。<strong className="text-blue-600 dark:text-blue-400">太字</strong>はホライズン内最良モデル。
           Bias: 正=予測が実測より高め傾向、負=低め傾向。
           † n = 評価サンプル数（ホライズンごとの予測点数）。上記ログ日数とは異なる。
         </p>
       </div>
 
       {/* 指標の読み方 */}
-      <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
+      <div className="rounded-xl border border-amber-100 bg-amber-50 p-4 dark:border-amber-700/50 dark:bg-amber-900/30">
         <div className="flex items-start gap-2">
           <Info size={16} className="mt-0.5 flex-shrink-0 text-amber-600" />
-          <div className="space-y-1 text-xs text-amber-600">
+          <div className="space-y-1 text-xs text-amber-600 dark:text-amber-400">
             <p className="font-semibold">指標の読み方</p>
             <p>
               <strong>MAE</strong> = 予測と実測の平均絶対誤差 (kg)。例えば MAE=0.5 なら平均 ±0.5 kg の誤差。
@@ -334,11 +343,11 @@ export function BacktestResults({ run, metrics }: Props) {
       </div>
 
       {/* 予測の限界注記 */}
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
         <div className="flex items-start gap-2">
-          <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-slate-400" />
-          <div className="space-y-1 text-xs text-slate-500">
-            <p className="font-semibold text-slate-600">予測の信頼性について</p>
+          <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-slate-400 dark:text-slate-500" />
+          <div className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+            <p className="font-semibold text-slate-600 dark:text-slate-300">予測の信頼性について</p>
             <p>
               短期予測（7日先）は比較的参考になりますが、14日・30日先になるほど誤差は増加します。
             </p>

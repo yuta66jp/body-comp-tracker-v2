@@ -26,21 +26,21 @@ function ProgressBadge({ state }: { state: MonthlyPlanProgressState }) {
   }
   if (state === "on_track") {
     return (
-      <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500">
+      <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500 dark:bg-slate-700 dark:text-slate-400">
         計画内
       </span>
     );
   }
   if (state === "ahead") {
     return (
-      <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-600">
+      <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
         先行
       </span>
     );
   }
   // "behind"
   return (
-    <span className="rounded-full bg-rose-50 px-1.5 py-0.5 text-[9px] font-semibold text-rose-500">
+    <span className="rounded-full bg-rose-50 px-1.5 py-0.5 text-[9px] font-semibold text-rose-500 dark:bg-rose-900/30 dark:text-rose-400">
       遅れ
     </span>
   );
@@ -53,11 +53,11 @@ export function MonthlyGoalTable({ rows, phase }: MonthlyGoalTableProps) {
   const hasPartial = rows.some((r) => r.isPartialActual);
 
   return (
-    <div className="mt-4 border-t border-slate-100 pt-4">
+    <div className="mt-4 border-t border-slate-100 pt-4 dark:border-slate-700">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-100 text-left">
+            <tr className="border-b border-slate-100 text-left dark:border-slate-700">
               <th className="pb-2 pr-3 text-xs font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">月次計画 vs 実績</th>
               {/* 月初体重: sm 以上のみ表示 */}
               <th className="hidden sm:table-cell pb-2 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">月初体重</th>
@@ -70,36 +70,36 @@ export function MonthlyGoalTable({ rows, phase }: MonthlyGoalTableProps) {
               <th className="hidden sm:table-cell pb-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">翌月必要</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50">
+          <tbody className="divide-y divide-slate-50 dark:divide-slate-700/60">
             {rows.map((row) => {
               const rowBg = row.isCurrentMonth
-                ? "bg-blue-50/40"
+                ? "bg-blue-50/40 dark:bg-blue-900/10"
                 : "";
               return (
-                <tr key={row.month} className={`transition-colors hover:bg-slate-50/70 ${rowBg}`}>
+                <tr key={row.month} className={`transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800 ${rowBg}`}>
                   {/* 月 */}
-                  <td className="py-2 pr-3 font-mono text-xs font-medium text-slate-600">
+                  <td className="py-2 pr-3 font-mono text-xs font-medium text-slate-600 dark:text-slate-300">
                     {row.month}
                     {row.isCurrentMonth && (
-                      <span className="ml-1.5 rounded-full bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-600">
+                      <span className="ml-1.5 rounded-full bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
                         今月
                       </span>
                     )}
                   </td>
                   {/* 月初体重 (sm 以上) */}
-                  <td className="hidden sm:table-cell py-2 pr-3 text-right text-xs text-slate-500">
+                  <td className="hidden sm:table-cell py-2 pr-3 text-right text-xs text-slate-500 dark:text-slate-400">
                     {row.monthStartWeight !== null
                       ? `${row.monthStartWeight.toFixed(1)} kg`
                       : "—"}
                   </td>
                   {/* 月末目標 */}
-                  <td className="py-2 pr-3 text-right text-xs font-semibold text-slate-700">
+                  <td className="py-2 pr-3 text-right text-xs font-semibold text-slate-700 dark:text-slate-200">
                     {row.monthEndTarget.toFixed(1)} kg
                   </td>
                   {/* 実績月末 */}
-                  <td className="py-2 pr-3 text-right text-xs font-semibold text-slate-700">
+                  <td className="py-2 pr-3 text-right text-xs font-semibold text-slate-700 dark:text-slate-200">
                     {row.isFutureMonth ? (
-                      <span className="font-normal text-slate-300">—</span>
+                      <span className="font-normal text-slate-300 dark:text-slate-600">—</span>
                     ) : row.actualMonthEndWeight !== null ? (
                       <>
                         {row.actualMonthEndWeight.toFixed(1)} kg
@@ -108,7 +108,7 @@ export function MonthlyGoalTable({ rows, phase }: MonthlyGoalTableProps) {
                         )}
                       </>
                     ) : (
-                      <span className="font-normal text-slate-300">—</span>
+                      <span className="font-normal text-slate-300 dark:text-slate-600">—</span>
                     )}
                   </td>
                   {/* 差分 */}
@@ -128,7 +128,7 @@ export function MonthlyGoalTable({ rows, phase }: MonthlyGoalTableProps) {
                       : "—"}
                   </td>
                   {/* 翌月必要変化量 (sm 以上) */}
-                  <td className="hidden sm:table-cell py-2 text-right text-xs tabular-nums text-slate-500">
+                  <td className="hidden sm:table-cell py-2 text-right text-xs tabular-nums text-slate-500 dark:text-slate-400">
                     {row.nextRequiredDeltaKg !== null
                       ? `${row.nextRequiredDeltaKg > 0 ? "+" : ""}${row.nextRequiredDeltaKg.toFixed(1)} kg`
                       : "—"}
@@ -139,7 +139,7 @@ export function MonthlyGoalTable({ rows, phase }: MonthlyGoalTableProps) {
           </tbody>
         </table>
         {hasPartial && (
-          <p className="mt-1.5 text-[10px] text-slate-400">
+          <p className="mt-1.5 text-[10px] text-slate-400 dark:text-slate-500">
             * 当月は月末未到達のため直近実測値を表示
           </p>
         )}

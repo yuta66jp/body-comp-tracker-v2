@@ -20,6 +20,7 @@ import {
 } from "recharts";
 import type { EnrichedLogPayloadRow } from "@/lib/supabase/types";
 import { makeTooltipFormatter } from "@/lib/utils/rechartsFormatter";
+import { useIsDark } from "@/lib/hooks/useIsDark";
 
 // Re-export for convenience so other modules can import from here
 export type { EnrichedLogPayloadRow as EnrichedLogRow };
@@ -32,6 +33,13 @@ interface TdeeChartProps {
 }
 
 export function TdeeChart({ enrichedRows, days = 60 }: TdeeChartProps) {
+  const isDark = useIsDark();
+  const chartColors = {
+    axis:     isDark ? "#94a3b8" : "#64748b",
+    grid:     isDark ? "#334155" : "#f0f0f0",
+    tickText: isDark ? "#94a3b8" : "#64748b",
+  };
+
   // tdee_estimated が存在する行のみ対象とし、直近 days 件に絞る
   const valid = enrichedRows
     .filter((r) => r.tdee_estimated !== null)
@@ -39,9 +47,9 @@ export function TdeeChart({ enrichedRows, days = 60 }: TdeeChartProps) {
 
   if (valid.length === 0) {
     return (
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-        <h2 className="mb-1 text-base font-semibold text-gray-700">TDEE トレンド</h2>
-        <p className="text-sm text-gray-400">
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+        <h2 className="mb-1 text-base font-semibold text-gray-700 dark:text-slate-200">TDEE トレンド</h2>
+        <p className="text-sm text-gray-400 dark:text-slate-500">
           TDEE データがありません。バッチが実行されるとグラフが表示されます。
         </p>
       </div>
@@ -66,22 +74,22 @@ export function TdeeChart({ enrichedRows, days = 60 }: TdeeChartProps) {
     lastAvgTdeeRaw != null ? Math.round(lastAvgTdeeRaw) : null;
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-      <h2 className="mb-1 text-base font-semibold text-gray-700">TDEE トレンド</h2>
-      <p className="mb-4 text-sm text-gray-400">
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+      <h2 className="mb-1 text-base font-semibold text-gray-700 dark:text-slate-200">TDEE トレンド</h2>
+      <p className="mb-4 text-sm text-gray-400 dark:text-slate-500">
         {avgTdeeDisplay !== null
           ? `直近 TDEE 7日平均: ${avgTdeeDisplay.toLocaleString()} kcal`
           : "TDEE 7日平均を算出中（データ蓄積中）"}
       </p>
       <ResponsiveContainer width="100%" height={260}>
         <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-          <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={20} />
-          <YAxis tick={{ fontSize: 11 }} width={52} unit="kcal" />
+          <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+          <XAxis dataKey="date" tick={{ fontSize: 11, fill: chartColors.tickText }} stroke={chartColors.axis} minTickGap={20} />
+          <YAxis tick={{ fontSize: 11, fill: chartColors.tickText }} stroke={chartColors.axis} width={52} unit="kcal" />
           <Tooltip formatter={makeTooltipFormatter((v) => `${v.toLocaleString()} kcal`)} />
           <Legend />
           {avgTdeeDisplay !== null && (
-            <ReferenceLine y={avgTdeeDisplay} stroke="#94a3b8" strokeDasharray="4 4" />
+            <ReferenceLine y={avgTdeeDisplay} stroke={chartColors.axis} strokeDasharray="4 4" />
           )}
           <Line
             type="monotone"
