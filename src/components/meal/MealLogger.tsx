@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, PenLine, X, Undo2 } from "lucide-react";
+import { Loader2, PenLine, X, Undo2, ChevronDown, Plus } from "lucide-react";
 import { Toast } from "@/components/ui/Toast";
 import { saveDailyLog } from "@/app/actions/saveDailyLog";
 import { FoodPicker } from "./FoodPicker";
@@ -118,6 +118,9 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
   // work_mode: 同上
   const [workMode, setWorkMode] = useState<WorkMode | null>(null);
   const [workModeTouched, setWorkModeTouched] = useState(false);
+
+  // 食品を追加セクションの開閉状態（初期: 非表示）
+  const [foodPickerOpen, setFoodPickerOpen] = useState(false);
 
   /**
    * 日付変更時にフォームを hydrate または空リセットする。
@@ -589,16 +592,47 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
         </div>
       </div>
 
-      {/* 食品検索 */}
-      <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">食品を追加</p>
-        <FoodPicker onAdd={addFood} onAddSet={addFromMenu} onAddTemp={addTempFood} />
-      </div>
+      {/* 食品を追加（開閉式） */}
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={() => setFoodPickerOpen((v) => !v)}
+          className="flex w-full items-center justify-between rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2.5 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/60 dark:hover:bg-slate-700/60"
+        >
+          <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <Plus size={13} />
+            食品を追加
+            {cartItems.length > 0 && !foodPickerOpen && (
+              <span className="ml-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
+                {cartItems.length}品
+              </span>
+            )}
+          </span>
+          <ChevronDown
+            size={15}
+            className={`text-slate-400 transition-transform duration-200 dark:text-slate-500 ${foodPickerOpen ? "rotate-180" : ""}`}
+          />
+        </button>
 
-      {/* カート */}
-      <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">カート</p>
-        <Cart items={cartItems} onChange={setCartItems} />
+        {foodPickerOpen && (
+          <div className="flex flex-col gap-3">
+            <FoodPicker onAdd={addFood} onAddSet={addFromMenu} onAddTemp={addTempFood} />
+            {cartItems.length > 0 && (
+              <div>
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">カート</p>
+                <Cart items={cartItems} onChange={setCartItems} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* カート（閉じているときも品数があれば表示） */}
+        {!foodPickerOpen && cartItems.length > 0 && (
+          <div>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">カート</p>
+            <Cart items={cartItems} onChange={setCartItems} />
+          </div>
+        )}
       </div>
 
       {/* 保存ボタン */}
