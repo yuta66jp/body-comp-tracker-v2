@@ -22,12 +22,12 @@ import { useIsDark } from "@/lib/hooks/useIsDark";
 const HORIZONS = [7, 14, 30] as const;
 
 // UI 表示順・色
-const MODEL_CONFIG: Record<string, { label: string; color: string; order: number }> = {
-  NeuralProphet:  { label: "NeuralProphet",      color: "#3b82f6", order: 0 },
-  Naive:          { label: "Naive",               color: "#94a3b8", order: 1 },
-  MovingAverage7d:{ label: "MA 7d",               color: "#f59e0b", order: 2 },
-  LinearTrend30d: { label: "Linear Trend 30d",    color: "#10b981", order: 3 },
-  EWLinearTrend:  { label: "EW Linear Trend",     color: "#8b5cf6", order: 4 },
+const MODEL_CONFIG: Record<string, { label: string; color: string; darkColor: string; order: number }> = {
+  NeuralProphet:   { label: "NeuralProphet",    color: "#3b82f6", darkColor: "rgba(59,130,246,0.75)",   order: 0 },
+  Naive:           { label: "Naive",             color: "#94a3b8", darkColor: "rgba(148,163,184,0.75)",  order: 1 },
+  MovingAverage7d: { label: "MA 7d",             color: "#f59e0b", darkColor: "rgba(245,158,11,0.75)",   order: 2 },
+  LinearTrend30d:  { label: "Linear Trend 30d",  color: "#10b981", darkColor: "rgba(16,185,129,0.75)",   order: 3 },
+  EWLinearTrend:   { label: "EW Linear Trend",   color: "#8b5cf6", darkColor: "rgba(139,92,246,0.75)",   order: 4 },
 };
 
 const MODEL_ORDER = Object.entries(MODEL_CONFIG)
@@ -178,7 +178,7 @@ export function BacktestResults({ run, metrics }: Props) {
               <Bar
                 key={model}
                 dataKey={model}
-                fill={MODEL_CONFIG[model]?.color ?? "#94a3b8"}
+                fill={isDark ? (MODEL_CONFIG[model]?.darkColor ?? MODEL_CONFIG[model]?.color ?? "#94a3b8") : (MODEL_CONFIG[model]?.color ?? "#94a3b8")}
                 radius={[3, 3, 0, 0]}
                 maxBarSize={40}
               />

@@ -37,7 +37,7 @@ export function ForecastAccuracyRefreshButton() {
         onClick={handleRefresh}
         disabled={isPending}
         title="保存済みのバックテスト結果を再反映します（再計算ではありません）"
-        className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
       >
         <RefreshCw size={13} className={isPending ? "animate-spin" : ""} />
         {isPending ? "更新中..." : "表示を更新"}
