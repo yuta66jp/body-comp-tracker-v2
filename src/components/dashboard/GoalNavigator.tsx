@@ -367,7 +367,7 @@ export function GoalNavigator({
             }
             note="(14日線形)"
           />
-          <div className="my-1 border-t border-slate-100" />
+          <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
           <MetricRow
             label="差"
             value={paceGapLabel(paceGap, isCut)}
