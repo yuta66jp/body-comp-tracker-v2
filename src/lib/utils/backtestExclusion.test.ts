@@ -33,6 +33,41 @@ describe("parseRunConfig", () => {
     ]);
   });
 
+  it("manual_event_periods に reason フィールドがある場合は抽出できる", () => {
+    const config: Json = {
+      manual_event_periods: [
+        { start: "2026-03-01", end: "2026-03-10", reason: "遠征" },
+      ],
+    };
+    const result = parseRunConfig(config);
+    expect(result.manualEventPeriods).toEqual([
+      { start: "2026-03-01", end: "2026-03-10", reason: "遠征" },
+    ]);
+  });
+
+  it("reason が空文字の場合は reason フィールドなしで返す (falsy 除外)", () => {
+    const config: Json = {
+      manual_event_periods: [
+        { start: "2026-03-01", end: "2026-03-05", reason: "" },
+      ],
+    };
+    const result = parseRunConfig(config);
+    // reason が空文字はプロパティ自体を含まない
+    expect(result.manualEventPeriods[0]).not.toHaveProperty("reason");
+  });
+
+  it("旧 run (reason なし) と新 run (reason あり) が混在しても正しく処理する", () => {
+    const config: Json = {
+      manual_event_periods: [
+        { start: "2026-01-01", end: "2026-01-05" },             // 旧 run 形式
+        { start: "2026-02-01", end: "2026-02-05", reason: "旅行" }, // 新 run 形式
+      ],
+    };
+    const result = parseRunConfig(config);
+    expect(result.manualEventPeriods[0]).not.toHaveProperty("reason");
+    expect(result.manualEventPeriods[1]?.reason).toBe("旅行");
+  });
+
   it("recovery_days が欠損している場合はデフォルト 2 を使う", () => {
     const config: Json = { eval_policies: ["all_days"] };
     const result = parseRunConfig(config);

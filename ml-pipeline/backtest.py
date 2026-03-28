@@ -128,20 +128,27 @@ class ManualEventPeriod:
     フィールド:
       start_date : イベント開始日 (含む)
       end_date   : イベント終了日 (含む)。start_date <= end_date であること。
+      reason     : イベント内容メモ (任意)。run.config に記録され除外日一覧で確認できる。
+                   例: "遠征", "海外旅行", "チートウィーク"
     """
     start_date: date
     end_date: date
+    reason: str = ""
 
 
 def parse_event_period(s: str) -> ManualEventPeriod:
-    """'YYYY-MM-DD:YYYY-MM-DD' 形式の文字列を ManualEventPeriod に変換する。
+    """'YYYY-MM-DD:YYYY-MM-DD' または 'YYYY-MM-DD:YYYY-MM-DD:REASON' 形式の文字列を
+    ManualEventPeriod に変換する。
 
     CLI の --event-periods 引数パーサとして使用する。
+    REASON は省略可能。空白はアンダースコアで代替するとシェル展開の問題を避けられる。
+    REASON にコロンを含めることはできない。
     """
-    parts = s.split(":")
-    if len(parts) != 2:
+    parts = s.split(":", 2)  # 最大 2 分割 → ["START", "END"] or ["START", "END", "REASON"]
+    if len(parts) < 2:
         raise argparse.ArgumentTypeError(
-            f"イベント期間は 'START:END' 形式で指定してください (例: 2026-03-01:2026-03-10). 受け取った値: {s!r}"
+            f"イベント期間は 'START:END' または 'START:END:REASON' 形式で指定してください "
+            f"(例: 2026-03-01:2026-03-10). 受け取った値: {s!r}"
         )
     try:
         start = date.fromisoformat(parts[0].strip())
@@ -154,7 +161,8 @@ def parse_event_period(s: str) -> ManualEventPeriod:
         raise argparse.ArgumentTypeError(
             f"start_date ({start}) は end_date ({end}) 以前である必要があります"
         )
-    return ManualEventPeriod(start_date=start, end_date=end)
+    reason = parts[2].strip() if len(parts) > 2 else ""
+    return ManualEventPeriod(start_date=start, end_date=end, reason=reason)
 
 
 # ── 実験 config ─────────────────────────────────────────────────────────────────
@@ -787,7 +795,11 @@ def save_results(
             "eval_policies":           config.eval_policies,
             "recovery_days":           config.recovery_days,
             "manual_event_periods": [
-                {"start": ep.start_date.isoformat(), "end": ep.end_date.isoformat()}
+                {
+                    "start": ep.start_date.isoformat(),
+                    "end":   ep.end_date.isoformat(),
+                    **( {"reason": ep.reason} if ep.reason else {} ),
+                }
                 for ep in config.manual_event_periods
             ],
         },

@@ -38,7 +38,8 @@ const DEFAULT_RECOVERY_DAYS = 2;
 
 export type ParsedRunConfig = {
   recoveryDays: number;
-  manualEventPeriods: Array<{ start: string; end: string }>;
+  /** reason は #371 で追加された任意フィールド。旧 run には存在しない場合がある。 */
+  manualEventPeriods: Array<{ start: string; end: string; reason?: string }>;
   evalPolicies: string[];
 };
 
@@ -68,7 +69,11 @@ export function parseRunConfig(config: Json): ParsedRunConfig {
       if (p !== null && typeof p === "object" && !Array.isArray(p)) {
         const po = p as Record<string, Json>;
         if (typeof po["start"] === "string" && typeof po["end"] === "string") {
-          manualEventPeriods.push({ start: po["start"], end: po["end"] });
+          manualEventPeriods.push({
+            start: po["start"],
+            end: po["end"],
+            ...(typeof po["reason"] === "string" && po["reason"] ? { reason: po["reason"] } : {}),
+          });
         }
       }
     }
@@ -132,7 +137,7 @@ export function buildExclusionList(
     is_travel_day: boolean | null;
   }>,
   recoveryDays: number,
-  manualEventPeriods: Array<{ start: string; end: string }>,
+  manualEventPeriods: Array<{ start: string; end: string; reason?: string }>,
 ): ExcludedDateEntry[] {
   const map = new Map<string, ExcludedDateEntry>();
 
