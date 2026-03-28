@@ -112,11 +112,9 @@ export function deriveWeeklyInsightItems(
       detail = trendPart || undefined;
     }
 
-    // qualityNote を detail に追記 (watching / suspected のとき)
-    if (
-      stagnation.qualityNote &&
-      (stagnation.level === "suspected" || stagnation.level === "watching")
-    ) {
+    // qualityNote を detail に追記 (全レベルで表示 — advancing でも品質注記がある場合がある)
+    // 旧 WeeklyReviewCard では qualityNote は常に警告ボックスで表示されていたため同等の可視性を維持する
+    if (stagnation.qualityNote) {
       detail = detail
         ? `${detail} / ※ ${stagnation.qualityNote}`
         : `※ ${stagnation.qualityNote}`;
