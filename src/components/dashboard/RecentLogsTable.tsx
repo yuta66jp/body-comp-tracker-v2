@@ -30,14 +30,14 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-slate-50 text-left">
+          <tr className="border-b border-slate-50 text-left dark:border-slate-700">
             <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">日付</th>
             <th className="pb-2 pr-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">体重</th>
             <th className="pb-2 pr-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">変化</th>
             <th className="pb-2 pl-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">カロリー</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-50">
+        <tbody className="divide-y divide-slate-50 dark:divide-slate-700/60">
           {sorted.map((log) => {
             const delta = computeWeightDelta(ascending, log);
             const DeltaIcon = delta === null ? null : delta > 0 ? ArrowUp : delta < 0 ? ArrowDown : Minus;
@@ -49,9 +49,9 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
             const calDelta = getCalDelta(log);
 
             return (
-              <tr key={log.log_date} className="transition-colors hover:bg-slate-50/70">
+              <tr key={log.log_date}>
                 <td className="py-2 pr-4">
-                  <div className="font-mono text-xs font-medium text-slate-600">{log.log_date}</div>
+                  <div className="font-mono text-xs font-medium text-slate-600 dark:text-slate-300">{log.log_date}</div>
                   <div className="mt-0.5 flex flex-wrap gap-1">
                     {(() => {
                       const season = seasonMap?.get(log.log_date) ?? currentSeason;
@@ -71,7 +71,7 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
                     ))}
                   </div>
                   {(conditionSummary || log.sleep_hours !== null) && (
-                    <div className="mt-1 text-xs leading-snug text-slate-500">
+                    <div className="mt-1 text-xs leading-snug text-slate-500 dark:text-slate-400">
                       {[
                         conditionSummary,
                         log.sleep_hours !== null ? `${log.sleep_hours}h` : null,
@@ -81,9 +81,9 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
                     </div>
                   )}
                 </td>
-                <td className="py-2 pr-4 text-right font-semibold text-slate-800">
+                <td className="py-2 pr-4 text-right font-semibold text-slate-800 dark:text-slate-200">
                   {log.weight?.toFixed(1)}
-                  <span className="ml-0.5 text-xs font-normal text-slate-400">kg</span>
+                  <span className="ml-0.5 text-xs font-normal text-slate-400 dark:text-slate-500">kg</span>
                 </td>
                 <td className="py-2 pr-4 text-right">
                   {delta !== null && DeltaIcon ? (
@@ -100,8 +100,8 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
                 <td className="py-2 pl-2 text-right text-xs">
                   {log.calories !== null ? (
                     <>
-                      <span className="text-slate-700">{log.calories.toLocaleString()}</span>
-                      <span className="ml-0.5 text-[10px] text-slate-400">kcal</span>
+                      <span className="text-slate-700 dark:text-slate-300">{log.calories.toLocaleString()}</span>
+                      <span className="ml-0.5 text-[10px] text-slate-400 dark:text-slate-500">kcal</span>
                       {calDelta !== null && (
                         <span
                           className={`ml-1 text-[10px] font-medium ${
