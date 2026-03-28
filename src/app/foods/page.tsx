@@ -2,6 +2,7 @@ import { FoodTable } from "@/components/foods/FoodTable";
 import { MenuTable } from "@/components/foods/MenuTable";
 import { fetchFoods, fetchMenus } from "@/lib/queries/foods";
 import { PageShell } from "@/components/ui/PageShell";
+import { StatusNotice } from "@/components/ui/StatusNotice";
 
 export const revalidate = 0;
 
@@ -11,9 +12,9 @@ export default async function FoodsPage() {
   if (foodsResult.kind === "error" || menusResult.kind === "error") {
     return (
       <PageShell title="食品データベース">
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <StatusNotice status="error">
           食品データベースの取得に失敗しました。しばらく経ってから再度お試しください。
-        </div>
+        </StatusNotice>
       </PageShell>
     );
   }
