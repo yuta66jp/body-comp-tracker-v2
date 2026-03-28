@@ -65,6 +65,16 @@ export function ForecastChart({
     grid:     isDark ? "#334155" : "#f1f5f9",
     tickText: isDark ? "#94a3b8" : "#64748b",
   };
+  const tooltipStyle = isDark ? {
+    contentStyle: {
+      backgroundColor: "#1e293b",
+      border: "1px solid #334155",
+      borderRadius: "8px",
+      boxShadow: "0 4px 6px -1px rgba(0,0,0,0.5)",
+    },
+    labelStyle: { color: "#cbd5e1" },
+    itemStyle:  { color: "#94a3b8" },
+  } : {};
 
   const today = toJstDateStr();
 
@@ -224,6 +234,7 @@ export function ForecastChart({
               },
             )}
             labelFormatter={(label: unknown) => String(label)}
+            {...tooltipStyle}
           />
           <Legend
             formatter={(value: string) => {
