@@ -1,10 +1,14 @@
 "use client";
 
 /**
- * MobileMealLoggerSheet — モバイル専用の食事ログ入力 bottom sheet
+ * MobileMealLoggerSheet — 食事ログ入力シート / モーダル
  *
- * デスクトップ (lg+) では何も描画しない（aside の MealLogger を使う）。
- * モバイルでは trigger ボタンを表示し、タップで bottom sheet を開く。
+ * #361: モバイル専用 bottom sheet から PC/モバイル 共用コンポーネントに拡張。
+ *   - モバイル (<lg): 画面下端から出現する bottom sheet（従来通り）
+ *   - PC (lg+): 画面中央の centered modal overlay
+ *
+ * 以前は DashboardLayout の aside サイドバーが PC 側の入力 UI を担っていたが、
+ * aside を廃止し、このコンポーネント一本で PC/モバイル 両方を担うように変更。
  *
  * - backdrop クリック / Esc / × ボタン で閉じる
  * - sheet open 中は body スクロールを抑制する
@@ -28,7 +32,7 @@ export function MobileMealLoggerSheet() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  // sheet 開閉中は body スクロールを抑制
+  // sheet / modal open 中は body スクロールを抑制
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
     return () => {
@@ -37,7 +41,7 @@ export function MobileMealLoggerSheet() {
   }, [open]);
 
   return (
-    <div className="lg:hidden">
+    <div>
       {/* ── Trigger ── */}
       <button
         type="button"
@@ -57,16 +61,28 @@ export function MobileMealLoggerSheet() {
         />
       )}
 
-      {/* ── Bottom Sheet ── */}
+      {/* ── Panel ──
+          モバイル: 画面下端から出現する bottom sheet
+          PC (lg+): 画面中央に表示される centered modal
+      */}
       {open && (
         <div
           role="dialog"
           aria-modal="true"
           aria-label="食事・体重ログ入力"
-          className="fixed bottom-0 left-0 right-0 z-50 max-h-[88svh] rounded-t-2xl bg-white shadow-2xl"
+          className={[
+            // 共通
+            "fixed z-50 bg-white shadow-2xl",
+            // モバイル: bottom sheet
+            "bottom-0 left-0 right-0 max-h-[88svh] rounded-t-2xl",
+            // PC (lg+): centered modal — bottom/right をリセットして中央配置
+            "lg:bottom-auto lg:right-auto",
+            "lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2",
+            "lg:w-[520px] lg:max-h-[85vh] lg:rounded-2xl",
+          ].join(" ")}
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
         >
-          {/* Sheet ヘッダー */}
+          {/* Panel ヘッダー */}
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-blue-50">
@@ -84,10 +100,10 @@ export function MobileMealLoggerSheet() {
             </button>
           </div>
 
-          {/* Sheet コンテンツ（スクロール可能） */}
+          {/* Panel コンテンツ（スクロール可能） */}
           <div
             className="overflow-y-auto px-5 py-4"
-            style={{ maxHeight: "calc(88svh - 56px)" }}
+            style={{ maxHeight: "calc(min(88svh, 85vh) - 56px)" }}
           >
             <MealLogger sidebar showHeader={false} />
           </div>
