@@ -31,14 +31,14 @@ export function getBalanceBarColors(phase: CurrentPhase | null): {
 } {
   if (phase === "Cut") {
     // 赤字（左・good）= 緑、黒字（右・bad）= 赤
-    return { leftColor: "bg-emerald-400", rightColor: "bg-rose-400" };
+    return { leftColor: "bg-emerald-400 dark:bg-emerald-400/75", rightColor: "bg-rose-400 dark:bg-rose-400/75" };
   }
   if (phase === "Bulk") {
     // 赤字（左・bad）= 赤、黒字（右・good）= 緑
-    return { leftColor: "bg-rose-400", rightColor: "bg-emerald-400" };
+    return { leftColor: "bg-rose-400 dark:bg-rose-400/75", rightColor: "bg-emerald-400 dark:bg-emerald-400/75" };
   }
   // phase 未設定: ニュートラルグレー
-  return { leftColor: "bg-slate-300", rightColor: "bg-slate-300" };
+  return { leftColor: "bg-slate-300 dark:bg-slate-300/75", rightColor: "bg-slate-300 dark:bg-slate-300/75" };
 }
 
 /**

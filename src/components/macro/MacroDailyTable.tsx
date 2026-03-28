@@ -107,8 +107,8 @@ export function MacroDailyTable({ data, calTarget = null }: MacroDailyTableProps
                   <DivergingBar
                     diff={calDiff}
                     ratio={calRatio}
-                    leftColor="bg-rose-400"
-                    rightColor="bg-blue-400"
+                    leftColor="bg-rose-400 dark:bg-rose-400/75"
+                    rightColor="bg-blue-400 dark:bg-blue-400/75"
                   />
                 </div>
               )}
