@@ -70,9 +70,9 @@ function getWeekdayType(date: Date): WeekdayType {
 
 /** 曜日タイプ → セル背景クラス（today に関わらず適用） */
 const CELL_BG: Record<WeekdayType, string> = {
-  weekday:          "bg-white hover:bg-slate-50/60 transition-colors",
-  saturday:         "bg-sky-50 hover:bg-sky-100/60 transition-colors",
-  "sunday-holiday": "bg-rose-50 hover:bg-rose-100/60 transition-colors",
+  weekday:          "bg-white hover:bg-slate-50/60 transition-colors dark:bg-slate-900 dark:hover:bg-slate-800/60",
+  saturday:         "bg-sky-50 hover:bg-sky-100/60 transition-colors dark:bg-sky-900/20 dark:hover:bg-sky-900/40",
+  "sunday-holiday": "bg-rose-50 hover:bg-rose-100/60 transition-colors dark:bg-rose-900/20 dark:hover:bg-rose-900/40",
 };
 
 /** 曜日タイプ → 日付テキスト色（today 以外） */
@@ -90,7 +90,7 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
   // outside: 表示月以外の日（同じ固定高で空セル）
   if (modifiers.outside) {
     return (
-      <td className="border border-slate-50 bg-slate-50/30 relative">
+      <td className="border border-slate-50 bg-slate-50/30 relative dark:border-slate-800 dark:bg-slate-800/30">
         <div className={CELL_H} />
       </td>
     );
@@ -105,7 +105,7 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
 
   // 土日祝背景は常に適用。today はリングで上書きせず重ねる（2つの視覚チャネルを分離）
   const tdCls =
-    "border border-slate-100 relative " +
+    "border border-slate-100 dark:border-slate-700 relative " +
     CELL_BG[weekdayType] +
     (isToday ? " ring-2 ring-inset ring-blue-400" : "");
 
@@ -142,10 +142,10 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
         <div className="mt-1 flex items-baseline gap-0.5 leading-none flex-wrap">
           {data?.log.weight != null ? (
             <>
-              <span className="text-xs sm:text-sm font-bold text-slate-800 leading-none">
+              <span className="text-xs sm:text-sm font-bold text-slate-800 leading-none dark:text-slate-100">
                 {data.log.weight.toFixed(1)}
               </span>
-              <span className="text-[9px] text-slate-400">kg</span>
+              <span className="text-[9px] text-slate-400 dark:text-slate-500">kg</span>
               {data?.weightDelta != null && (
                 <span className={`text-[9px] font-medium leading-none ${
                   data.weightDelta > 0
@@ -159,17 +159,17 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
               )}
             </>
           ) : (
-            <span className="text-[10px] leading-none text-slate-200">—</span>
+            <span className="text-[10px] leading-none text-slate-200 dark:text-slate-700">—</span>
           )}
         </div>
 
         {/* ③ カロリー + 差分（近接表示: 1984k (+65)） */}
         {data?.log.calories != null && (
           <div className="mt-0.5 flex items-baseline gap-0.5 leading-none flex-wrap">
-            <span className="text-[10px] font-medium text-slate-600">
+            <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
               {data.log.calories.toLocaleString()}
             </span>
-            <span className="text-[8px] text-slate-400">k</span>
+            <span className="text-[8px] text-slate-400 dark:text-slate-500">k</span>
             {data?.calDelta != null && (
               <span className={`text-[9px] font-medium leading-none ${
                 data.calDelta > 0
@@ -259,18 +259,20 @@ export function MonthlyCalendar({ logs }: MonthlyCalendarProps) {
           months:        "w-full",
           month:         "w-full",
           month_caption: "flex items-center justify-between mb-3 px-1",
-          caption_label: "text-sm font-semibold text-slate-700",
+          caption_label: "text-sm font-semibold text-slate-700 dark:text-slate-200",
           nav:           "flex items-center gap-1",
           button_previous:
             "flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-400 " +
-            "hover:border-slate-300 hover:text-slate-600 transition-colors",
+            "hover:border-slate-300 hover:text-slate-600 transition-colors " +
+            "dark:border-slate-600 dark:text-slate-500 dark:hover:border-slate-500 dark:hover:text-slate-300",
           button_next:
             "flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-400 " +
-            "hover:border-slate-300 hover:text-slate-600 transition-colors",
+            "hover:border-slate-300 hover:text-slate-600 transition-colors " +
+            "dark:border-slate-600 dark:text-slate-500 dark:hover:border-slate-500 dark:hover:text-slate-300",
           chevron:       "h-3.5 w-3.5",
           month_grid:    "w-full border-collapse table-fixed",
           weekdays:      "",
-          weekday:       "py-2 text-[11px] font-semibold text-slate-400 text-center",
+          weekday:       "py-2 text-[11px] font-semibold text-slate-400 text-center dark:text-slate-500",
           weeks:         "",
           week:          "",
           day:           "",

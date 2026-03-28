@@ -24,10 +24,10 @@ const STATUS_CONFIG: Record<
   InsightStatus,
   { dot: string; bg: string; border: string }
 > = {
-  ok:      { dot: "bg-emerald-500", bg: "bg-emerald-50/70",  border: "border-emerald-100" },
-  caution: { dot: "bg-amber-500",   bg: "bg-amber-50/70",    border: "border-amber-100" },
-  alert:   { dot: "bg-rose-500",    bg: "bg-rose-50/70",     border: "border-rose-100" },
-  neutral: { dot: "bg-slate-400",   bg: "bg-slate-50",       border: "border-slate-100" },
+  ok:      { dot: "bg-emerald-500", bg: "bg-emerald-50/70 dark:bg-emerald-900/30",  border: "border-emerald-100 dark:border-emerald-700/50" },
+  caution: { dot: "bg-amber-500",   bg: "bg-amber-50/70 dark:bg-amber-900/30",      border: "border-amber-100 dark:border-amber-700/50" },
+  alert:   { dot: "bg-rose-500",    bg: "bg-rose-50/70 dark:bg-rose-900/30",        border: "border-rose-100 dark:border-rose-700/50" },
+  neutral: { dot: "bg-slate-400",   bg: "bg-slate-50 dark:bg-slate-800",            border: "border-slate-100 dark:border-slate-700" },
 };
 
 // ── InsightCard ───────────────────────────────────────────────────────────────
@@ -53,11 +53,11 @@ export function InsightCard({ item, badge }: InsightCardProps) {
             aria-hidden="true"
           />
           <div className="min-w-0">
-            <p className="text-sm font-semibold leading-snug text-slate-700">
+            <p className="text-sm font-semibold leading-snug text-slate-700 dark:text-slate-200">
               {item.title}
             </p>
             {item.detail && (
-              <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
+              <p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
                 {item.detail}
               </p>
             )}
@@ -82,7 +82,7 @@ export function InsightCardList({
   emptyText = "所見を生成するにはデータが必要です",
 }: InsightCardListProps) {
   if (items.length === 0) {
-    return <p className="text-sm text-slate-400">{emptyText}</p>;
+    return <p className="text-sm text-slate-400 dark:text-slate-500">{emptyText}</p>;
   }
   return (
     <div className="space-y-2">

@@ -38,25 +38,25 @@ interface TdeeKpiCardProps {
 // ─── ヘルパー ────────────────────────────────────────────────────────────────
 
 function SignedKcal({ value, label }: { value: number | null; label?: string }) {
-  if (value === null) return <span className="text-gray-300">—</span>;
+  if (value === null) return <span className="text-gray-300 dark:text-slate-600">—</span>;
   const sign = value > 0 ? "+" : "";
-  const color = value < -50 ? "text-emerald-600" : value > 50 ? "text-rose-500" : "text-gray-800";
+  const color = value < -50 ? "text-emerald-600" : value > 50 ? "text-rose-500" : "text-gray-800 dark:text-slate-200";
   return (
     <span className={color}>
       {sign}{value.toLocaleString()}
-      {label && <span className="ml-1 text-sm font-normal text-gray-400">{label}</span>}
+      {label && <span className="ml-1 text-sm font-normal text-gray-400 dark:text-slate-500">{label}</span>}
     </span>
   );
 }
 
 function SignedKg({ value }: { value: number | null }) {
-  if (value === null) return <span className="text-gray-300">—</span>;
+  if (value === null) return <span className="text-gray-300 dark:text-slate-600">—</span>;
   const sign = value > 0 ? "+" : "";
-  const color = value < -0.05 ? "text-emerald-600" : value > 0.05 ? "text-rose-500" : "text-gray-800";
+  const color = value < -0.05 ? "text-emerald-600" : value > 0.05 ? "text-rose-500" : "text-gray-800 dark:text-slate-200";
   return (
     <span className={color}>
       {sign}{value.toFixed(2)}
-      <span className="ml-1 text-sm font-normal text-gray-400">kg/週</span>
+      <span className="ml-1 text-sm font-normal text-gray-400 dark:text-slate-500">kg/週</span>
     </span>
   );
 }
@@ -170,25 +170,25 @@ export function TdeeKpiCard({
       {/* 上段: 3 KPI カード */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {/* 平均摂取 kcal */}
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <p className="text-sm font-medium text-gray-500">平均摂取（直近7日）</p>
-          <p className="mt-2 text-3xl font-bold text-gray-900">
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+          <p className="text-sm font-medium text-gray-500 dark:text-slate-400">平均摂取（直近7日）</p>
+          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-slate-100">
             {avgCalories !== null ? Math.round(avgCalories).toLocaleString() : "—"}
-            <span className="ml-1 text-base font-normal text-gray-400">kcal</span>
+            <span className="ml-1 text-base font-normal text-gray-400 dark:text-slate-500">kcal</span>
           </p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-gray-400 dark:text-slate-500">
             直近7記録日の平均（ML バッチ実行時は 7 暦日ローリング平均）
           </p>
         </div>
 
         {/* 実測 TDEE */}
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <p className="text-sm font-medium text-gray-500">実測 TDEE（7日平均）</p>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+          <p className="text-sm font-medium text-gray-500 dark:text-slate-400">実測 TDEE（7日平均）</p>
           <p className="mt-2 text-3xl font-bold text-orange-500">
             {avgTdee !== null ? Math.round(avgTdee).toLocaleString() : "—"}
-            <span className="ml-1 text-base font-normal text-gray-400">kcal</span>
+            <span className="ml-1 text-base font-normal text-gray-400 dark:text-slate-500">kcal</span>
           </p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-gray-400 dark:text-slate-500">
             体重平滑化から逆算した推定値の直近7日平均（バッチ計算値）
             {theoreticalTdee !== null && (
               <> — 理論値 {Math.round(theoreticalTdee).toLocaleString()} kcal</>
@@ -206,12 +206,12 @@ export function TdeeKpiCard({
         </div>
 
         {/* 収支差分 */}
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <p className="text-sm font-medium text-gray-500">収支差分（摂取 − 消費）</p>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+          <p className="text-sm font-medium text-gray-500 dark:text-slate-400">収支差分（摂取 − 消費）</p>
           <p className="mt-2 text-3xl font-bold">
             <SignedKcal value={balance} label="kcal/日" />
           </p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-gray-400 dark:text-slate-500">
             {balance === null ? "データ不足" :
              balance < -50 ? "マイナス = 減量方向" :
              balance >  50 ? "プラス = 増量方向" :
@@ -222,18 +222,18 @@ export function TdeeKpiCard({
 
       {/* 中段: 理論変化 / 実測変化 */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <p className="text-sm font-medium text-gray-500">理論変化（収支ベース）</p>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+          <p className="text-sm font-medium text-gray-500 dark:text-slate-400">理論変化（収支ベース）</p>
           <p className="mt-2 text-2xl font-bold">
             <SignedKg value={theoreticalWeightChange} />
           </p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-gray-400 dark:text-slate-500">
             収支差分 × 7 ÷ 7,200 kcal/kg
           </p>
         </div>
 
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <p className="text-sm font-medium text-gray-500">実測変化（体重推移）</p>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+          <p className="text-sm font-medium text-gray-500 dark:text-slate-400">実測変化（体重推移）</p>
           <p className="mt-2 text-2xl font-bold">
             {measuredWeightChange !== null ? (
               <SignedKg value={measuredWeightChange} />
@@ -241,7 +241,7 @@ export function TdeeKpiCard({
               <span className="text-gray-300">—</span>
             )}
           </p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-gray-400 dark:text-slate-500">
             {measuredWeightChange !== null
               ? "直近7記録日 vs 前7記録日 の平均体重差"
               : "前週の体重データが不足しています（直近7記録日）"}
@@ -261,7 +261,7 @@ export function TdeeKpiCard({
           item={interpretationItem}
           badge={<ConfidenceBadge confidence={confidence} />}
         />
-        <p className="mt-1.5 text-[11px] text-slate-400">
+        <p className="mt-1.5 text-[11px] text-slate-400 dark:text-slate-500">
           ※ TDEE は推定値です。信頼度・理由を確認のうえ参考にしてください。
         </p>
       </div>

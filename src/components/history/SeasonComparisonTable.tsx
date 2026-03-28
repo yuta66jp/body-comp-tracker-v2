@@ -103,9 +103,9 @@ export function SeasonComparisonTable({
   // 過去シーズンがない場合
   if (pastSeasons.length === 0) {
     return (
-      <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-        <p className="mb-1 text-sm font-bold text-slate-700">シーズン比較テーブル</p>
-        <p className="text-sm text-slate-400">
+      <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+        <p className="mb-1 text-sm font-bold text-slate-700 dark:text-slate-200">シーズン比較テーブル</p>
+        <p className="text-sm text-slate-400 dark:text-slate-500">
           比較する過去シーズンのデータがありません。
         </p>
       </div>
@@ -129,11 +129,11 @@ export function SeasonComparisonTable({
   const displayRows = [...milestoneRows, finisherRow];
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
       {/* ── ヘッダー ── */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-5 py-3">
-        <p className="text-sm font-bold text-slate-700">シーズン比較テーブル</p>
-        <p className="text-xs text-slate-400">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-5 py-3 dark:border-slate-700 dark:bg-slate-800">
+        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">シーズン比較テーブル</p>
+        <p className="text-xs text-slate-400 dark:text-slate-500">
           {showCurrentSeason
             ? `体重は 7日移動平均 / 大会 ±3日以内の最近接値 / 差は今季 − ${prevSeason}`
             : "体重は 7日移動平均 / 大会 ±3日以内の最近接値（参照用）"}
@@ -144,8 +144,8 @@ export function SeasonComparisonTable({
       <div className="overflow-x-auto">
         <table className="w-full min-w-[480px] text-sm">
           <thead>
-            <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              <th className="sticky left-0 bg-slate-50 px-4 py-2.5 text-left whitespace-nowrap">
+            <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
+              <th className="sticky left-0 bg-slate-50 px-4 py-2.5 text-left whitespace-nowrap dark:bg-slate-800">
                 基準点
               </th>
               {/* 過去シーズン (古い順, グレー系) */}
@@ -164,7 +164,7 @@ export function SeasonComparisonTable({
               {showCurrentSeason && (
                 <th className="px-3 py-2.5 text-right text-red-500">
                   {currentSeason}
-                  <span className="ml-1 rounded bg-red-50 px-1 text-[9px] font-bold">今季</span>
+                  <span className="ml-1 rounded bg-red-50 px-1 text-[9px] font-bold dark:bg-red-900/30">今季</span>
                 </th>
               )}
               {/* 差分列 — Bulk 時非表示 */}
@@ -175,7 +175,7 @@ export function SeasonComparisonTable({
               )}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50">
+          <tbody className="divide-y divide-slate-50 dark:divide-slate-700/60">
             {displayRows.map((row, rowIdx) => {
               const isFinisher = row.daysOut === Infinity;
               const label = daysOutLabel(row.daysOut);
@@ -185,17 +185,17 @@ export function SeasonComparisonTable({
               return (
                 <tr
                   key={rowIdx}
-                  className={`transition-colors hover:bg-slate-50/70 ${
+                  className={`transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800 ${
                     isFinisher
-                      ? "border-t-2 border-slate-200 bg-slate-50/50 font-semibold"
+                      ? "border-t-2 border-slate-200 bg-slate-50/50 font-semibold dark:border-slate-600 dark:bg-slate-800/50"
                       : ""
                   }`}
                 >
                   {/* 基準点ラベル */}
-                  <td className="sticky left-0 bg-white px-4 py-2.5 text-slate-600 hover:bg-slate-50/70 whitespace-nowrap">
+                  <td className="sticky left-0 bg-white px-4 py-2.5 text-slate-600 hover:bg-slate-50/70 whitespace-nowrap dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">
                     {label}
                     {isFinisher && (
-                      <span className="ml-1.5 text-[10px] font-normal text-slate-400">
+                      <span className="ml-1.5 text-[10px] font-normal text-slate-400 dark:text-slate-500">
                         最小体重
                       </span>
                     )}
@@ -218,7 +218,7 @@ export function SeasonComparisonTable({
                             <span className="ml-0.5 text-[10px]">kg</span>
                           </>
                         ) : (
-                          <span className="text-slate-200">—</span>
+                          <span className="text-slate-200 dark:text-slate-700">—</span>
                         )}
                       </td>
                     );
@@ -257,7 +257,7 @@ export function SeasonComparisonTable({
       </div>
 
       {/* ── 凡例 ── */}
-      <div className="flex flex-wrap items-center gap-4 border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400">
+      <div className="flex flex-wrap items-center gap-4 border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
         {showCurrentSeason && (
           <span className="flex items-center gap-1">
             <TrendingDown size={11} className="text-emerald-600" />

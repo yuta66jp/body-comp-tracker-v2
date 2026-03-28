@@ -120,9 +120,9 @@ export function TodayWindowComparison({
   // 過去シーズンなし
   if (pastEntries.length === 0) {
     return (
-      <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-        <p className="mb-1 text-sm font-bold text-slate-700">今日基準比較</p>
-        <p className="text-sm text-slate-400">
+      <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+        <p className="mb-1 text-sm font-bold text-slate-700 dark:text-slate-200">今日基準比較</p>
+        <p className="text-sm text-slate-400 dark:text-slate-500">
           比較する過去シーズンのデータがありません。
         </p>
       </div>
@@ -135,22 +135,22 @@ export function TodayWindowComparison({
   const sortedEntries = [...entries].sort((a, b) => a.season.localeCompare(b.season));
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
       {/* ── ヘッダー ── */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-5 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-5 py-3 dark:border-slate-700 dark:bg-slate-800">
         <div>
-          <p className="text-sm font-bold text-slate-700">今日基準比較</p>
-          <p className="text-xs text-slate-400">
+          <p className="text-sm font-bold text-slate-700 dark:text-slate-200">今日基準比較</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500">
             {daysLabel} の近傍 ±{windowDays} 日における平均体重（7日移動平均）
           </p>
         </div>
-        <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-500">
+        <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-500 dark:bg-red-900/30">
           {currentSeason}
         </span>
       </div>
 
       {/* ── モバイル: カード要約 (sm 未満) ── */}
-      <div className="sm:hidden divide-y divide-slate-50 px-4 py-1">
+      <div className="sm:hidden divide-y divide-slate-50 px-4 py-1 dark:divide-slate-700/60">
         {/* 今季カード */}
         {currentEntry && (
           <div className="py-3">
@@ -161,13 +161,13 @@ export function TodayWindowComparison({
               <span className="text-2xl font-bold text-red-500">
                 {fmt1(currentEntry.avgWeight)}
               </span>
-              <span className="text-sm text-slate-400">kg</span>
+              <span className="text-sm text-slate-400 dark:text-slate-500">kg</span>
               {currentEntry.avgWeight === null && (
-                <span className="text-xs text-slate-300">データなし</span>
+                <span className="text-xs text-slate-300 dark:text-slate-600">データなし</span>
               )}
             </div>
             {fmtDateRange(currentEntry.dateFrom, currentEntry.dateTo) && (
-              <div className="mt-0.5 text-[10px] text-slate-400">
+              <div className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
                 {fmtDateRange(currentEntry.dateFrom, currentEntry.dateTo)}
               </div>
             )}
@@ -180,16 +180,16 @@ export function TodayWindowComparison({
           return (
             <div key={entry.season} className="flex items-center justify-between py-2.5">
               <div>
-                <div className="text-sm font-medium text-slate-600">{entry.season}</div>
+                <div className="text-sm font-medium text-slate-600 dark:text-slate-300">{entry.season}</div>
                 {fmtDateRange(entry.dateFrom, entry.dateTo) && (
-                  <div className="text-[10px] text-slate-400">
+                  <div className="text-[10px] text-slate-400 dark:text-slate-500">
                     {fmtDateRange(entry.dateFrom, entry.dateTo)}
                   </div>
                 )}
               </div>
               <div className="text-right">
-                <div className="tabular-nums text-sm text-slate-700">
-                  {fmt1(entry.avgWeight)}<span className="ml-0.5 text-xs text-slate-300">kg</span>
+                <div className="tabular-nums text-sm text-slate-700 dark:text-slate-200">
+                  {fmt1(entry.avgWeight)}<span className="ml-0.5 text-xs text-slate-300 dark:text-slate-600">kg</span>
                 </div>
                 {currentEntry?.avgWeight !== null && entry.avgWeight !== null && (
                   <div className={`flex items-center justify-end gap-0.5 text-xs ${diffColorClass(ahead)}`}>
@@ -207,14 +207,14 @@ export function TodayWindowComparison({
       <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
               <th className="px-4 py-2.5 text-left">シーズン</th>
               <th className="px-4 py-2.5 text-right">件数</th>
               <th className="px-4 py-2.5 text-right">平均体重</th>
               <th className="px-4 py-2.5 text-right">差（今季 − 過去）</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50">
+          <tbody className="divide-y divide-slate-50 dark:divide-slate-700/60">
             {/* 今季の行 */}
             {sortedEntries.map((entry) => {
               const isCurrent = entry.season === currentSeason;
@@ -224,22 +224,22 @@ export function TodayWindowComparison({
               return (
                 <tr
                   key={entry.season}
-                  className={`transition-colors hover:bg-slate-50/70 ${isCurrent ? "bg-red-50/30 font-semibold" : ""}`}
+                  className={`transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800 ${isCurrent ? "bg-red-50/30 font-semibold dark:bg-red-900/10" : ""}`}
                 >
                   <td className="px-4 py-2.5">
                     {isCurrent ? (
                       <>
-                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-600">
+                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-600 dark:bg-red-900/30 dark:text-red-400">
                           {entry.season}
                         </span>
-                        <span className="ml-2 text-[10px] font-normal text-slate-400">今季</span>
+                        <span className="ml-2 text-[10px] font-normal text-slate-400 dark:text-slate-500">今季</span>
                       </>
                     ) : (
-                      <span className="text-slate-600">{entry.season}</span>
+                      <span className="text-slate-600 dark:text-slate-300">{entry.season}</span>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-400">
-                    {entry.count > 0 ? entry.count : <span className="text-slate-200">—</span>}
+                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-400 dark:text-slate-500">
+                    {entry.count > 0 ? entry.count : <span className="text-slate-200 dark:text-slate-700">—</span>}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums">
                     {entry.avgWeight !== null ? (
@@ -247,22 +247,22 @@ export function TodayWindowComparison({
                         {isCurrent ? (
                           <span className="font-semibold text-red-500">
                             {fmt1(entry.avgWeight)}
-                            <span className="ml-0.5 text-xs font-normal text-slate-300">kg</span>
+                            <span className="ml-0.5 text-xs font-normal text-slate-300 dark:text-slate-600">kg</span>
                           </span>
                         ) : (
-                          <span className="text-slate-600">
+                          <span className="text-slate-600 dark:text-slate-300">
                             {fmt1(entry.avgWeight)}
-                            <span className="ml-0.5 text-xs text-slate-300">kg</span>
+                            <span className="ml-0.5 text-xs text-slate-300 dark:text-slate-600">kg</span>
                           </span>
                         )}
                         {fmtDateRange(entry.dateFrom, entry.dateTo) && (
-                          <div className="mt-0.5 text-[10px] text-slate-500">
+                          <div className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-500">
                             {fmtDateRange(entry.dateFrom, entry.dateTo)}
                           </div>
                         )}
                       </div>
                     ) : (
-                      <span className="text-slate-200">—</span>
+                      <span className="text-slate-200 dark:text-slate-700">—</span>
                     )}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums">
@@ -286,13 +286,13 @@ export function TodayWindowComparison({
 
       {/* ── 所見 ── */}
       {finding && (
-        <div className="border-t border-slate-100 bg-slate-50 px-5 py-3 text-xs text-slate-600">
+        <div className="border-t border-slate-100 bg-slate-50 px-5 py-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
           {finding}
         </div>
       )}
 
       {/* ── 凡例 ── */}
-      <div className="flex flex-wrap items-center gap-4 border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400">
+      <div className="flex flex-wrap items-center gap-4 border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
         <span className="flex items-center gap-1">
           <TrendingDown size={11} className="text-emerald-600" />
           {isCut ? "今季が前回より軽い（先行）" : "今季が前回より重い（先行）"}
@@ -301,7 +301,7 @@ export function TodayWindowComparison({
           <TrendingUp size={11} className="text-amber-600" />
           {isCut ? "今季が前回より重い（遅れ）" : "今季が前回より軽い（遅れ）"}
         </span>
-        <span className="ml-auto text-slate-300">ウィンドウ ±{windowDays}日</span>
+        <span className="ml-auto text-slate-300 dark:text-slate-600">ウィンドウ ±{windowDays}日</span>
       </div>
     </div>
   );

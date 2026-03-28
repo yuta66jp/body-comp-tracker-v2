@@ -35,10 +35,10 @@ export type StatusBadgeSize = "xs" | "sm" | "md";
 // テキスト・背景・枠線の組み合わせを一か所に集約し、
 // ダークモード対応時はここだけ修正すればよい。
 const STATUS_CONFIG: Record<StatusBadgeVariant, { text: string; bg: string; border: string }> = {
-  ok:      { text: "text-emerald-600", bg: "bg-emerald-50",  border: "border-emerald-200" },
-  caution: { text: "text-amber-700",   bg: "bg-amber-50",    border: "border-amber-200"   },
-  alert:   { text: "text-rose-600",    bg: "bg-rose-50",     border: "border-rose-200"    },
-  neutral: { text: "text-slate-500",   bg: "bg-slate-50",    border: "border-slate-200"   },
+  ok:      { text: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/30",  border: "border-emerald-200 dark:border-emerald-700/50" },
+  caution: { text: "text-amber-700 dark:text-amber-400",     bg: "bg-amber-50 dark:bg-amber-900/30",      border: "border-amber-200 dark:border-amber-700/50"     },
+  alert:   { text: "text-rose-600 dark:text-rose-400",       bg: "bg-rose-50 dark:bg-rose-900/30",        border: "border-rose-200 dark:border-rose-700/50"       },
+  neutral: { text: "text-slate-500 dark:text-slate-400",     bg: "bg-slate-50 dark:bg-slate-800",         border: "border-slate-200 dark:border-slate-600"        },
 };
 
 // ── サイズ設定 ────────────────────────────────────────────────────────────────

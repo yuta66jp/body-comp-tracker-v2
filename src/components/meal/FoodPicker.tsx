@@ -66,7 +66,7 @@ export function FoodPicker({ onAdd, onAddSet, onAddTemp }: FoodPickerProps) {
   return (
     <div className="flex flex-col gap-2">
       {/* 単品 / セット / 一時食品 タブ */}
-      <div role="tablist" className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+      <div role="tablist" className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 dark:border-slate-600 dark:bg-slate-800">
         {(["single", "set", "temp"] as Tab[]).map((t) => (
           <button
             key={t}
@@ -77,8 +77,8 @@ export function FoodPicker({ onAdd, onAddSet, onAddTemp }: FoodPickerProps) {
             onClick={() => { setTab(t); setQuery(""); setCategory("すべて"); }}
             className={`flex-1 rounded-md py-1.5 text-xs font-medium transition-colors ${
               tab === t
-                ? "bg-white text-slate-800 shadow-sm"
-                : "text-slate-400 hover:text-slate-600"
+                ? "bg-white text-slate-800 shadow-sm dark:bg-slate-700 dark:text-slate-100"
+                : "text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
             }`}
           >
             {TAB_LABELS[t]}
@@ -105,7 +105,7 @@ export function FoodPicker({ onAdd, onAddSet, onAddTemp }: FoodPickerProps) {
               placeholder="食品名で検索..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:focus:bg-slate-700 dark:placeholder:text-slate-500"
             />
           </div>
 
@@ -120,7 +120,7 @@ export function FoodPicker({ onAdd, onAddSet, onAddTemp }: FoodPickerProps) {
                   className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                     category === cat
                       ? "bg-blue-600 text-white"
-                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                      : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-400 dark:hover:bg-slate-600"
                   }`}
                 >
                   {cat}
@@ -131,19 +131,19 @@ export function FoodPicker({ onAdd, onAddSet, onAddTemp }: FoodPickerProps) {
 
           {/* 食品リスト */}
           {isLoading ? (
-            <p className="py-4 text-center text-sm text-slate-400">読み込み中...</p>
+            <p className="py-4 text-center text-sm text-slate-400 dark:text-slate-500">読み込み中...</p>
           ) : filtered.length === 0 ? (
-            <p className="py-4 text-center text-sm text-slate-400">該当なし</p>
+            <p className="py-4 text-center text-sm text-slate-400 dark:text-slate-500">該当なし</p>
           ) : (
-            <ul className="max-h-56 overflow-y-auto rounded-xl border border-slate-100 bg-white">
+            <ul className="max-h-56 overflow-y-auto rounded-xl border border-slate-100 bg-white dark:border-slate-700 dark:bg-slate-900">
               {filtered.map((food) => (
                 <li
                   key={food.name}
-                  className="flex items-center justify-between border-b border-slate-50 px-3 py-2 last:border-0 hover:bg-slate-50"
+                  className="flex items-center justify-between border-b border-slate-50 px-3 py-2 last:border-0 hover:bg-slate-50 dark:border-slate-700/60 dark:hover:bg-slate-800"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-slate-800">{food.name}</p>
-                    <p className="text-xs text-slate-400">
+                    <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{food.name}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">
                       {food.calories} kcal&nbsp;·&nbsp;P {food.protein}g F {food.fat}g C {food.carbs}g
                     </p>
                   </div>

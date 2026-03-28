@@ -96,7 +96,7 @@ export default async function HistoryPage() {
 
       {/* Bulk 参照モード注記 */}
       {!isCut && (
-        <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-2.5 text-xs text-amber-700">
+        <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-2.5 text-xs text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/30 dark:text-amber-400">
           Bulk フェーズ中は参照モードで表示しています。現在シーズンの比較は非表示です。
         </div>
       )}
@@ -167,7 +167,7 @@ export default async function HistoryPage() {
 
             {/* 過去実績データは import_history.py で一括インポートして管理 */}
             {seasonMeta.length === 0 && (
-              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5 text-sm text-amber-700">
+              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5 text-sm text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/30 dark:text-amber-400">
                 過去シーズンのデータがありません。
                 <code className="ml-1 font-mono text-xs">
                   python ml-pipeline/import_history.py /path/to/history.csv
@@ -177,7 +177,7 @@ export default async function HistoryPage() {
             )}
           </>
         ) : (
-          <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5 text-sm text-amber-700">
+          <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5 text-sm text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/30 dark:text-amber-400">
             キャリアデータがありません。
             <code className="ml-1 font-mono text-xs">
               python ml-pipeline/import_history.py /path/to/history.csv

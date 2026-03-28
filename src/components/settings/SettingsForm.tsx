@@ -57,7 +57,7 @@ function calcPfcDerivedKcal(values: Record<string, string>): number | null {
 }
 
 const inputCls =
-  "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400";
+  "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:focus:bg-slate-700 dark:focus:ring-blue-900/40 dark:placeholder:text-slate-500";
 
 // ─── アコーディオン セクション ────────────────────────────────────────────────
 
@@ -75,11 +75,11 @@ function FormSection({ id, title, subtitle, isOpen, onToggle, children, border =
   const panelId = `settings-panel-${id}`;
   const headingId = `settings-heading-${id}`;
   return (
-    <div className={border ? "mt-5 border-t border-slate-100 pt-5" : ""}>
+    <div className={border ? "mt-5 border-t border-slate-100 pt-5 dark:border-slate-700" : ""}>
       <div className="flex items-start justify-between">
         <div>
-          <h2 id={headingId} className="text-sm font-semibold text-slate-700">{title}</h2>
-          {subtitle && <p className="mt-0.5 text-xs text-slate-400">{subtitle}</p>}
+          <h2 id={headingId} className="text-sm font-semibold text-slate-700 dark:text-slate-200">{title}</h2>
+          {subtitle && <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{subtitle}</p>}
         </div>
         <button
           type="button"
@@ -87,7 +87,7 @@ function FormSection({ id, title, subtitle, isOpen, onToggle, children, border =
           aria-expanded={isOpen}
           aria-controls={panelId}
           aria-label={`${title}を${isOpen ? "閉じる" : "開く"}`}
-          className="sm:hidden ml-3 flex-shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+          className="sm:hidden ml-3 flex-shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-700 dark:hover:text-slate-300"
         >
           <ChevronDown
             size={16}
@@ -110,13 +110,11 @@ function FormSection({ id, title, subtitle, isOpen, onToggle, children, border =
 // ─── フィールド描画ヘルパー ────────────────────────────────────────────────────
 
 function FieldItem({
-  fieldKey,
   meta,
   value,
   error,
   onChange,
 }: {
-  fieldKey: string;
   meta: FieldMeta;
   value: string;
   error?: string;
@@ -124,9 +122,9 @@ function FieldItem({
 }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
         {meta.label}
-        {meta.unit && <span className="ml-1 normal-case font-normal text-slate-300">({meta.unit})</span>}
+        {meta.unit && <span className="ml-1 normal-case font-normal text-slate-300 dark:text-slate-600">({meta.unit})</span>}
       </label>
 
       {meta.type === "select" ? (
@@ -143,7 +141,7 @@ function FieldItem({
                   ? opt === "Cut"
                     ? "border-blue-400 bg-blue-600 text-white shadow-sm"
                     : "border-emerald-400 bg-emerald-600 text-white shadow-sm"
-                  : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:bg-slate-100"
+                  : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:bg-slate-600"
               }`}
             >
               {meta.optionLabels?.[i] ?? opt}
@@ -287,14 +285,14 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
   }
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+    <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
 
       {/* ── セクション 1: シーズン・コンテスト (デフォルト展開) ── */}
       <div>
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-slate-700">{seasonSectionTitle}</h2>
-            <p className="mt-0.5 text-xs text-slate-400">{deadlineLabel}・シーズン名・フェーズを設定します</p>
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">{seasonSectionTitle}</h2>
+            <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{deadlineLabel}・シーズン名・フェーズを設定します</p>
           </div>
           <button
             type="button"
@@ -302,7 +300,7 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
             aria-expanded={openSections.has("season")}
             aria-controls="settings-panel-season"
             aria-label={`${seasonSectionTitle}を${openSections.has("season") ? "閉じる" : "開く"}`}
-            className="sm:hidden ml-3 flex-shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+            className="sm:hidden ml-3 flex-shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-700 dark:hover:text-slate-300"
           >
             <ChevronDown
               size={16}
@@ -319,7 +317,7 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
             {SEASON_FIELD_KEYS.map((key) => (
               <FieldItem
                 key={key}
-                fieldKey={key}
+
                 meta={
                   key === "contest_date"
                     ? { ...FIELDS[key]!, label: deadlineLabel }
@@ -346,7 +344,6 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
           {BODY_FIELD_KEYS.map((key) => (
             <FieldItem
               key={key}
-              fieldKey={key}
               meta={FIELDS[key]!}
               value={values[key] ?? ""}
               error={fieldErrors[key]}
@@ -368,7 +365,6 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
           {MACRO_TARGET_KEYS.map((key) => (
             <FieldItem
               key={key}
-              fieldKey={key}
               meta={MACRO_TARGET_FIELDS[key]!}
               value={values[key] ?? ""}
               error={fieldErrors[key]}
@@ -415,7 +411,7 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
           sm+    : static でフォーム末尾にインライン表示
       */}
       <div
-        className="fixed left-0 right-0 z-40 flex items-center justify-between gap-3 border-t border-slate-100 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm sm:static sm:mt-6 sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none"
+        className="fixed left-0 right-0 z-40 flex items-center justify-between gap-3 border-t border-slate-100 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm sm:static sm:mt-6 sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none dark:border-slate-700 dark:bg-slate-900/95"
         style={{ bottom: "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px))" }}
       >
         {/* ステータス表示 */}

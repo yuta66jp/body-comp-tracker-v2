@@ -40,9 +40,9 @@ function scoreLabel(score: number): string {
 
 function WindowSection({ title, w }: { title: string; w: QualityWindow }) {
   return (
-    <div className={`rounded-xl border p-4 ${scoreBg(w.score)} ${scoreBorder(w.score)}`}>
+    <div className={`rounded-xl border p-4 ${scoreBg(w.score)} ${scoreBorder(w.score)} dark:bg-opacity-20`}>
       <div className="mb-3 flex items-center justify-between">
-        <span className="font-semibold text-gray-700">{title}</span>
+        <span className="font-semibold text-gray-700 dark:text-slate-200">{title}</span>
         <span className={`rounded-full px-3 py-1 text-sm font-bold ${scoreColor(w.score)}`}>
           {w.score} / 100
         </span>
@@ -50,23 +50,23 @@ function WindowSection({ title, w }: { title: string; w: QualityWindow }) {
 
       <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
         <div>
-          <dt className="text-xs text-gray-500">ウィンドウ日数</dt>
-          <dd className="font-medium text-gray-800">{w.totalDays} 日</dd>
+          <dt className="text-xs text-gray-500 dark:text-slate-400">ウィンドウ日数</dt>
+          <dd className="font-medium text-gray-800 dark:text-slate-200">{w.totalDays} 日</dd>
         </div>
         <div>
-          <dt className="text-xs text-gray-500">体重欠損日数</dt>
+          <dt className="text-xs text-gray-500 dark:text-slate-400">体重欠損日数</dt>
           <dd className={`font-medium ${w.weightMissingDays > 0 ? "text-amber-700" : "text-emerald-600"}`}>
             {w.weightMissingDays} 日
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-gray-500">カロリー欠損日数</dt>
+          <dt className="text-xs text-gray-500 dark:text-slate-400">カロリー欠損日数</dt>
           <dd className={`font-medium ${w.caloriesMissingDays > 0 ? "text-amber-700" : "text-emerald-600"}`}>
             {w.caloriesMissingDays} 日
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-gray-500">異常値候補</dt>
+          <dt className="text-xs text-gray-500 dark:text-slate-400">異常値候補</dt>
           <dd className={`font-medium ${w.anomalies.length > 0 ? "text-rose-600" : "text-emerald-600"}`}>
             {w.anomalies.length} 件
           </dd>
@@ -75,24 +75,24 @@ function WindowSection({ title, w }: { title: string; w: QualityWindow }) {
 
       {w.anomalies.length > 0 && (
         <div className="mt-3">
-          <p className="mb-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          <p className="mb-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide dark:text-slate-400">
             異常値候補 一覧
           </p>
           <ul className="space-y-1">
             {w.anomalies.map((a, i) => (
               <li
                 key={`${a.date}-${a.type}-${i}`}
-                className="flex flex-wrap items-baseline gap-2 rounded-lg bg-white px-3 py-2 text-xs shadow-sm"
+                className="flex flex-wrap items-baseline gap-2 rounded-lg bg-white px-3 py-2 text-xs shadow-sm dark:bg-slate-800 dark:shadow-none"
               >
-                <span className="font-mono text-gray-500">{a.date}</span>
-                <span className="rounded bg-rose-100 px-1.5 py-0.5 font-semibold text-rose-700">
+                <span className="font-mono text-gray-500 dark:text-slate-400">{a.date}</span>
+                <span className="rounded bg-rose-100 px-1.5 py-0.5 font-semibold text-rose-700 dark:bg-rose-900/30 dark:text-rose-400">
                   {a.type === "weight_jump"
                     ? "体重ジャンプ"
                     : a.type === "calories_low"
                     ? "低カロリー"
                     : "高カロリー"}
                 </span>
-                <span className="text-gray-600">{a.detail}</span>
+                <span className="text-gray-600 dark:text-slate-300">{a.detail}</span>
               </li>
             ))}
           </ul>
@@ -106,11 +106,11 @@ export function DataQualityPanel({ report }: Props) {
   const minScore = Math.min(report.period7.score, report.period14.score);
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-gray-800">データ品質レポート</h2>
-          <p className="mt-0.5 text-xs text-gray-500">
+          <h2 className="text-sm font-bold text-gray-800 dark:text-slate-200">データ品質レポート</h2>
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-slate-400">
             直近 7日 / 14日 ウィンドウの欠損・異常値を自動検出
           </p>
         </div>
@@ -144,7 +144,7 @@ export function DataQualityPanel({ report }: Props) {
 
       {/* 詳細は <details> で折りたたみ（JS 不要） */}
       <details className="mt-4 group">
-        <summary className="cursor-pointer select-none list-none text-xs font-medium text-slate-500 hover:text-slate-700">
+        <summary className="cursor-pointer select-none list-none text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
           <span className="group-open:hidden">詳細を見る ▸</span>
           <span className="hidden group-open:inline">詳細を閉じる ▾</span>
         </summary>
@@ -154,8 +154,8 @@ export function DataQualityPanel({ report }: Props) {
           <WindowSection title="直近 14 日" w={report.period14} />
 
           {/* 重複日付 */}
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
               重複日付
             </p>
             {report.duplicateDates.length === 0 ? (
@@ -163,7 +163,7 @@ export function DataQualityPanel({ report }: Props) {
             ) : (
               <ul className="flex flex-wrap gap-2">
                 {report.duplicateDates.map((d) => (
-                  <li key={d} className="rounded bg-rose-100 px-2 py-0.5 text-xs font-mono text-rose-700">
+                  <li key={d} className="rounded bg-rose-100 px-2 py-0.5 text-xs font-mono text-rose-700 dark:bg-rose-900/30 dark:text-rose-400">
                     {d}
                   </li>
                 ))}
@@ -172,7 +172,7 @@ export function DataQualityPanel({ report }: Props) {
           </div>
 
           {/* スコア凡例 */}
-          <div className="flex flex-wrap gap-4 text-xs text-gray-400">
+          <div className="flex flex-wrap gap-4 text-xs text-gray-400 dark:text-slate-500">
             <span>
               <span className="font-semibold text-emerald-600">90〜100</span>: 良好
             </span>

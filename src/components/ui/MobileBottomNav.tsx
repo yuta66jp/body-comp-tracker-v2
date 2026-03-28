@@ -120,7 +120,7 @@ export function MobileBottomNav() {
             role="dialog"
             aria-modal="true"
             aria-label="その他のページ"
-            className="fixed left-0 right-0 z-40 border-t border-slate-200 bg-white shadow-lg"
+            className="fixed left-0 right-0 z-40 border-t border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"
             style={{
               bottom:
                 "calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px))",
@@ -138,8 +138,8 @@ export function MobileBottomNav() {
                     onClick={closeSheet}
                     className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors ${
                       active
-                        ? "bg-blue-50 text-blue-700"
-                        : "text-slate-600 hover:bg-slate-100"
+                        ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                        : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
                     }`}
                   >
                     <Icon size={18} className={active ? "text-blue-600" : ""} />
@@ -155,7 +155,7 @@ export function MobileBottomNav() {
       {/* ── Bottom tab bar ───────────────────────────────────────────── */}
       <nav
         aria-label="モバイルナビゲーション"
-        className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur-md md:hidden"
+        className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur-md md:hidden dark:border-slate-700 dark:bg-slate-900/95"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         <div className="mx-auto flex max-w-screen-xl items-stretch">
@@ -169,8 +169,8 @@ export function MobileBottomNav() {
                 aria-current={active ? "page" : undefined}
                 className={`flex flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[10px] font-medium transition-colors ${
                   active
-                    ? "text-blue-700"
-                    : "text-slate-500 hover:text-slate-800"
+                    ? "text-blue-700 dark:text-blue-300"
+                    : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
                 }`}
               >
                 <Icon
@@ -192,8 +192,8 @@ export function MobileBottomNav() {
             onClick={() => setMoreOpen((prev) => !prev)}
             className={`flex flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[10px] font-medium transition-colors ${
               moreActive || moreOpen
-                ? "text-blue-700"
-                : "text-slate-500 hover:text-slate-800"
+                ? "text-blue-700 dark:text-blue-300"
+                : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
             }`}
           >
             {moreOpen ? (

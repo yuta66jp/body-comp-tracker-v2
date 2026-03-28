@@ -119,13 +119,13 @@ export function BacktestComparison({
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
       {/* ── ヘッダー ── */}
-      <div className="border-b border-slate-100 bg-slate-50 px-5 py-3">
+      <div className="border-b border-slate-100 bg-slate-50 px-5 py-3 dark:border-slate-700 dark:bg-slate-800">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <TrendingDown size={15} className="text-emerald-600" />
-            <span className="text-sm font-bold text-slate-700">
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
               評価方式比較: 単日体重 vs 7日平均体重
             </span>
           </div>
@@ -140,17 +140,17 @@ export function BacktestComparison({
             </span>
           </div>
         </div>
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
           単日評価の MAE には水分変動 (±0.5〜1.5 kg) 由来のノイズが含まれます。
           7日平均評価でこのノイズを除いた精度を確認できます。
         </p>
       </div>
 
       {!hasSma7Data && (
-        <div className="flex items-center gap-2 border-b border-amber-100 bg-amber-50 px-5 py-2.5 text-xs text-amber-700">
+        <div className="flex items-center gap-2 border-b border-amber-100 bg-amber-50 px-5 py-2.5 text-xs text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/30 dark:text-amber-400">
           <AlertCircle size={13} />
           7日平均評価がまだ実行されていません。
-          <code className="rounded bg-amber-100 px-1">
+          <code className="rounded bg-amber-100 px-1 dark:bg-amber-800/50">
             python ml-pipeline/backtest.py --series-type sma7
           </code>
           を実行してください。
@@ -164,21 +164,21 @@ export function BacktestComparison({
           const sBest = sma7Best[h];
           const nrPct = noiseReductionPct(dBest?.mae ?? null, sBest?.mae ?? null);
           return (
-            <div key={h} className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
-              <p className="mb-2 text-xs font-bold text-slate-600">D+{h} 日先</p>
+            <div key={h} className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
+              <p className="mb-2 text-xs font-bold text-slate-600 dark:text-slate-300">D+{h} 日先</p>
               <div className="flex flex-wrap items-start gap-x-6 gap-y-2 text-xs">
                 {hasDailyData && dBest && (
                   <div>
                     <p className="mb-0.5 font-medium text-blue-500">単日評価 ★</p>
-                    <p className="font-semibold text-slate-700">{MODEL_LABELS[dBest.model] ?? dBest.model}</p>
-                    <p className="font-mono text-slate-500">MAE {fmt3(dBest.mae)}</p>
+                    <p className="font-semibold text-slate-700 dark:text-slate-200">{MODEL_LABELS[dBest.model] ?? dBest.model}</p>
+                    <p className="font-mono text-slate-500 dark:text-slate-400">MAE {fmt3(dBest.mae)}</p>
                   </div>
                 )}
                 {hasSma7Data && sBest && (
                   <div>
                     <p className="mb-0.5 font-medium text-emerald-600">7日平均評価 ★</p>
-                    <p className="font-semibold text-slate-700">{MODEL_LABELS[sBest.model] ?? sBest.model}</p>
-                    <p className="font-mono text-slate-500">MAE {fmt3(sBest.mae)}</p>
+                    <p className="font-semibold text-slate-700 dark:text-slate-200">{MODEL_LABELS[sBest.model] ?? sBest.model}</p>
+                    <p className="font-mono text-slate-500 dark:text-slate-400">MAE {fmt3(sBest.mae)}</p>
                   </div>
                 )}
                 {hasDailyData && hasSma7Data && nrPct !== null && (
@@ -191,7 +191,7 @@ export function BacktestComparison({
             </div>
           );
         })}
-        <p className="text-[10px] text-slate-400">
+        <p className="text-[10px] text-slate-400 dark:text-slate-500">
           ★ = ホライズン別最良モデル / ノイズ除去率 = (1 − 7日均MAE ÷ 単日MAE) × 100%
         </p>
       </div>
@@ -200,19 +200,19 @@ export function BacktestComparison({
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full min-w-[600px] text-sm">
           <thead>
-            <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
               <th className="w-44 px-4 py-2.5 text-left">モデル</th>
               {HORIZONS.map((h) => (
-                <th key={h} colSpan={2} className="border-l border-slate-100 px-3 py-2.5 text-center">
+                <th key={h} colSpan={2} className="border-l border-slate-100 px-3 py-2.5 text-center dark:border-slate-700">
                   D+{h}日先
                 </th>
               ))}
             </tr>
-            <tr className="border-b border-slate-200 text-[11px] font-medium text-slate-400">
+            <tr className="border-b border-slate-200 text-[11px] font-medium text-slate-400 dark:border-slate-700 dark:text-slate-500">
               <th className="px-4 py-1.5 text-left">MAE (kg)</th>
               {HORIZONS.map((h) => (
                 <Fragment key={h}>
-                  <th className="border-l border-slate-100 px-3 py-1.5 text-center text-blue-500">
+                  <th className="border-l border-slate-100 px-3 py-1.5 text-center text-blue-500 dark:border-slate-700">
                     単日
                   </th>
                   <th className="px-3 py-1.5 text-center text-emerald-600">
@@ -222,12 +222,12 @@ export function BacktestComparison({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50">
+          <tbody className="divide-y divide-slate-50 dark:divide-slate-700/60">
             {MODEL_ORDER.map((model) => {
               const label = MODEL_LABELS[model] ?? model;
               return (
-                <tr key={model} className="transition-colors hover:bg-slate-50/70">
-                  <td className="px-4 py-2.5 font-medium text-slate-700">
+                <tr key={model} className="transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800">
+                  <td className="px-4 py-2.5 font-medium text-slate-700 dark:text-slate-200">
                     <span className="inline-flex items-center">
                       {label}
                       {MODEL_DESCRIPTIONS[model] && (
@@ -243,10 +243,10 @@ export function BacktestComparison({
                     return (
                       <Fragment key={`${model}-${h}`}>
                         <td
-                          className={`border-l border-slate-100 px-3 py-2.5 text-center tabular-nums ${
+                          className={`border-l border-slate-100 px-3 py-2.5 text-center tabular-nums dark:border-slate-700 ${
                             isDailyBest && hasDailyData
-                              ? "font-bold text-blue-600"
-                              : "text-slate-600"
+                              ? "font-bold text-blue-600 dark:text-blue-400"
+                              : "text-slate-600 dark:text-slate-300"
                           }`}
                         >
                           {fmt3(dailyMae)}
@@ -259,8 +259,8 @@ export function BacktestComparison({
                             isSma7Best && hasSma7Data
                               ? "font-bold text-emerald-600"
                               : hasSma7Data
-                              ? "text-slate-600"
-                              : "text-slate-300"
+                              ? "text-slate-600 dark:text-slate-300"
+                              : "text-slate-300 dark:text-slate-600"
                           }`}
                         >
                           {hasSma7Data ? fmt3(sma7Mae) : "—"}
@@ -279,10 +279,10 @@ export function BacktestComparison({
           {/* ── ノイズ除去率行 ── */}
           {hasDailyData && hasSma7Data && (
             <tfoot>
-              <tr className="border-t-2 border-slate-200 bg-slate-50">
-                <td className="px-4 py-2.5 text-xs font-semibold text-slate-500">
+              <tr className="border-t-2 border-slate-200 bg-slate-50 dark:border-slate-600 dark:bg-slate-800">
+                <td className="px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
                   ノイズ除去率
-                  <span className="ml-1 font-normal text-slate-400">(最良モデル)</span>
+                  <span className="ml-1 font-normal text-slate-400 dark:text-slate-500">(最良モデル)</span>
                 </td>
                 {HORIZONS.map((h) => {
                   const pct = noiseReductionPct(
@@ -293,7 +293,7 @@ export function BacktestComparison({
                     <td
                       key={h}
                       colSpan={2}
-                      className={`border-l border-slate-100 px-3 py-2.5 text-center text-sm ${noiseReductionColor(pct)}`}
+                      className={`border-l border-slate-100 px-3 py-2.5 text-center text-sm dark:border-slate-700 ${noiseReductionColor(pct)}`}
                     >
                       {pct !== null ? `${pct}%` : "—"}
                     </td>
@@ -306,11 +306,11 @@ export function BacktestComparison({
       </div>{/* end hidden md:block */}
 
       {/* ── フッター注記（デスクトップのみ）── */}
-      <div className="hidden md:block border-t border-slate-50 bg-slate-50 px-5 py-2.5 text-[11px] text-slate-400">
+      <div className="hidden md:block border-t border-slate-50 bg-slate-50 px-5 py-2.5 text-[11px] text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
         <span>
           ★ = ホライズン別最良モデル / MAE: 平均絶対誤差 (kg) / ノイズ除去率 = (1 − 7日均MAE ÷ 単日MAE) × 100%
         </span>
-        <span className="ml-3 text-slate-300">
+        <span className="ml-3 text-slate-300 dark:text-slate-600">
           リークなし保証: horizon ≥ 7 のため SMA7 評価ウィンドウは訓練期間と重複しない
         </span>
       </div>

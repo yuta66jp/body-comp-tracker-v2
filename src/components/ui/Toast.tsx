@@ -25,8 +25,8 @@ export function Toast({ type, message, visible }: ToastProps) {
       aria-live={isSuccess ? "polite" : "assertive"}
       className={`fixed top-4 inset-x-4 sm:inset-x-auto sm:right-4 sm:w-80 z-[60] flex items-center gap-2.5 rounded-2xl border px-4 py-3 shadow-lg text-sm font-medium ${
         isSuccess
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-          : "border-rose-200 bg-rose-50 text-rose-700"
+          ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/30 dark:text-emerald-400"
+          : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-700/50 dark:bg-rose-900/30 dark:text-rose-400"
       }`}
     >
       {isSuccess ? (

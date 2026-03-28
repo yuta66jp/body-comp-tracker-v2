@@ -46,7 +46,7 @@ export function MobileMealLoggerSheet() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 py-3.5 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 active:bg-blue-200"
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 py-3.5 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 active:bg-blue-200 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30"
       >
         <PenLine size={16} />
         食事・体重を記録する
@@ -72,7 +72,7 @@ export function MobileMealLoggerSheet() {
           aria-label="食事・体重ログ入力"
           className={[
             // 共通
-            "fixed z-50 bg-white shadow-2xl",
+            "fixed z-50 bg-white shadow-2xl dark:bg-slate-900",
             // モバイル: bottom sheet
             "bottom-0 left-0 right-0 max-h-[88svh] rounded-t-2xl",
             // PC (lg+): centered modal — bottom/right をリセットして中央配置
@@ -83,18 +83,18 @@ export function MobileMealLoggerSheet() {
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
         >
           {/* Panel ヘッダー */}
-          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3 dark:border-slate-700">
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-blue-50">
                 <PenLine size={14} className="text-blue-600" />
               </div>
-              <span className="text-sm font-semibold text-slate-700">食事ログ</span>
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">食事ログ</span>
             </div>
             <button
               type="button"
               onClick={() => setOpen(false)}
               aria-label="食事ログを閉じる"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
             >
               <X size={18} />
             </button>

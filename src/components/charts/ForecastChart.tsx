@@ -19,6 +19,7 @@ import type { MonthlyGoalEntry } from "@/lib/utils/monthlyGoalPlan";
 import { buildMonthlyGoalDateMap } from "@/lib/utils/monthlyGoalVisualization";
 import { buildForecastMap, calcEwLinearForecast, buildYAxisConfig } from "@/lib/utils/forecastUtils";
 import type { RangeTab } from "@/lib/utils/forecastUtils";
+import { useIsDark } from "@/lib/hooks/useIsDark";
 
 interface ForecastChartProps {
   logs: DashboardDailyLog[];
@@ -58,6 +59,12 @@ export function ForecastChart({
   monthlyGoalEntries,
 }: ForecastChartProps) {
   const [rangeTab, setRangeTab] = useState<RangeTab>("default");
+  const isDark = useIsDark();
+  const chartColors = {
+    axis:     isDark ? "#94a3b8" : "#64748b",
+    grid:     isDark ? "#334155" : "#f1f5f9",
+    tickText: isDark ? "#94a3b8" : "#64748b",
+  };
 
   const today = toJstDateStr();
 
@@ -158,11 +165,11 @@ export function ForecastChart({
   const { ticks: yTicks, formatter: yTickFormatter } = buildYAxisConfig(rangeTab, yMin, yMax);
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
       {/* ヘッダー + タブ */}
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-700">体重推移・予測</h2>
-        <div role="group" aria-label="表示期間" className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">体重推移・予測</h2>
+        <div role="group" aria-label="表示期間" className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 dark:border-slate-600 dark:bg-slate-800">
           {RANGE_TABS.map(({ key, label }) => (
             <button
               key={key}
@@ -170,8 +177,8 @@ export function ForecastChart({
               aria-pressed={rangeTab === key}
               className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                 rangeTab === key
-                  ? "bg-white text-slate-800 shadow-sm"
-                  : "text-slate-400 hover:text-slate-600"
+                  ? "bg-white text-slate-800 shadow-sm dark:bg-slate-700 dark:text-slate-100"
+                  : "text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
               }`}
             >
               {label}
@@ -182,26 +189,28 @@ export function ForecastChart({
 
       {predictions.length === 0 ? (
         <div className="flex h-[380px] flex-col items-center justify-center gap-2 text-center">
-          <p className="text-sm font-medium text-slate-500">予測データがありません</p>
-          <p className="text-xs text-slate-400">ML バッチ（predict.py）実行後に表示されます</p>
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">予測データがありません</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500">ML バッチ（predict.py）実行後に表示されます</p>
         </div>
       ) : null}
 
       {predictions.length > 0 && <ResponsiveContainer width="100%" height={380}>
         <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+          <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
           <XAxis
             dataKey="date"
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 11, fill: chartColors.tickText }}
             tickFormatter={(v: string) => v.slice(5)}
             minTickGap={rangeTab === "7d" ? 0 : rangeTab === "60d" ? 25 : 30}
+            stroke={chartColors.axis}
           />
           <YAxis
             domain={[yMin, yMax]}
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 11, fill: chartColors.tickText }}
             tickFormatter={yTickFormatter}
             ticks={yTicks}
             width={52}
+            stroke={chartColors.axis}
           />
           <Tooltip
             formatter={makeTooltipFormatter(
@@ -240,9 +249,9 @@ export function ForecastChart({
           )}
           <ReferenceLine
             x={today}
-            stroke="#94a3b8"
+            stroke={chartColors.axis}
             strokeDasharray="4 4"
-            label={{ value: "今日", fontSize: 10, fill: "#94a3b8" }}
+            label={{ value: "今日", fontSize: 10, fill: chartColors.axis }}
           />
           {showFutureSeries && contestDate && (
             <ReferenceLine

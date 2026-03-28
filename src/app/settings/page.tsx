@@ -32,12 +32,12 @@ export default async function SettingsPage() {
     <PageShell title="設定">
       {/* Read error banners — graceful degradation: コンテンツはブロックしない */}
       {settingsRowsResult.kind === "error" && (
-        <div className="mb-5 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+        <div className="mb-5 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700 dark:border-rose-700/50 dark:bg-rose-900/30 dark:text-rose-400">
           設定データの取得中にエラーが発生しました。ページを再読み込みしてください。
         </div>
       )}
       {logsResult.kind === "error" && (
-        <div className="mb-5 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">
+        <div className="mb-5 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700 dark:border-rose-700/50 dark:bg-rose-900/30 dark:text-rose-400">
           ログデータの取得中にエラーが発生しました。データ品質の表示がデフォルト値になります。
         </div>
       )}
@@ -49,11 +49,11 @@ export default async function SettingsPage() {
         {/* データ操作セクション: エクスポート / インポート */}
         <div>
           <div className="mb-3 flex items-center gap-3">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
               データ操作
             </span>
-            <div className="flex-1 border-t border-slate-100" />
-            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-600">
+            <div className="flex-1 border-t border-slate-100 dark:border-slate-700" />
+            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
               既存データに影響します
             </span>
           </div>

@@ -24,8 +24,8 @@ export type StatusNoticeVariant = "error" | "caution";
 
 // ── 色設定 ───────────────────────────────────────────────────────────────────
 const NOTICE_CONFIG: Record<StatusNoticeVariant, { border: string; bg: string; text: string }> = {
-  error:   { border: "border-rose-100",  bg: "bg-rose-50",  text: "text-rose-700"  },
-  caution: { border: "border-amber-100", bg: "bg-amber-50", text: "text-amber-700" },
+  error:   { border: "border-rose-100 dark:border-rose-700/50",   bg: "bg-rose-50 dark:bg-rose-900/30",   text: "text-rose-700 dark:text-rose-400"   },
+  caution: { border: "border-amber-100 dark:border-amber-700/50", bg: "bg-amber-50 dark:bg-amber-900/30", text: "text-amber-700 dark:text-amber-400" },
 };
 
 // ── Props ─────────────────────────────────────────────────────────────────────
