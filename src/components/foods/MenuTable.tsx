@@ -135,7 +135,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
         </div>
         <button
           onClick={startNew}
-          className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700"
+          className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 dark:bg-amber-700 dark:hover:bg-amber-600"
         >
           <Plus size={15} />
           新規セット
@@ -169,7 +169,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
                   onClick={() => { setAddCategory(cat); setAddFood(""); }}
                   className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                     addCategory === cat
-                      ? "bg-amber-500 text-white dark:bg-amber-600"
+                      ? "bg-amber-500 text-white dark:bg-amber-700"
                       : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
                   }`}
                 >
@@ -202,7 +202,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
             <button
               onClick={addItemToEditing}
               disabled={!addFood}
-              className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-40 dark:bg-amber-600 dark:hover:bg-amber-700"
+              className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-40 dark:bg-amber-700 dark:hover:bg-amber-600"
             >
               <Plus size={14} />
             </button>
@@ -252,7 +252,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
             <button
               onClick={handleSave}
               disabled={isSaving || saveSuccess}
-              className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-60 disabled:cursor-not-allowed dark:bg-blue-700 dark:hover:bg-blue-600"
+              className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-60 disabled:cursor-not-allowed dark:bg-blue-800 dark:hover:bg-blue-700"
             >
               <Save size={14} />
               {isSaving ? "保存中..." : "保存"}
