@@ -230,10 +230,10 @@ export function SeasonComparisonTable({
                       {curVal !== null ? (
                         <span className="font-semibold text-red-500">
                           {curVal.toFixed(1)}
-                          <span className="ml-0.5 text-xs font-normal text-slate-300">kg</span>
+                          <span className="ml-0.5 text-xs font-normal text-slate-300 dark:text-slate-600">kg</span>
                         </span>
                       ) : (
-                        <span className="text-slate-300">
+                        <span className="text-slate-300 dark:text-slate-600">
                           —
                           <span className="ml-0.5 text-[10px]">
                             {isFinisher ? "中" : "未達"}

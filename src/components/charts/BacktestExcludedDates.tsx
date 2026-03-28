@@ -24,10 +24,10 @@ const REASON_CONFIG: Record<
   ExcludedReason,
   { label: string; badgeClass: string }
 > = {
-  cheat_day:           { label: "チートデイ",   badgeClass: "bg-orange-100 text-orange-600" },
-  travel_day:          { label: "旅行日",        badgeClass: "bg-sky-100 text-sky-600" },
-  manual_event_period: { label: "手動イベント期間", badgeClass: "bg-violet-100 text-violet-600" },
-  recovery_day:        { label: "回復日",        badgeClass: "bg-slate-100 text-slate-500" },
+  cheat_day:           { label: "チートデイ",       badgeClass: "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400" },
+  travel_day:          { label: "旅行日",            badgeClass: "bg-sky-100 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400" },
+  manual_event_period: { label: "手動イベント期間",  badgeClass: "bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400" },
+  recovery_day:        { label: "回復日",            badgeClass: "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400" },
 };
 
 const SOURCE_LABELS: Record<ExcludedSource, string> = {
@@ -72,20 +72,20 @@ export function BacktestExcludedDates({
   ).filter(([, n]) => n > 0);
 
   return (
-    <details className="group overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+    <details className="group overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
       {/* ── サマリー行（クリックで展開） ── */}
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-5 py-3 [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-5 py-3 dark:border-slate-700 dark:bg-slate-800 [&::-webkit-details-marker]:hidden">
         <div className="flex items-center gap-2">
-          <CalendarX2 size={15} className="flex-shrink-0 text-slate-400" />
-          <span className="text-sm font-bold text-slate-700">
+          <CalendarX2 size={15} className="flex-shrink-0 text-slate-400 dark:text-slate-500" />
+          <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
             除外対象日の確認
           </span>
           {totalDays > 0 ? (
-            <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+            <span className="rounded-full bg-slate-200 dark:bg-slate-700 px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
               {totalDays} 日
             </span>
           ) : (
-            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">
+            <span className="rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
               除外なし
             </span>
           )}
@@ -103,15 +103,15 @@ export function BacktestExcludedDates({
               ))}
             </div>
           )}
-          <span className="text-xs text-slate-400 group-open:hidden">▼ 展開</span>
-          <span className="hidden text-xs text-slate-400 group-open:inline">▲ 閉じる</span>
+          <span className="text-xs text-slate-400 dark:text-slate-500 group-open:hidden">▼ 展開</span>
+          <span className="hidden text-xs text-slate-400 dark:text-slate-500 group-open:inline">▲ 閉じる</span>
         </div>
       </summary>
 
       {/* ── 展開コンテンツ ── */}
-      <div className="divide-y divide-slate-50">
+      <div className="divide-y divide-slate-50 dark:divide-slate-700/60">
         {/* 設定情報 */}
-        <div className="bg-slate-50/60 px-5 py-2.5 text-[11px] text-slate-500">
+        <div className="bg-slate-50/60 dark:bg-slate-800/60 px-5 py-2.5 text-[11px] text-slate-500 dark:text-slate-400">
           <span className="font-medium">除外条件:</span>{" "}
           回復期間 {recoveryDays} 日 /{" "}
           {hasManualPeriods ? (
@@ -122,7 +122,7 @@ export function BacktestExcludedDates({
                   {i > 0 && " / "}
                   {ep.start}〜{ep.end}
                   {ep.reason && (
-                    <span className="ml-1 font-sans not-italic text-violet-600">
+                    <span className="ml-1 font-sans not-italic text-violet-600 dark:text-violet-400">
                       ({ep.reason})
                     </span>
                   )}
@@ -136,9 +136,9 @@ export function BacktestExcludedDates({
 
         {totalDays === 0 ? (
           /* 除外なしの場合 */
-          <div className="px-5 py-4 text-sm text-slate-500">
+          <div className="px-5 py-4 text-sm text-slate-500 dark:text-slate-400">
             <p>除外対象日はありません。</p>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
               daily_logs に cheat_day / travel_day フラグが立っている日がなく、
               手動イベント期間も未設定のため、除外なしで全日が評価されています。
             </p>
@@ -146,19 +146,19 @@ export function BacktestExcludedDates({
         ) : (
           <>
             {/* モバイル: シンプルリスト */}
-            <div className="md:hidden divide-y divide-slate-50">
+            <div className="md:hidden divide-y divide-slate-50 dark:divide-slate-700/60">
               {entries.map((e) => {
                 const cfg = REASON_CONFIG[e.reason];
                 return (
                   <div key={e.date} className="flex items-center justify-between px-5 py-2.5">
-                    <span className="font-mono text-xs text-slate-700">{e.date}</span>
+                    <span className="font-mono text-xs text-slate-700 dark:text-slate-300">{e.date}</span>
                     <div className="flex items-center gap-2">
                       <span
                         className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${cfg.badgeClass}`}
                       >
                         {cfg.label}
                       </span>
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">
                         {SOURCE_LABELS[e.source]}
                       </span>
                     </div>
@@ -171,18 +171,18 @@ export function BacktestExcludedDates({
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                     <th className="px-5 py-2">日付</th>
                     <th className="px-4 py-2">除外理由</th>
                     <th className="px-4 py-2">由来</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-700/60">
                   {entries.map((e) => {
                     const cfg = REASON_CONFIG[e.reason];
                     return (
-                      <tr key={e.date} className="hover:bg-slate-50/60">
-                        <td className="px-5 py-2 font-mono text-slate-700">{e.date}</td>
+                      <tr key={e.date} className="hover:bg-slate-50/60 dark:hover:bg-slate-800">
+                        <td className="px-5 py-2 font-mono text-slate-700 dark:text-slate-300">{e.date}</td>
                         <td className="px-4 py-2">
                           <span
                             className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${cfg.badgeClass}`}
@@ -190,7 +190,7 @@ export function BacktestExcludedDates({
                             {cfg.label}
                           </span>
                         </td>
-                        <td className="px-4 py-2 text-slate-400">
+                        <td className="px-4 py-2 text-slate-400 dark:text-slate-500">
                           {SOURCE_LABELS[e.source]}
                         </td>
                       </tr>
@@ -203,7 +203,7 @@ export function BacktestExcludedDates({
         )}
 
         {/* 補足注記 */}
-        <div className="bg-slate-50/60 px-5 py-2.5 text-[11px] text-slate-400">
+        <div className="bg-slate-50/60 dark:bg-slate-800/60 px-5 py-2.5 text-[11px] text-slate-400 dark:text-slate-500">
           ここに表示される「除外対象日数」は、評価ウィンドウ内の実際の日数カウントです。
           比較テーブルの「除外†」（評価サンプル除外件数）とは異なります。
           同じ日付でも複数の予測起点から target_date として評価される場合、

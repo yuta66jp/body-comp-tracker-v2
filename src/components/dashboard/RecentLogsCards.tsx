@@ -99,7 +99,7 @@ export function RecentLogsCards({ logs, seasonMap, currentSeason }: RecentLogsCa
                         ? "text-rose-500"
                         : delta < 0
                         ? "text-blue-500"
-                        : "text-slate-300"
+                        : "text-slate-300 dark:text-slate-600"
                     }`}
                   >
                     <DeltaIcon size={11} />

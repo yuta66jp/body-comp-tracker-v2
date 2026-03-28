@@ -37,21 +37,21 @@ export function TdeeDailyTable({ data, phase = null }: TdeeDailyTableProps) {
 
   if (recent.length === 0) {
     return (
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-        <h2 className="mb-2 text-sm font-semibold text-gray-700">日次 TDEE ログ（直近 14 日）</h2>
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+        <h2 className="mb-2 text-sm font-semibold text-gray-700 dark:text-slate-200">日次 TDEE ログ（直近 14 日）</h2>
         <p className="py-8 text-center text-sm text-slate-400">データがありません</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+    <div className="rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
       <div className="px-5 pt-5 pb-1">
-        <h2 className="text-sm font-semibold text-gray-700">日次 TDEE ログ（直近 14 日）</h2>
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-slate-200">日次 TDEE ログ（直近 14 日）</h2>
       </div>
 
       {/* ── モバイル: カードリスト (md 未満) ── */}
-      <div className="md:hidden divide-y divide-slate-50 px-4 pb-4">
+      <div className="md:hidden divide-y divide-slate-50 dark:divide-slate-700/60 px-4 pb-4">
         {recent.map((row) => {
           const balance =
             row.calories !== null && row.tdee !== null
@@ -62,13 +62,13 @@ export function TdeeDailyTable({ data, phase = null }: TdeeDailyTableProps) {
           const textColor =
             balance !== null
               ? getBalanceTextColor(balance, phase)
-              : "text-gray-300";
+              : "text-gray-300 dark:text-slate-600";
 
           return (
             <div key={row.date} className="py-3">
               {/* 行 1: 日付 + 収支 */}
               <div className="flex items-baseline justify-between">
-                <span className="font-mono text-xs font-medium text-slate-600">{row.date}</span>
+                <span className="font-mono text-xs font-medium text-slate-600 dark:text-slate-300">{row.date}</span>
                 <span className={`tabular-nums text-sm font-semibold ${textColor}`}>
                   {balance !== null
                     ? `${balance > 0 ? "+" : ""}${balance.toLocaleString()} kcal`
@@ -78,14 +78,14 @@ export function TdeeDailyTable({ data, phase = null }: TdeeDailyTableProps) {
               {/* 行 2: TDEE + 摂取 */}
               <div className="mt-1 flex items-center gap-5 text-xs">
                 <div>
-                  <span className="text-slate-400">TDEE </span>
-                  <span className="font-medium text-slate-700 tabular-nums">
+                  <span className="text-slate-400 dark:text-slate-500">TDEE </span>
+                  <span className="font-medium text-slate-700 dark:text-slate-200 tabular-nums">
                     {row.tdee !== null ? Math.round(row.tdee).toLocaleString() : "—"}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-400">摂取 </span>
-                  <span className="font-medium text-slate-700 tabular-nums">
+                  <span className="text-slate-400 dark:text-slate-500">摂取 </span>
+                  <span className="font-medium text-slate-700 dark:text-slate-200 tabular-nums">
                     {row.calories !== null ? row.calories.toLocaleString() : "—"}
                   </span>
                 </div>
@@ -110,7 +110,7 @@ export function TdeeDailyTable({ data, phase = null }: TdeeDailyTableProps) {
       <div className="hidden md:block overflow-x-auto px-5 pb-5 pt-4">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
+            <tr className="border-b border-gray-100 dark:border-slate-700 text-left text-xs text-gray-500 dark:text-slate-400">
               <th className="pb-2 pr-4 font-medium">日付</th>
               <th className="pb-2 pr-4 font-medium text-right">摂取カロリー</th>
               <th className="pb-2 pr-4 font-medium text-right">実測 TDEE</th>
@@ -128,15 +128,15 @@ export function TdeeDailyTable({ data, phase = null }: TdeeDailyTableProps) {
               const textColor =
                 balance !== null
                   ? getBalanceTextColor(balance, phase)
-                  : "text-gray-300";
+                  : "text-gray-300 dark:text-slate-600";
 
               return (
-                <tr key={row.date} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="py-2 pr-4 font-medium text-gray-700">{row.date}</td>
-                  <td className="py-2 pr-4 text-right text-gray-600">
+                <tr key={row.date} className="border-b border-gray-50 dark:border-slate-700/60 hover:bg-gray-50 dark:hover:bg-slate-800">
+                  <td className="py-2 pr-4 font-medium text-gray-700 dark:text-slate-300">{row.date}</td>
+                  <td className="py-2 pr-4 text-right text-gray-600 dark:text-slate-400">
                     {row.calories !== null ? row.calories.toLocaleString() : "—"}
                   </td>
-                  <td className="py-2 pr-4 text-right text-gray-600">
+                  <td className="py-2 pr-4 text-right text-gray-600 dark:text-slate-400">
                     {row.tdee !== null ? Math.round(row.tdee).toLocaleString() : "—"}
                   </td>
                   <td className="py-2">

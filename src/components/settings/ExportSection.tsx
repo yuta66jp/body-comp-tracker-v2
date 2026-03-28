@@ -28,29 +28,29 @@ export function ExportSection() {
   }
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-      <h2 className="mb-5 text-base font-semibold text-gray-700">データエクスポート</h2>
+    <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+      <h2 className="mb-5 text-base font-semibold text-gray-700 dark:text-slate-200">データエクスポート</h2>
 
       {/* 日次ログ */}
       <div className="space-y-3">
-        <p className="text-sm font-medium text-gray-600">日次ログ（daily_logs）</p>
+        <p className="text-sm font-medium text-gray-600 dark:text-slate-300">日次ログ（daily_logs）</p>
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">開始日</label>
+            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-slate-400">開始日</label>
             <input
               type="date"
               value={start}
               onChange={(e) => setStart(e.target.value)}
-              className="rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
+              className="rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">終了日</label>
+            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-slate-400">終了日</label>
             <input
               type="date"
               value={end}
               onChange={(e) => setEnd(e.target.value)}
-              className="rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
+              className="rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
           <button
@@ -61,15 +61,15 @@ export function ExportSection() {
             CSV ダウンロード
           </button>
         </div>
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-400 dark:text-slate-500">
           ファイル名: bodymake_log_{start}_{end}.csv
         </p>
       </div>
 
-      <div className="my-5 border-t border-gray-100" />
+      <div className="my-5 border-t border-gray-100 dark:border-slate-700" />
 
       {/* その他のテーブル */}
-      <p className="mb-3 text-sm font-medium text-gray-600">その他</p>
+      <p className="mb-3 text-sm font-medium text-gray-600 dark:text-slate-300">その他</p>
       <div className="flex flex-wrap gap-3">
         {[
           { label: "食品マスタ (food_master)", table: "food_master" },
@@ -78,7 +78,7 @@ export function ExportSection() {
           <button
             key={table}
             onClick={() => download(table)}
-            className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+            className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             <Download size={14} />
             {label}

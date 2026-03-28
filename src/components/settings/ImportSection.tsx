@@ -132,28 +132,28 @@ export function ImportSection() {
   const isImporting = !!progress && progress.done < progress.total;
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-      <h2 className="mb-5 text-sm font-semibold text-slate-700">データインポート（日次ログ）</h2>
+    <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+      <h2 className="mb-5 text-sm font-semibold text-slate-700 dark:text-slate-200">データインポート（日次ログ）</h2>
 
       {/* ファイル選択エリア */}
       {!parsed ? (
-        <label className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-10 transition-colors hover:border-blue-400 hover:bg-blue-50">
-          <Upload size={28} className="text-slate-400" />
+        <label className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-10 transition-colors hover:border-blue-400 hover:bg-blue-50 dark:border-slate-600 dark:bg-slate-800 dark:hover:border-blue-500 dark:hover:bg-blue-900/20">
+          <Upload size={28} className="text-slate-400 dark:text-slate-500" />
           <div className="text-center">
-            <p className="text-sm font-medium text-slate-600">CSV ファイルを選択</p>
-            <p className="mt-1 text-xs text-slate-400">log_date, weight, calories, protein, fat, carbs, note</p>
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-300">CSV ファイルを選択</p>
+            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">log_date, weight, calories, protein, fat, carbs, note</p>
           </div>
           <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleFile} />
         </label>
       ) : (
         <div className="space-y-4">
           {/* ファイル情報 */}
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
             <div className="flex items-center gap-2 min-w-0">
-              <FileText size={16} className="flex-shrink-0 text-slate-400" />
-              <span className="truncate text-sm font-medium text-slate-700">{fileName}</span>
+              <FileText size={16} className="flex-shrink-0 text-slate-400 dark:text-slate-500" />
+              <span className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">{fileName}</span>
             </div>
-            <button onClick={reset} className="ml-3 flex-shrink-0 text-slate-300 hover:text-slate-500">
+            <button onClick={reset} className="ml-3 flex-shrink-0 text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-400">
               <X size={16} />
             </button>
           </div>
@@ -161,37 +161,37 @@ export function ImportSection() {
           {/* 事前集計サマリー（照合中 or 結果表示） */}
           {parsed.rows.length > 0 && (
             preflightLoading ? (
-              <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-400">
+              <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
                 <Loader2 size={14} className="animate-spin" />
                 <span>既存データと照合中...</span>
               </div>
             ) : preflight ? (
-              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">インポート内容</p>
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-900">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">インポート内容</p>
                 <div className="grid grid-cols-3 gap-3 text-center">
-                  <div className="rounded-lg bg-emerald-50 px-2 py-2">
-                    <p className="text-lg font-bold text-emerald-600">{preflight.newCount.toLocaleString()}</p>
-                    <p className="text-xs text-emerald-600">新規追加</p>
+                  <div className="rounded-lg bg-emerald-50 px-2 py-2 dark:bg-emerald-900/20">
+                    <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{preflight.newCount.toLocaleString()}</p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400">新規追加</p>
                   </div>
-                  <div className={`rounded-lg px-2 py-2 ${preflight.updateCount > 0 ? "bg-amber-50" : "bg-slate-50"}`}>
-                    <p className={`text-lg font-bold ${preflight.updateCount > 0 ? "text-amber-700" : "text-slate-400"}`}>
+                  <div className={`rounded-lg px-2 py-2 ${preflight.updateCount > 0 ? "bg-amber-50 dark:bg-amber-900/20" : "bg-slate-50 dark:bg-slate-800"}`}>
+                    <p className={`text-lg font-bold ${preflight.updateCount > 0 ? "text-amber-700 dark:text-amber-400" : "text-slate-400 dark:text-slate-500"}`}>
                       {preflight.updateCount.toLocaleString()}
                     </p>
-                    <p className={`text-xs ${preflight.updateCount > 0 ? "text-amber-600" : "text-slate-400"}`}>
+                    <p className={`text-xs ${preflight.updateCount > 0 ? "text-amber-600 dark:text-amber-400" : "text-slate-400 dark:text-slate-500"}`}>
                       既存更新
                     </p>
                   </div>
-                  <div className={`rounded-lg px-2 py-2 ${preflight.skipCount > 0 ? "bg-rose-50" : "bg-slate-50"}`}>
-                    <p className={`text-lg font-bold ${preflight.skipCount > 0 ? "text-rose-600" : "text-slate-400"}`}>
+                  <div className={`rounded-lg px-2 py-2 ${preflight.skipCount > 0 ? "bg-rose-50 dark:bg-rose-900/20" : "bg-slate-50 dark:bg-slate-800"}`}>
+                    <p className={`text-lg font-bold ${preflight.skipCount > 0 ? "text-rose-600 dark:text-rose-400" : "text-slate-400 dark:text-slate-500"}`}>
                       {preflight.skipCount.toLocaleString()}
                     </p>
-                    <p className={`text-xs ${preflight.skipCount > 0 ? "text-rose-500" : "text-slate-400"}`}>
+                    <p className={`text-xs ${preflight.skipCount > 0 ? "text-rose-500 dark:text-rose-400" : "text-slate-400 dark:text-slate-500"}`}>
                       スキップ
                     </p>
                   </div>
                 </div>
                 {preflight.dateRange && (
-                  <p className="mt-2 text-xs text-slate-400">
+                  <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
                     対象期間: {preflight.dateRange.from} 〜 {preflight.dateRange.to}
                   </p>
                 )}
@@ -201,13 +201,13 @@ export function ImportSection() {
 
           {/* パースエラー詳細 */}
           {parsed.errors.length > 0 && (
-            <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
-              <p className="text-xs font-semibold text-amber-700 mb-1">
+            <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 dark:border-amber-700/50 dark:bg-amber-900/20">
+              <p className="text-xs font-semibold text-amber-700 mb-1 dark:text-amber-400">
                 スキップされた行（{parsed.errors.length} 件）
               </p>
               <ul className="space-y-0.5 max-h-24 overflow-y-auto">
                 {parsed.errors.map((e, i) => (
-                  <li key={i} className="text-xs text-amber-600">{e}</li>
+                  <li key={i} className="text-xs text-amber-600 dark:text-amber-400">{e}</li>
                 ))}
               </ul>
             </div>
@@ -215,7 +215,7 @@ export function ImportSection() {
 
           {/* CSV 内の同日重複通知 */}
           {csvDuplicateCount > 0 && (
-            <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+            <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-400">
               <p className="font-semibold mb-0.5">
                 同じ日付の行が {csvDuplicateCount} 件重複していました
               </p>
@@ -225,36 +225,36 @@ export function ImportSection() {
 
           {/* 有効なデータがない場合 */}
           {parsed.rows.length === 0 && parsed.errors.length === 0 && (
-            <p className="text-sm text-slate-400">有効なデータが見つかりませんでした。</p>
+            <p className="text-sm text-slate-400 dark:text-slate-500">有効なデータが見つかりませんでした。</p>
           )}
 
           {/* プレビュー（最初の3行） */}
           {parsed.rows.length > 0 && (
-            <div className="overflow-x-auto rounded-xl border border-slate-100">
+            <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-700">
               <table className="w-full text-xs">
-                <thead className="bg-slate-50 border-b border-slate-100">
+                <thead className="bg-slate-50 border-b border-slate-100 dark:bg-slate-800 dark:border-slate-700">
                   <tr>
                     {["日付", "体重", "kcal", "P", "F", "C", "メモ"].map((h) => (
-                      <th key={h} className="px-3 py-2 text-left font-semibold text-slate-400">{h}</th>
+                      <th key={h} className="px-3 py-2 text-left font-semibold text-slate-400 dark:text-slate-500">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-700/60">
                   {parsed.rows.slice(0, 3).map((r, i) => (
-                    <tr key={`${r.log_date}-${i}`}>
-                      <td className="px-3 py-2 font-mono text-slate-600">{r.log_date}</td>
-                      <td className="px-3 py-2 text-slate-600">{r.weight ?? "—"}</td>
-                      <td className="px-3 py-2 text-slate-600">{r.calories ?? "—"}</td>
-                      <td className="px-3 py-2 text-slate-600">{r.protein ?? "—"}</td>
-                      <td className="px-3 py-2 text-slate-600">{r.fat ?? "—"}</td>
-                      <td className="px-3 py-2 text-slate-600">{r.carbs ?? "—"}</td>
-                      <td className="px-3 py-2 text-slate-500">{r.note ?? "—"}</td>
+                    <tr key={`${r.log_date}-${i}`} className="dark:bg-slate-900">
+                      <td className="px-3 py-2 font-mono text-slate-600 dark:text-slate-300">{r.log_date}</td>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{r.weight ?? "—"}</td>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{r.calories ?? "—"}</td>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{r.protein ?? "—"}</td>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{r.fat ?? "—"}</td>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{r.carbs ?? "—"}</td>
+                      <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{r.note ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               {parsed.rows.length > 3 && (
-                <p className="px-3 py-1.5 text-xs text-slate-400">…他 {parsed.rows.length - 3} 件</p>
+                <p className="px-3 py-1.5 text-xs text-slate-400 dark:text-slate-500">…他 {parsed.rows.length - 3} 件</p>
               )}
             </div>
           )}
@@ -263,31 +263,31 @@ export function ImportSection() {
           {confirming && preflight && (
             <div className={`rounded-xl border px-4 py-4 ${
               preflight.updateCount > 0
-                ? "border-amber-200 bg-amber-50"
-                : "border-blue-100 bg-blue-50"
+                ? "border-amber-200 bg-amber-50 dark:border-amber-700/50 dark:bg-amber-900/20"
+                : "border-blue-100 bg-blue-50 dark:border-blue-800/50 dark:bg-blue-900/20"
             }`}>
               <div className="flex items-start gap-2">
                 {preflight.updateCount > 0 ? (
-                  <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-amber-600" />
+                  <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
                 ) : (
-                  <Upload size={16} className="mt-0.5 flex-shrink-0 text-blue-500" />
+                  <Upload size={16} className="mt-0.5 flex-shrink-0 text-blue-500 dark:text-blue-400" />
                 )}
                 <div className="text-sm">
                   {preflight.updateCount > 0 ? (
                     <>
-                      <p className="font-semibold text-amber-700">
+                      <p className="font-semibold text-amber-700 dark:text-amber-400">
                         {preflight.updateCount.toLocaleString()} 件の既存データが上書きされます
                       </p>
-                      <p className="mt-0.5 text-xs text-amber-600">
+                      <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
                         この操作は取り消せません。新規 {preflight.newCount} 件の追加と合わせて実行します。
                       </p>
                     </>
                   ) : (
                     <>
-                      <p className="font-semibold text-blue-700">
+                      <p className="font-semibold text-blue-700 dark:text-blue-400">
                         {preflight.newCount.toLocaleString()} 件の新規データを追加します
                       </p>
-                      <p className="mt-0.5 text-xs text-blue-500">
+                      <p className="mt-0.5 text-xs text-blue-500 dark:text-blue-400">
                         既存データへの上書きはありません。
                       </p>
                     </>
@@ -297,7 +297,7 @@ export function ImportSection() {
               <div className="mt-3 flex justify-end gap-2">
                 <button
                   onClick={() => setConfirming(false)}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
                 >
                   やめる
                 </button>
@@ -319,11 +319,11 @@ export function ImportSection() {
           {/* 進捗バー */}
           {progress && (
             <div>
-              <div className="mb-1 flex justify-between text-xs text-slate-500">
+              <div className="mb-1 flex justify-between text-xs text-slate-500 dark:text-slate-400">
                 <span>インポート中...</span>
                 <span>{progress.done} / {progress.total}</span>
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
                 <div
                   className="h-full rounded-full bg-blue-500 transition-all duration-300"
                   style={{ width: `${(progress.done / progress.total) * 100}%` }}
@@ -334,18 +334,18 @@ export function ImportSection() {
 
           {/* 結果 */}
           {result === "success" && importCount && (
-            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm font-medium text-emerald-600">
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm font-medium text-emerald-600 dark:bg-emerald-900/20 dark:border-emerald-700/50 dark:text-emerald-400">
               <CheckCircle2 size={16} />
               <span>
                 {importCount.saved.toLocaleString()} 件をインポートしました
                 {importCount.skipped > 0 && (
-                  <span className="ml-1 text-amber-600">（{importCount.skipped.toLocaleString()} 件はスキップ）</span>
+                  <span className="ml-1 text-amber-600 dark:text-amber-400">（{importCount.skipped.toLocaleString()} 件はスキップ）</span>
                 )}
               </span>
             </div>
           )}
           {result === "error" && (
-            <div className="flex items-start gap-2 rounded-xl bg-rose-50 border border-rose-100 px-4 py-3 text-sm text-rose-700">
+            <div className="flex items-start gap-2 rounded-xl bg-rose-50 border border-rose-100 px-4 py-3 text-sm text-rose-700 dark:bg-rose-900/20 dark:border-rose-700/50 dark:text-rose-400">
               <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
               <div>
                 <p className="font-medium">インポートに失敗しました</p>
@@ -359,7 +359,7 @@ export function ImportSection() {
             <div className="flex justify-end gap-3">
               <button
                 onClick={reset}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-500 hover:bg-slate-50"
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-500 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-800"
               >
                 キャンセル
               </button>
@@ -378,7 +378,7 @@ export function ImportSection() {
           )}
           {result === "success" && (
             <div className="flex justify-end">
-              <button onClick={reset} className="rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-500 hover:bg-slate-50">
+              <button onClick={reset} className="rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-500 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-800">
                 別のファイルを読み込む
               </button>
             </div>
@@ -387,8 +387,8 @@ export function ImportSection() {
       )}
 
       {/* フォーマット説明 */}
-      <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-400">
-        <p className="font-semibold text-slate-500 mb-1">対応フォーマット（CSV ヘッダー）</p>
+      <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+        <p className="font-semibold text-slate-500 mb-1 dark:text-slate-400">対応フォーマット（CSV ヘッダー）</p>
         <code className="font-mono">log_date, weight, calories, protein, fat, carbs, note, is_cheat_day, ...</code>
         <p className="mt-1">・同日のデータは上書き（upsert）されます</p>
         <p>・エクスポートしたCSVをそのままインポート可能です</p>

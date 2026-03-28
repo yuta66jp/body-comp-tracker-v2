@@ -100,7 +100,7 @@ function upsertOverride(
 // ─── スタイル定数 ─────────────────────────────────────────────────────────────
 
 const inputCls =
-  "w-20 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 text-right";
+  "w-20 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 text-right dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-700 dark:focus:ring-blue-900/40";
 
 // ─── コンポーネント ───────────────────────────────────────────────────────────
 
@@ -161,11 +161,11 @@ function PrereqMessage({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+    <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
       {icon === "info" ? (
-        <Info size={14} className="shrink-0 text-slate-400" />
+        <Info size={14} className="shrink-0 text-slate-400 dark:text-slate-500" />
       ) : (
-        <AlertTriangle size={14} className="shrink-0 text-amber-600" />
+        <AlertTriangle size={14} className="shrink-0 text-amber-600 dark:text-amber-400" />
       )}
       <span>{children}</span>
     </div>
@@ -239,7 +239,7 @@ function PlanContent({
         {plan.errors.map((e) => (
           <div
             key={e.code}
-            className="flex items-center gap-2 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-600"
+            className="flex items-center gap-2 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-600 dark:border-rose-700/50 dark:bg-rose-900/30 dark:text-rose-400"
           >
             <AlertTriangle size={14} className="shrink-0" />
             <span>{ERROR_LABELS[e.code]}</span>
@@ -294,18 +294,18 @@ function PlanContent({
   return (
     <div>
       {/* テーブル */}
-      <div className="overflow-x-auto rounded-xl border border-slate-100">
+      <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-700">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-100 bg-slate-50">
-              <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">月</th>
-              <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">目標体重</th>
-              <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">前月比</th>
-              <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">種別</th>
-              <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">実績</th>
+            <tr className="border-b border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
+              <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">月</th>
+              <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">目標体重</th>
+              <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">前月比</th>
+              <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">種別</th>
+              <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">実績</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50">
+          <tbody className="divide-y divide-slate-50 dark:divide-slate-700/60">
             {plan.entries.map((entry, idx) => {
               const isLast = idx === plan.entries.length - 1;
               const isCurrent = entry.month === today_month;
@@ -314,18 +314,18 @@ function PlanContent({
               return (
                 <tr
                   key={entry.month}
-                  className={`${isCurrent ? "bg-blue-50/40" : "bg-white"} hover:bg-slate-50/60`}
+                  className={`${isCurrent ? "bg-blue-50/40 dark:bg-blue-900/10" : "bg-white dark:bg-slate-900"} hover:bg-slate-50/60 dark:hover:bg-slate-800`}
                 >
                   {/* 月 */}
                   <td className="px-3 py-2.5 whitespace-nowrap">
-                    <span className="font-medium text-slate-700">{fmtMonth(entry.month)}</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-200">{fmtMonth(entry.month)}</span>
                     {isCurrent && (
-                      <span className="ml-1.5 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600">
+                      <span className="ml-1.5 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
                         今月
                       </span>
                     )}
                     {isLast && (
-                      <span className="ml-1.5 rounded-full bg-teal-100 px-1.5 py-0.5 text-[10px] font-semibold text-teal-600">
+                      <span className="ml-1.5 rounded-full bg-teal-100 px-1.5 py-0.5 text-[10px] font-semibold text-teal-600 dark:bg-teal-900/30 dark:text-teal-400">
                         目標
                       </span>
                     )}
@@ -334,7 +334,7 @@ function PlanContent({
                   {/* 目標体重 */}
                   <td className="px-3 py-2 text-right">
                     {isLast ? (
-                      <span className="font-semibold text-teal-600">
+                      <span className="font-semibold text-teal-600 dark:text-teal-400">
                         {entry.targetWeight.toFixed(1)} kg
                       </span>
                     ) : (
@@ -357,7 +357,7 @@ function PlanContent({
                           className={inputCls}
                           aria-label={`${fmtMonth(entry.month)} 目標体重`}
                         />
-                        <span className="text-xs text-slate-400">kg</span>
+                        <span className="text-xs text-slate-400 dark:text-slate-500">kg</span>
                       </div>
                     )}
                   </td>
@@ -367,10 +367,10 @@ function PlanContent({
                     <span
                       className={`font-medium ${
                         entry.requiredDeltaKg < 0
-                          ? "text-emerald-600"
+                          ? "text-emerald-600 dark:text-emerald-400"
                           : entry.requiredDeltaKg > 0
-                          ? "text-rose-500"
-                          : "text-slate-400"
+                          ? "text-rose-500 dark:text-rose-400"
+                          : "text-slate-400 dark:text-slate-500"
                       }`}
                     >
                       {fmtDelta(entry.requiredDeltaKg)} kg
@@ -380,25 +380,25 @@ function PlanContent({
                   {/* 種別バッジ */}
                   <td className="px-3 py-2 text-center">
                     {isLast ? (
-                      <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-600">
+                      <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-600 dark:bg-teal-900/30 dark:text-teal-400">
                         終点
                       </span>
                     ) : isManual ? (
                       <div className="flex flex-col items-center gap-0.5">
-                        <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                        <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
                           手動
                         </span>
                         <button
                           type="button"
                           onClick={() => handleReset(entry.month)}
-                          className="text-[9px] text-slate-400 underline hover:text-rose-500"
+                          className="text-[9px] text-slate-400 underline hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-400"
                           aria-label={`${fmtMonth(entry.month)} 手動設定を解除`}
                         >
                           解除
                         </button>
                       </div>
                     ) : (
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-400">
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-400 dark:bg-slate-700 dark:text-slate-400">
                         自動
                       </span>
                     )}
@@ -407,9 +407,9 @@ function PlanContent({
                   {/* 実績 */}
                   <td className="px-3 py-2 text-right">
                     {entry.actualWeight !== null ? (
-                      <span className="text-slate-600">{entry.actualWeight.toFixed(1)} kg</span>
+                      <span className="text-slate-600 dark:text-slate-300">{entry.actualWeight.toFixed(1)} kg</span>
                     ) : (
-                      <span className="text-slate-300">—</span>
+                      <span className="text-slate-300 dark:text-slate-600">—</span>
                     )}
                   </td>
                 </tr>
@@ -425,7 +425,7 @@ function PlanContent({
           {plan.warnings.map((w, i) => (
             <div
               key={i}
-              className="flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 px-4 py-2.5 text-xs text-amber-700"
+              className="flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 px-4 py-2.5 text-xs text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/30 dark:text-amber-400"
             >
               <AlertTriangle size={13} className="mt-0.5 shrink-0" />
               <span>{warningLabel(w, deadlineLabel)}</span>
@@ -435,7 +435,7 @@ function PlanContent({
       )}
 
       {/* 補足説明 */}
-      <p className="mt-2 text-xs text-slate-400">
+      <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
         目標体重欄を編集して Enter / フォーカスアウトで確定。複数月を手動設定すると各月が anchor として扱われ、間の月が自動配分されます。「解除」で自動に戻せます。設定画面上部の「保存」で確定します。
       </p>
     </div>

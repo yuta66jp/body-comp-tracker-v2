@@ -238,7 +238,7 @@ export function TdeeKpiCard({
             {measuredWeightChange !== null ? (
               <SignedKg value={measuredWeightChange} />
             ) : (
-              <span className="text-gray-300">—</span>
+              <span className="text-gray-300 dark:text-slate-600">—</span>
             )}
           </p>
           <p className="mt-1 text-xs text-gray-400 dark:text-slate-500">
@@ -250,7 +250,7 @@ export function TdeeKpiCard({
       </div>
 
       {/* 下段: 収支の解釈 (InsightCard UI) */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
         <SectionLabel mb="mb-3">収支の解釈</SectionLabel>
         {/*
           InsightCard の status 色が confidence.level と収支方向を反映する。
