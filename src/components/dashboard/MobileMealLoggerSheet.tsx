@@ -16,7 +16,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { PenLine, X } from "lucide-react";
+import { PenLine, X, ChevronRight } from "lucide-react";
 import { MealLogger } from "@/components/meal/MealLogger";
 
 export function MobileMealLoggerSheet() {
@@ -41,15 +41,20 @@ export function MobileMealLoggerSheet() {
   }, [open]);
 
   return (
-    <div className="flex justify-center">
+    <div>
       {/* ── Trigger ── */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 py-3.5 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 active:bg-blue-200 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30 lg:max-w-sm"
+        className="flex w-full items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:shadow-none lg:max-w-md"
       >
-        <PenLine size={16} />
-        食事・体重を記録する
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/30">
+          <PenLine size={18} className="text-blue-600 dark:text-blue-400" />
+        </div>
+        <span className="flex-1 text-left text-sm font-semibold text-slate-700 dark:text-slate-200">
+          食事・体重を記録する
+        </span>
+        <ChevronRight size={16} className="flex-shrink-0 text-slate-300 dark:text-slate-600" />
       </button>
 
       {/* ── Backdrop ── */}
