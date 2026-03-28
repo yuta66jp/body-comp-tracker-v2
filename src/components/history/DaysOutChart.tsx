@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import type { TooltipValueType } from "recharts";
 import { useIsDark } from "@/lib/hooks/useIsDark";
+import { buildTooltipStyle } from "@/lib/utils/rechartsFormatter";
 
 const MAX_DEFAULT_PAST = 2; // デフォルトで表示する過去シーズン数
 
@@ -53,6 +54,7 @@ export function DaysOutChart({ data, seasons, currentSeason, todayDaysOut }: Day
   const isDark = useIsDark();
   const gridColor = isDark ? "#334155" : "#f0f0f0";
   const tickColor = isDark ? "#94a3b8" : "#64748b";
+  const tooltipStyle = buildTooltipStyle(isDark);
 
   const sortedSeasons = [...seasons].sort((a, b) => {
     if (a === currentSeason) return 1;
@@ -94,6 +96,7 @@ export function DaysOutChart({ data, seasons, currentSeason, todayDaysOut }: Day
             tickFormatter={(v: number) => `${v}kg`}
           />
           <Tooltip
+            {...tooltipStyle}
             formatter={(v: TooltipValueType | undefined, name: number | string | undefined) => [
               v != null ? `${Number(v).toFixed(1)} kg` : "—",
               name ?? "",

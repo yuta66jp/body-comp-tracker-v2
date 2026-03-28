@@ -25,6 +25,32 @@
 import type { TooltipValueType } from "recharts";
 
 /**
+ * Recharts の <Tooltip> に渡すダークモード用スタイルオブジェクトを返す。
+ *
+ * isDark=true のとき contentStyle / labelStyle / itemStyle を返す。
+ * isDark=false のとき空オブジェクト（Recharts デフォルトを維持）。
+ *
+ * 使い方: <Tooltip {...buildTooltipStyle(isDark)} formatter={...} />
+ */
+export function buildTooltipStyle(isDark: boolean): {
+  contentStyle?: Record<string, string>;
+  labelStyle?:   Record<string, string>;
+  itemStyle?:    Record<string, string>;
+} {
+  if (!isDark) return {};
+  return {
+    contentStyle: {
+      backgroundColor: "#1e293b",
+      border:          "1px solid #334155",
+      borderRadius:    "8px",
+      boxShadow:       "0 4px 6px -1px rgba(0,0,0,0.5)",
+    },
+    labelStyle: { color: "#cbd5e1" },
+    itemStyle:  { color: "#94a3b8" },
+  };
+}
+
+/**
  * Recharts の NameType に相当するローカル型。
  * recharts の DefaultTooltipContent.NameType は main index から export されていないため
  * ローカルに互換定義する。

@@ -14,6 +14,7 @@ import {
 import type { TooltipValueType, RenderableText } from "recharts";
 import type { SeasonMeta } from "@/lib/utils/calcSeason";
 import { useIsDark } from "@/lib/hooks/useIsDark";
+import { buildTooltipStyle } from "@/lib/utils/rechartsFormatter";
 
 interface SeasonLowTooltipEntry {
   payload?: {
@@ -36,6 +37,7 @@ export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) 
   const isDark = useIsDark();
   const gridColor = isDark ? "#334155" : "#f0f0f0";
   const tickColor = isDark ? "#94a3b8" : "#64748b";
+  const tooltipStyle = buildTooltipStyle(isDark);
 
   const data = seasons.map((s, i) => {
     const prev = seasons[i - 1];
@@ -74,6 +76,7 @@ export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) 
             tickFormatter={(v: number) => `${v}kg`}
           />
           <Tooltip
+            {...tooltipStyle}
             formatter={(v: TooltipValueType | undefined, _: number | string | undefined, entry: SeasonLowTooltipEntry) => {
               const { delta, isCurrent, peakDate } = entry?.payload ?? {};
               const deltaStr = delta !== null && delta !== undefined

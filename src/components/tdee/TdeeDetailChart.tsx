@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import type { TooltipValueType } from "recharts";
 import { useIsDark } from "@/lib/hooks/useIsDark";
+import { buildTooltipStyle } from "@/lib/utils/rechartsFormatter";
 
 interface TdeePoint {
   date: string;
@@ -31,6 +32,7 @@ export function TdeeDetailChart({ data, avgTdee }: TdeeDetailChartProps) {
   const isDark = useIsDark();
   const gridColor = isDark ? "#334155" : "#f0f0f0";
   const tickColor = isDark ? "#94a3b8" : "#64748b";
+  const tooltipStyle = buildTooltipStyle(isDark);
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
@@ -40,7 +42,10 @@ export function TdeeDetailChart({ data, avgTdee }: TdeeDetailChartProps) {
           <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
           <XAxis dataKey="date" tick={{ fontSize: 11, fill: tickColor }} minTickGap={20} />
           <YAxis domain={["auto", "auto"]} tick={{ fontSize: 11, fill: tickColor }} width={56} tickFormatter={(v: number) => v.toLocaleString()} />
-          <Tooltip formatter={(v: TooltipValueType | undefined, name: number | string | undefined) => [typeof v === "number" ? `${Math.round(v).toLocaleString()} kcal` : "—", name ?? ""]} />
+          <Tooltip
+            {...tooltipStyle}
+            formatter={(v: TooltipValueType | undefined, name: number | string | undefined) => [typeof v === "number" ? `${Math.round(v).toLocaleString()} kcal` : "—", name ?? ""]}
+          />
           <Legend />
           {avgTdee && <ReferenceLine y={avgTdee} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: "平均", fontSize: 10 }} />}
           <Area

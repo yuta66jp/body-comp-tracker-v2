@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import type { TooltipValueType } from "recharts";
 import { useIsDark } from "@/lib/hooks/useIsDark";
+import { buildTooltipStyle } from "@/lib/utils/rechartsFormatter";
 
 interface MacroPoint {
   date: string;
@@ -28,6 +29,7 @@ export function MacroStackedChart({ data }: MacroStackedChartProps) {
   const isDark = useIsDark();
   const gridColor = isDark ? "#334155" : "#f0f0f0";
   const tickColor = isDark ? "#94a3b8" : "#64748b";
+  const tooltipStyle = buildTooltipStyle(isDark);
 
   // 各日の合計を出して % に変換
   const normalized = data.map((d) => {
@@ -49,6 +51,7 @@ export function MacroStackedChart({ data }: MacroStackedChartProps) {
           <XAxis dataKey="date" tick={{ fontSize: 11, fill: tickColor }} minTickGap={20} />
           <YAxis tick={{ fontSize: 11, fill: tickColor }} tickFormatter={(v: number) => `${Math.round(v * 100)}%`} />
           <Tooltip
+            {...tooltipStyle}
             formatter={(v: TooltipValueType | undefined, name: number | string | undefined) => [`${v ?? ""}%`, name ?? ""]}
           />
           <Legend />

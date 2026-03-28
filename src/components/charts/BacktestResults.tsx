@@ -13,7 +13,7 @@ import {
 } from "recharts";
 import { AlertTriangle, TrendingUp, TrendingDown, Minus, Info } from "lucide-react";
 import type { ForecastBacktestRun, ForecastBacktestMetric } from "@/lib/supabase/types";
-import { makeTooltipFormatter } from "@/lib/utils/rechartsFormatter";
+import { makeTooltipFormatter, buildTooltipStyle } from "@/lib/utils/rechartsFormatter";
 import { MODEL_DESCRIPTIONS, ModelInfoTooltip } from "./ModelInfoTooltip";
 import { useIsDark } from "@/lib/hooks/useIsDark";
 
@@ -96,6 +96,7 @@ export function BacktestResults({ run, metrics }: Props) {
     grid:     isDark ? "#334155" : "#f1f5f9",
     tickText: isDark ? "#94a3b8" : "#64748b",
   };
+  const tooltipStyle = buildTooltipStyle(isDark);
 
   // #363 以降の run は複数 policy の行を含む。
   // BacktestResults は all_days policy（全日ベースライン）のみを表示対象にする。
@@ -162,6 +163,7 @@ export function BacktestResults({ run, metrics }: Props) {
               stroke={chartColors.axis}
             />
             <Tooltip
+              {...tooltipStyle}
               formatter={makeTooltipFormatter(
                 (v) => `${v.toFixed(3)} kg`,
                 (name) => MODEL_CONFIG[name]?.label ?? name,
