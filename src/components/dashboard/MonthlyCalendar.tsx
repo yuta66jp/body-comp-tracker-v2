@@ -187,12 +187,12 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
         {/* ③ カロリー + 差分（近接表示: 1984k (+65)） */}
         {data?.log.calories != null && (
           <div className="mt-0.5 flex items-baseline gap-0.5 leading-none flex-wrap">
-            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+            <span className="text-[10px] sm:text-xs font-medium text-slate-600 dark:text-slate-300">
               {data.log.calories.toLocaleString()}
             </span>
-            <span className="text-[9px] text-slate-400 dark:text-slate-500">k</span>
+            <span className="text-[8px] sm:text-[9px] text-slate-400 dark:text-slate-500">k</span>
             {data?.calDelta != null && (
-              <span className={`text-[10px] font-medium leading-none ${
+              <span className={`text-[9px] sm:text-[10px] font-medium leading-none ${
                 data.calDelta > 0
                   ? "text-blue-400"
                   : data.calDelta < 0
@@ -208,7 +208,7 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
         {/* ④ 特殊日タグ（優先順位最上位の 1 件のみ表示） */}
         {topDayTag && (
           <div className="mt-0.5">
-            <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold leading-none ${topDayTag.colorClass}`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[9px] sm:text-xs font-semibold leading-none ${topDayTag.colorClass}`}>
               {topDayTag.label}
             </span>
           </div>
@@ -217,7 +217,7 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
         {/* ④-mobile トレーニング部位（モバイルのみ・特殊日がない日） */}
         {mobileTrainingLabel && (
           <div className="mt-0.5 sm:hidden">
-            <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold leading-none ${mobileTrainingLabel.colorClass}`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none ${mobileTrainingLabel.colorClass}`}>
               {mobileTrainingLabel.label}
             </span>
           </div>

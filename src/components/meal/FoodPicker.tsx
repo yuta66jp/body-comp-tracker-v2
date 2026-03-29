@@ -111,7 +111,7 @@ export function FoodPicker({ onAdd, onAddSet, onAddTemp }: FoodPickerProps) {
 
           {/* カテゴリフィルター */}
           {categories.length > 1 && (
-            <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            <div className="mt-1.5 mb-1.5 flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
               {categories.map((cat) => (
                 <button
                   key={cat}
