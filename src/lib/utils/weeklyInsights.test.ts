@@ -28,6 +28,7 @@ function makeData(overrides: Partial<WeeklyReviewData> = {}): WeeklyReviewData {
       prevAvg: 70.3,
       change: -0.30,
       trendKgPerWeek: -0.35,
+      bwRatePctPerWeek: 0.5,
     },
     nutrition: {
       avgCalories: 1800,
@@ -139,14 +140,14 @@ describe("deriveWeeklyInsightItems", () => {
     });
 
     it("weight.avg が null のとき title に『体重データ不足』", () => {
-      const data = makeData({ weight: { avg: null, prevAvg: null, change: null, trendKgPerWeek: null } });
+      const data = makeData({ weight: { avg: null, prevAvg: null, change: null, trendKgPerWeek: null, bwRatePctPerWeek: null } });
       const items = deriveWeeklyInsightItems(data, "Cut");
       expect(items[0]!.title).toBe("体重データ不足");
     });
 
     it("weight.change が null のとき title に前週比が含まれない", () => {
       const data = makeData({
-        weight: { avg: 70.0, prevAvg: null, change: null, trendKgPerWeek: -0.35 },
+        weight: { avg: 70.0, prevAvg: null, change: null, trendKgPerWeek: -0.35, bwRatePctPerWeek: 0.5 },
       });
       const items = deriveWeeklyInsightItems(data, "Cut");
       expect(items[0]!.title).not.toContain("前週比");
