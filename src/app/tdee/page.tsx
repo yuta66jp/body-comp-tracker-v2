@@ -90,13 +90,15 @@ export default async function TdeePage() {
     ? enrichedRows.map((row) => ({
         date: row.log_date.slice(5),
         tdee: row.tdee_estimated,
-        // avg_calories_7d が新フィールドのため古いバッチ結果では undefined になる場合がある
+        // avg_tdee_7d / avg_calories_7d は新フィールドのため古いバッチ結果では undefined になる場合がある
+        tdee7d: row.avg_tdee_7d ?? null,
         intake: row.avg_calories_7d ?? rawCaloriesMap.get(row.log_date) ?? null,
         theoretical: theoreticalTdee,
       }))
     : sortedRaw.map((row) => ({
         date: row.log_date.slice(5),
         tdee: null,
+        tdee7d: null,
         intake: row.calories,
         theoretical: theoreticalTdee,
       }));
