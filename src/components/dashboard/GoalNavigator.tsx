@@ -43,11 +43,6 @@ interface GoalNavigatorProps {
   monthlyGoalProgress: MonthlyGoalProgress;
   /** 当月内の最小実測体重 (kg) */
   currentMonthMinWeight?: number | null;
-  /**
-   * 到達予測バッファ (日数)。page.tsx で「30日線形トレンド到達日 − 大会残日数」から算出。
-   * 正=余裕あり / 負=期限超過見込み / null=到達日が算出不能 (停滞中・データ不足・達成済み)
-   */
-  bufferDays: number | null;
 }
 
 // ─── ステータス表示マップ ──────────────────────────────────────────────────
@@ -196,7 +191,6 @@ export function GoalNavigator({
   avgCalories,
   monthlyGoalProgress,
   currentMonthMinWeight,
-  bufferDays,
 }: GoalNavigatorProps) {
   const isCut = phase !== "Bulk";
 
@@ -338,28 +332,6 @@ export function GoalNavigator({
                 }
               />
 
-              {/* ── 到達予測バッファ: KPI カードの到達予定日を補完 ── */}
-              {bufferDays !== null && (
-                <>
-                  <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
-                  <MetricRow
-                    label="バッファ"
-                    value={
-                      bufferDays >= 0
-                        ? `+${bufferDays} 日`
-                        : `▲${Math.abs(bufferDays)} 日不足`
-                    }
-                    valueColor={
-                      bufferDays >= 14
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : bufferDays >= 0
-                        ? "text-amber-600 dark:text-amber-400"
-                        : "text-rose-600 dark:text-rose-400"
-                    }
-                    note="(30日トレンドベース)"
-                  />
-                </>
-              )}
             </>
           )}
         </div>

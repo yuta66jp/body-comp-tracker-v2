@@ -247,7 +247,7 @@ export default async function DashboardPage() {
         </p>
       ) : logs.length > 0 ? (
         <>
-          <KpiCards logs={logs} settings={settings} avgTdee={latestTdee} currentWeight={readinessMetrics.current_weight} currentSeason={currentSeason} goalReachResult={goalReachResult} />
+          <KpiCards logs={logs} settings={settings} avgTdee={latestTdee} currentWeight={readinessMetrics.current_weight} currentSeason={currentSeason} goalReachResult={goalReachResult} bufferDays={bufferDays} />
           <GoalNavigator
             metrics={readinessMetrics}
             phase={phase}
@@ -256,7 +256,6 @@ export default async function DashboardPage() {
             avgCalories={weeklyReview.nutrition.avgCalories}
             monthlyGoalProgress={monthlyGoalProgress}
             currentMonthMinWeight={currentMonthMinWeight}
-            bufferDays={bufferDays}
           />
           <WeeklyReviewCard data={weeklyReview} phase={phase} enrichedAvailability={enrichedAvailability} />
           <DataQualityBadge report={qualityReport} />

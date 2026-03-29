@@ -15,6 +15,11 @@ interface KpiCardsProps {
   currentSeason?: string | null;
   /** 目標到達予定日の計算結果 (page.tsx で算出した共通値) */
   goalReachResult: GoalReachResult;
+  /**
+   * 到達予測バッファ (日数)。page.tsx で「30日線形トレンド到達日 − 大会残日数」から算出。
+   * 正=余裕あり / 負=期限超過見込み / null=到達日が算出不能 (停滞中・データ不足・達成済み)
+   */
+  bufferDays: number | null;
 }
 
 interface KpiCardProps {
@@ -60,7 +65,7 @@ function KpiCard({ label, value, unit, sub, icon, accent, iconColor, trendDir, t
   );
 }
 
-export function KpiCards({ logs, settings, currentWeight, currentSeason, goalReachResult }: KpiCardsProps) {
+export function KpiCards({ logs, settings, currentWeight, currentSeason, goalReachResult, bufferDays }: KpiCardsProps) {
   const sorted = [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date));
   const isCut = settings.currentPhase !== "Bulk";
   const deadlineLabel = isCut ? "大会日" : "目標日";
@@ -159,6 +164,17 @@ export function KpiCards({ logs, settings, currentWeight, currentSeason, goalRea
         {goalReachDate && goalWeight !== null && (
           <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
             {goalWeight.toFixed(1)} kg 到達の推定日（7日平均 + 30日トレンド）
+          </p>
+        )}
+        {goalReachDate && bufferDays !== null && (
+          <p className={`mt-1 text-xs font-medium ${
+            bufferDays >= 14
+              ? "text-emerald-600 dark:text-emerald-400"
+              : bufferDays >= 0
+              ? "text-amber-600 dark:text-amber-400"
+              : "text-rose-600 dark:text-rose-400"
+          }`}>
+            バッファ {bufferDays >= 0 ? `+${bufferDays} 日` : `▲${Math.abs(bufferDays)} 日不足`}
           </p>
         )}
         {!goalWeight && (
