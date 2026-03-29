@@ -7,10 +7,12 @@ import { DataQualityBadge } from "@/components/dashboard/DataQualityBadge";
 import { GoalNavigator } from "@/components/dashboard/GoalNavigator";
 import { WeeklyReviewCard } from "@/components/dashboard/WeeklyReviewCard";
 import { calcDataQuality } from "@/lib/utils/calcDataQuality";
-import { calcReadiness } from "@/lib/utils/calcReadiness";
+import { calcReadiness, calcGoalReachDate } from "@/lib/utils/calcReadiness";
+import type { GoalReachResult } from "@/lib/utils/calcReadiness";
 import { calcWeeklyReview } from "@/lib/utils/calcWeeklyReview";
 import { calcMonthlyGoalProgress } from "@/lib/utils/calcMonthlyGoalProgress";
-import { toJstDateStr } from "@/lib/utils/date";
+import { toJstDateStr, addDaysStr, dateRangeStr } from "@/lib/utils/date";
+import { calcWeightTrend } from "@/lib/utils/calcTrend";
 import { buildMonthlyGoalPlan } from "@/lib/utils/monthlyGoalPlan";
 import { buildMonthlyGoalSummaryRows, buildMonthlyGoalComparisonRows } from "@/lib/utils/monthlyGoalVisualization";
 import { calcMonthlyBehaviorStats } from "@/lib/utils/calcMonthlyBehaviorStats";
@@ -136,6 +138,25 @@ export default async function DashboardPage() {
     goal_weight: goalWeight ?? null,
   });
 
+  // 到達予測の根拠（KpiCards と同じアルゴリズム: 7日平均 + 30日線形回帰）
+  // GoalNavigator のバッファ表示に渡す。KpiCards 側は引き続き自前で計算。
+  // TODO(#397): KpiCards の slopePerDay30 計算との重複は #397 の責務整理で解消する。
+  const goalReachResult: GoalReachResult = (() => {
+    const todayForReach = toJstDateStr();
+    const d30Start = addDaysStr(todayForReach, -29) ?? todayForReach;
+    const logByDate30 = new Map(logs.map((l) => [l.log_date, l]));
+    const trend30Data = dateRangeStr(d30Start, todayForReach)
+      .map((d) => ({ date: d, weight: logByDate30.get(d)?.weight ?? null }))
+      .filter((p): p is { date: string; weight: number } => p.weight !== null);
+    const slopePerDay30 = trend30Data.length >= 2 ? calcWeightTrend(trend30Data).slope : null;
+    return calcGoalReachDate(
+      readinessMetrics.weight_7d_avg,
+      slopePerDay30,
+      goalWeight ?? null,
+      todayForReach,
+    );
+  })();
+
   // enriched_logs から log_date → tdee_estimated の Map を構築
   const enrichedTdeeMap = new Map<string, number>();
   for (const row of enrichedRows) {
@@ -230,6 +251,7 @@ export default async function DashboardPage() {
             avgCalories={weeklyReview.nutrition.avgCalories}
             monthlyGoalProgress={monthlyGoalProgress}
             currentMonthMinWeight={currentMonthMinWeight}
+            goalReachResult={goalReachResult}
           />
           <WeeklyReviewCard data={weeklyReview} phase={phase} enrichedAvailability={enrichedAvailability} />
           <DataQualityBadge report={qualityReport} />
