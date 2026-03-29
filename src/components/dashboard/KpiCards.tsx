@@ -3,9 +3,9 @@
 import { TrendingDown, TrendingUp, Minus, Weight, CalendarClock, Target } from "lucide-react";
 import type { DashboardDailyLog } from "@/lib/supabase/types";
 import type { AppSettings } from "@/lib/domain/settings";
+import type { GoalReachResult } from "@/lib/utils/calcReadiness";
 import { calcWeightTrend } from "@/lib/utils/calcTrend";
 import { toJstDateStr, calcDaysLeft, addDaysStr, dateRangeStr } from "@/lib/utils/date";
-import { calcGoalReachDate } from "@/lib/utils/calcReadiness";
 
 interface KpiCardsProps {
   logs: DashboardDailyLog[];
@@ -13,6 +13,13 @@ interface KpiCardsProps {
   avgTdee: number | null;
   currentWeight: number | null;
   currentSeason?: string | null;
+  /** 目標到達予定日の計算結果 (page.tsx で算出した共通値) */
+  goalReachResult: GoalReachResult;
+  /**
+   * 到達予測バッファ (日数)。page.tsx で「30日線形トレンド到達日 − 大会残日数」から算出。
+   * 正=余裕あり / 負=期限超過見込み / null=到達日が算出不能 (停滞中・データ不足・達成済み)
+   */
+  bufferDays: number | null;
 }
 
 interface KpiCardProps {
@@ -58,7 +65,7 @@ function KpiCard({ label, value, unit, sub, icon, accent, iconColor, trendDir, t
   );
 }
 
-export function KpiCards({ logs, settings, currentWeight, currentSeason }: KpiCardsProps) {
+export function KpiCards({ logs, settings, currentWeight, currentSeason, goalReachResult, bufferDays }: KpiCardsProps) {
   const sorted = [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date));
   const isCut = settings.currentPhase !== "Bulk";
   const deadlineLabel = isCut ? "大会日" : "目標日";
@@ -69,42 +76,23 @@ export function KpiCards({ logs, settings, currentWeight, currentSeason }: KpiCa
 
   // --- 残り日数 + 残り週数 ---
   // calcDaysLeft を使い GoalNavigator / calcReadiness と定義を統一する。
-  // (旧実装: new Date(contestDate).getTime() - Date.now() は UTC 解釈のため
-  //  JST 00:00〜08:59 に大会当日を "1日前" と誤表示するバグがあった)
   const contestDate = settings.contestDate;
   const daysLeft = contestDate ? calcDaysLeft(todayStr, contestDate) : null;
-  // 残り週数: 1 桁の小数で表示
   const weeksLeft =
     daysLeft !== null && daysLeft > 0 ? (daysLeft / 7).toFixed(1) : null;
 
-  // --- 目標到達予定日（7日平均 + 30暦日回帰ベース）---
-  // 現在地: 直近7暦日の体重平均（生体重ノイズに強い安定した基準点）
-  // 速度  : 直近30暦日の線形回帰 slope（安定着地見通し用。14日回帰より短期局面の影響を受けにくい）
-  // AI 予測（NeuralProphet）はチャート側の参考表示に留め、KPI 主表示には採用しない
+  // --- 現在体重カードの週次トレンド表示 (14暦日回帰) ---
+  // 目標到達予定日の計算 (7日平均 + 30日回帰) は page.tsx で一元計算した goalReachResult を使う
   const goalWeight = settings.targetWeight;
 
-  const d7Start  = addDaysStr(todayStr, -6)  ?? todayStr;
   const d14Start = addDaysStr(todayStr, -13) ?? todayStr;
-  const d30Start = addDaysStr(todayStr, -29) ?? todayStr;
   const logByDate = new Map(sorted.map((l) => [l.log_date, l]));
-
-  // 7暦日平均
-  const w7 = dateRangeStr(d7Start, todayStr)
-    .map((d) => logByDate.get(d)?.weight ?? null)
-    .filter((v): v is number => v !== null);
-  const weight_7d_avg = w7.length > 0 ? w7.reduce((a, b) => a + b, 0) / w7.length : null;
 
   // 14暦日回帰 slope (kg/day) — 現在体重カードの週次トレンド表示用（敏感さを残す）
   const trend14Data = dateRangeStr(d14Start, todayStr)
     .map((d) => ({ date: d, weight: logByDate.get(d)?.weight ?? null }))
     .filter((p): p is { date: string; weight: number } => p.weight !== null);
   const slopePerDay14 = trend14Data.length >= 2 ? calcWeightTrend(trend14Data).slope : null;
-
-  // 30暦日回帰 slope (kg/day) — 目標到達予定の安定着地計算用
-  const trend30Data = dateRangeStr(d30Start, todayStr)
-    .map((d) => ({ date: d, weight: logByDate.get(d)?.weight ?? null }))
-    .filter((p): p is { date: string; weight: number } => p.weight !== null);
-  const slopePerDay30 = trend30Data.length >= 2 ? calcWeightTrend(trend30Data).slope : null;
 
   // 週あたり変化率: 14暦日回帰 slope × 7 — 現在体重カードの直近変化表示（感度優先）
   const slopePerWeek = slopePerDay14 !== null ? slopePerDay14 * 7 : null;
@@ -114,7 +102,6 @@ export function KpiCards({ logs, settings, currentWeight, currentSeason }: KpiCa
     ? "横ばい"
     : `${slopePerWeek > 0 ? "+" : ""}${slopePerWeek.toFixed(1)} kg/週`;
 
-  const goalReachResult = calcGoalReachDate(weight_7d_avg, slopePerDay30, goalWeight, todayStr);
   const goalReachDate = goalReachResult.date;
   const goalReachLabel = goalReachResult.label;
 
@@ -177,6 +164,17 @@ export function KpiCards({ logs, settings, currentWeight, currentSeason }: KpiCa
         {goalReachDate && goalWeight !== null && (
           <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
             {goalWeight.toFixed(1)} kg 到達の推定日（7日平均 + 30日トレンド）
+          </p>
+        )}
+        {goalReachDate && bufferDays !== null && (
+          <p className={`mt-1 text-xs font-medium ${
+            bufferDays >= 14
+              ? "text-emerald-600 dark:text-emerald-400"
+              : bufferDays >= 0
+              ? "text-amber-600 dark:text-amber-400"
+              : "text-rose-600 dark:text-rose-400"
+          }`}>
+            バッファ {bufferDays >= 0 ? `+${bufferDays} 日` : `▲${Math.abs(bufferDays)} 日不足`}
           </p>
         )}
         {!goalWeight && (
