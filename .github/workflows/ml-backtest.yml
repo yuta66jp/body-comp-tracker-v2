@@ -6,10 +6,17 @@ on:
   schedule:
     - cron: "0 19 * * 5"
 
-  # 手動実行。manual event period を指定して backtest を再実行する場合に使用する。
+  # 手動実行。horizons 指定や manual event period 除外が必要な場合に使用する。
   # スケジュール実行は入力なしで常にデフォルト動作を維持する。
   workflow_dispatch:
     inputs:
+      horizons:
+        description: |
+          評価ホライズン (カンマ区切り)。
+          デフォルト運用: 7,14,30
+          D+60/D+90 を試す場合: 7,14,30,60,90
+        type: string
+        default: '7,14,30'
       enable_manual_event_period:
         description: '手動イベント期間を除外対象に追加する (true にすると start_date / end_date が有効になる)'
         type: boolean
@@ -62,10 +69,16 @@ jobs:
         run: |
           EXTRA_ARGS=""
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # horizons: カンマ区切りをスペース区切りに変換して --horizons に渡す
+            # schedule 実行は このブロックに入らないため Python デフォルト (7,14,30) を使用する
+            HORIZONS_RAW="${{ inputs.horizons }}"
+            HORIZONS_ARGS=$(echo "${HORIZONS_RAW:-7,14,30}" | tr ',' ' ')
+            EXTRA_ARGS="--horizons $HORIZONS_ARGS"
+
             # recovery_days: デフォルト (2) 以外が指定された場合のみ追加
             RECOVERY="${{ inputs.recovery_days }}"
             if [[ -n "$RECOVERY" && "$RECOVERY" != "2" ]]; then
-              EXTRA_ARGS="--recovery-days $RECOVERY"
+              EXTRA_ARGS="$EXTRA_ARGS --recovery-days $RECOVERY"
             fi
 
             # manual event period: enable フラグが true かつ開始・終了日が指定された場合のみ追加
