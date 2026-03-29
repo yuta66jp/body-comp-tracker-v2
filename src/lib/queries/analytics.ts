@@ -64,6 +64,10 @@ export interface FactorAnalysisResult {
  *   - log_date: string（主キー、日付表示に使用）
  *   - weight_sma7: キーが存在する（値は number | null）
  *   - tdee_estimated: キーが存在する（値は number | null）
+ *
+ * avg_tdee_7d / avg_calories_7d は新規追加フィールドのため、
+ * 古いバッチ結果では存在しない（undefined）場合がある。
+ * オプションフィールドのため検証対象外とし、参照側で ?? null フォールバックを行う。
  */
 function isValidEnrichedLogRow(val: unknown): boolean {
   if (typeof val !== "object" || val === null) return false;
