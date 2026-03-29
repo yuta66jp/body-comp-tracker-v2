@@ -70,6 +70,14 @@ export interface WeeklyWeight {
   change: number | null;
   /** 14 日線形回帰 slope × 7 (kg/週) */
   trendKgPerWeek: number | null;
+  /**
+   * 14 日トレンドを体重比で表した週あたり変化率 (%BW/週)。
+   * = -(trendKgPerWeek / avg) × 100
+   * 正 = 減量方向 / 負 = 増加方向 / null = avg または trend が null
+   *
+   * Cut フェーズの推奨レンジは 0.5〜1.0%BW/週 (Helms 2014)。
+   */
+  bwRatePctPerWeek: number | null;
 }
 
 export interface WeeklyTdee {
@@ -400,11 +408,20 @@ export function calcWeeklyReview(
       ? metrics.weight_7d_avg - metrics.weight_change_7d
       : null;
 
+  const trendKgPerWeek = metrics.weekly_rate_kg;
+  const avgWeight = metrics.weight_7d_avg;
+  // %BW/週: 14日線形回帰ベース。正=減量方向。avg > 0 でなければ算出しない
+  const bwRatePctPerWeek =
+    trendKgPerWeek !== null && avgWeight !== null && avgWeight > 0
+      ? (-trendKgPerWeek / avgWeight) * 100
+      : null;
+
   const weight: WeeklyWeight = {
-    avg: metrics.weight_7d_avg,
+    avg: avgWeight,
     prevAvg,
     change: metrics.weight_change_7d,
-    trendKgPerWeek: metrics.weekly_rate_kg,
+    trendKgPerWeek,
+    bwRatePctPerWeek,
   };
 
   // ── Nutrition (直近 7 暦日) ──

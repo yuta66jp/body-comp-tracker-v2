@@ -47,6 +47,39 @@ interface Props {
   enrichedAvailability?: AnalyticsAvailability;
 }
 
+// ─── %BW/週 ペースステータス (UI 表示用) ──────────────────────────────────────
+// 閾値は Helms 2014 の推奨レンジ (0.5〜1.0%BW/週) を基準とし、
+// それ以外の帯は UI 解釈用の文献ベース設計値。一次文献の正式推奨値ではない。
+
+type BWRateStatus =
+  | "gaining"       // < 0.0%
+  | "very_slow"     // 0.0〜0.25%
+  | "slow"          // 0.25〜0.5%
+  | "recommended"   // 0.5〜1.0%
+  | "slightly_fast" // 1.0〜1.4%
+  | "too_fast";     // ≥ 1.4%
+
+const BW_RATE_STATUS_CONFIG: Record<
+  BWRateStatus,
+  { label: string; color: string }
+> = {
+  gaining:        { label: "増加傾向",     color: "text-rose-600 dark:text-rose-400" },
+  very_slow:      { label: "かなり緩やか", color: "text-amber-600 dark:text-amber-400" },
+  slow:           { label: "緩やか",       color: "text-amber-500 dark:text-amber-400" },
+  recommended:    { label: "推奨レンジ",   color: "text-emerald-600 dark:text-emerald-400" },
+  slightly_fast:  { label: "やや速め",     color: "text-amber-600 dark:text-amber-400" },
+  too_fast:       { label: "速すぎ",       color: "text-rose-600 dark:text-rose-400" },
+};
+
+function calcBwRateStatus(bwRatePct: number): BWRateStatus {
+  if (bwRatePct < 0)    return "gaining";
+  if (bwRatePct <= 0.25) return "very_slow";
+  if (bwRatePct < 0.5)  return "slow";
+  if (bwRatePct <= 1.0) return "recommended";
+  if (bwRatePct < 1.4)  return "slightly_fast";
+  return "too_fast";
+}
+
 // ─── 停滞バッジ設定 ──────────────────────────────────────────────────────────
 
 const STAGNATION_CONFIG: Record<
@@ -218,6 +251,26 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
                 value={`${fmtSigned1(weight.trendKgPerWeek)} kg/週`}
                 valueColor={trendColor}
               />
+              {/* %BW/週 + ペースステータス */}
+              {(() => {
+                const bwRate = weight.bwRatePctPerWeek;
+                if (bwRate === null) return null;
+                const status = calcBwRateStatus(bwRate);
+                const cfg = BW_RATE_STATUS_CONFIG[status];
+                return (
+                  <>
+                    <StatRow
+                      label="%BW/週"
+                      value={`${bwRate >= 0 ? "" : ""}${bwRate.toFixed(2)}%`}
+                      valueColor={cfg.color}
+                    />
+                    <div className="flex items-center justify-between py-0.5">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">推奨 0.5〜1.0% BW/週</span>
+                      <span className={`text-[11px] font-semibold ${cfg.color}`}>{cfg.label}</span>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
 
