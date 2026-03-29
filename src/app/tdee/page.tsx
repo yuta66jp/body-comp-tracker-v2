@@ -79,9 +79,16 @@ export default async function TdeePage() {
         })
       : null;
 
-  // グラフ用データ: enriched がある場合はその日付軸を使う。ない場合は rawLogs を軸に tdee=null で描画。
-  // tdee は canonical 値 (tdee_estimated) をそのまま使う。再平滑化しない。
-  // intake は batch の avg_calories_7d を使う（ない場合は calories の raw 値で fallback）。
+  // ── canonical batch 参照値 ────────────────────────────────────────────────
+  // enrich.py が analytics_cache に書き込む canonical 値。フロントで再計算しない。
+  // avg_tdee_7d / avg_calories_7d は新規フィールド。古いバッチ結果では undefined になる。
+  // per-row 値（tdee_estimated / avg_tdee_7d / avg_calories_7d）は chartData / tableData で直接参照する。
+  const lastEnrichedRow = enrichedRows.at(-1);
+  const batchAvgTdee7d: number | null = lastEnrichedRow?.avg_tdee_7d ?? null;
+  const batchAvgCalories7d: number | null = lastEnrichedRow?.avg_calories_7d ?? null;
+
+  // グラフ用データ: per-row canonical 値を直接参照する。
+  // enriched がある場合はその日付軸を使う。ない場合は rawLogs を軸に tdee=null で描画。
   const rawCaloriesMap = new Map<string, number | null>(
     sortedRaw.map((r) => [r.log_date, r.calories])
   );
@@ -89,11 +96,12 @@ export default async function TdeePage() {
   const chartData = hasEnrichedData
     ? enrichedRows.map((row) => ({
         date: row.log_date.slice(5),
-        tdee: row.tdee_estimated,
-        // avg_tdee_7d / avg_calories_7d は新フィールドのため古いバッチ結果では undefined になる場合がある
-        tdee7d: row.avg_tdee_7d ?? null,
-        intake: row.avg_calories_7d ?? rawCaloriesMap.get(row.log_date) ?? null,
-        theoretical: theoreticalTdee,
+        tdee: row.tdee_estimated,              // per-row canonical (常に存在)
+        tdee7d: row.avg_tdee_7d ?? null,       // per-row canonical (旧バッチは null)
+        intake: row.avg_calories_7d            // per-row canonical (旧バッチは null)
+          ?? rawCaloriesMap.get(row.log_date)  //   旧バッチ互換 fallback: raw calories
+          ?? null,
+        theoretical: theoreticalTdee,          // frontend-computed (設定値から算出)
       }))
     : sortedRaw.map((row) => ({
         date: row.log_date.slice(5),
@@ -103,35 +111,27 @@ export default async function TdeePage() {
         theoretical: theoreticalTdee,
       }));
 
-  // 直近7日の平均 TDEE: バッチの avg_tdee_7d 最終値を canonical として使う。
-  // avg_tdee_7d は新フィールドのため古いバッチ結果では undefined になる場合がある。
-  // その場合は enrichedRows 末尾 7 件の tdee_estimated を平均して fallback する
-  // （batch canonical ではないが、旧バッチ環境での暫定表示として許容）。
-  const lastEnrichedRow = enrichedRows.at(-1);
-  const avgTdee: number | null = (() => {
-    if (lastEnrichedRow?.avg_tdee_7d != null) {
-      return lastEnrichedRow.avg_tdee_7d;
-    }
-    // fallback: 末尾 7 件の tdee_estimated の平均（旧バッチ互換）
+  // KPI: 直近7日平均 TDEE — canonical は batchAvgTdee7d (enrich.py の avg_tdee_7d 最終値)。
+  // 旧バッチ互換 fallback: enrichedRows 末尾 7 件の tdee_estimated 平均（batch canonical ではない）。
+  const avgTdee: number | null = batchAvgTdee7d ?? (() => {
     const vals = enrichedRows.slice(-7)
       .map((r) => r.tdee_estimated)
       .filter((v): v is number => v !== null);
     return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
   })();
 
-  // 直近7日の平均カロリー: バッチの avg_calories_7d 最終値を canonical として使う。
-  // fallback: 直近7暦日の rawLogs calories 平均（旧バッチ互換）。
-  const avgCalories7: number | null = (() => {
-    if (lastEnrichedRow?.avg_calories_7d != null) {
-      return lastEnrichedRow.avg_calories_7d;
-    }
+  // KPI: 直近7日平均カロリー — canonical は batchAvgCalories7d (enrich.py の avg_calories_7d 最終値)。
+  // 旧バッチ互換 fallback: 直近7暦日の rawLogs calories 平均。
+  const avgCalories7: number | null = batchAvgCalories7d ?? (() => {
     const last7Cal = sortedRaw.filter((d) => d7Dates.has(d.log_date) && d.calories !== null);
     return last7Cal.length > 0 ? last7Cal.reduce((s, d) => s + d.calories!, 0) / last7Cal.length : null;
   })();
 
+  // ── frontend-computed metrics ─────────────────────────────────────────────
+  // 以下は enrich.py の出力に含まれない。信頼度・ノイズ評価・実測変化量は rawLogs から算出する。
+
   // TDEE 推定値の標準偏差 (信頼度判定に使用)
-  // batch canonical には存在しないため、フロント側で算出する（日次ノイズの大きさを反映）。
-  // 直近7暦日の tdee_estimated から算出する
+  // 直近7暦日の tdee_estimated から算出する（日次ノイズの大きさを反映）。
   const tdeeValues7 = enrichedRows
     .filter((r) => d7Dates.has(r.log_date))
     .map((r) => r.tdee_estimated)
