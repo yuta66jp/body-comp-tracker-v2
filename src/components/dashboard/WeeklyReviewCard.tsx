@@ -246,11 +246,6 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
                     : "text-slate-500"
                 }
               />
-              <StatRow
-                label="14日トレンド"
-                value={`${fmtSigned1(weight.trendKgPerWeek)} kg/週`}
-                valueColor={trendColor}
-              />
               {/* %BW/週 + ペースステータス */}
               {(() => {
                 const bwRate = weight.bwRatePctPerWeek;
@@ -265,7 +260,7 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
                       valueColor={cfg.color}
                     />
                     <div className="flex items-center justify-between py-0.5">
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500">推奨 0.5〜1.0% BW/週</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">推奨レンジ 0.5〜1.0% BW/週（Helms 2014）</span>
                       <span className={`text-[11px] font-semibold ${cfg.color}`}>{cfg.label}</span>
                     </div>
                   </>
@@ -357,7 +352,7 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
 
       {/* ── フッター ── */}
       <div className="flex items-center justify-between border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
-        <span>ローリング集計（今日を含む直近7暦日）/ トレンドは直近14暦日の線形回帰 / あくまで推定値</span>
+        <span>%BW/週 = 14日線形回帰÷7日平均体重 / GoalNavigator の必要ペースは絶対量（kg/2週）/ 直近7暦日ローリング集計 / あくまで推定値</span>
         <span className={`font-semibold ${qualityScoreColor(quality.score)}`}>
           品質 {quality.score}/100
         </span>
