@@ -39,10 +39,8 @@ export function TdeeDetailChart({ data, avgTdee }: TdeeDetailChartProps) {
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
-      <div className="mb-4">
-        <h2 className="text-base font-semibold text-gray-700 dark:text-slate-200">TDEE 推移</h2>
-        <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">実測 TDEE は 7日ローリング平均を主表示。日次値は参考として薄く表示</p>
-      </div>
+      <h2 className="mb-1 text-base font-semibold text-gray-700 dark:text-slate-200">TDEE 推移</h2>
+      <p className="mb-4 text-xs text-slate-400 dark:text-slate-500">実測 TDEE は 7日ローリング平均を主表示。日次値は参考として薄く表示</p>
       <ResponsiveContainer width="100%" height={300}>
         <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
