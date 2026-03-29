@@ -261,7 +261,7 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
                   <>
                     <StatRow
                       label="%BW/週"
-                      value={`${bwRate >= 0 ? "" : ""}${bwRate.toFixed(2)}%`}
+                      value={`${bwRate >= 0 ? "+" : ""}${bwRate.toFixed(2)}%`}
                       valueColor={cfg.color}
                     />
                     <div className="flex items-center justify-between py-0.5">
