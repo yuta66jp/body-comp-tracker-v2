@@ -48,6 +48,7 @@ export function TdeeDailyTable({ data, phase = null }: TdeeDailyTableProps) {
     <div className="rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
       <div className="px-5 pt-5 pb-1">
         <h2 className="text-sm font-semibold text-gray-700 dark:text-slate-200">日次 TDEE ログ（直近 14 日）</h2>
+        <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">日次値の参考表示。傾向判断には上部 KPI カードの 7 日平均をご利用ください</p>
       </div>
 
       {/* ── モバイル: カードリスト (md 未満) ── */}
