@@ -79,6 +79,23 @@ read projection / window 最適化は現時点では保留とする。
 
 ---
 
+### 4. 予測モデルの段階的改善（データ蓄積後）
+
+予測モデルの改善は、運用期間中のクリーンデータ蓄積を前提とする。
+一度にまとめて改良するのではなく、バックテストサンプル数に応じて段階的に進める。
+
+投入判断の目安:
+- 50日以上のクリーンデータ蓄積後: バックテスト再実行・Bias 値の再評価
+- 80日以上: Horizon 別モデル選択・Bias 補正の導入検討
+- 100日以上: 加重アンサンブル・D+60/D+90 horizon の精度評価
+
+現段階では backtest.py の CLI 拡張（horizon 追加）の準備のみ行い、
+モデルロジックの変更は行わない。
+
+詳細な分析・ロードマップは [`docs/forecast-model-analysis-and-roadmap.md`](forecast-model-analysis-and-roadmap.md) を参照。
+
+---
+
 ## 運用期間中に優先すること
 
 運用期間中は、以下を優先する。
@@ -105,6 +122,7 @@ read projection / window 最適化は現時点では保留とする。
 2. 説明機能を SHAP ベースに進めるか
 3. read projection / window 最適化が本当に必要か
 4. 実運用で支障となる UI / UX や集計上の課題が残っていないか
+5. 予測モデルの改善（クリーンデータ50日到達後にバックテスト再実行・Bias 再評価）
 
 これらは一括で進めるのではなく、必要に応じて個別 Issue として切り出して管理する。
 
@@ -114,3 +132,13 @@ read projection / window 最適化は現時点では保留とする。
 
 本ドキュメントは、現在の開発ステータスと中期方針を整理するためのものである。
 個別のバグ、改善タスク、実装単位の検討事項は Issue で管理する。
+
+---
+
+## 関連ドキュメント
+
+| ドキュメント | 内容 |
+|---|---|
+| [`docs/forecast-model-analysis-and-roadmap.md`](forecast-model-analysis-and-roadmap.md) | バックテスト結果の詳細分析・予測モデルの改善ロードマップ（Phase 1〜4）|
+| [`docs/daily-logs-read-inventory.md`](daily-logs-read-inventory.md) | daily_logs の read API 利用箇所棚卸し・query 分割方針 |
+| `CLAUDE.md` | プロジェクト全体の設計方針・実装原則・非目標 |
