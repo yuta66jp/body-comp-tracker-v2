@@ -89,8 +89,16 @@ read projection / window 最適化は現時点では保留とする。
 - 80日以上: Horizon 別モデル選択・Bias 補正の導入検討
 - 100日以上: 加重アンサンブル・D+60/D+90 horizon の精度評価
 
-現段階では backtest.py の CLI 拡張（horizon 追加）の準備のみ行い、
-モデルロジックの変更は行わない。
+#### 実施済み（2026-03-29）
+
+ロードマップ Phase 1 の表示改善と CLI 拡張準備をすべて完了した。
+
+- **到達予測の透明化**（#397）: `goalReachResult` / `bufferDays` の算出を page.tsx に一本化。バッファ日数を KPI カードに表示、GoalNavigator は本来の役割に整理
+- **%BW/週トラッキング**（#402 / #403）: WeeklyReview に `bwRatePctPerWeek` と Helms 2014 バンド別ステータスを追加。重複していた「14日トレンド」kg/週行を削除
+- **TDEE 7日ローリング平均メイン化**（#407 / #408）: TDEE グラフで `avg_tdee_7d` をメイン表示、日次値を補助線に変更。canonical batch 参照 / 旧バッチ互換 fallback / frontend-computed の参照経路をコード上で区画化
+- **backtest workflow 拡張**（#409）: `ml-backtest.yml` に `horizons` 入力を追加（デフォルト `7,14,30`、手動で `60,90` を追加指定可能）。週次の schedule 実行は従来どおり
+
+モデルロジックの変更は行っていない。Phase 2（クリーンデータ50日到達後）までモデル側は凍結。
 
 詳細な分析・ロードマップは [`docs/forecast-model-analysis-and-roadmap.md`](forecast-model-analysis-and-roadmap.md) を参照。
 
