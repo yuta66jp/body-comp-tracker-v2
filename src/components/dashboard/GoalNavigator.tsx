@@ -26,10 +26,9 @@ import {
   HelpCircle,
   CalendarDays,
 } from "lucide-react";
-import type { ReadinessMetrics, GoalReachResult } from "@/lib/utils/calcReadiness";
+import type { ReadinessMetrics } from "@/lib/utils/calcReadiness";
 import { calcGoalStatus, calcKcalCorrection, PACE_CALC_MIN_DAYS } from "@/lib/utils/calcReadiness";
 import type { MonthlyGoalProgress } from "@/lib/utils/calcMonthlyGoalProgress";
-import { toJstDateStr, calcDaysLeft } from "@/lib/utils/date";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 
 interface GoalNavigatorProps {
@@ -45,10 +44,10 @@ interface GoalNavigatorProps {
   /** 当月内の最小実測体重 (kg) */
   currentMonthMinWeight?: number | null;
   /**
-   * 目標到達予定日の計算結果 (KpiCards と同じ「7日平均 + 30日線形トレンド」ロジック)。
-   * 体重進捗列に根拠表示・バッファを追加するために page.tsx から渡す。
+   * 到達予測バッファ (日数)。page.tsx で「30日線形トレンド到達日 − 大会残日数」から算出。
+   * 正=余裕あり / 負=期限超過見込み / null=到達日が算出不能 (停滞中・データ不足・達成済み)
    */
-  goalReachResult: GoalReachResult;
+  bufferDays: number | null;
 }
 
 // ─── ステータス表示マップ ──────────────────────────────────────────────────
@@ -197,7 +196,7 @@ export function GoalNavigator({
   avgCalories,
   monthlyGoalProgress,
   currentMonthMinWeight,
-  goalReachResult,
+  bufferDays,
 }: GoalNavigatorProps) {
   const isCut = phase !== "Bulk";
 
@@ -257,20 +256,6 @@ export function GoalNavigator({
       : status === "contest_imminent"
       ? `${deadlineLabel}直前`
       : statusCfg.label;
-
-  // ── 到達予測の根拠: 推定到達日 + バッファ (KpiCards 表示の補完) ──
-  // goalReachResult は page.tsx で「7日平均 + 30日線形トレンド」から計算済み。
-  // daysNeeded: 今日から推定到達日までの日数 (projected 状態のみ算出)
-  // bufferDays: 大会残日数 − daysNeeded。正=余裕、負=期限オーバー見込み
-  const todayStr = toJstDateStr();
-  const daysNeeded =
-    goalReachResult.status === "projected" && goalReachResult.date !== null
-      ? calcDaysLeft(todayStr, goalReachResult.date)
-      : null;
-  const bufferDays =
-    daysNeeded !== null && metrics.days_to_contest !== null
-      ? metrics.days_to_contest - daysNeeded
-      : null;
 
   // ── 設定欠落フォールバック ──
   const missingGoal = goalWeight === null;
@@ -353,39 +338,26 @@ export function GoalNavigator({
                 }
               />
 
-              {/* ── 到達予測の根拠 ── */}
-              {goalReachResult.status !== "no_data" && (
+              {/* ── 到達予測バッファ: KPI カードの到達予定日を補完 ── */}
+              {bufferDays !== null && (
                 <>
                   <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
                   <MetricRow
-                    label="推定到達"
-                    value={goalReachResult.label}
-                    valueColor={
-                      goalReachResult.status === "achieved"
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : goalReachResult.status === "projected"
-                        ? "text-teal-600 dark:text-teal-400"
-                        : "text-slate-400 dark:text-slate-500"
+                    label="バッファ"
+                    value={
+                      bufferDays >= 0
+                        ? `+${bufferDays} 日`
+                        : `▲${Math.abs(bufferDays)} 日不足`
                     }
-                    note="(30日トレンド)"
+                    valueColor={
+                      bufferDays >= 14
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : bufferDays >= 0
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-rose-600 dark:text-rose-400"
+                    }
+                    note="(30日トレンドベース)"
                   />
-                  {bufferDays !== null && (
-                    <MetricRow
-                      label="バッファ"
-                      value={
-                        bufferDays >= 0
-                          ? `+${bufferDays} 日`
-                          : `▲${Math.abs(bufferDays)} 日不足`
-                      }
-                      valueColor={
-                        bufferDays >= 14
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : bufferDays >= 0
-                          ? "text-amber-600 dark:text-amber-400"
-                          : "text-rose-600 dark:text-rose-400"
-                      }
-                    />
-                  )}
                 </>
               )}
             </>
@@ -595,7 +567,7 @@ export function GoalNavigator({
 
       {/* ── フッター注記 ── */}
       <div className="border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
-        体重進捗は 7 日移動平均ベース / 今月進捗は最新体重ベース / ペースは 14 日線形回帰・kg/2週 表示 / 到達予測は 30 日線形トレンドベース / 推定値のため目安としてご利用ください
+        体重進捗は 7 日移動平均ベース / 今月進捗は最新体重ベース / ペースは 14 日線形回帰・kg/2週 表示 / 推定値のため目安としてご利用ください
       </div>
     </div>
   );
