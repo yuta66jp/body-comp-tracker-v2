@@ -59,6 +59,10 @@ export interface WeeklyNutrition {
   daysLogged: number;
   /** タンパク質エネルギー比 (%) = avgProtein × 4 / avgCalories × 100 */
   proteinRatioPct: number | null;
+  /** タンパク質摂取量 (g/kg BW) = avgProtein / avgWeight */
+  proteinGPerKgBw: number | null;
+  /** 脂質カロリー比 (%) = avgFat × 9 / avgCalories × 100 */
+  fatCaloriesRatioPct: number | null;
 }
 
 export interface WeeklyWeight {
@@ -279,22 +283,36 @@ function generateFindings(
     findings.push("カロリーデータが不足しており、摂取量を算出できませんでした");
   }
 
-  // ── 3. タンパク質 ──
+  // ── 3. タンパク質 / 脂質 ──
   if (nutrition.avgProtein !== null) {
     const pStr = fmt0(nutrition.avgProtein);
-    if (nutrition.proteinRatioPct !== null) {
-      const pct = nutrition.proteinRatioPct.toFixed(0);
-      if (nutrition.proteinRatioPct >= 25) {
+    if (nutrition.proteinGPerKgBw !== null) {
+      const gPerKg = nutrition.proteinGPerKgBw.toFixed(2);
+      if (nutrition.proteinGPerKgBw >= 1.6 && nutrition.proteinGPerKgBw <= 2.2) {
         findings.push(
-          `平均タンパク質 ${pStr} g（摂取比 ${pct}%）― 適切な水準を維持`
+          `平均タンパク質 ${pStr} g（${gPerKg} g/kg BW）― 推奨レンジ内`
         );
       } else {
         findings.push(
-          `平均タンパク質 ${pStr} g（摂取比 ${pct}%）― やや低め（目安: 25% 以上）`
+          nutrition.proteinGPerKgBw < 1.6
+            ? `平均タンパク質 ${pStr} g（${gPerKg} g/kg BW）― やや低め（目安: 1.6〜2.2 g/kg BW）`
+            : `平均タンパク質 ${pStr} g（${gPerKg} g/kg BW）― 高め（目安: 1.6〜2.2 g/kg BW）`
         );
       }
     } else {
       findings.push(`平均タンパク質 ${pStr} g`);
+    }
+  }
+  if (nutrition.fatCaloriesRatioPct !== null) {
+    const fatPct = nutrition.fatCaloriesRatioPct.toFixed(0);
+    if (nutrition.fatCaloriesRatioPct >= 20 && nutrition.fatCaloriesRatioPct <= 30) {
+      findings.push(`脂質比 ${fatPct}% ― 推奨レンジ内`);
+    } else {
+      findings.push(
+        nutrition.fatCaloriesRatioPct < 20
+          ? `脂質比 ${fatPct}% ― やや低め（目安: 20〜30%）`
+          : `脂質比 ${fatPct}% ― やや高め（目安: 20〜30%）`
+      );
     }
   }
 
@@ -447,6 +465,14 @@ export function calcWeeklyReview(
     avgCalories !== null && avgCalories > 0 && avgProtein !== null
       ? (avgProtein * 4) / avgCalories * 100
       : null;
+  const proteinGPerKgBw =
+    avgProtein !== null && avgWeight !== null && avgWeight > 0
+      ? avgProtein / avgWeight
+      : null;
+  const fatCaloriesRatioPct =
+    avgCalories !== null && avgCalories > 0 && avgFat !== null
+      ? (avgFat * 9) / avgCalories * 100
+      : null;
 
   const nutrition: WeeklyNutrition = {
     avgCalories,
@@ -455,6 +481,8 @@ export function calcWeeklyReview(
     avgCarbs,
     daysLogged,
     proteinRatioPct,
+    proteinGPerKgBw,
+    fatCaloriesRatioPct,
   };
 
   // ── TDEE (直近 7 日の推定 TDEE 平均) ──

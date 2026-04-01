@@ -269,7 +269,7 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
             </div>
           </div>
 
-          {/* 栄養 (カロリー・タンパク質のみ。詳細は栄養ページ) */}
+          {/* 栄養 (左列は要約値のみ。評価は右列の所見カードに寄せる) */}
           <div>
             <SectionLabel icon={<Flame size={12} className="text-orange-400" />}>
               栄養 ({data.nutrition.daysLogged} 日分)
@@ -277,16 +277,14 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
             <div className="space-y-0.5">
               <StatRow label="カロリー" value={fmt0(nutrition.avgCalories)} unit="kcal" />
               <StatRow
-                label="タンパク質比"
-                value={nutrition.proteinRatioPct !== null ? `${nutrition.proteinRatioPct.toFixed(0)}%` : "—"}
+                label="タンパク質"
+                value={nutrition.proteinGPerKgBw !== null ? nutrition.proteinGPerKgBw.toFixed(2) : "—"}
+                unit="g/kg BW"
                 sub={nutrition.avgProtein !== null ? `(${fmt0(nutrition.avgProtein)}g)` : undefined}
-                valueColor={
-                  nutrition.proteinRatioPct !== null
-                    ? nutrition.proteinRatioPct >= 25
-                      ? "text-emerald-600"
-                      : "text-amber-600"
-                    : undefined
-                }
+              />
+              <StatRow
+                label="脂質"
+                value={nutrition.fatCaloriesRatioPct !== null ? `${nutrition.fatCaloriesRatioPct.toFixed(0)}%` : "—"}
               />
             </div>
           </div>
