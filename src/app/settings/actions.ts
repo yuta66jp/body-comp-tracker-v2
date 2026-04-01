@@ -11,6 +11,8 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidateAfterSettingsMutation } from "@/lib/cache/revalidate";
 import { parseSettings } from "@/lib/schemas/settingsSchema";
 import type { SettingsInput } from "@/lib/schemas/settingsSchema";
+import { toJstDateStr } from "@/lib/utils/date";
+import { normalizeMonthlyPlanOverridesBeforeSave } from "@/lib/utils/normalizeMonthlyPlanOverridesBeforeSave";
 
 /** saveSettings の戻り値 */
 export type SaveSettingsResult =
@@ -26,8 +28,10 @@ export type SaveSettingsResult =
 export async function saveSettings(
   input: SettingsInput
 ): Promise<SaveSettingsResult> {
+  const normalizedInput = normalizeMonthlyPlanOverridesBeforeSave(input, toJstDateStr());
+
   // 1. バリデーション・変換（settingsSchema が canonical source）
-  const parsed = parseSettings(input);
+  const parsed = parseSettings(normalizedInput);
   if (!parsed.ok) {
     const messages = parsed.errors.map((e) => `${e.field}: ${e.message}`).join(", ");
     return { ok: false, error: `入力値が不正です。${messages}` };

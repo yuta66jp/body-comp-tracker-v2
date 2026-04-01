@@ -191,6 +191,24 @@ describe("calcMonthlyGoalProgress — 今月目標の表示", () => {
     const result = calcMonthlyGoalProgress(BASE);
     expect(result.requiredPaceKgPerWeek).toBeCloseTo(-0.48, 1);
   });
+
+  it("前月 override が残っていても unavailable に落ちず今月目標を計算できる", () => {
+    const result = calcMonthlyGoalProgress({
+      ...BASE,
+      today: "2026-04-02",
+      contestDate: "2026-06-30",
+      targetWeight: 72.0,
+      comparisonWeight: 75.0,
+      monthlyPlanOverrides: [
+        { month: "2026-03", targetWeight: 76.0 },
+        { month: "2026-05", targetWeight: 73.5 },
+      ],
+    });
+
+    expect(result.hasData).toBe(true);
+    expect(result.state).not.toBe("unavailable");
+    expect(result.monthlyTargetWeight).toBeCloseTo(74.3, 1);
+  });
 });
 
 // ─── calcMonthlyGoalProgress — 状態判定 (Cut) ───────────────────────────────

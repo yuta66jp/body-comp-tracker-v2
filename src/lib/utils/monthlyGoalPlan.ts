@@ -17,9 +17,18 @@
  * - 最終月は必ず finalGoalWeight (アンカーとして固定)。
  * - 最終月への override は無視し、常に finalGoalWeight を使う。
  *
+ * ## override の寿命管理
+ * - override は currentMonth (today の YYYY-MM) から deadlineMonth までだけを有効とする。
+ * - currentMonth より前の override は stale data とみなし無視する。
+ * - deadlineMonth より後の override も計画外データとして無視する。
+ * - deadlineMonth 自体の override は無視する。最終月は常に finalGoalWeight が唯一の正規値。
+ *
  * ## Error / Warning の使い分け
  * - Error: 計画を構築できない状態 (不正入力 / 期限が過去 / 計画対象月ゼロ など)。
  * - Warning: 計画は構築できるが注意が必要な状態 (過大な月間変化量 / 残り月数不足 など)。
+ *
+ * stale / out-of-range override は既存保存データとの後方互換のため error にしない。
+ * buildMonthlyGoalPlan はそれらを無視して有効範囲の計画を構築する。
  *
  * ## 警告閾値
  * - HIGH_MONTHLY_DELTA: 2.0 kg/month ≈ 1.0 kg/2週。
@@ -148,6 +157,12 @@ export interface MonthlyGoalPlan {
   warnings: MonthlyGoalWarning[];
 }
 
+interface NormalizeMonthlyGoalOverridesInput {
+  overrides: MonthlyGoalOverride[];
+  today: string;
+  goalDeadlineDate: string;
+}
+
 // ─── Private ヘルパー ─────────────────────────────────────────────────────────
 
 /**
@@ -240,6 +255,36 @@ function validateInput(input: MonthlyGoalPlanInput): MonthlyGoalError[] {
   return errors;
 }
 
+/**
+ * 月次計画で有効な override だけを残す。
+ *
+ * ルール:
+ * - currentMonth より前の stale override は除外
+ * - deadlineMonth より後の override は除外
+ * - deadlineMonth は finalGoalWeight が唯一の正規値なので除外
+ *
+ * buildMonthlyGoalPlan の canonical な範囲判定であり、
+ * 保存時の正規化にも同じ関数を使って挙動を統一する。
+ *
+ * goalDeadlineDate が不正な場合は範囲判定できないため元の overrides を返す。
+ * その後の buildMonthlyGoalPlan / saveSettings 側で通常のバリデーションに委ねる。
+ */
+export function normalizeMonthlyGoalOverrides(
+  input: NormalizeMonthlyGoalOverridesInput
+): MonthlyGoalOverride[] {
+  if (parseLocalDateStr(input.goalDeadlineDate) === null) {
+    return input.overrides;
+  }
+
+  const todayMonth = toYearMonth(input.today);
+  const deadlineMonth = toYearMonth(input.goalDeadlineDate);
+
+  return input.overrides.filter((override) => {
+    if (typeof override.month !== "string") return false;
+    return override.month >= todayMonth && override.month < deadlineMonth;
+  });
+}
+
 // ─── Exported 関数 ────────────────────────────────────────────────────────────
 
 /**
@@ -273,25 +318,16 @@ export function buildMonthlyGoalPlan(
     };
   }
 
-  // override が計画期間外を指していないか検証
-  const outOfRange = input.overrides.filter(
-    (o) => o.month < todayMonth || o.month > deadlineMonth
-  );
-  if (outOfRange.length > 0) {
-    return {
-      entries: [],
-      isValid: false,
-      errors: [{ code: "OVERRIDE_MONTH_OUT_OF_RANGE" }],
-      warnings: [],
-    };
-  }
+  // stale / out-of-range / 最終月 override は無視し、有効範囲だけを使う。
+  const normalizedOverrides = normalizeMonthlyGoalOverrides({
+    overrides: input.overrides,
+    today: input.today,
+    goalDeadlineDate: input.goalDeadlineDate,
+  });
 
-  // override map (最終月への override は無視して finalGoalWeight で上書き)
-  const lastMonth = months[months.length - 1]!;
+  // override map (最終月 override は normalizeMonthlyGoalOverrides で除外済み)
   const overrideMap = new Map<string, number>(
-    input.overrides
-      .filter((o) => o.month !== lastMonth)
-      .map((o) => [o.month, o.targetWeight])
+    normalizedOverrides.map((o) => [o.month, o.targetWeight])
   );
 
   // actual map

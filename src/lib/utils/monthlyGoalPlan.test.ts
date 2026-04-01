@@ -1,5 +1,6 @@
 import {
   buildMonthlyGoalPlan,
+  normalizeMonthlyGoalOverrides,
   redistributeMonthlyGoals,
   validateMonthlyGoalPlan,
   getMonthlyGoalWarnings,
@@ -307,14 +308,31 @@ describe("buildMonthlyGoalPlan", () => {
       );
     });
 
-    test("override が計画期間外の月を指している → OVERRIDE_MONTH_OUT_OF_RANGE", () => {
+    test("過去月 override は stale data として無視され、plan は invalid 化しない", () => {
       const plan = buildMonthlyGoalPlan(
         makeInput({
           overrides: [{ month: "2025-12", targetWeight: 75.0 }],
         })
       );
-      expect(plan.isValid).toBe(false);
-      expect(plan.errors[0]!.code).toBe("OVERRIDE_MONTH_OUT_OF_RANGE");
+      expect(plan.isValid).toBe(true);
+      expect(plan.errors).toHaveLength(0);
+      expect(plan.entries.map(entrySnapshot)).toEqual([
+        { month: "2026-03", targetWeight: 76.5, source: "auto_redistributed" },
+        { month: "2026-04", targetWeight: 75.0, source: "auto_redistributed" },
+        { month: "2026-05", targetWeight: 73.5, source: "auto_redistributed" },
+        { month: "2026-06", targetWeight: 72.0, source: "auto_redistributed" },
+      ]);
+    });
+
+    test("期限月より後の override も無視される", () => {
+      const plan = buildMonthlyGoalPlan(
+        makeInput({
+          overrides: [{ month: "2026-07", targetWeight: 71.0 }],
+        })
+      );
+      expect(plan.isValid).toBe(true);
+      expect(plan.errors).toHaveLength(0);
+      expect(plan.entries.at(-1)?.targetWeight).toBe(72.0);
     });
 
     test("errors がある場合 entries は空配列", () => {
@@ -323,6 +341,38 @@ describe("buildMonthlyGoalPlan", () => {
       );
       expect(plan.entries).toHaveLength(0);
     });
+  });
+});
+
+describe("normalizeMonthlyGoalOverrides", () => {
+  test("current month より前・期限月・期限後の override を除外する", () => {
+    const result = normalizeMonthlyGoalOverrides({
+      overrides: [
+        { month: "2026-02", targetWeight: 77.0 },
+        { month: "2026-03", targetWeight: 76.0 },
+        { month: "2026-05", targetWeight: 74.0 },
+        { month: "2026-06", targetWeight: 72.5 },
+        { month: "2026-07", targetWeight: 71.0 },
+      ],
+      today: "2026-03-15",
+      goalDeadlineDate: "2026-06-30",
+    });
+
+    expect(result).toEqual([
+      { month: "2026-03", targetWeight: 76.0 },
+      { month: "2026-05", targetWeight: 74.0 },
+    ]);
+  });
+
+  test("期限日が不正な場合は元の overrides をそのまま返す", () => {
+    const overrides = [{ month: "2026-03", targetWeight: 76.0 }];
+    const result = normalizeMonthlyGoalOverrides({
+      overrides,
+      today: "2026-03-15",
+      goalDeadlineDate: "invalid-date",
+    });
+
+    expect(result).toEqual(overrides);
   });
 });
 
