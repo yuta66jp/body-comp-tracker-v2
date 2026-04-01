@@ -15,6 +15,7 @@ import { calcWeightTrend } from "@/lib/utils/calcTrend";
 import { buildMonthlyGoalPlan } from "@/lib/utils/monthlyGoalPlan";
 import { buildMonthlyGoalSummaryRows, buildMonthlyGoalComparisonRows } from "@/lib/utils/monthlyGoalVisualization";
 import { calcMonthlyBehaviorStats } from "@/lib/utils/calcMonthlyBehaviorStats";
+import { resolveMonthlyPlanHistoryAnchor } from "@/lib/utils/monthlyPlanHistory";
 import { fetchDashboardDailyLogs, fetchPredictions, fetchCareerLogsForDashboard } from "@/lib/queries/dailyLogs";
 import { fetchSettings } from "@/lib/queries/settings";
 import { fetchEnrichedLogs } from "@/lib/queries/analytics";
@@ -180,6 +181,14 @@ export default async function DashboardPage() {
   // 今月目標進捗の比較値: 最新体重優先 (単日ノイズ込みの実測値で進捗を把握する)
   // GoalNavigator のペース分析 (refWeight) は引き続き 7日平均優先のままとする
   const comparisonWeight = readinessMetrics.current_weight ?? readinessMetrics.weight_7d_avg;
+  const monthlyPlanHistory = resolveMonthlyPlanHistoryAnchor({
+    explicitStartMonth: settings.monthlyPlanStartMonth,
+    explicitStartWeight: settings.monthlyPlanStartWeight,
+    goalDeadlineDate: contestDate ?? null,
+    overrides: settings.monthlyPlanOverrides,
+    currentWeight: comparisonWeight,
+    today,
+  });
 
   // 当月最小体重: 今月の実測ログから最小値を導出
   const currentMonthPrefix = today.slice(0, 7);
@@ -192,6 +201,8 @@ export default async function DashboardPage() {
   const monthlyGoalProgress = calcMonthlyGoalProgress({
     contestDate: contestDate ?? null,
     targetWeight: goalWeight ?? null,
+    monthlyPlanStartMonth: monthlyPlanHistory.startMonth,
+    monthlyPlanStartWeight: monthlyPlanHistory.startWeight,
     monthlyPlanOverrides: settings.monthlyPlanOverrides,
     comparisonWeight,
     today,
@@ -201,10 +212,11 @@ export default async function DashboardPage() {
   // 月次計画 (#101) を構築して可視化用データを生成する。
   // comparisonWeight が null (体重記録なし) の場合はプランを構築しない。
   const monthlyGoalPlan =
-    contestDate && goalWeight !== undefined && comparisonWeight !== null
+    contestDate && goalWeight !== undefined && monthlyPlanHistory.startWeight !== null
       ? buildMonthlyGoalPlan({
-          currentWeight: comparisonWeight,
+          currentWeight: monthlyPlanHistory.startWeight,
           today,
+          planStartMonth: monthlyPlanHistory.startMonth,
           finalGoalWeight: goalWeight,
           goalDeadlineDate: contestDate,
           monthlyActuals: [],

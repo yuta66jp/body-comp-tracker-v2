@@ -40,6 +40,10 @@ export interface AppSettings {
   height: number | null;
   /** 活動係数 */
   activityFactor: number | null;
+  /** 月次計画の開始時基準体重 (kg) */
+  monthlyPlanStartWeight: number | null;
+  /** 月次計画の開始月 ("YYYY-MM") */
+  monthlyPlanStartMonth: string | null;
   /** 月次目標体重の手動 override リスト。DB: monthly_plan_overrides (value_str に JSON 格納) */
   monthlyPlanOverrides: MonthlyGoalOverride[] | null;
 }
@@ -94,6 +98,8 @@ export function mapToAppSettings(rows: SettingsRow[]): AppSettings {
     age:            getNum("age"),
     height:         getNum("height_cm"),
     activityFactor: getNum("activity_factor"),
+    monthlyPlanStartWeight: getNum("monthly_plan_start_weight"),
+    monthlyPlanStartMonth: getStr("monthly_plan_start_month"),
 
     // JSON 配列文字列 — value_str を JSON.parse して返す
     monthlyPlanOverrides: (() => {

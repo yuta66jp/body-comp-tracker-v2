@@ -281,6 +281,26 @@ describe("buildMonthlyGoalSummaryRows — 過去月", () => {
   });
 });
 
+describe("buildMonthlyGoalSummaryRows — 履歴 plan", () => {
+  it("planStartMonth を過去に固定すると過去月の計画行も保持される", () => {
+    const plan = buildMonthlyGoalPlan({
+      currentWeight: 78.0,
+      today: "2026-04-02",
+      planStartMonth: "2026-03",
+      finalGoalWeight: 72.0,
+      goalDeadlineDate: "2026-06-30",
+      monthlyActuals: [],
+      overrides: [{ month: "2026-05", targetWeight: 74.0 }],
+    });
+
+    const rows = buildMonthlyGoalSummaryRows(plan, [log("2026-03-31", 76.8)], "2026-04-02");
+    expect(rows.map((row) => row.month)).toEqual(["2026-03", "2026-04", "2026-05", "2026-06"]);
+    expect(rows[0]?.actualMonthEndWeight).toBe(76.8);
+    expect(rows[0]?.isCurrentMonth).toBe(false);
+    expect(rows[0]?.isFutureMonth).toBe(false);
+  });
+});
+
 // ─── buildMonthlyGoalSummaryRows — 月初体重 ─────────────────────────────────
 
 describe("buildMonthlyGoalSummaryRows — 月初体重の定義", () => {

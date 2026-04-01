@@ -7,6 +7,7 @@ import type { Setting } from "@/lib/supabase/types";
 import { toJstDateStr } from "@/lib/utils/date";
 import type { MonthlyGoalOverride } from "@/lib/utils/monthlyGoalPlan";
 import { MonthlyGoalPlanSection } from "@/components/settings/MonthlyGoalPlanSection";
+import { resolveMonthlyPlanHistoryAnchor } from "@/lib/utils/monthlyPlanHistory";
 
 interface SettingsFormProps {
   initialSettings: Setting[];
@@ -210,6 +211,21 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
   const isBulk = values["current_phase"] === "Bulk";
   const deadlineLabel = isBulk ? "目標日" : "コンテスト日";
   const seasonSectionTitle = isBulk ? "シーズン・目標" : "シーズン・コンテスト";
+  const resolvedMonthlyPlanHistory = useMemo(
+    () =>
+      resolveMonthlyPlanHistoryAnchor({
+        explicitStartMonth: values["monthly_plan_start_month"] || null,
+        explicitStartWeight: (() => {
+          const parsed = parseFloat(values["monthly_plan_start_weight"] ?? "");
+          return isFinite(parsed) ? parsed : null;
+        })(),
+        goalDeadlineDate: values["contest_date"] || null,
+        overrides: monthlyPlanOverrides,
+        currentWeight,
+        today,
+      }),
+    [values, monthlyPlanOverrides, currentWeight, today]
+  );
 
   /** PFC由来kcal と target_calories_kcal の差分（絶対値 > 100 kcal で警告）*/
   const pfcConsistencyWarning = useMemo((): string | null => {
@@ -253,6 +269,10 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
       current_phase:           values["current_phase"] ?? "",
       sex:                     values["sex"] ?? "",
       contest_date:            values["contest_date"] ?? "",
+      monthly_plan_start_month: resolvedMonthlyPlanHistory.startMonth ?? "",
+      monthly_plan_start_weight: resolvedMonthlyPlanHistory.startWeight !== null
+        ? String(resolvedMonthlyPlanHistory.startWeight)
+        : "",
       monthly_plan_overrides:  monthlyPlanOverrides.length > 0
         ? JSON.stringify(monthlyPlanOverrides)
         : "",
@@ -401,6 +421,8 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
           phase={values["current_phase"] ?? "Cut"}
           currentWeight={currentWeight}
           today={today}
+          planStartMonth={resolvedMonthlyPlanHistory.startMonth}
+          planStartWeight={resolvedMonthlyPlanHistory.startWeight}
           overrides={monthlyPlanOverrides}
           onOverridesChange={setMonthlyPlanOverrides}
         />
