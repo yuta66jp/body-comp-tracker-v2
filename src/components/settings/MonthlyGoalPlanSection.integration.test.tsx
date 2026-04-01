@@ -171,6 +171,26 @@ describe("MonthlyGoalPlanSection — 月別テーブル表示", () => {
     const inputs = screen.getAllByRole("spinbutton");
     expect(inputs).toHaveLength(3);
   });
+
+  it("前月 override が残っていても invalid エラーではなく月別テーブルを表示する", () => {
+    render(
+      <MonthlyGoalPlanSection
+        goalWeight={70}
+        contestDate="2026-06-30"
+        currentWeight={75}
+        today="2026-04-02"
+        overrides={[
+          { month: "2026-03", targetWeight: 74 },
+          { month: "2026-05", targetWeight: 71.5 },
+        ]}
+        onOverridesChange={() => {}}
+      />
+    );
+
+    expect(screen.queryByText(/計画期間外の月に手動設定が含まれています/)).not.toBeInTheDocument();
+    expect(screen.getByText("2026年4月")).toBeInTheDocument();
+    expect(screen.getByText("2026年6月")).toBeInTheDocument();
+  });
 });
 
 // ─── シナリオ 3: インライン編集 ─────────────────────────────────────────────

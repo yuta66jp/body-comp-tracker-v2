@@ -11,11 +11,44 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidateAfterSettingsMutation } from "@/lib/cache/revalidate";
 import { parseSettings } from "@/lib/schemas/settingsSchema";
 import type { SettingsInput } from "@/lib/schemas/settingsSchema";
+import { toJstDateStr, parseLocalDateStr } from "@/lib/utils/date";
+import { normalizeMonthlyGoalOverrides } from "@/lib/utils/monthlyGoalPlan";
 
 /** saveSettings の戻り値 */
 export type SaveSettingsResult =
   | { ok: true }
   | { ok: false; error: string };
+
+export function normalizeMonthlyPlanOverridesBeforeSave(
+  input: SettingsInput,
+  today: string = toJstDateStr()
+): SettingsInput {
+  const rawOverrides = input.monthly_plan_overrides.trim();
+  const contestDate = input.contest_date.trim();
+
+  if (rawOverrides === "" || parseLocalDateStr(contestDate) === null) {
+    return input;
+  }
+
+  try {
+    const parsed = JSON.parse(rawOverrides);
+    if (!Array.isArray(parsed)) return input;
+
+    const normalized = normalizeMonthlyGoalOverrides({
+      overrides: parsed,
+      today,
+      goalDeadlineDate: contestDate,
+    });
+
+    return {
+      ...input,
+      monthly_plan_overrides:
+        normalized.length > 0 ? JSON.stringify(normalized) : "",
+    };
+  } catch {
+    return input;
+  }
+}
 
 /**
  * 設定値を検証して Supabase の settings テーブルに upsert する。
@@ -26,8 +59,10 @@ export type SaveSettingsResult =
 export async function saveSettings(
   input: SettingsInput
 ): Promise<SaveSettingsResult> {
+  const normalizedInput = normalizeMonthlyPlanOverridesBeforeSave(input);
+
   // 1. バリデーション・変換（settingsSchema が canonical source）
-  const parsed = parseSettings(input);
+  const parsed = parseSettings(normalizedInput);
   if (!parsed.ok) {
     const messages = parsed.errors.map((e) => `${e.field}: ${e.message}`).join(", ");
     return { ok: false, error: `入力値が不正です。${messages}` };
