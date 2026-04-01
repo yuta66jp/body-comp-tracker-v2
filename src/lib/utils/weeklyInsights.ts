@@ -12,6 +12,10 @@
 
 import type { WeeklyReviewData } from "./calcWeeklyReview";
 import { DAY_TAG_LABELS } from "./dayTags";
+import {
+  WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE,
+  WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE,
+} from "./weeklyNutritionRanges";
 
 // ── 公開型 ────────────────────────────────────────────────────────────────────
 
@@ -42,16 +46,6 @@ function fmt0(v: number): string {
 function fmtSigned(v: number, decimals: number): string {
   return `${v > 0 ? "+" : ""}${v.toFixed(decimals)}`;
 }
-
-const PROTEIN_G_PER_KG_BW_TARGET = {
-  min: 1.6,
-  max: 2.2,
-} as const;
-
-const FAT_CALORIES_RATIO_TARGET = {
-  min: 20,
-  max: 30,
-} as const;
 
 // ── メイン関数 ────────────────────────────────────────────────────────────────
 
@@ -177,16 +171,16 @@ export function deriveWeeklyInsightItems(
     const g = fmt0(nutrition.avgProtein);
     const gPerKg = nutrition.proteinGPerKgBw.toFixed(2);
     const inRange =
-      nutrition.proteinGPerKgBw >= PROTEIN_G_PER_KG_BW_TARGET.min &&
-      nutrition.proteinGPerKgBw <= PROTEIN_G_PER_KG_BW_TARGET.max;
+      nutrition.proteinGPerKgBw >= WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE.min &&
+      nutrition.proteinGPerKgBw <= WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE.max;
     items.push({
-      status: inRange ? "ok" : nutrition.proteinGPerKgBw < PROTEIN_G_PER_KG_BW_TARGET.min ? "caution" : "neutral",
+      status: inRange ? "ok" : nutrition.proteinGPerKgBw < WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE.min ? "caution" : "neutral",
       title: `タンパク質 ${gPerKg} g/kg BW（平均 ${g} g/日）`,
       detail: inRange
         ? "推奨レンジ内を維持"
-        : nutrition.proteinGPerKgBw < PROTEIN_G_PER_KG_BW_TARGET.min
-        ? "やや低め — 目安: 1.6〜2.2 g/kg BW"
-        : "高めだが十分量は確保",
+        : nutrition.proteinGPerKgBw < WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE.min
+        ? "やや低め — 目安: 1.8〜2.7 g/kg BW"
+        : "高め — 目安: 1.8〜2.7 g/kg BW",
     });
   }
 
@@ -194,16 +188,16 @@ export function deriveWeeklyInsightItems(
   if (nutrition.fatCaloriesRatioPct !== null) {
     const fatPct = nutrition.fatCaloriesRatioPct.toFixed(0);
     const inRange =
-      nutrition.fatCaloriesRatioPct >= FAT_CALORIES_RATIO_TARGET.min &&
-      nutrition.fatCaloriesRatioPct <= FAT_CALORIES_RATIO_TARGET.max;
+      nutrition.fatCaloriesRatioPct >= WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE.min &&
+      nutrition.fatCaloriesRatioPct <= WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE.max;
     items.push({
       status: inRange ? "ok" : "caution",
       title: `脂質比 ${fatPct}%`,
       detail: inRange
         ? "推奨レンジ内を維持"
-        : nutrition.fatCaloriesRatioPct < FAT_CALORIES_RATIO_TARGET.min
-        ? "やや低め — 目安: 20〜30%"
-        : "やや高め — 目安: 20〜30%",
+        : nutrition.fatCaloriesRatioPct < WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE.min
+        ? "やや低め — 目安: 15〜30%"
+        : "やや高め — 目安: 15〜30%",
     });
   }
 

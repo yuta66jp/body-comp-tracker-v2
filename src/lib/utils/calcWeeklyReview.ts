@@ -20,6 +20,10 @@ import type { ReadinessMetrics } from "./calcReadiness";
 import type { DataQualityReport } from "./calcDataQuality";
 import { addDaysStr, dateRangeStr, toJstDateStr } from "./date";
 import { DAY_TAG_LABELS } from "./dayTags";
+import {
+  WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE,
+  WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE,
+} from "./weeklyNutritionRanges";
 
 // ─── 公開型 ─────────────────────────────────────────────────────────────────
 
@@ -288,15 +292,18 @@ function generateFindings(
     const pStr = fmt0(nutrition.avgProtein);
     if (nutrition.proteinGPerKgBw !== null) {
       const gPerKg = nutrition.proteinGPerKgBw.toFixed(2);
-      if (nutrition.proteinGPerKgBw >= 1.6 && nutrition.proteinGPerKgBw <= 2.2) {
+      if (
+        nutrition.proteinGPerKgBw >= WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE.min &&
+        nutrition.proteinGPerKgBw <= WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE.max
+      ) {
         findings.push(
           `平均タンパク質 ${pStr} g（${gPerKg} g/kg BW）― 推奨レンジ内`
         );
       } else {
         findings.push(
-          nutrition.proteinGPerKgBw < 1.6
-            ? `平均タンパク質 ${pStr} g（${gPerKg} g/kg BW）― やや低め（目安: 1.6〜2.2 g/kg BW）`
-            : `平均タンパク質 ${pStr} g（${gPerKg} g/kg BW）― 高め（目安: 1.6〜2.2 g/kg BW）`
+          nutrition.proteinGPerKgBw < WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE.min
+            ? `平均タンパク質 ${pStr} g（${gPerKg} g/kg BW）― やや低め（目安: 1.8〜2.7 g/kg BW）`
+            : `平均タンパク質 ${pStr} g（${gPerKg} g/kg BW）― 高め（目安: 1.8〜2.7 g/kg BW）`
         );
       }
     } else {
@@ -305,13 +312,16 @@ function generateFindings(
   }
   if (nutrition.fatCaloriesRatioPct !== null) {
     const fatPct = nutrition.fatCaloriesRatioPct.toFixed(0);
-    if (nutrition.fatCaloriesRatioPct >= 20 && nutrition.fatCaloriesRatioPct <= 30) {
+    if (
+      nutrition.fatCaloriesRatioPct >= WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE.min &&
+      nutrition.fatCaloriesRatioPct <= WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE.max
+    ) {
       findings.push(`脂質比 ${fatPct}% ― 推奨レンジ内`);
     } else {
       findings.push(
-        nutrition.fatCaloriesRatioPct < 20
-          ? `脂質比 ${fatPct}% ― やや低め（目安: 20〜30%）`
-          : `脂質比 ${fatPct}% ― やや高め（目安: 20〜30%）`
+        nutrition.fatCaloriesRatioPct < WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE.min
+          ? `脂質比 ${fatPct}% ― やや低め（目安: 15〜30%）`
+          : `脂質比 ${fatPct}% ― やや高め（目安: 15〜30%）`
       );
     }
   }

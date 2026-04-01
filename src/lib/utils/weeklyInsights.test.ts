@@ -311,7 +311,7 @@ describe("deriveWeeklyInsightItems", () => {
       expect(pItem.detail).toContain("やや低め");
     });
 
-    it("proteinGPerKgBw が高め → status neutral", () => {
+    it("proteinGPerKgBw が 2.43 なら推奨レンジ内として status ok", () => {
       const data = makeData({
         nutrition: {
           avgCalories: 2200,
@@ -321,6 +321,25 @@ describe("deriveWeeklyInsightItems", () => {
           daysLogged: 7,
           proteinRatioPct: 30.9,
           proteinGPerKgBw: 2.43,
+          fatCaloriesRatioPct: 25,
+        },
+      });
+      const items = deriveWeeklyInsightItems(data, "Cut");
+      const pItem = items[2]!;
+      expect(pItem.status).toBe("ok");
+      expect(pItem.detail).toContain("推奨レンジ内");
+    });
+
+    it("proteinGPerKgBw が 2.80 と高すぎる場合は status neutral", () => {
+      const data = makeData({
+        nutrition: {
+          avgCalories: 2200,
+          avgProtein: 196,
+          avgFat: 60,
+          avgCarbs: 220,
+          daysLogged: 7,
+          proteinRatioPct: 35.6,
+          proteinGPerKgBw: 2.8,
           fatCaloriesRatioPct: 25,
         },
       });
@@ -375,7 +394,7 @@ describe("deriveWeeklyInsightItems", () => {
       expect(fatItem.detail).toContain("推奨レンジ内");
     });
 
-    it("fatCaloriesRatioPct が低すぎる → status caution", () => {
+    it("fatCaloriesRatioPct が 17.5 なら推奨レンジ内として status ok", () => {
       const data = makeData({
         nutrition: {
           avgCalories: 1800,
@@ -386,6 +405,25 @@ describe("deriveWeeklyInsightItems", () => {
           proteinRatioPct: 28.9,
           proteinGPerKgBw: 1.86,
           fatCaloriesRatioPct: 17.5,
+        },
+      });
+      const items = deriveWeeklyInsightItems(data, "Cut");
+      const fatItem = items[3]!;
+      expect(fatItem.status).toBe("ok");
+      expect(fatItem.detail).toContain("推奨レンジ内");
+    });
+
+    it("fatCaloriesRatioPct が低すぎる → status caution", () => {
+      const data = makeData({
+        nutrition: {
+          avgCalories: 1800,
+          avgProtein: 130,
+          avgFat: 28,
+          avgCarbs: 240,
+          daysLogged: 7,
+          proteinRatioPct: 28.9,
+          proteinGPerKgBw: 1.86,
+          fatCaloriesRatioPct: 14,
         },
       });
       const items = deriveWeeklyInsightItems(data, "Cut");
