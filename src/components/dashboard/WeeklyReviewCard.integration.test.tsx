@@ -80,14 +80,21 @@ describe("WeeklyReviewCard", () => {
     expect(screen.getByText("脂質")).toBeInTheDocument();
     expect(screen.getByText("g/kg BW")).toBeInTheDocument();
     expect(screen.getByText("(140g)")).toBeInTheDocument();
+    expect(screen.getByText("(50g)")).toBeInTheDocument();
+    expect(
+      screen.getByText("推奨レンジ 1.8〜2.7 g/kg BW（Roberts et al. 2020）")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("推奨レンジ 15〜30%（Helms et al. 2014）")
+    ).toBeInTheDocument();
     expect(screen.queryByText("タンパク質比")).not.toBeInTheDocument();
-    expect(screen.getAllByText(/脂質比 23%/)).toHaveLength(1);
+    expect(screen.getAllByText("推奨レンジ")).toHaveLength(3);
   });
 
   it("右列の所見に脂質評価カードを追加する", () => {
     render(<WeeklyReviewCard data={makeData()} phase="Cut" />);
 
-    expect(screen.getByText("脂質比 23%")).toBeInTheDocument();
+    expect(screen.getByText("脂質比 23%（平均 50 g/日）")).toBeInTheDocument();
     expect(screen.getAllByText("推奨レンジ内を維持")).toHaveLength(2);
   });
 
@@ -114,6 +121,13 @@ describe("WeeklyReviewCard", () => {
     expect(docText).not.toMatch(/NaN|undefined/);
     expect(screen.queryByText(/タンパク質 2\.00 g\/kg BW/)).not.toBeInTheDocument();
     expect(screen.queryByText(/脂質比 23%/)).not.toBeInTheDocument();
+    expect(screen.queryByText("(50g)")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("推奨レンジ 1.8〜2.7 g/kg BW（Roberts et al. 2020）")
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("推奨レンジ 15〜30%（Helms et al. 2014）")
+    ).not.toBeInTheDocument();
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 });

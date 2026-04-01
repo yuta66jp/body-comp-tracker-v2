@@ -187,12 +187,13 @@ export function deriveWeeklyInsightItems(
   // ── 4. 脂質 ───────────────────────────────────────────────────────────────
   if (nutrition.fatCaloriesRatioPct !== null) {
     const fatPct = nutrition.fatCaloriesRatioPct.toFixed(0);
+    const avgFatText = nutrition.avgFat !== null ? `（平均 ${fmt0(nutrition.avgFat)} g/日）` : "";
     const inRange =
       nutrition.fatCaloriesRatioPct >= WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE.min &&
       nutrition.fatCaloriesRatioPct <= WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE.max;
     items.push({
       status: inRange ? "ok" : "caution",
-      title: `脂質比 ${fatPct}%`,
+      title: `脂質比 ${fatPct}%${avgFatText}`,
       detail: inRange
         ? "推奨レンジ内を維持"
         : nutrition.fatCaloriesRatioPct < WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE.min

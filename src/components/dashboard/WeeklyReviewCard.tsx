@@ -39,6 +39,10 @@ import type { AnalyticsAvailability } from "@/lib/analytics/status";
 import { InsightCardList } from "@/components/ui/InsightCard";
 import { deriveWeeklyInsightItems } from "@/lib/utils/weeklyInsights";
 import { SectionLabel } from "@/components/ui/SectionLabel";
+import {
+  WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE,
+  WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE,
+} from "@/lib/utils/weeklyNutritionRanges";
 
 interface Props {
   data: WeeklyReviewData;
@@ -70,6 +74,32 @@ const BW_RATE_STATUS_CONFIG: Record<
   slightly_fast:  { label: "やや速め",     color: "text-amber-600 dark:text-amber-400" },
   too_fast:       { label: "速すぎ",       color: "text-rose-600 dark:text-rose-400" },
 };
+
+type NutritionRangeStatus = "in_range" | "low" | "high";
+
+const NUTRITION_RANGE_STATUS_CONFIG: Record<
+  NutritionRangeStatus,
+  { label: string; color: string }
+> = {
+  in_range: { label: "推奨レンジ", color: "text-emerald-600 dark:text-emerald-400" },
+  low:      { label: "やや低め",   color: "text-amber-600 dark:text-amber-400" },
+  high:     { label: "高め",       color: "text-slate-500 dark:text-slate-400" },
+};
+
+const FAT_RANGE_STATUS_CONFIG: Record<
+  NutritionRangeStatus,
+  { label: string; color: string }
+> = {
+  in_range: { label: "推奨レンジ", color: "text-emerald-600 dark:text-emerald-400" },
+  low:      { label: "やや低め",   color: "text-amber-600 dark:text-amber-400" },
+  high:     { label: "やや高め",   color: "text-amber-600 dark:text-amber-400" },
+};
+
+function calcRangeStatus(value: number, min: number, max: number): NutritionRangeStatus {
+  if (value < min) return "low";
+  if (value > max) return "high";
+  return "in_range";
+}
 
 function calcBwRateStatus(bwRatePct: number): BWRateStatus {
   if (bwRatePct < 0)    return "gaining";
@@ -282,10 +312,43 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
                 unit="g/kg BW"
                 sub={nutrition.avgProtein !== null ? `(${fmt0(nutrition.avgProtein)}g)` : undefined}
               />
+              {nutrition.proteinGPerKgBw !== null && (() => {
+                const status = calcRangeStatus(
+                  nutrition.proteinGPerKgBw,
+                  WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE.min,
+                  WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE.max
+                );
+                const cfg = NUTRITION_RANGE_STATUS_CONFIG[status];
+                return (
+                  <div className="flex items-center justify-between py-0.5">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                      推奨レンジ 1.8〜2.7 g/kg BW（Roberts et al. 2020）
+                    </span>
+                    <span className={`text-[11px] font-semibold ${cfg.color}`}>{cfg.label}</span>
+                  </div>
+                );
+              })()}
               <StatRow
                 label="脂質"
                 value={nutrition.fatCaloriesRatioPct !== null ? `${nutrition.fatCaloriesRatioPct.toFixed(0)}%` : "—"}
+                sub={nutrition.avgFat !== null ? `(${fmt0(nutrition.avgFat)}g)` : undefined}
               />
+              {nutrition.fatCaloriesRatioPct !== null && (() => {
+                const status = calcRangeStatus(
+                  nutrition.fatCaloriesRatioPct,
+                  WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE.min,
+                  WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE.max
+                );
+                const cfg = FAT_RANGE_STATUS_CONFIG[status];
+                return (
+                  <div className="flex items-center justify-between py-0.5">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                      推奨レンジ 15〜30%（Helms et al. 2014）
+                    </span>
+                    <span className={`text-[11px] font-semibold ${cfg.color}`}>{cfg.label}</span>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 

@@ -390,7 +390,7 @@ describe("deriveWeeklyInsightItems", () => {
       const items = deriveWeeklyInsightItems(makeData(), "Cut");
       const fatItem = items[3]!;
       expect(fatItem.status).toBe("ok");
-      expect(fatItem.title).toContain("脂質比");
+      expect(fatItem.title).toContain("脂質比 30%（平均 60 g/日）");
       expect(fatItem.detail).toContain("推奨レンジ内");
     });
 
@@ -409,6 +409,7 @@ describe("deriveWeeklyInsightItems", () => {
       });
       const items = deriveWeeklyInsightItems(data, "Cut");
       const fatItem = items[3]!;
+      expect(fatItem.title).toContain("平均 35 g/日");
       expect(fatItem.status).toBe("ok");
       expect(fatItem.detail).toContain("推奨レンジ内");
     });
@@ -428,6 +429,7 @@ describe("deriveWeeklyInsightItems", () => {
       });
       const items = deriveWeeklyInsightItems(data, "Cut");
       const fatItem = items[3]!;
+      expect(fatItem.title).toContain("平均 28 g/日");
       expect(fatItem.status).toBe("caution");
       expect(fatItem.detail).toContain("やや低め");
     });
@@ -447,6 +449,24 @@ describe("deriveWeeklyInsightItems", () => {
       });
       const items = deriveWeeklyInsightItems(data, "Cut");
       expect(items).toHaveLength(3);
+    });
+
+    it("avgFat が null なら脂質カード title に平均 g/日を出さない", () => {
+      const data = makeData({
+        nutrition: {
+          avgCalories: 1800,
+          avgProtein: 130,
+          avgFat: null,
+          avgCarbs: 200,
+          daysLogged: 7,
+          proteinRatioPct: 28.9,
+          proteinGPerKgBw: 1.86,
+          fatCaloriesRatioPct: 18,
+        },
+      });
+      const items = deriveWeeklyInsightItems(data, "Cut");
+      const fatItem = items[3]!;
+      expect(fatItem.title).toBe("脂質比 18%");
     });
   });
 
