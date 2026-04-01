@@ -16,6 +16,8 @@ const fullRows = [
   { key: "age",                 value_num: 30,     value_str: null },
   { key: "height_cm",           value_num: 175,    value_str: null },
   { key: "activity_factor",     value_num: 1.55,   value_str: null },
+  { key: "monthly_plan_start_weight", value_num: 78.2, value_str: null },
+  { key: "monthly_plan_start_month",  value_num: null, value_str: "2026-03" },
 ];
 
 // ─── 正常系 ──────────────────────────────────────────────────────────────────
@@ -40,6 +42,8 @@ describe("mapToAppSettings — 正常系", () => {
     expect(result.age).toBe(30);
     expect(result.height).toBe(175);
     expect(result.activityFactor).toBe(1.55);
+    expect(result.monthlyPlanStartWeight).toBe(78.2);
+    expect(result.monthlyPlanStartMonth).toBe("2026-03");
   });
 
   test("value_num フィールドが number 型として返る", () => {
@@ -48,6 +52,7 @@ describe("mapToAppSettings — 正常系", () => {
     expect(typeof result.age).toBe("number");
     expect(typeof result.height).toBe("number");
     expect(typeof result.activityFactor).toBe("number");
+    expect(typeof result.monthlyPlanStartWeight).toBe("number");
   });
 
   test("value_str フィールドが string 型として返る", () => {
@@ -55,6 +60,7 @@ describe("mapToAppSettings — 正常系", () => {
     expect(typeof result.currentSeason).toBe("string");
     expect(typeof result.currentPhase).toBe("string");
     expect(typeof result.gender).toBe("string");
+    expect(typeof result.monthlyPlanStartMonth).toBe("string");
   });
 });
 
@@ -79,6 +85,8 @@ describe("mapToAppSettings — 欠損系", () => {
     expect(result.age).toBeNull();
     expect(result.height).toBeNull();
     expect(result.activityFactor).toBeNull();
+    expect(result.monthlyPlanStartWeight).toBeNull();
+    expect(result.monthlyPlanStartMonth).toBeNull();
   });
 
   test("空配列を渡すと全フィールドが null の AppSettings を返す", () => {

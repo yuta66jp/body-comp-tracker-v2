@@ -20,6 +20,7 @@ export const NUMERIC_SETTING_KEYS = [
   "target_protein_g",
   "target_fat_g",
   "target_carbs_g",
+  "monthly_plan_start_weight",
 ] as const;
 
 /** value_str に保存する文字列系キー */
@@ -28,6 +29,7 @@ export const STRING_SETTING_KEYS = [
   "current_phase",
   "sex",
   "contest_date",
+  "monthly_plan_start_month",
   "monthly_plan_overrides",
 ] as const;
 
@@ -78,6 +80,8 @@ export interface SettingsInput {
   current_phase: string;
   sex: string;
   contest_date: string;
+  monthly_plan_start_month: string;
+  monthly_plan_start_weight: string;
   /** JSON 文字列化した MonthlyGoalOverride[]。空のときは "" を渡す。 */
   monthly_plan_overrides: string;
 }
@@ -102,6 +106,8 @@ export const EMPTY_SETTINGS_INPUT: SettingsInput = {
   current_phase: "",
   sex: "",
   contest_date: "",
+  monthly_plan_start_month: "",
+  monthly_plan_start_weight: "",
   monthly_plan_overrides: "",
 };
 
@@ -143,11 +149,13 @@ const NUMERIC_RULES: Record<NumericSettingKey, NumericRule> = {
   target_protein_g:     { min: 0,   max: 500,  label: "目標タンパク質" },
   target_fat_g:         { min: 0,   max: 300,  label: "目標脂質" },
   target_carbs_g:       { min: 0,   max: 800,  label: "目標炭水化物" },
+  monthly_plan_start_weight: { min: 20, max: 300, label: "月次計画開始時体重" },
 };
 
 const VALID_PHASES = ["Cut", "Bulk"] as const;
 const VALID_SEXES = ["male", "female"] as const;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const YEAR_MONTH_PATTERN = /^\d{4}-\d{2}$/;
 
 // ─── ヘルパー ────────────────────────────────────────────────────────────────
 
@@ -173,6 +181,12 @@ function isValidDate(s: string): boolean {
     d.getUTCMonth() + 1 === month &&
     d.getUTCDate() === day
   );
+}
+
+function isValidYearMonth(s: string): boolean {
+  if (!YEAR_MONTH_PATTERN.test(s)) return false;
+  const [year, month] = s.split("-").map(Number) as [number, number];
+  return year >= 1900 && year <= 9999 && month >= 1 && month <= 12;
 }
 
 // ─── メインのパース・バリデーション関数 ─────────────────────────────────────
@@ -248,6 +262,16 @@ export function parseSettings(input: SettingsInput): ParseSettingsResult {
       errors.push({ field: "contest_date", message: "コンテスト日は YYYY-MM-DD 形式の有効な日付で入力してください" });
     } else {
       records.push({ key: "contest_date", value_num: null, value_str: raw !== "" ? raw : null });
+    }
+  }
+
+  // ── monthly_plan_start_month ─────────────────────────────────────────────
+  {
+    const raw = (input.monthly_plan_start_month ?? "").trim();
+    if (raw !== "" && !isValidYearMonth(raw)) {
+      errors.push({ field: "monthly_plan_start_month", message: "月次計画開始月は YYYY-MM 形式の有効な年月で入力してください" });
+    } else {
+      records.push({ key: "monthly_plan_start_month", value_num: null, value_str: raw !== "" ? raw : null });
     }
   }
 

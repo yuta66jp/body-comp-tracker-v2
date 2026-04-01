@@ -15,6 +15,7 @@ import {
 } from "@/lib/utils/monthlyGoalPlan";
 import type { MonthlyGoalOverride } from "@/lib/utils/monthlyGoalPlan";
 import { calcDaysLeft } from "@/lib/utils/date";
+import { resolveMonthlyPlanHistoryAnchor } from "@/lib/utils/monthlyPlanHistory";
 
 // ─── 閾値定数 ─────────────────────────────────────────────────────────────────
 
@@ -162,12 +163,23 @@ function calcMonthlyProgressState(
 export function calcMonthlyGoalProgress(input: {
   contestDate: string | null;
   targetWeight: number | null;
+  monthlyPlanStartMonth: string | null;
+  monthlyPlanStartWeight: number | null;
   monthlyPlanOverrides: MonthlyGoalOverride[] | null;
   comparisonWeight: number | null;
   today: string;
   phase: string;
 }): MonthlyGoalProgress {
-  const { contestDate, targetWeight, monthlyPlanOverrides, comparisonWeight, today, phase } = input;
+  const {
+    contestDate,
+    targetWeight,
+    monthlyPlanStartMonth,
+    monthlyPlanStartWeight,
+    monthlyPlanOverrides,
+    comparisonWeight,
+    today,
+    phase,
+  } = input;
 
   const unavailable: MonthlyGoalProgress = {
     hasData: false,
@@ -186,11 +198,23 @@ export function calcMonthlyGoalProgress(input: {
     return unavailable;
   }
 
-  // buildMonthlyGoalPlan は currentWeight を起点として使う。
-  // GoalNavigator と同じ refWeight (7日平均優先) を渡すことでプランの起点を統一する。
-  const plan = buildMonthlyGoalPlan({
+  const history = resolveMonthlyPlanHistoryAnchor({
+    explicitStartMonth: monthlyPlanStartMonth,
+    explicitStartWeight: monthlyPlanStartWeight,
+    goalDeadlineDate: contestDate,
+    overrides: monthlyPlanOverrides,
     currentWeight: comparisonWeight,
     today,
+  });
+
+  if (history.startWeight === null) {
+    return unavailable;
+  }
+
+  const plan = buildMonthlyGoalPlan({
+    currentWeight: history.startWeight,
+    today,
+    planStartMonth: history.startMonth,
     finalGoalWeight: targetWeight,
     goalDeadlineDate: contestDate,
     monthlyActuals: [],

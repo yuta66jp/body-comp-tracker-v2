@@ -35,6 +35,8 @@ interface MonthlyGoalPlanSectionProps {
   phase?: string;
   currentWeight: number | null;
   today: string;
+  planStartMonth?: string | null;
+  planStartWeight?: number | null;
   overrides: MonthlyGoalOverride[];
   onOverridesChange: (overrides: MonthlyGoalOverride[]) => void;
 }
@@ -110,6 +112,8 @@ export function MonthlyGoalPlanSection({
   phase,
   currentWeight,
   today,
+  planStartMonth,
+  planStartWeight,
   overrides,
   onOverridesChange,
 }: MonthlyGoalPlanSectionProps) {
@@ -144,6 +148,8 @@ export function MonthlyGoalPlanSection({
       contestDate={contestDate}
       currentWeight={currentWeight}
       today={today}
+      planStartMonth={planStartMonth}
+      planStartWeight={planStartWeight}
       overrides={overrides}
       onOverridesChange={onOverridesChange}
       deadlineLabel={deadlineLabel}
@@ -179,6 +185,8 @@ interface PlanContentProps {
   contestDate: string;
   currentWeight: number;
   today: string;
+  planStartMonth?: string | null;
+  planStartWeight?: number | null;
   overrides: MonthlyGoalOverride[];
   onOverridesChange: (overrides: MonthlyGoalOverride[]) => void;
   deadlineLabel: string;
@@ -189,6 +197,8 @@ function PlanContent({
   contestDate,
   currentWeight,
   today,
+  planStartMonth,
+  planStartWeight,
   overrides,
   onOverridesChange,
   deadlineLabel,
@@ -199,8 +209,9 @@ function PlanContent({
   const plan = useMemo(
     () =>
       buildMonthlyGoalPlan({
-        currentWeight,
+        currentWeight: planStartWeight ?? currentWeight,
         today,
+        planStartMonth,
         finalGoalWeight: goalWeight,
         goalDeadlineDate: contestDate,
         monthlyActuals: [],
@@ -309,6 +320,7 @@ function PlanContent({
             {plan.entries.map((entry, idx) => {
               const isLast = idx === plan.entries.length - 1;
               const isCurrent = entry.month === today_month;
+              const isPast = entry.month < today_month;
               const isManual = entry.source === "manual";
 
               return (
@@ -333,7 +345,7 @@ function PlanContent({
 
                   {/* 目標体重 */}
                   <td className="px-3 py-2 text-right">
-                    {isLast ? (
+                    {isLast || isPast ? (
                       <span className="font-semibold text-teal-600 dark:text-teal-400">
                         {entry.targetWeight.toFixed(1)} kg
                       </span>
@@ -382,6 +394,19 @@ function PlanContent({
                     {isLast ? (
                       <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-600 dark:bg-teal-900/30 dark:text-teal-400">
                         終点
+                      </span>
+                    ) : isPast && isManual ? (
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+                          履歴
+                        </span>
+                        <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                          手動
+                        </span>
+                      </div>
+                    ) : isPast ? (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+                        履歴
                       </span>
                     ) : isManual ? (
                       <div className="flex flex-col items-center gap-0.5">
@@ -436,7 +461,7 @@ function PlanContent({
 
       {/* 補足説明 */}
       <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-        目標体重欄を編集して Enter / フォーカスアウトで確定。複数月を手動設定すると各月が anchor として扱われ、間の月が自動配分されます。「解除」で自動に戻せます。設定画面上部の「保存」で確定します。
+        過去月は履歴として固定表示し、今月以降のみ編集できます。複数月を手動設定すると各月が anchor として扱われ、間の月が自動配分されます。「解除」で自動に戻せます。設定画面上部の「保存」で確定します。
       </p>
     </div>
   );

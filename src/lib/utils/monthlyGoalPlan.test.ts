@@ -308,7 +308,7 @@ describe("buildMonthlyGoalPlan", () => {
       );
     });
 
-    test("過去月 override は stale data として無視され、plan は invalid 化しない", () => {
+    test("planStartMonth より前の override は計画期間外として無視され、plan は invalid 化しない", () => {
       const plan = buildMonthlyGoalPlan(
         makeInput({
           overrides: [{ month: "2025-12", targetWeight: 75.0 }],
@@ -335,6 +335,25 @@ describe("buildMonthlyGoalPlan", () => {
       expect(plan.entries.at(-1)?.targetWeight).toBe(72.0);
     });
 
+    test("開始月を過去に固定すると履歴月も entries に含まれる", () => {
+      const plan = buildMonthlyGoalPlan(
+        makeInput({
+          today: "2026-04-02",
+          planStartMonth: "2026-03",
+          currentWeight: 78.0,
+          overrides: [{ month: "2026-05", targetWeight: 74.0 }],
+        })
+      );
+      expect(plan.isValid).toBe(true);
+      expect(plan.entries.map((entry) => entry.month)).toEqual([
+        "2026-03",
+        "2026-04",
+        "2026-05",
+        "2026-06",
+      ]);
+      expect(plan.entries[0]?.targetWeight).toBeCloseTo(76.7, 1);
+    });
+
     test("errors がある場合 entries は空配列", () => {
       const plan = buildMonthlyGoalPlan(
         makeInput({ goalDeadlineDate: "bad-date" })
@@ -345,7 +364,7 @@ describe("buildMonthlyGoalPlan", () => {
 });
 
 describe("normalizeMonthlyGoalOverrides", () => {
-  test("current month より前・期限月・期限後の override を除外する", () => {
+  test("planStartMonth より前・期限月・期限後の override を除外する", () => {
     const result = normalizeMonthlyGoalOverrides({
       overrides: [
         { month: "2026-02", targetWeight: 77.0 },
@@ -354,7 +373,7 @@ describe("normalizeMonthlyGoalOverrides", () => {
         { month: "2026-06", targetWeight: 72.5 },
         { month: "2026-07", targetWeight: 71.0 },
       ],
-      today: "2026-03-15",
+      planStartMonth: "2026-03",
       goalDeadlineDate: "2026-06-30",
     });
 
@@ -368,7 +387,7 @@ describe("normalizeMonthlyGoalOverrides", () => {
     const overrides = [{ month: "2026-03", targetWeight: 76.0 }];
     const result = normalizeMonthlyGoalOverrides({
       overrides,
-      today: "2026-03-15",
+      planStartMonth: "2026-03",
       goalDeadlineDate: "invalid-date",
     });
 

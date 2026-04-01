@@ -8,9 +8,9 @@
  *   月別サマリー・月末実績と対応づけやすく、月単位の計画として最も自然な単位。
  *
  * ## 計画の範囲
- * - currentMonth (today の YYYY-MM) から deadlineMonth (goalDeadlineDate の YYYY-MM) まで。
- * - 過去月 (currentMonth より前) はこの計画に含めない。
- *   過去実績は monthlyActuals として入力され、表示用に actualWeight へ記録する。
+ * - planStartMonth から deadlineMonth (goalDeadlineDate の YYYY-MM) まで。
+ * - planStartMonth を省略した場合は today の当月を開始月とみなす。
+ * - 履歴 plan では過去月も entries に含み、月次計画 vs 実績の比較に利用する。
  *
  * ## 再配分ルール
  * - override を「アンカー」として扱い、アンカー間を線形補間で均等配分する。
@@ -18,8 +18,8 @@
  * - 最終月への override は無視し、常に finalGoalWeight を使う。
  *
  * ## override の寿命管理
- * - override は currentMonth (today の YYYY-MM) から deadlineMonth までだけを有効とする。
- * - currentMonth より前の override は stale data とみなし無視する。
+ * - override は planStartMonth から deadlineMonth までだけを有効とする。
+ * - planStartMonth より前の override は計画期間外データとして無視する。
  * - deadlineMonth より後の override も計画外データとして無視する。
  * - deadlineMonth 自体の override は無視する。最終月は常に finalGoalWeight が唯一の正規値。
  *
@@ -99,12 +99,14 @@ export interface MonthlyActual {
 /** buildMonthlyGoalPlan への入力 */
 export interface MonthlyGoalPlanInput {
   /**
-   * 現在体重 (kg)。
-   * 7日平均推奨。なければ最新の daily_logs weight。
+   * 計画起点体重 (kg)。
+   * 履歴 plan では開始時基準体重、rolling plan では currentWeight を渡す。
    */
   currentWeight: number;
   /** 今日の日付 "YYYY-MM-DD" (JST)。toJstDateStr() の値を渡すこと。 */
   today: string;
+  /** 月次計画の開始月 "YYYY-MM"。省略時は today の当月。 */
+  planStartMonth?: string | null;
   /** 最終目標体重 (kg)。settings.targetWeight に対応。 */
   finalGoalWeight: number;
   /** 大会・目標期限 "YYYY-MM-DD"。settings.contestDate に対応。 */
@@ -159,7 +161,7 @@ export interface MonthlyGoalPlan {
 
 interface NormalizeMonthlyGoalOverridesInput {
   overrides: MonthlyGoalOverride[];
-  today: string;
+  planStartMonth: string;
   goalDeadlineDate: string;
 }
 
@@ -246,10 +248,18 @@ function validateInput(input: MonthlyGoalPlanInput): MonthlyGoalError[] {
   if (errors.length > 0) return errors;
 
   const todayMonth = toYearMonth(input.today);
+  const planStartMonth =
+    input.planStartMonth && /^\d{4}-\d{2}$/.test(input.planStartMonth)
+      ? input.planStartMonth
+      : todayMonth;
   const deadlineMonth = toYearMonth(input.goalDeadlineDate);
 
   if (deadlineMonth < todayMonth) {
     errors.push({ code: "DEADLINE_IN_PAST" });
+  }
+
+  if (deadlineMonth < planStartMonth) {
+    errors.push({ code: "NO_MONTHS" });
   }
 
   return errors;
@@ -259,7 +269,7 @@ function validateInput(input: MonthlyGoalPlanInput): MonthlyGoalError[] {
  * 月次計画で有効な override だけを残す。
  *
  * ルール:
- * - currentMonth より前の stale override は除外
+ * - planStartMonth より前の override は除外
  * - deadlineMonth より後の override は除外
  * - deadlineMonth は finalGoalWeight が唯一の正規値なので除外
  *
@@ -276,12 +286,11 @@ export function normalizeMonthlyGoalOverrides(
     return input.overrides;
   }
 
-  const todayMonth = toYearMonth(input.today);
   const deadlineMonth = toYearMonth(input.goalDeadlineDate);
 
   return input.overrides.filter((override) => {
     if (typeof override.month !== "string") return false;
-    return override.month >= todayMonth && override.month < deadlineMonth;
+    return override.month >= input.planStartMonth && override.month < deadlineMonth;
   });
 }
 
@@ -306,8 +315,12 @@ export function buildMonthlyGoalPlan(
   }
 
   const todayMonth = toYearMonth(input.today);
+  const planStartMonth =
+    input.planStartMonth && /^\d{4}-\d{2}$/.test(input.planStartMonth)
+      ? input.planStartMonth
+      : todayMonth;
   const deadlineMonth = toYearMonth(input.goalDeadlineDate);
-  const months = buildMonthRange(todayMonth, deadlineMonth);
+  const months = buildMonthRange(planStartMonth, deadlineMonth);
 
   if (months.length === 0) {
     return {
@@ -321,7 +334,7 @@ export function buildMonthlyGoalPlan(
   // stale / out-of-range / 最終月 override は無視し、有効範囲だけを使う。
   const normalizedOverrides = normalizeMonthlyGoalOverrides({
     overrides: input.overrides,
-    today: input.today,
+    planStartMonth,
     goalDeadlineDate: input.goalDeadlineDate,
   });
 

@@ -179,6 +179,8 @@ describe("MonthlyGoalPlanSection — 月別テーブル表示", () => {
         contestDate="2026-06-30"
         currentWeight={75}
         today="2026-04-02"
+        planStartMonth="2026-03"
+        planStartWeight={76}
         overrides={[
           { month: "2026-03", targetWeight: 74 },
           { month: "2026-05", targetWeight: 71.5 },
@@ -188,6 +190,7 @@ describe("MonthlyGoalPlanSection — 月別テーブル表示", () => {
     );
 
     expect(screen.queryByText(/計画期間外の月に手動設定が含まれています/)).not.toBeInTheDocument();
+    expect(screen.getByText("2026年3月")).toBeInTheDocument();
     expect(screen.getByText("2026年4月")).toBeInTheDocument();
     expect(screen.getByText("2026年6月")).toBeInTheDocument();
   });

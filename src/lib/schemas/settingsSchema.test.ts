@@ -106,6 +106,22 @@ describe("parseSettings — 正常系", () => {
     const rec = result.records.find((r) => r.key === "current_season");
     expect(rec!.value_str).toBe("2026_TokyoNovice");
   });
+
+  it("monthly_plan_start_month が YYYY-MM 形式で通る", () => {
+    const result = parseSettings({ ...EMPTY_SETTINGS_INPUT, monthly_plan_start_month: "2026-03" });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const rec = result.records.find((r) => r.key === "monthly_plan_start_month");
+    expect(rec!.value_str).toBe("2026-03");
+  });
+
+  it("monthly_plan_start_weight が数値で通る", () => {
+    const result = parseSettings({ ...EMPTY_SETTINGS_INPUT, monthly_plan_start_weight: "78.2" });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const rec = result.records.find((r) => r.key === "monthly_plan_start_weight");
+    expect(rec!.value_num).toBe(78.2);
+  });
 });
 
 // ─── 異常系 ─────────────────────────────────────────────────────────────────
@@ -179,6 +195,14 @@ describe("parseSettings — 異常系", () => {
     expect(err).toBeDefined();
   });
 
+  it("monthly_plan_start_month が不正な形式で失敗する", () => {
+    const result = parseSettings({ ...EMPTY_SETTINGS_INPUT, monthly_plan_start_month: "2026/03" });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    const err = result.errors.find((e) => e.field === "monthly_plan_start_month");
+    expect(err).toBeDefined();
+  });
+
   it("複数フィールドが不正な場合、全エラーが返される", () => {
     const input: SettingsInput = {
       ...EMPTY_SETTINGS_INPUT,
@@ -223,13 +247,15 @@ describe("parseSettings — DB レコード構造", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const keys = result.records.map((r) => r.key);
-    // 数値系 8 キー + 文字列系 5 キー = 13 キー
-    expect(keys).toHaveLength(13);
+    // 数値系 9 キー + 文字列系 6 キー = 15 キー
+    expect(keys).toHaveLength(15);
     expect(keys).toContain("goal_weight");
     expect(keys).toContain("contest_date");
     expect(keys).toContain("current_phase");
     expect(keys).toContain("sex");
     expect(keys).toContain("current_season");
+    expect(keys).toContain("monthly_plan_start_month");
+    expect(keys).toContain("monthly_plan_start_weight");
     expect(keys).toContain("monthly_plan_overrides");
   });
 });
@@ -237,12 +263,12 @@ describe("parseSettings — DB レコード構造", () => {
 // ─── SettingsInput 型契約の検証 ───────────────────────────────────────────
 
 describe("SettingsInput — 全フィールド必須の契約", () => {
-  it("EMPTY_SETTINGS_INPUT は全 13 フィールドを持つ", () => {
+  it("EMPTY_SETTINGS_INPUT は全 15 フィールドを持つ", () => {
     // SettingsInput が全フィールド必須であることを、
     // EMPTY_SETTINGS_INPUT の実際のキー数で確認する。
     // フィールドを追加/削除した場合はここも追従する。
     const keys = Object.keys(EMPTY_SETTINGS_INPUT);
-    expect(keys).toHaveLength(13);
+    expect(keys).toHaveLength(15);
   });
 
   it("EMPTY_SETTINGS_INPUT の全フィールドが空文字", () => {
@@ -268,6 +294,8 @@ describe("SettingsInput — 全フィールド必須の契約", () => {
       current_phase: "Cut",
       sex: "male",
       contest_date: "2026-11-01",
+      monthly_plan_start_month: "2026-03",
+      monthly_plan_start_weight: "78.2",
       // monthly_plan_overrides: 未設定のケース
     };
 
@@ -284,6 +312,8 @@ describe("SettingsInput — 全フィールド必須の契約", () => {
       current_phase:           mockValues["current_phase"] ?? "",
       sex:                     mockValues["sex"] ?? "",
       contest_date:            mockValues["contest_date"] ?? "",
+      monthly_plan_start_month: mockValues["monthly_plan_start_month"] ?? "",
+      monthly_plan_start_weight: mockValues["monthly_plan_start_weight"] ?? "",
       monthly_plan_overrides:  mockValues["monthly_plan_overrides"] ?? "",
     };
 
@@ -294,6 +324,8 @@ describe("SettingsInput — 全フィールド必須の契約", () => {
     // 有効値フィールドが正しく変換されている
     expect(result.records.find((r) => r.key === "goal_weight")?.value_num).toBe(65.0);
     expect(result.records.find((r) => r.key === "current_phase")?.value_str).toBe("Cut");
+    expect(result.records.find((r) => r.key === "monthly_plan_start_month")?.value_str).toBe("2026-03");
+    expect(result.records.find((r) => r.key === "monthly_plan_start_weight")?.value_num).toBe(78.2);
     // monthly_plan_overrides は "" → null
     expect(result.records.find((r) => r.key === "monthly_plan_overrides")?.value_str).toBeNull();
   });

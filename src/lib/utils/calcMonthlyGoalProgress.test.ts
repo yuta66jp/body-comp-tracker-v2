@@ -99,6 +99,8 @@ describe("calcMonthlyGoalProgress — unavailable (前提条件欠損)", () => {
   const BASE = {
     contestDate: "2026-07-31",
     targetWeight: 73.8,
+    monthlyPlanStartMonth: null,
+    monthlyPlanStartWeight: null,
     monthlyPlanOverrides: null,
     comparisonWeight: 75.0,
     today: "2026-07-15",
@@ -148,6 +150,8 @@ describe("calcMonthlyGoalProgress — 今月目標の表示", () => {
   const BASE = {
     contestDate: "2026-07-31",
     targetWeight: 73.8,
+    monthlyPlanStartMonth: null,
+    monthlyPlanStartWeight: null,
     monthlyPlanOverrides: null,
     comparisonWeight: 74.9,
     today: "2026-07-15",
@@ -207,7 +211,7 @@ describe("calcMonthlyGoalProgress — 今月目標の表示", () => {
 
     expect(result.hasData).toBe(true);
     expect(result.state).not.toBe("unavailable");
-    expect(result.monthlyTargetWeight).toBeCloseTo(74.3, 1);
+    expect(result.monthlyTargetWeight).toBeCloseTo(74.8, 1);
   });
 });
 
@@ -224,6 +228,8 @@ describe("calcMonthlyGoalProgress — 状態判定 (Cut)", () => {
     return calcMonthlyGoalProgress({
       contestDate: "2026-07-31",
       targetWeight: 73.8,
+      monthlyPlanStartMonth: null,
+      monthlyPlanStartWeight: null,
       monthlyPlanOverrides: null,
       comparisonWeight,
       today: "2026-07-15",
@@ -269,6 +275,8 @@ describe("calcMonthlyGoalProgress — 状態判定 (Bulk)", () => {
     return calcMonthlyGoalProgress({
       contestDate: "2026-07-31",
       targetWeight: 73.8,
+      monthlyPlanStartMonth: null,
+      monthlyPlanStartWeight: null,
       monthlyPlanOverrides: null,
       comparisonWeight,
       today: "2026-07-15",
@@ -302,6 +310,8 @@ describe("calcMonthlyGoalProgress — 月末当日 (daysToMonthEnd = 0)", () => 
     const result = calcMonthlyGoalProgress({
       contestDate: "2026-07-31",
       targetWeight: 73.8,
+      monthlyPlanStartMonth: null,
+      monthlyPlanStartWeight: null,
       monthlyPlanOverrides: null,
       comparisonWeight: 75.0, // 未達
       today: "2026-07-31",   // 月末当日
@@ -317,6 +327,8 @@ describe("calcMonthlyGoalProgress — 月末当日 (daysToMonthEnd = 0)", () => 
     const result = calcMonthlyGoalProgress({
       contestDate: "2026-07-31",
       targetWeight: 73.8,
+      monthlyPlanStartMonth: null,
+      monthlyPlanStartWeight: null,
       monthlyPlanOverrides: null,
       comparisonWeight: 73.5, // 達成済み
       today: "2026-07-31",
@@ -333,6 +345,8 @@ describe("calcMonthlyGoalProgress — hasWarnings", () => {
     const result = calcMonthlyGoalProgress({
       contestDate: "2026-07-31",
       targetWeight: 73.8,
+      monthlyPlanStartMonth: null,
+      monthlyPlanStartWeight: null,
       monthlyPlanOverrides: null,
       comparisonWeight: 75.0,
       today: "2026-07-15",
@@ -346,6 +360,8 @@ describe("calcMonthlyGoalProgress — hasWarnings", () => {
     const result = calcMonthlyGoalProgress({
       contestDate: "2026-12-31",
       targetWeight: 73.0,
+      monthlyPlanStartMonth: null,
+      monthlyPlanStartWeight: null,
       monthlyPlanOverrides: null,
       comparisonWeight: 75.0,
       today: "2026-07-15",
@@ -363,6 +379,8 @@ describe("calcMonthlyGoalProgress — 多月プラン", () => {
     const result = calcMonthlyGoalProgress({
       contestDate: "2026-11-30",
       targetWeight: 70.0,
+      monthlyPlanStartMonth: null,
+      monthlyPlanStartWeight: null,
       monthlyPlanOverrides: null,
       comparisonWeight: 75.0,
       today: "2026-07-15",
