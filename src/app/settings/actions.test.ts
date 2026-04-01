@@ -1,4 +1,4 @@
-import { normalizeMonthlyPlanOverridesBeforeSave } from "./actions";
+import { normalizeMonthlyPlanOverridesBeforeSave } from "@/lib/utils/normalizeMonthlyPlanOverridesBeforeSave";
 import { EMPTY_SETTINGS_INPUT } from "@/lib/schemas/settingsSchema";
 
 describe("normalizeMonthlyPlanOverridesBeforeSave", () => {
