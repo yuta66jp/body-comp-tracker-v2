@@ -12,6 +12,10 @@
 
 import type { WeeklyReviewData } from "./calcWeeklyReview";
 import { DAY_TAG_LABELS } from "./dayTags";
+import {
+  WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE,
+  WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE,
+} from "./weeklyNutritionRanges";
 
 // ── 公開型 ────────────────────────────────────────────────────────────────────
 
@@ -51,9 +55,10 @@ function fmtSigned(v: number, decimals: number): string {
  * 生成順:
  *   1. 体重トレンド (停滞レベルを status に反映)
  *   2. エネルギー収支 (phase に基づく良否判定)
- *   3. タンパク質比 (25% 基準)
- *   4. データ品質警告 (欠損がある場合のみ)
- *   5. 特殊日サマリー (タグがある場合のみ)
+ *   3. タンパク質 (g/kg BW)
+ *   4. 脂質比 (%)
+ *   5. データ品質警告 (欠損がある場合のみ)
+ *   6. 特殊日サマリー (タグがある場合のみ)
  *
  * 集計ロジック (calcWeeklyReview) は変更しない。
  * 所見の内容は generateFindings と同等だが、カード表示向けに構造化する。
@@ -162,18 +167,42 @@ export function deriveWeeklyInsightItems(
   }
 
   // ── 3. タンパク質 ────────────────────────────────────────────────────────
-  if (nutrition.avgProtein !== null && nutrition.proteinRatioPct !== null) {
-    const pct = nutrition.proteinRatioPct.toFixed(0);
+  if (nutrition.avgProtein !== null && nutrition.proteinGPerKgBw !== null) {
     const g = fmt0(nutrition.avgProtein);
-    const ok = nutrition.proteinRatioPct >= 25;
+    const gPerKg = nutrition.proteinGPerKgBw.toFixed(2);
+    const inRange =
+      nutrition.proteinGPerKgBw >= WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE.min &&
+      nutrition.proteinGPerKgBw <= WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE.max;
     items.push({
-      status: ok ? "ok" : "caution",
-      title: `タンパク質比 ${pct}%（平均 ${g} g/日）`,
-      detail: ok ? "適切な水準を維持" : "やや低め — 目安: 摂取比 25% 以上",
+      status: inRange ? "ok" : nutrition.proteinGPerKgBw < WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE.min ? "caution" : "neutral",
+      title: `タンパク質 ${gPerKg} g/kg BW（平均 ${g} g/日）`,
+      detail: inRange
+        ? "推奨レンジ内を維持"
+        : nutrition.proteinGPerKgBw < WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE.min
+        ? "やや低め — 目安: 1.8〜2.7 g/kg BW"
+        : "高め — 目安: 1.8〜2.7 g/kg BW",
     });
   }
 
-  // ── 4. データ品質警告 ────────────────────────────────────────────────────
+  // ── 4. 脂質 ───────────────────────────────────────────────────────────────
+  if (nutrition.fatCaloriesRatioPct !== null) {
+    const fatPct = nutrition.fatCaloriesRatioPct.toFixed(0);
+    const avgFatText = nutrition.avgFat !== null ? `（平均 ${fmt0(nutrition.avgFat)} g/日）` : "";
+    const inRange =
+      nutrition.fatCaloriesRatioPct >= WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE.min &&
+      nutrition.fatCaloriesRatioPct <= WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE.max;
+    items.push({
+      status: inRange ? "ok" : "caution",
+      title: `脂質比 ${fatPct}%${avgFatText}`,
+      detail: inRange
+        ? "推奨レンジ内を維持"
+        : nutrition.fatCaloriesRatioPct < WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE.min
+        ? "やや低め — 目安: 15〜30%"
+        : "やや高め — 目安: 15〜30%",
+    });
+  }
+
+  // ── 5. データ品質警告 ────────────────────────────────────────────────────
   {
     const missing: string[] = [];
     if (quality.weightMissingDays > 0) {
@@ -191,7 +220,7 @@ export function deriveWeeklyInsightItems(
     }
   }
 
-  // ── 5. 特殊日サマリー ────────────────────────────────────────────────────
+  // ── 6. 特殊日サマリー ────────────────────────────────────────────────────
   if (specialDays.totalTaggedDays > 0) {
     const parts: string[] = [];
     if (specialDays.cheatDays > 0)

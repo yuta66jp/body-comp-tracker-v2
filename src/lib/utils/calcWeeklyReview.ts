@@ -20,6 +20,10 @@ import type { ReadinessMetrics } from "./calcReadiness";
 import type { DataQualityReport } from "./calcDataQuality";
 import { addDaysStr, dateRangeStr, toJstDateStr } from "./date";
 import { DAY_TAG_LABELS } from "./dayTags";
+import {
+  WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE,
+  WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE,
+} from "./weeklyNutritionRanges";
 
 // ─── 公開型 ─────────────────────────────────────────────────────────────────
 
@@ -59,6 +63,10 @@ export interface WeeklyNutrition {
   daysLogged: number;
   /** タンパク質エネルギー比 (%) = avgProtein × 4 / avgCalories × 100 */
   proteinRatioPct: number | null;
+  /** タンパク質摂取量 (g/kg BW) = avgProtein / avgWeight */
+  proteinGPerKgBw: number | null;
+  /** 脂質カロリー比 (%) = avgFat × 9 / avgCalories × 100 */
+  fatCaloriesRatioPct: number | null;
 }
 
 export interface WeeklyWeight {
@@ -279,22 +287,42 @@ function generateFindings(
     findings.push("カロリーデータが不足しており、摂取量を算出できませんでした");
   }
 
-  // ── 3. タンパク質 ──
+  // ── 3. タンパク質 / 脂質 ──
   if (nutrition.avgProtein !== null) {
     const pStr = fmt0(nutrition.avgProtein);
-    if (nutrition.proteinRatioPct !== null) {
-      const pct = nutrition.proteinRatioPct.toFixed(0);
-      if (nutrition.proteinRatioPct >= 25) {
+    if (nutrition.proteinGPerKgBw !== null) {
+      const gPerKg = nutrition.proteinGPerKgBw.toFixed(2);
+      if (
+        nutrition.proteinGPerKgBw >= WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE.min &&
+        nutrition.proteinGPerKgBw <= WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE.max
+      ) {
         findings.push(
-          `平均タンパク質 ${pStr} g（摂取比 ${pct}%）― 適切な水準を維持`
+          `平均タンパク質 ${pStr} g（${gPerKg} g/kg BW）― 推奨レンジ内`
         );
       } else {
         findings.push(
-          `平均タンパク質 ${pStr} g（摂取比 ${pct}%）― やや低め（目安: 25% 以上）`
+          nutrition.proteinGPerKgBw < WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE.min
+            ? `平均タンパク質 ${pStr} g（${gPerKg} g/kg BW）― やや低め（目安: 1.8〜2.7 g/kg BW）`
+            : `平均タンパク質 ${pStr} g（${gPerKg} g/kg BW）― 高め（目安: 1.8〜2.7 g/kg BW）`
         );
       }
     } else {
       findings.push(`平均タンパク質 ${pStr} g`);
+    }
+  }
+  if (nutrition.fatCaloriesRatioPct !== null) {
+    const fatPct = nutrition.fatCaloriesRatioPct.toFixed(0);
+    if (
+      nutrition.fatCaloriesRatioPct >= WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE.min &&
+      nutrition.fatCaloriesRatioPct <= WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE.max
+    ) {
+      findings.push(`脂質比 ${fatPct}% ― 推奨レンジ内`);
+    } else {
+      findings.push(
+        nutrition.fatCaloriesRatioPct < WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE.min
+          ? `脂質比 ${fatPct}% ― やや低め（目安: 15〜30%）`
+          : `脂質比 ${fatPct}% ― やや高め（目安: 15〜30%）`
+      );
     }
   }
 
@@ -447,6 +475,14 @@ export function calcWeeklyReview(
     avgCalories !== null && avgCalories > 0 && avgProtein !== null
       ? (avgProtein * 4) / avgCalories * 100
       : null;
+  const proteinGPerKgBw =
+    avgProtein !== null && avgWeight !== null && avgWeight > 0
+      ? avgProtein / avgWeight
+      : null;
+  const fatCaloriesRatioPct =
+    avgCalories !== null && avgCalories > 0 && avgFat !== null
+      ? (avgFat * 9) / avgCalories * 100
+      : null;
 
   const nutrition: WeeklyNutrition = {
     avgCalories,
@@ -455,6 +491,8 @@ export function calcWeeklyReview(
     avgCarbs,
     daysLogged,
     proteinRatioPct,
+    proteinGPerKgBw,
+    fatCaloriesRatioPct,
   };
 
   // ── TDEE (直近 7 日の推定 TDEE 平均) ──

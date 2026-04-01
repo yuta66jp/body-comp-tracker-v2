@@ -37,6 +37,8 @@ function makeData(overrides: Partial<WeeklyReviewData> = {}): WeeklyReviewData {
       avgCarbs: 200,
       daysLogged: 7,
       proteinRatioPct: 28.9,
+      proteinGPerKgBw: 1.86,
+      fatCaloriesRatioPct: 30,
     },
     tdee: {
       avgEstimated: 2200,
@@ -269,6 +271,8 @@ describe("deriveWeeklyInsightItems", () => {
           avgCarbs: null,
           daysLogged: 0,
           proteinRatioPct: null,
+          proteinGPerKgBw: null,
+          fatCaloriesRatioPct: null,
         },
       });
       const items = deriveWeeklyInsightItems(data, "Cut");
@@ -280,14 +284,15 @@ describe("deriveWeeklyInsightItems", () => {
   // ── タンパク質 ── //
 
   describe("タンパク質 InsightItem", () => {
-    it("proteinRatioPct ≥ 25 → status ok、detail に『適切な水準』", () => {
+    it("proteinGPerKgBw が推奨レンジ内 → status ok、detail に『推奨レンジ内』", () => {
       const items = deriveWeeklyInsightItems(makeData(), "Cut");
       const pItem = items[2]!;
       expect(pItem.status).toBe("ok");
-      expect(pItem.detail).toContain("適切な水準");
+      expect(pItem.title).toContain("g/kg BW");
+      expect(pItem.detail).toContain("推奨レンジ内");
     });
 
-    it("proteinRatioPct < 25 → status caution、detail に『やや低め』", () => {
+    it("proteinGPerKgBw が不足 → status caution、detail に『やや低め』", () => {
       const data = makeData({
         nutrition: {
           avgCalories: 1800,
@@ -296,12 +301,52 @@ describe("deriveWeeklyInsightItems", () => {
           avgCarbs: 200,
           daysLogged: 7,
           proteinRatioPct: 20.0,
+          proteinGPerKgBw: 1.28,
+          fatCaloriesRatioPct: 30,
         },
       });
       const items = deriveWeeklyInsightItems(data, "Cut");
       const pItem = items[2]!;
       expect(pItem.status).toBe("caution");
       expect(pItem.detail).toContain("やや低め");
+    });
+
+    it("proteinGPerKgBw が 2.43 なら推奨レンジ内として status ok", () => {
+      const data = makeData({
+        nutrition: {
+          avgCalories: 2200,
+          avgProtein: 170,
+          avgFat: 60,
+          avgCarbs: 220,
+          daysLogged: 7,
+          proteinRatioPct: 30.9,
+          proteinGPerKgBw: 2.43,
+          fatCaloriesRatioPct: 25,
+        },
+      });
+      const items = deriveWeeklyInsightItems(data, "Cut");
+      const pItem = items[2]!;
+      expect(pItem.status).toBe("ok");
+      expect(pItem.detail).toContain("推奨レンジ内");
+    });
+
+    it("proteinGPerKgBw が 2.80 と高すぎる場合は status neutral", () => {
+      const data = makeData({
+        nutrition: {
+          avgCalories: 2200,
+          avgProtein: 196,
+          avgFat: 60,
+          avgCarbs: 220,
+          daysLogged: 7,
+          proteinRatioPct: 35.6,
+          proteinGPerKgBw: 2.8,
+          fatCaloriesRatioPct: 25,
+        },
+      });
+      const items = deriveWeeklyInsightItems(data, "Cut");
+      const pItem = items[2]!;
+      expect(pItem.status).toBe("neutral");
+      expect(pItem.detail).toContain("高め");
     });
 
     it("avgProtein が null → タンパク質 InsightItem が生成されない", () => {
@@ -313,6 +358,8 @@ describe("deriveWeeklyInsightItems", () => {
           avgCarbs: null,
           daysLogged: 5,
           proteinRatioPct: null,
+          proteinGPerKgBw: null,
+          fatCaloriesRatioPct: null,
         },
       });
       const items = deriveWeeklyInsightItems(data, "Cut");
@@ -320,7 +367,7 @@ describe("deriveWeeklyInsightItems", () => {
       expect(items).toHaveLength(2);
     });
 
-    it("proteinRatioPct が null → タンパク質 InsightItem が生成されない", () => {
+    it("proteinGPerKgBw が null → タンパク質 InsightItem が生成されない", () => {
       const data = makeData({
         nutrition: {
           avgCalories: 1800,
@@ -328,11 +375,98 @@ describe("deriveWeeklyInsightItems", () => {
           avgFat: 60,
           avgCarbs: 200,
           daysLogged: 7,
-          proteinRatioPct: null,
+          proteinRatioPct: 28.9,
+          proteinGPerKgBw: null,
+          fatCaloriesRatioPct: 30,
         },
       });
       const items = deriveWeeklyInsightItems(data, "Cut");
-      expect(items).toHaveLength(2); // weight + 収支
+      expect(items).toHaveLength(3); // weight + 収支 + fat
+    });
+  });
+
+  describe("脂質 InsightItem", () => {
+    it("fatCaloriesRatioPct が推奨レンジ内 → status ok", () => {
+      const items = deriveWeeklyInsightItems(makeData(), "Cut");
+      const fatItem = items[3]!;
+      expect(fatItem.status).toBe("ok");
+      expect(fatItem.title).toContain("脂質比 30%（平均 60 g/日）");
+      expect(fatItem.detail).toContain("推奨レンジ内");
+    });
+
+    it("fatCaloriesRatioPct が 17.5 なら推奨レンジ内として status ok", () => {
+      const data = makeData({
+        nutrition: {
+          avgCalories: 1800,
+          avgProtein: 130,
+          avgFat: 35,
+          avgCarbs: 240,
+          daysLogged: 7,
+          proteinRatioPct: 28.9,
+          proteinGPerKgBw: 1.86,
+          fatCaloriesRatioPct: 17.5,
+        },
+      });
+      const items = deriveWeeklyInsightItems(data, "Cut");
+      const fatItem = items[3]!;
+      expect(fatItem.title).toContain("平均 35 g/日");
+      expect(fatItem.status).toBe("ok");
+      expect(fatItem.detail).toContain("推奨レンジ内");
+    });
+
+    it("fatCaloriesRatioPct が低すぎる → status caution", () => {
+      const data = makeData({
+        nutrition: {
+          avgCalories: 1800,
+          avgProtein: 130,
+          avgFat: 28,
+          avgCarbs: 240,
+          daysLogged: 7,
+          proteinRatioPct: 28.9,
+          proteinGPerKgBw: 1.86,
+          fatCaloriesRatioPct: 14,
+        },
+      });
+      const items = deriveWeeklyInsightItems(data, "Cut");
+      const fatItem = items[3]!;
+      expect(fatItem.title).toContain("平均 28 g/日");
+      expect(fatItem.status).toBe("caution");
+      expect(fatItem.detail).toContain("やや低め");
+    });
+
+    it("fatCaloriesRatioPct が null → 脂質 InsightItem が生成されない", () => {
+      const data = makeData({
+        nutrition: {
+          avgCalories: 1800,
+          avgProtein: 130,
+          avgFat: null,
+          avgCarbs: 200,
+          daysLogged: 7,
+          proteinRatioPct: 28.9,
+          proteinGPerKgBw: 1.86,
+          fatCaloriesRatioPct: null,
+        },
+      });
+      const items = deriveWeeklyInsightItems(data, "Cut");
+      expect(items).toHaveLength(3);
+    });
+
+    it("avgFat が null なら脂質カード title に平均 g/日を出さない", () => {
+      const data = makeData({
+        nutrition: {
+          avgCalories: 1800,
+          avgProtein: 130,
+          avgFat: null,
+          avgCarbs: 200,
+          daysLogged: 7,
+          proteinRatioPct: 28.9,
+          proteinGPerKgBw: 1.86,
+          fatCaloriesRatioPct: 18,
+        },
+      });
+      const items = deriveWeeklyInsightItems(data, "Cut");
+      const fatItem = items[3]!;
+      expect(fatItem.title).toBe("脂質比 18%");
     });
   });
 
@@ -428,18 +562,18 @@ describe("deriveWeeklyInsightItems", () => {
   // ── 全体: item 数の確認 ── //
 
   describe("全データ揃っている場合の item 数", () => {
-    it("advancing / 全データあり / 欠損なし → weight + 収支 + protein の 3 件", () => {
+    it("advancing / 全データあり / 欠損なし → weight + 収支 + protein + fat の 4 件", () => {
       const items = deriveWeeklyInsightItems(makeData(), "Cut");
-      expect(items).toHaveLength(3);
+      expect(items).toHaveLength(4);
     });
 
-    it("特殊日あり / 欠損あり → 5 件", () => {
+    it("特殊日あり / 欠損あり → 6 件", () => {
       const data = makeData({
         quality: { score: 75, weightMissingDays: 1, caloriesMissingDays: 2 },
         specialDays: { cheatDays: 1, refeedDays: 0, eatingOutDays: 0, travelDays: 0, totalTaggedDays: 1 },
       });
       const items = deriveWeeklyInsightItems(data, "Cut");
-      expect(items).toHaveLength(5);
+      expect(items).toHaveLength(6);
     });
   });
 });
