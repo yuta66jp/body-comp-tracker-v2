@@ -54,9 +54,6 @@ BEGIN
     is_travel_day      = CASE WHEN p_fields ? 'is_travel_day'
                               THEN (p_fields->>'is_travel_day')::BOOLEAN
                               ELSE is_travel_day      END,
-    is_poor_sleep      = CASE WHEN p_fields ? 'is_poor_sleep'
-                              THEN (p_fields->>'is_poor_sleep')::BOOLEAN
-                              ELSE is_poor_sleep      END,
     sleep_hours        = CASE WHEN p_fields ? 'sleep_hours'
                               THEN (p_fields->>'sleep_hours')::NUMERIC
                               ELSE sleep_hours        END,
@@ -97,7 +94,7 @@ BEGIN
   INSERT INTO daily_logs (
     log_date,
     weight, calories, protein, fat, carbs, note,
-    is_cheat_day, is_refeed_day, is_eating_out, is_travel_day, is_poor_sleep,
+    is_cheat_day, is_refeed_day, is_eating_out, is_travel_day,
     sleep_hours, had_bowel_movement,
     training_type, work_mode, leg_flag,
     last_meal_end_time, weigh_in_time,
@@ -114,7 +111,6 @@ BEGIN
     COALESCE((p_fields->>'is_refeed_day')::BOOLEAN,  FALSE),
     COALESCE((p_fields->>'is_eating_out')::BOOLEAN,  FALSE),
     COALESCE((p_fields->>'is_travel_day')::BOOLEAN,  FALSE),
-    COALESCE((p_fields->>'is_poor_sleep')::BOOLEAN,  FALSE),
     (p_fields->>'sleep_hours')::NUMERIC,
     (p_fields->>'had_bowel_movement')::BOOLEAN,
     p_fields->>'training_type',

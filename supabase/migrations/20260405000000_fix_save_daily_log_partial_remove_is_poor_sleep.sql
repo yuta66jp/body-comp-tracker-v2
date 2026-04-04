@@ -1,20 +1,13 @@
--- daily_logs に最終食事終了時刻・体重測定時刻を追加する
--- 両カラムとも任意入力・nullable。将来の空腹時間分析のための観測項目。
-
-ALTER TABLE daily_logs
-  ADD COLUMN IF NOT EXISTS last_meal_end_time TIME,
-  ADD COLUMN IF NOT EXISTS weigh_in_time      TIME;
-
--- save_daily_log_partial RPC に last_meal_end_time / weigh_in_time を追加する
+-- save_daily_log_partial から is_poor_sleep 参照を除去する
 --
--- 変更内容:
---   - UPDATE 節に last_meal_end_time / weigh_in_time の CASE 句を追加
---   - INSERT 節に last_meal_end_time / weigh_in_time カラムを追加（nullable のため COALESCE 不要）
+-- 経緯:
+--   is_poor_sleep カラムは 20260327000000_remove_is_poor_sleep_from_daily_logs.sql で
+--   DB から削除・RPC からも除去済みだった。
+--   しかし 20260404000000_add_fasting_time_fields.sql と
+--   20260404000001_add_step_count_to_daily_logs.sql で RPC を再定義した際に
+--   is_poor_sleep 参照が誤って残存し、保存時にカラム未存在エラーが発生していた。
 --
--- 部分更新の意味論（既存と同じ）:
---   - キーなし          : 未更新（既存値を保持）
---   - キーあり, 値 null : 明示クリア
---   - キーあり, 値あり  : 上書き
+-- この migration で RPC を正しい状態（is_poor_sleep なし）に再定義する。
 
 CREATE OR REPLACE FUNCTION save_daily_log_partial(
   p_log_date DATE,
@@ -75,7 +68,10 @@ BEGIN
                               ELSE last_meal_end_time END,
     weigh_in_time      = CASE WHEN p_fields ? 'weigh_in_time'
                               THEN (p_fields->>'weigh_in_time')::TIME
-                              ELSE weigh_in_time      END
+                              ELSE weigh_in_time      END,
+    step_count         = CASE WHEN p_fields ? 'step_count'
+                              THEN (p_fields->>'step_count')::INTEGER
+                              ELSE step_count         END
   WHERE log_date = p_log_date;
 
   -- 既存行が更新できたなら終了（INSERT 側には一切触れない）
@@ -95,7 +91,8 @@ BEGIN
     is_cheat_day, is_refeed_day, is_eating_out, is_travel_day,
     sleep_hours, had_bowel_movement,
     training_type, work_mode, leg_flag,
-    last_meal_end_time, weigh_in_time
+    last_meal_end_time, weigh_in_time,
+    step_count
   ) VALUES (
     p_log_date,
     (p_fields->>'weight')::NUMERIC,
@@ -114,7 +111,8 @@ BEGIN
     p_fields->>'work_mode',
     (p_fields->>'leg_flag')::BOOLEAN,
     (p_fields->>'last_meal_end_time')::TIME,
-    (p_fields->>'weigh_in_time')::TIME
+    (p_fields->>'weigh_in_time')::TIME,
+    (p_fields->>'step_count')::INTEGER
   );
 END;
 $$;
@@ -124,4 +122,5 @@ COMMENT ON FUNCTION save_daily_log_partial(DATE, JSONB) IS
    既存行: UPDATE のみ実行（INSERT 側の NOT NULL 制約に触れない）。
    新規行: weight 必須チェック後に INSERT。
    p_fields の JSONB キー存在で 未更新(キーなし) / 明示クリア(キーあり+null) / 上書き(キーあり+値) を表現。
-   weight なしで新規作成を試みた場合は new_log_requires_weight 例外を発生させる。';
+   weight なしで新規作成を試みた場合は new_log_requires_weight 例外を発生させる。
+   is_poor_sleep は 20260327 で廃止済み。このカラムはカラム・RPC ともに参照しない。';
