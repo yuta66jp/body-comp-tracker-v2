@@ -22,7 +22,7 @@
  *
  * | 関数 | 取得列 | 用途 | 戻り値型 |
  * |---|---|---|---|
- * | fetchDashboardDailyLogs()   | 16列（note・leg_flag 除く）  | Dashboard 専用 (#165)                | QueryResult |
+ * | fetchDashboardDailyLogs()   | 19列（note・leg_flag 除く）  | Dashboard 専用 (#165)                | QueryResult |
  * | fetchMacroDailyLogs(days)   | 6列・DESC LIMIT days         | Macro 専用 (#166)                    | QueryResult |
  * | fetchTdeeDailyLogs(limit)   | 3列・DESC LIMIT limit        | TDEE raw fallback 専用 (#166)        | QueryResult |
  * | fetchLatestUpdatedAt()      | updated_at 1行               | stale 判定用（Macro/TDEE共用）       | ベストエフォート |
@@ -37,15 +37,15 @@ import type { DataQualityLog } from "@/lib/utils/calcDataQuality";
 import type { QueryResult } from "./queryResult";
 
 /**
- * Dashboard 専用: daily_logs を 18 列・全期間・日付昇順で取得する。
+ * Dashboard 専用: daily_logs を 19 列・全期間・日付昇順で取得する。
  *
- * ## 取得列と除外列の根拠（#165 棚卸し済み、#435 で時刻列を追加）
+ * ## 取得列と除外列の根拠（#165 棚卸し済み、#435 で時刻列追加、#436 で step_count 追加）
  *
- * 取得列 (18列):
+ * 取得列 (19列):
  *   log_date, weight, calories, protein, fat, carbs,
  *   is_cheat_day, is_refeed_day, is_eating_out, is_travel_day,
  *   sleep_hours, had_bowel_movement, training_type, work_mode, updated_at,
- *   last_meal_end_time, weigh_in_time
+ *   last_meal_end_time, weigh_in_time, step_count
  *
  * 除外列 (2列):
  *   - note     : Dashboard のいずれの関数・コンポーネントでも参照されない
@@ -84,7 +84,7 @@ export async function fetchDashboardDailyLogs(): Promise<QueryResult<DashboardDa
       "log_date, weight, calories, protein, fat, carbs, " +
       "is_cheat_day, is_refeed_day, is_eating_out, is_travel_day, " +
       "sleep_hours, had_bowel_movement, training_type, work_mode, updated_at, " +
-      "last_meal_end_time, weigh_in_time"
+      "last_meal_end_time, weigh_in_time, step_count"
     )
     .order("log_date", { ascending: true });
   if (error) {

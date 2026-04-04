@@ -27,6 +27,7 @@ function makeLog(
     work_mode: null,
     last_meal_end_time: null,
     weigh_in_time: null,
+    step_count: null,
     ...overrides,
   };
 }

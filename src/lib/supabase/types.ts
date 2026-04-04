@@ -77,6 +77,7 @@ export type Database = {
           note: string | null
           protein: number | null
           sleep_hours: number | null
+          step_count: number | null
           training_type: string | null
           updated_at: string
           weigh_in_time: string | null
@@ -100,6 +101,7 @@ export type Database = {
           note?: string | null
           protein?: number | null
           sleep_hours?: number | null
+          step_count?: number | null
           training_type?: string | null
           updated_at?: string
           weigh_in_time?: string | null
@@ -123,6 +125,7 @@ export type Database = {
           note?: string | null
           protein?: number | null
           sleep_hours?: number | null
+          step_count?: number | null
           training_type?: string | null
           updated_at?: string
           weigh_in_time?: string | null
@@ -528,7 +531,7 @@ export type DailyLog = Database["public"]["Tables"]["daily_logs"]["Row"];
 
 /**
  * Dashboard 専用の daily_logs projection 型。
- * fetchDashboardDailyLogs() が取得する 18 列に対応する（#435 で last_meal_end_time / weigh_in_time 追加）。
+ * fetchDashboardDailyLogs() が取得する 19 列に対応する（#436 で step_count 追加）。
  *
  * 除外列:
  *   - note     : Dashboard のいずれの関数・コンポーネントでも参照されない

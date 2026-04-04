@@ -44,5 +44,8 @@ export function buildUpdatePayload(
   if (input.last_meal_end_time !== undefined) payload.last_meal_end_time = input.last_meal_end_time;
   if (input.weigh_in_time      !== undefined) payload.weigh_in_time      = input.weigh_in_time;
 
+  // #436 追加: 歩数
+  if (input.step_count !== undefined) payload.step_count = input.step_count;
+
   return payload;
 }

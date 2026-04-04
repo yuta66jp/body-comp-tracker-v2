@@ -40,6 +40,9 @@ export type SaveDailyLogInput = {
   last_meal_end_time?: string | null;
   /** 体重測定時刻 "HH:MM" 形式。null = 明示クリア */
   weigh_in_time?: string | null;
+  // ── #436 追加 ──
+  /** Apple Health 歩数（日次集計）。null = 明示クリア */
+  step_count?: number | null;
 };
 
 /** DB に渡す更新ペイロード（undefined フィールドを除去したもの）*/
@@ -105,6 +108,12 @@ export async function saveDailyLog(
   if (input.work_mode !== undefined && input.work_mode !== null) {
     if (!isValidWorkMode(input.work_mode)) {
       return { ok: false, message: "work_mode の値が不正です" };
+    }
+  }
+
+  if (input.step_count !== undefined && input.step_count !== null) {
+    if (!Number.isInteger(input.step_count) || input.step_count < 0 || input.step_count > 200000) {
+      return { ok: false, message: "歩数は 0〜200,000 の整数で入力してください" };
     }
   }
 

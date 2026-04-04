@@ -1,6 +1,7 @@
 import { SettingsForm } from "@/components/settings/SettingsForm";
 import { ExportSection } from "@/components/settings/ExportSection";
 import { ImportSection } from "@/components/settings/ImportSection";
+import { AppleHealthImportSection } from "@/components/settings/AppleHealthImportSection";
 import { DataQualityPanel } from "@/components/settings/DataQualityPanel";
 import { ThemeSection } from "@/components/settings/ThemeSection";
 import { calcDataQuality } from "@/lib/utils/calcDataQuality";
@@ -62,6 +63,9 @@ export default async function SettingsPage() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <ExportSection />
             <ImportSection />
+          </div>
+          <div className="mt-6">
+            <AppleHealthImportSection />
           </div>
         </div>
       </div>
