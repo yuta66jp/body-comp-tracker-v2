@@ -34,6 +34,7 @@ body-comp-tracker-v2/
 │   │   ├── page.tsx                # Dashboard (メイン)
 │   │   ├── loading.tsx             # Dashboard loading skeleton
 │   │   ├── layout.tsx              # Root Layout (FOUC 防止スクリプト含む)
+│   │   ├── globals.css             # Tailwind base
 │   │   ├── tdee/page.tsx           # TDEE 分析画面
 │   │   ├── tdee/loading.tsx        # TDEE loading skeleton
 │   │   ├── macro/page.tsx          # 栄養分析画面
@@ -42,6 +43,9 @@ body-comp-tracker-v2/
 │   │   ├── history/loading.tsx     # History loading skeleton
 │   │   ├── foods/page.tsx          # 食品データベース画面
 │   │   ├── foods/loading.tsx       # Foods loading skeleton
+│   │   ├── forecast-accuracy/
+│   │   │   ├── page.tsx            # walk-forward backtest 結果表示
+│   │   │   └── actions.ts          # Server Actions (backtest 結果取得)
 │   │   ├── settings/
 │   │   │   ├── page.tsx            # 設定画面
 │   │   │   ├── loading.tsx         # Settings loading skeleton
@@ -92,8 +96,9 @@ body-comp-tracker-v2/
 │   │       ├── calcMonthlyGoalProgress.ts # calcMonthlyGoalProgress — 当月進捗ゲージ用計算
 │   │       ├── monthlyGoalVisualization.ts # 月次計画 vs 実績の表示用 adapter / selector
 │   │       └── ...                 # その他計算ヘルパー
-│   └── app/
-│       └── globals.css             # Tailwind base (src/app/globals.css)
+├── docs/                           # 設計ドキュメント群
+│   ├── daily-logs-read-inventory.md # daily_logs read API 棚卸し (#164–#167)
+│   └── ...                         # その他設計メモ
 ├── ml-pipeline/                    # Python (GitHub Actions 専用)
 │   ├── predict.py                  # NeuralProphet バッチ予測
 │   ├── analyze.py                  # XGBoost 因子分析 (feature_registry 経由で FEATURE_COLS を参照)
@@ -105,7 +110,8 @@ body-comp-tracker-v2/
 ├── .github/workflows/
 │   ├── ml-daily.yml                # 日次バッチ (cron: 毎日 AM 3:00 JST)
 │   ├── ml-backtest.yml             # 週次 backtest バッチ (cron: 毎週金曜夜間 → 土曜 AM 4:00 JST)
-│   └── ci.yml                      # Lint + TypeCheck + Build
+│   ├── ci.yml                      # Lint + TypeCheck + Build + Python tests
+│   └── e2e.yml                     # Playwright smoke tests (手動トリガー)
 ├── CLAUDE.md                       # このファイル
 ├── README.md                       # 人間向け入口文書
 ├── .env.local                      # Supabase URL/Key (gitignore対象)
@@ -136,6 +142,9 @@ body-comp-tracker-v2/
   - `had_bowel_movement` は `BOOLEAN DEFAULT NULL`（三状態: null=未記録 / false=便通なし / true=便通あり）
   - leg_flag は派生値（deriveLegFlag のみ定義源）。直接書き込まない
   - 睡眠評価は `sleep_hours`（時間）で記録する。`is_poor_sleep` カラムは削除済み（#338）
+  - `work_mode` の DB CHECK 制約は `off/office/remote/active/travel/other` の 6 値を許容するが、
+    フロントエンド（`src/lib/utils/trainingType.ts`）では `off/office/remote` の 3 値のみ定義している。
+    `active/travel/other` はフロント UI・CSV import・表示整形で現状扱われない（将来拡張余地）
 - `food_master` — name(PK), protein, fat, carbs, calories, category
 - `menu_master` — name(PK), recipe(JSONB)
 - `settings` — key(PK), value_num, value_str
@@ -209,7 +218,7 @@ body-comp-tracker-v2/
 - **override は upsert 方式**で管理する（`MonthlyGoalPlanSection.tsx`）
   - 手動確定: `upsertOverride(overrides, { month, targetWeight })` で該当月だけ差し替え、他月は保持
   - 解除: override 配列から該当月エントリーを削除 → `buildMonthlyGoalPlan` が自動再計算
-  - `redistributeMonthlyGoals` は廃止済み。UI から plan 再計算ロジックを呼ばない
+  - `redistributeMonthlyGoals` は UI から呼ばれていない（`monthlyGoalPlan.ts` に定義は残存）。UI から plan 再計算ロジックを呼ばない
 - override は `monthly_plan_overrides`（JSON 配列, `value_str`）として settings テーブルに保存
 - `calcMonthlyGoalProgress` が GoalNavigator の当月進捗ゲージ用計算を担う（`calcMonthlyGoalProgress.ts`）
 - `monthlyGoalVisualization.ts` が表示用 adapter / selector 層
