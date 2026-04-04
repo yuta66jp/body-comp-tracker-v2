@@ -13,8 +13,8 @@
 ## Architecture
 
 ```
-Frontend:  Next.js 15 (App Router) + TypeScript → Vercel (Free Tier)
-Database:  Supabase (PostgreSQL + Auth + RLS)
+Frontend:  Next.js 16 (App Router) + TypeScript → Vercel (Free Tier)
+Database:  Supabase (PostgreSQL + RLS)
 ML Batch:  Python (NeuralProphet + XGBoost) → GitHub Actions (日次 cron)
 ```
 
@@ -92,8 +92,8 @@ body-comp-tracker-v2/
 │   │       ├── calcMonthlyGoalProgress.ts # calcMonthlyGoalProgress — 当月進捗ゲージ用計算
 │   │       ├── monthlyGoalVisualization.ts # 月次計画 vs 実績の表示用 adapter / selector
 │   │       └── ...                 # その他計算ヘルパー
-│   └── styles/
-│       └── globals.css             # Tailwind base
+│   └── app/
+│       └── globals.css             # Tailwind base (src/app/globals.css)
 ├── ml-pipeline/                    # Python (GitHub Actions 専用)
 │   ├── predict.py                  # NeuralProphet バッチ予測
 │   ├── analyze.py                  # XGBoost 因子分析 (feature_registry 経由で FEATURE_COLS を参照)
@@ -339,8 +339,13 @@ body-comp-tracker-v2/
 - SHAP 移行時は `analyze.py` の `run_importance()` を差し替える想定
 - `feature_registry.py` の `encoder_hint` に前処理方針を記載済みで、registry 自体は変更不要な設計
 
-### read projection / window 最適化（現時点では保留）
-- `fetchDailyLogs()` 等は現在全カラム・全期間取得。個人利用規模で問題が出るまでは最適化しない
+### read projection / window 最適化（対応済み）
+- Dashboard / Macro / TDEE / History / Settings はそれぞれ画面専用の projection query に分離済み
+  - `fetchDashboardDailyLogs()`: 16列・全期間
+  - `fetchMacroDailyLogs(days)`: 6列・DESC LIMIT days
+  - `fetchTdeeDailyLogs(limit)`: 3列・DESC LIMIT limit
+  - `fetchLatestUpdatedAt()`: stale 判定用（Macro/TDEE 共用）
+- 詳細: `docs/daily-logs-read-inventory.md`
 
 ### その他残課題
 - `supabase gen types` で `types.ts` を実スキーマから再生成
