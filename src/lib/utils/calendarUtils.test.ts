@@ -4,7 +4,7 @@
  * buildCalendarDayMap の差分計算・タグ処理・コンディション整形を検証する。
  */
 
-import { buildCalendarDayMap, buildConditionTags, getMobileTrainingLabel, toDateKey } from "./calendarUtils";
+import { buildCalendarDayMap, buildConditionTags, getMobileTrainingLabel, toDateKey, calcFastingHours } from "./calendarUtils";
 import type { CalendarDayTagInfo } from "./calendarUtils";
 import type { DailyLog } from "@/lib/supabase/types";
 
@@ -289,6 +289,51 @@ describe("buildConditionTags", () => {
   it("work_mode=remote → cyan color", () => {
     const tags = buildConditionTags({ had_bowel_movement: null, training_type: null, work_mode: "remote" });
     expect(tags[0]!.colorClass).toContain("cyan");
+  });
+});
+
+// ── calcFastingHours ─────────────────────────────────────────────────────────
+
+describe("calcFastingHours", () => {
+  it("通常ケース: 22:30 → 07:00 は 8.5h", () => {
+    expect(calcFastingHours("22:30", "07:00")).toBe(8.5);
+  });
+
+  it("日またぎなし: 08:00 → 12:30 は 4.5h", () => {
+    expect(calcFastingHours("08:00", "12:30")).toBe(4.5);
+  });
+
+  it("秒付き形式 (PostgreSQL TIME の戻り値) も解釈できる", () => {
+    expect(calcFastingHours("22:30:00", "07:00:00")).toBe(8.5);
+  });
+
+  it("整数時間: 20:00 → 06:00 は 10h", () => {
+    expect(calcFastingHours("20:00", "06:00")).toBe(10);
+  });
+
+  it("片方 null → null を返す", () => {
+    expect(calcFastingHours(null, "07:00")).toBeNull();
+    expect(calcFastingHours("22:30", null)).toBeNull();
+    expect(calcFastingHours(null, null)).toBeNull();
+  });
+
+  it("片方 undefined → null を返す", () => {
+    expect(calcFastingHours(undefined, "07:00")).toBeNull();
+    expect(calcFastingHours("22:30", undefined)).toBeNull();
+  });
+
+  it("同一時刻 (delta=0) → null を返す（0h断食は無意味）", () => {
+    expect(calcFastingHours("07:00", "07:00")).toBeNull();
+  });
+
+  it("24h 以上になるケース → null を返す（異常値除外）", () => {
+    // delta = 0 に折りたたまれるため null
+    expect(calcFastingHours("07:00:01", "07:00:01")).toBeNull();
+  });
+
+  it("不正フォーマット → null を返す", () => {
+    expect(calcFastingHours("invalid", "07:00")).toBeNull();
+    expect(calcFastingHours("22:30", "not-a-time")).toBeNull();
   });
 });
 
