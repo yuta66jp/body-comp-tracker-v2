@@ -13,6 +13,57 @@ type Phase =
   | { kind: "done"; saved: number; skipped: number }
   | { kind: "error"; message: string };
 
+/**
+ * fetch レスポンスから安全にエラーメッセージを抽出する。
+ *
+ * - Content-Type が application/json の場合: { error: string } または { message: string } を読む
+ * - 413 の場合: ファイルサイズ超過の専用メッセージを返す
+ * - その他（HTML / plaintext / 空）: HTTP ステータスを含む汎用メッセージを返す
+ *
+ * response.json() を無条件に呼ぶと、中継層由来の HTML / plaintext レスポンス
+ * （例: 413 "Request Entity Too Large"）で SyntaxError が発生するため、
+ * Content-Type を確認してから JSON パースする。
+ */
+async function extractErrorMessage(res: Response): Promise<string> {
+  if (res.status === 413) {
+    return "ファイルサイズが大きすぎます。Apple Health の ZIP が大きい場合はアップロードできない場合があります。";
+  }
+  const contentType = res.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    try {
+      const json = await res.json() as Record<string, unknown>;
+      const msg = json["error"] ?? json["message"];
+      if (typeof msg === "string" && msg.length > 0) return msg;
+    } catch {
+      // JSON パース失敗時は fallthrough
+    }
+  }
+  // HTML / plaintext / 空レスポンスなどは HTTP ステータスだけ伝える
+  return `サーバーエラーが発生しました（HTTP ${res.status}）`;
+}
+
+/**
+ * fetch レスポンスから JSON を安全に取得する。
+ *
+ * response.ok かつ Content-Type が application/json の場合のみ JSON パースを試みる。
+ * それ以外は extractErrorMessage 経由でエラーメッセージを返す。
+ */
+async function safeJsonOrError<T>(res: Response): Promise<{ ok: true; data: T } | { ok: false; message: string }> {
+  if (!res.ok) {
+    return { ok: false, message: await extractErrorMessage(res) };
+  }
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    return { ok: false, message: `予期しないレスポンス形式です（Content-Type: ${contentType || "不明"}）` };
+  }
+  try {
+    const data = await res.json() as T;
+    return { ok: true, data };
+  } catch {
+    return { ok: false, message: "レスポンスの解析に失敗しました" };
+  }
+}
+
 export function AppleHealthImportSection() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -42,14 +93,15 @@ export function AppleHealthImportSection() {
         method: "POST",
         body: formData,
       });
-      const json: AppleHealthPreflightResult | { error: string } = await res.json();
-      if (!res.ok || "error" in json) {
-        setPhase({ kind: "error", message: "error" in json ? json.error : `HTTP ${res.status}` });
+      const result = await safeJsonOrError<AppleHealthPreflightResult>(res);
+      if (!result.ok) {
+        setPhase({ kind: "error", message: result.message });
         return;
       }
-      setPhase({ kind: "preflight", result: json });
+      setPhase({ kind: "preflight", result: result.data });
     } catch (e) {
-      setPhase({ kind: "error", message: e instanceof Error ? e.message : "不明なエラー" });
+      // fetch 自体の失敗（ネットワークエラー等）
+      setPhase({ kind: "error", message: e instanceof Error ? e.message : "ネットワークエラーが発生しました" });
     }
   }
 
@@ -65,18 +117,19 @@ export function AppleHealthImportSection() {
         method: "POST",
         body: formData,
       });
-      const json: AppleHealthImportResult | { error: string } = await res.json();
-      if (!res.ok || "error" in json) {
-        setPhase({ kind: "error", message: "error" in json ? json.error : `HTTP ${res.status}` });
+      const result = await safeJsonOrError<AppleHealthImportResult>(res);
+      if (!result.ok) {
+        setPhase({ kind: "error", message: result.message });
         return;
       }
+      const json = result.data;
       if (!json.ok) {
         setPhase({ kind: "error", message: json.message });
         return;
       }
       setPhase({ kind: "done", saved: json.savedCount, skipped: json.skippedCount });
     } catch (e) {
-      setPhase({ kind: "error", message: e instanceof Error ? e.message : "不明なエラー" });
+      setPhase({ kind: "error", message: e instanceof Error ? e.message : "ネットワークエラーが発生しました" });
     }
   }
 
