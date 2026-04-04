@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { Save, CheckCircle2, AlertCircle, Loader2, ChevronDown } from "lucide-react";
 import { saveSettings } from "@/app/settings/actions";
 import type { Setting } from "@/lib/supabase/types";
-import { toJstDateStr } from "@/lib/utils/date";
+import { toJstDateStr, calcDaysLeft } from "@/lib/utils/date";
 import type { MonthlyGoalOverride } from "@/lib/utils/monthlyGoalPlan";
 import { MonthlyGoalPlanSection } from "@/components/settings/MonthlyGoalPlanSection";
 import { resolveMonthlyPlanHistoryAnchor } from "@/lib/utils/monthlyPlanHistory";
@@ -210,6 +210,12 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
   // フェーズに応じた deadline 文言 (values はリアクティブなため切り替えが即反映される)
   const isBulk = values["current_phase"] === "Bulk";
   const deadlineLabel = isBulk ? "目標日" : "コンテスト日";
+
+  // 終了状態判定: 内部保存キーは contest_date のまま、UI 上は deadline / 大会日 / 目標日として扱う
+  // values["contest_date"] がリアクティブなため、フォーム編集で即時非表示になる
+  const deadlineStr = values["contest_date"] ?? "";
+  const daysLeft = deadlineStr ? calcDaysLeft(today, deadlineStr) : null;
+  const isDeadlineEnded = daysLeft !== null && daysLeft < 0;
   const seasonSectionTitle = isBulk ? "シーズン・目標" : "シーズン・コンテスト";
   const resolvedMonthlyPlanHistory = useMemo(
     () =>
@@ -304,8 +310,48 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
     }
   }
 
+  // 移行ガイドのリスト項目: Cut 終了時と Bulk 終了時で内容を分ける
+  const transitionGuideItems = isBulk
+    ? [
+        "目標日を更新",
+        "目標体重を更新",
+        "必要に応じてシーズン名・フェーズを変更",
+        "月次計画のオーバーライドをリセット",
+      ]
+    : [
+        "フェーズを Bulk に変更",
+        "目標日（増量終了日）を設定",
+        "目標体重を増量目標に更新",
+        "シーズン名を更新",
+        "月次計画のオーバーライドをリセット",
+      ];
+
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+
+      {/* ── フェーズ移行ガイド (deadline 終了時のみ表示) ──
+          表示条件: daysLeft < 0 (deadline 超過)。deadline を更新するとリアクティブに消える。
+          Cut 終了: フェーズ移行ガイド / Bulk 終了: 目標更新ガイド */}
+      {isDeadlineEnded && (
+        <div className="mb-6 rounded-xl border border-amber-100 bg-amber-50 px-5 py-4 dark:border-amber-700/50 dark:bg-amber-900/30">
+          <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+            {isBulk ? "目標更新ガイド" : "フェーズ移行ガイド"}
+          </p>
+          <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+            {isBulk
+              ? "増量期間終了後のため、次の目標設定を案内します。"
+              : "大会終了後のため、次フェーズへの移行準備を案内します。"}
+          </p>
+          <ul className="mt-3 space-y-1.5">
+            {transitionGuideItems.map((item) => (
+              <li key={item} className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400">
+                <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400 dark:bg-amber-500" aria-hidden="true" />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* ── セクション 1: シーズン・コンテスト (デフォルト展開) ── */}
       <div>
