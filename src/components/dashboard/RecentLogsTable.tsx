@@ -6,6 +6,7 @@ import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayT
 import { formatConditionSummary } from "@/lib/utils/trainingType";
 import { computeWeightDelta, buildRecentLogArrays } from "@/lib/utils/recentLogsUtils";
 import { calcFastingHours } from "@/lib/utils/calendarUtils";
+import { addDaysStr } from "@/lib/utils/date";
 
 interface RecentLogsTableProps {
   logs: DashboardDailyLog[];
@@ -16,6 +17,8 @@ interface RecentLogsTableProps {
 
 export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeason }: RecentLogsTableProps) {
   const { sorted, ascending } = buildRecentLogArrays(logs);
+  // 断食時間算出用: 日付 → ログ の高速参照テーブル（前日 D-1 の last_meal_end_time を参照するため）
+  const logByDate = new Map(ascending.map((l) => [l.log_date, l]));
 
   /** 直前ログとのカロリー差分。calories / 前回 calories いずれかが null なら null */
   function getCalDelta(log: DashboardDailyLog): number | null {
@@ -71,20 +74,23 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
                       </span>
                     ))}
                   </div>
-                  {(conditionSummary || log.sleep_hours !== null || calcFastingHours(log.last_meal_end_time, log.weigh_in_time) !== null) && (
-                    <div className="mt-1 text-xs leading-snug text-slate-500 dark:text-slate-400">
-                      {(() => {
-                        const fastingHours = calcFastingHours(log.last_meal_end_time, log.weigh_in_time);
-                        return [
+                  {(() => {
+                    const prevDate    = addDaysStr(log.log_date, -1);
+                    const prevDayLog  = prevDate ? (logByDate.get(prevDate) ?? null) : null;
+                    const fastingHours = calcFastingHours(prevDayLog?.last_meal_end_time, log.weigh_in_time);
+                    if (!conditionSummary && log.sleep_hours === null && fastingHours === null) return null;
+                    return (
+                      <div className="mt-1 text-xs leading-snug text-slate-500 dark:text-slate-400">
+                        {[
                           conditionSummary,
                           log.sleep_hours !== null ? `睡眠${log.sleep_hours}h` : null,
                           fastingHours !== null ? `断食${fastingHours % 1 === 0 ? fastingHours.toFixed(0) : fastingHours.toFixed(1)}h` : null,
                         ]
                           .filter(Boolean)
-                          .join(" / ");
-                      })()}
-                    </div>
-                  )}
+                          .join(" / ")}
+                      </div>
+                    );
+                  })()}
                 </td>
                 <td className="py-2 pr-4 text-right font-semibold text-slate-800 dark:text-slate-200">
                   {log.weight?.toFixed(1)}
