@@ -26,21 +26,21 @@ function ProgressBadge({ state }: { state: MonthlyPlanProgressState }) {
   }
   if (state === "on_track") {
     return (
-      <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+      <span className="whitespace-nowrap rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500 dark:bg-slate-700 dark:text-slate-400">
         計画内
       </span>
     );
   }
   if (state === "ahead") {
     return (
-      <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+      <span className="whitespace-nowrap rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
         先行
       </span>
     );
   }
   // "behind"
   return (
-    <span className="rounded-full bg-rose-50 px-1.5 py-0.5 text-[9px] font-semibold text-rose-500 dark:bg-rose-900/30 dark:text-rose-400">
+    <span className="whitespace-nowrap rounded-full bg-rose-50 px-1.5 py-0.5 text-[9px] font-semibold text-rose-500 dark:bg-rose-900/30 dark:text-rose-400">
       遅れ
     </span>
   );
@@ -97,7 +97,7 @@ export function MonthlyGoalTable({ rows, phase }: MonthlyGoalTableProps) {
                     {row.monthEndTarget.toFixed(1)} kg
                   </td>
                   {/* 実績月末 */}
-                  <td className="py-2 pr-3 text-right text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  <td className="py-2 pr-3 text-right text-xs font-semibold text-slate-700 whitespace-nowrap dark:text-slate-200">
                     {row.isFutureMonth ? (
                       <span className="font-normal text-slate-300 dark:text-slate-600">—</span>
                     ) : row.actualMonthEndWeight !== null ? (
