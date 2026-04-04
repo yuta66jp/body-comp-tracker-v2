@@ -313,7 +313,6 @@ function PlanContent({
               <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">目標体重</th>
               <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">前月比</th>
               <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">種別</th>
-              <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">実績</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50 dark:divide-slate-700/60">
@@ -429,14 +428,6 @@ function PlanContent({
                     )}
                   </td>
 
-                  {/* 実績 */}
-                  <td className="px-3 py-2 text-right">
-                    {entry.actualWeight !== null ? (
-                      <span className="text-slate-600 dark:text-slate-300">{entry.actualWeight.toFixed(1)} kg</span>
-                    ) : (
-                      <span className="text-slate-300 dark:text-slate-600">—</span>
-                    )}
-                  </td>
                 </tr>
               );
             })}
