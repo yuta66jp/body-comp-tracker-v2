@@ -119,8 +119,10 @@ export default async function HistoryPage() {
       <div className="space-y-6">
         {allCareerLogs.length > 0 ? (
           <>
-            {/* 今日基準近傍比較 (メイン判断用) — Bulk 時は非表示 */}
-            {isCut && todayDaysOut !== null && (
+            {/* 今日基準近傍比較 (メイン判断用) — Bulk 時・大会後は非表示
+                todayDaysOut > 0: deadline を超過しているため比較は意味をなさない。
+                todayDaysOut = 0 (deadline 当日) は進行中として表示を維持する。 */}
+            {isCut && todayDaysOut !== null && todayDaysOut <= 0 && (
               <TodayWindowComparison
                 entries={todayWindowEntries}
                 currentSeason={currentSeasonLabel}

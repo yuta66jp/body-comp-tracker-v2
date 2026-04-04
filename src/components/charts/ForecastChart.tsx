@@ -132,6 +132,10 @@ export function ForecastChart({
     monthlyGoalTarget: monthlyGoalDateMap.get(date),
   }));
 
+  // contestDate が今日より前かどうか (参照線のスタイル切り替えに使用)
+  // 未来・当日: 実線 + 赤、過去: 点線 + 低コントラスト + "（終了）" ラベル
+  const isContestPast = contestDate ? contestDate < today : false;
+
   // Y 軸範囲
   const visibleActual = allDates
     .map((d) => actualMap.get(d))
@@ -259,9 +263,15 @@ export function ForecastChart({
           {showFutureSeries && contestDate && (
             <ReferenceLine
               x={contestDate}
-              stroke="#ef4444"
-              strokeWidth={2}
-              label={{ value: phase === "Bulk" ? "目標日" : "大会", fontSize: 10, fill: "#ef4444", position: "top" }}
+              stroke={isContestPast ? (isDark ? "#64748b" : "#94a3b8") : "#ef4444"}
+              strokeWidth={isContestPast ? 1 : 2}
+              strokeDasharray={isContestPast ? "4 4" : undefined}
+              label={{
+                value: `${phase === "Bulk" ? "目標日" : "大会"}${isContestPast ? "（終了）" : ""}`,
+                fontSize: 10,
+                fill: isContestPast ? (isDark ? "#64748b" : "#94a3b8") : "#ef4444",
+                position: "top",
+              }}
             />
           )}
 
