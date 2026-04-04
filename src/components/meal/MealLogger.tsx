@@ -47,6 +47,8 @@ export interface HasContentInput {
   hadBowelMovementTouched: boolean; // ボタンを一度でも操作したか
   trainingTypeTouched: boolean;
   workModeTouched: boolean;
+  lastMealEndTimeTouched: boolean;
+  weighInTimeTouched: boolean;
 }
 
 export function computeHasContent(input: HasContentInput): boolean {
@@ -62,7 +64,9 @@ export function computeHasContent(input: HasContentInput): boolean {
     input.sleepHoursTouched ||
     input.hadBowelMovementTouched || // touched なら null 送信も含め有効化
     input.trainingTypeTouched ||
-    input.workModeTouched
+    input.workModeTouched ||
+    input.lastMealEndTimeTouched ||
+    input.weighInTimeTouched
   );
 }
 
@@ -119,6 +123,13 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
   const [workMode, setWorkMode] = useState<WorkMode | null>(null);
   const [workModeTouched, setWorkModeTouched] = useState(false);
 
+  // ── #435 追加: 食事タイミング ──
+  // "" = 未入力, "HH:MM" = 入力値。null は使わない（time input はクリアで "" になる）
+  const [lastMealEndTime, setLastMealEndTime] = useState("");
+  const [lastMealEndTimeTouched, setLastMealEndTimeTouched] = useState(false);
+  const [weighInTime, setWeighInTime] = useState("");
+  const [weighInTimeTouched, setWeighInTimeTouched] = useState(false);
+
   // 食品を追加セクションの開閉状態（初期: 非表示）
   const [foodPickerOpen, setFoodPickerOpen] = useState(false);
 
@@ -139,6 +150,8 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     setHadBowelMovementTouched(false);
     setTrainingTypeTouched(false);
     setWorkModeTouched(false);
+    setLastMealEndTimeTouched(false);
+    setWeighInTimeTouched(false);
     setTouchedTags(new Set());
 
     // カートはマクロ値から復元不可のためリセット
@@ -159,6 +172,9 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
         is_eating_out: existingLog.is_eating_out ?? false,
         is_travel_day: existingLog.is_travel_day ?? false,
       });
+      // TIME 型は "HH:MM:SS" で返るため、input[type=time] 用に "HH:MM" に切り出す
+      setLastMealEndTime(existingLog.last_meal_end_time?.slice(0, 5) ?? "");
+      setWeighInTime(existingLog.weigh_in_time?.slice(0, 5) ?? "");
     } else {
       // 新規日付: 空フォームにリセット
       setWeight("");
@@ -168,6 +184,8 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       setTrainingType(null);
       setWorkMode(null);
       setTags(emptyTagState());
+      setLastMealEndTime("");
+      setWeighInTime("");
     }
   }
 
@@ -279,6 +297,9 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
         had_bowel_movement: hadBowelMovementTouched ? hadBowelMovement : undefined,
         training_type:      trainingTypeTouched ? trainingType : undefined,
         work_mode:          workModeTouched     ? workMode     : undefined,
+        // 時刻: touched かつ非空 → 値保存、touched かつ空 → null（明示クリア）、未操作 → undefined
+        last_meal_end_time: lastMealEndTimeTouched ? (lastMealEndTime !== "" ? lastMealEndTime : null) : undefined,
+        weigh_in_time:      weighInTimeTouched     ? (weighInTime      !== "" ? weighInTime      : null) : undefined,
       });
 
       if (!result.ok) {
@@ -306,6 +327,10 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
         setTrainingTypeTouched(false);
         setWorkMode(null);
         setWorkModeTouched(false);
+        setLastMealEndTime("");
+        setLastMealEndTimeTouched(false);
+        setWeighInTime("");
+        setWeighInTimeTouched(false);
         // SWR キャッシュを更新して次回 hydrate に最新ログを反映させる
         void mutateLogs();
         setTimeout(() => setStatus("idle"), 2000);
@@ -327,6 +352,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     note, noteTouched, touchedTags,
     sleepHours, sleepHoursTouched,
     hadBowelMovementTouched, trainingTypeTouched, workModeTouched,
+    lastMealEndTimeTouched, weighInTimeTouched,
   });
 
   const inputCls =
@@ -524,6 +550,28 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
                 </button>
               </p>
             )}
+          </div>
+          {/* 最終食事終了時刻 */}
+          <div>
+            <label htmlFor="meal-log-last-meal-end-time" className="mb-1.5 block text-xs font-medium text-slate-500">最終食事終了</label>
+            <input
+              id="meal-log-last-meal-end-time"
+              type="time"
+              value={lastMealEndTime}
+              onChange={(e) => { setLastMealEndTime(e.target.value); setLastMealEndTimeTouched(true); }}
+              className={inputCls}
+            />
+          </div>
+          {/* 体重測定時刻 */}
+          <div>
+            <label htmlFor="meal-log-weigh-in-time" className="mb-1.5 block text-xs font-medium text-slate-500">体重測定時刻</label>
+            <input
+              id="meal-log-weigh-in-time"
+              type="time"
+              value={weighInTime}
+              onChange={(e) => { setWeighInTime(e.target.value); setWeighInTimeTouched(true); }}
+              className={inputCls}
+            />
           </div>
           {/* 便通 */}
           <div>

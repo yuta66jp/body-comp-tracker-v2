@@ -44,6 +44,41 @@ export interface CalendarDayData {
    * カレンダーセル内のタグ表示に使用する。
    */
   conditionTags: CalendarDayTagInfo[];
+  /**
+   * 空腹時間（時間単位、小数点1桁）。
+   * last_meal_end_time と weigh_in_time の両方が記録されている場合のみ算出。
+   * 日をまたぐ場合（例: 22:30→07:00）も正しく計算する。
+   */
+  fasting_hours: number | null;
+}
+
+/**
+ * 最終食事終了時刻と体重測定時刻から空腹時間（h）を算出する。
+ *
+ * - 両方の時刻が存在する場合のみ計算する。
+ * - 日をまたぐ場合（weigh_in_time < last_meal_end_time）は +24h で補正する。
+ * - タイムゾーン情報なし・当日内の時刻として扱う。
+ * - 入力は "HH:MM" または "HH:MM:SS" 形式を許容する（PostgreSQL TIME 型は "HH:MM:SS" で返す）。
+ */
+export function calcFastingHours(
+  lastMealEndTime: string | null | undefined,
+  weighInTime: string | null | undefined,
+): number | null {
+  if (!lastMealEndTime || !weighInTime) return null;
+  const parseMins = (t: string): number | null => {
+    const parts = t.split(":");
+    const h = parseInt(parts[0] ?? "");
+    const m = parseInt(parts[1] ?? "");
+    if (isNaN(h) || isNaN(m)) return null;
+    return h * 60 + m;
+  };
+  const lastMins  = parseMins(lastMealEndTime);
+  const weighMins = parseMins(weighInTime);
+  if (lastMins === null || weighMins === null) return null;
+  let delta = weighMins - lastMins;
+  if (delta <= 0) delta += 24 * 60; // 日またぎ補正（0 は同時刻を排除）
+  if (delta >= 24 * 60) return null; // 24h 以上は異常値として除外
+  return Math.round(delta / 60 * 10) / 10; // 小数点1桁
 }
 
 // ── コンディションタグ ────────────────────────────────────────────────────────
@@ -183,8 +218,10 @@ export function buildCalendarDayMap(logs: DashboardDailyLog[]): Map<string, Cale
       work_mode:          log.work_mode,
     });
 
+    const fasting_hours = calcFastingHours(log.last_meal_end_time, log.weigh_in_time);
+
     map.set(log.log_date, {
-      log, weightDelta, calDelta, dayTags, conditionSummary, conditionTags,
+      log, weightDelta, calDelta, dayTags, conditionSummary, conditionTags, fasting_hours,
     });
   }
 

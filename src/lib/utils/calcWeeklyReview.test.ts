@@ -25,6 +25,8 @@ function makeLog(
     training_type: null,
     updated_at: "2026-04-02T00:00:00Z",
     work_mode: null,
+    last_meal_end_time: null,
+    weigh_in_time: null,
     ...overrides,
   };
 }

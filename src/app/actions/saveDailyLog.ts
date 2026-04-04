@@ -35,6 +35,11 @@ export type SaveDailyLogInput = {
   /** 'off' | 'office' | 'remote' */
   work_mode?: string | null;
   // leg_flag はユーザーから受け取らない。training_type から導出する。
+  // ── #435 追加 ──
+  /** 最後の食事終了時刻 "HH:MM" 形式。null = 明示クリア */
+  last_meal_end_time?: string | null;
+  /** 体重測定時刻 "HH:MM" 形式。null = 明示クリア */
+  weigh_in_time?: string | null;
 };
 
 /** DB に渡す更新ペイロード（undefined フィールドを除去したもの）*/
@@ -100,6 +105,14 @@ export async function saveDailyLog(
   if (input.work_mode !== undefined && input.work_mode !== null) {
     if (!isValidWorkMode(input.work_mode)) {
       return { ok: false, message: "work_mode の値が不正です" };
+    }
+  }
+
+  // 時刻は "HH:MM" または "HH:MM:SS" 形式を許容する
+  for (const key of ["last_meal_end_time", "weigh_in_time"] as const) {
+    const v = input[key];
+    if (v !== undefined && v !== null && !/^\d{2}:\d{2}(:\d{2})?$/.test(v)) {
+      return { ok: false, message: `${key} の形式が正しくありません（HH:MM 形式で入力してください）` };
     }
   }
 

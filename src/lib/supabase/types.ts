@@ -71,6 +71,7 @@ export type Database = {
           is_eating_out: boolean
           is_refeed_day: boolean
           is_travel_day: boolean
+          last_meal_end_time: string | null
           leg_flag: boolean | null
           log_date: string
           note: string | null
@@ -78,6 +79,7 @@ export type Database = {
           sleep_hours: number | null
           training_type: string | null
           updated_at: string
+          weigh_in_time: string | null
           weight: number
           work_mode: string | null
         }
@@ -92,6 +94,7 @@ export type Database = {
           is_eating_out?: boolean
           is_refeed_day?: boolean
           is_travel_day?: boolean
+          last_meal_end_time?: string | null
           leg_flag?: boolean | null
           log_date: string
           note?: string | null
@@ -99,6 +102,7 @@ export type Database = {
           sleep_hours?: number | null
           training_type?: string | null
           updated_at?: string
+          weigh_in_time?: string | null
           weight: number
           work_mode?: string | null
         }
@@ -113,6 +117,7 @@ export type Database = {
           is_eating_out?: boolean
           is_refeed_day?: boolean
           is_travel_day?: boolean
+          last_meal_end_time?: string | null
           leg_flag?: boolean | null
           log_date?: string
           note?: string | null
@@ -120,6 +125,7 @@ export type Database = {
           sleep_hours?: number | null
           training_type?: string | null
           updated_at?: string
+          weigh_in_time?: string | null
           weight?: number
           work_mode?: string | null
         }
@@ -522,7 +528,7 @@ export type DailyLog = Database["public"]["Tables"]["daily_logs"]["Row"];
 
 /**
  * Dashboard 専用の daily_logs projection 型。
- * fetchDashboardDailyLogs() が取得する 16 列に対応する。
+ * fetchDashboardDailyLogs() が取得する 18 列に対応する（#435 で last_meal_end_time / weigh_in_time 追加）。
  *
  * 除外列:
  *   - note     : Dashboard のいずれの関数・コンポーネントでも参照されない

@@ -20,9 +20,11 @@ function makeLog(log_date: string, overrides: Partial<DailyLog> = {}): DailyLog 
     sleep_hours:       null,
     had_bowel_movement: false,
     training_type:     null,
-    work_mode:         null,
-    leg_flag:          null,
-    updated_at:        "2026-03-01T00:00:00Z",
+    work_mode:          null,
+    leg_flag:           null,
+    last_meal_end_time: null,
+    weigh_in_time:      null,
+    updated_at:         "2026-03-01T00:00:00Z",
     ...overrides,
   };
 }

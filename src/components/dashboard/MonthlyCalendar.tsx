@@ -205,6 +205,15 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
           </div>
         )}
 
+        {/* ③-b 空腹時間（デスクトップのみ: 情報密度制御） */}
+        {data?.fasting_hours != null && (
+          <div className="mt-0.5 hidden sm:block leading-none">
+            <span className="text-[9px] text-slate-400 dark:text-slate-500">
+              断食{data.fasting_hours % 1 === 0 ? data.fasting_hours.toFixed(0) : data.fasting_hours.toFixed(1)}h
+            </span>
+          </div>
+        )}
+
         {/* ④ 特殊日タグ（優先順位最上位の 1 件のみ表示） */}
         {topDayTag && (
           <div className="mt-0.5">
