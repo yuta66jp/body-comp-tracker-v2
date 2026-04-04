@@ -27,11 +27,11 @@ function getSeriesType(run: ForecastBacktestRun): string {
 }
 
 /**
- * 最新 20 件の run を取得し、daily / sma7 それぞれの最新 run を返す。
+ * 最新 20 件の run を取得し、daily / sma7 それぞれの最新 run と直前 run を返す。
  * 旧来の run (config.series_type なし) は daily として扱う。
  *
  * 戻り値:
- *   kind: "ok"    — 取得成功。dailyRun / sma7Run が null = バックテスト未実行（正常な空状態）。
+ *   kind: "ok"    — 取得成功。各 run が null = バックテスト未実行 / 前回なし（正常な空状態）。
  *   kind: "error" — DB フェッチ失敗。呼び出し側で error banner を表示すること。
  *
  * エラー時に null を返すと「バックテスト未実行」と誤表示されるため QueryResult を使用する。
@@ -39,6 +39,8 @@ function getSeriesType(run: ForecastBacktestRun): string {
 export async function fetchLatestRuns(): Promise<QueryResult<{
   dailyRun: ForecastBacktestRun | null;
   sma7Run: ForecastBacktestRun | null;
+  prevDailyRun: ForecastBacktestRun | null;
+  prevSma7Run: ForecastBacktestRun | null;
 }>> {
   const supabase = createClient();
   const { data, error } = await supabase
@@ -53,10 +55,18 @@ export async function fetchLatestRuns(): Promise<QueryResult<{
   }
 
   const runs = (data as ForecastBacktestRun[]) ?? [];
-  const dailyRun = runs.find((r) => getSeriesType(r) === "daily") ?? null;
-  const sma7Run = runs.find((r) => getSeriesType(r) === "sma7") ?? null;
+  const dailyRuns = runs.filter((r) => getSeriesType(r) === "daily");
+  const sma7Runs  = runs.filter((r) => getSeriesType(r) === "sma7");
 
-  return { kind: "ok", data: { dailyRun, sma7Run } };
+  return {
+    kind: "ok",
+    data: {
+      dailyRun:     dailyRuns[0] ?? null,
+      sma7Run:      sma7Runs[0]  ?? null,
+      prevDailyRun: dailyRuns[1] ?? null,
+      prevSma7Run:  sma7Runs[1]  ?? null,
+    },
+  };
 }
 
 /**
