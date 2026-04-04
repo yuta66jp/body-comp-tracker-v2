@@ -84,6 +84,18 @@ const STATUS_CONFIG = {
     bg: "bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-600",
     icon: CalendarDays,
   },
+  deadline_today: {
+    label: "", // phase に応じて動的に上書き (see statusLabel)
+    color: "text-slate-600 dark:text-slate-400",
+    bg: "bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-600",
+    icon: CalendarDays,
+  },
+  deadline_ended: {
+    label: "終了済",
+    color: "text-slate-500 dark:text-slate-400",
+    bg: "bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-600",
+    icon: CalendarDays,
+  },
   unknown: {
     label: "データ不足",
     color: "text-slate-400 dark:text-slate-500",
@@ -249,6 +261,10 @@ export function GoalNavigator({
       ? `${deadlineLabel}未設定`
       : status === "contest_imminent"
       ? `${deadlineLabel}直前`
+      : status === "deadline_today"
+      ? `本日が${deadlineLabel}`
+      : status === "deadline_ended"
+      ? "終了済"
       : statusCfg.label;
 
   // ── 設定欠落フォールバック ──
@@ -287,6 +303,25 @@ export function GoalNavigator({
           </span>
         </div>
       </div>
+
+      {/* ── 状態別案内 (no_contest / deadline_today / deadline_ended) ── */}
+      {(status === "no_contest" || status === "deadline_today" || status === "deadline_ended") && (
+        <div className="border-b border-slate-100 px-5 py-3 dark:border-slate-700">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            {status === "no_contest"
+              ? isCut
+                ? "大会日を設定してください"
+                : "目標日を設定してください"
+              : status === "deadline_today"
+              ? isCut
+                ? "本日が大会日です"
+                : "本日が目標日です"
+              : isCut
+              ? "大会が終了しました。設定からフェーズを更新してください"
+              : "増量期間が終了しました。設定を更新してください"}
+          </p>
+        </div>
+      )}
 
       {/* ── 本体: 3 列 ── */}
       <div className="grid grid-cols-1 gap-0 sm:grid-cols-[1fr_auto_1fr_auto_1fr]">

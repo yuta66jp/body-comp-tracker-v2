@@ -254,8 +254,10 @@ export const PACE_CALC_MIN_DAYS = 7;
  * - on_track          : 実績ペース ≥ 必要ペース (比率 ≥ 1.0)
  * - adjust            : 比率 0.5〜1.0 未満
  * - behind            : 比率 0.5 未満 または逆方向
- * - no_contest        : contest_date 未設定または過去
- * - contest_imminent  : days_to_contest < PACE_CALC_MIN_DAYS (週次ペース算出不可)
+ * - no_contest        : contest_date 未設定 (null)
+ * - deadline_today    : 最終日 (daysToContest === 0)
+ * - deadline_ended    : 期限終了 (daysToContest < 0)
+ * - contest_imminent  : days_to_contest < PACE_CALC_MIN_DAYS かつ > 0 (週次ペース算出不可)
  * - unknown           : データ不足
  */
 export type GoalStatus =
@@ -264,6 +266,8 @@ export type GoalStatus =
   | "adjust"
   | "behind"
   | "no_contest"
+  | "deadline_today"
+  | "deadline_ended"
   | "contest_imminent"
   | "unknown";
 
@@ -285,9 +289,12 @@ export function calcGoalStatus(
   remainingToGoalKg: number | null,
   daysToContest: number | null
 ): GoalStatus {
-  if (daysToContest === null || daysToContest < 0) return "no_contest";
+  if (daysToContest === null) return "no_contest";
+  if (daysToContest < 0) return "deadline_ended";
+  // 達成済みチェックは deadline_today より前: 最終日に達成済みなら "achieved" を優先する
   if (remainingToGoalKg !== null && Math.abs(remainingToGoalKg) < 0.2) return "achieved";
-  // 大会直前 (days < PACE_CALC_MIN_DAYS): 週次ペース算出不可のため専用状態を返す
+  if (daysToContest === 0) return "deadline_today";
+  // 大会直前 (1 ≤ days < PACE_CALC_MIN_DAYS): 週次ペース算出不可のため専用状態を返す
   // required_rate は null になるため "unknown" と区別することで UI が明示的な fallback を出せる
   if (daysToContest < PACE_CALC_MIN_DAYS) return "contest_imminent";
   if (actualRateKgPerWeek === null || requiredRateKgPerWeek === null) return "unknown";

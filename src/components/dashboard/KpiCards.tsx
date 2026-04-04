@@ -117,18 +117,24 @@ export function KpiCards({ logs, settings, currentWeight, currentSeason, goalRea
         accent="bg-blue-50 dark:bg-blue-900/30"
         iconColor="text-blue-600 dark:text-blue-400"
         trendDir={slopePerWeek !== null ? trendDir : undefined}
-        trendPositive="down"
+        trendPositive={isCut ? "down" : "up"}
       />
 
       {/* 残り日数 + 残り週数 */}
       <KpiCard
         label="残り日数"
-        value={daysLeft !== null ? daysLeft.toLocaleString() : "—"}
-        unit={daysLeft !== null ? "日" : ""}
+        value={
+          daysLeft === null ? "—"
+          : daysLeft < 0 ? "終了済"
+          : daysLeft.toLocaleString()
+        }
+        unit={daysLeft !== null && daysLeft >= 0 ? "日" : undefined}
         sub={
-          daysLeft !== null && daysLeft > 0 && weeksLeft !== null
-            ? `${weeksLeft} 週 / ${contestDate}`
-            : (contestDate ?? `${deadlineLabel}未設定`)
+          daysLeft === null ? `${deadlineLabel}未設定`
+          : daysLeft < 0 ? `${contestDate} 終了`
+          : daysLeft === 0 ? `本日が${deadlineLabel}`
+          : weeksLeft !== null ? `${weeksLeft} 週 / ${contestDate}`
+          : contestDate
         }
         icon={<CalendarClock size={18} />}
         accent="bg-violet-50 dark:bg-violet-900/30"

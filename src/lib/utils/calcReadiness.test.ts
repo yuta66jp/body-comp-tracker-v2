@@ -406,8 +406,8 @@ describe("calcReadiness 大会直前ガード", () => {
 
 describe("calcGoalStatus", () => {
   // ── contest_imminent ──
-  test("daysToContest = 0 (大会当日) → contest_imminent", () => {
-    expect(calcGoalStatus(-1.0, -1.0, 2.0, 0)).toBe("contest_imminent");
+  test("daysToContest = 0 (大会当日) → deadline_today", () => {
+    expect(calcGoalStatus(-1.0, -1.0, 2.0, 0)).toBe("deadline_today");
   });
 
   test("daysToContest = 1 → contest_imminent", () => {
@@ -442,8 +442,8 @@ describe("calcGoalStatus", () => {
     expect(calcGoalStatus(-1.0, -1.0, 2.0, null)).toBe("no_contest");
   });
 
-  test("daysToContest が負 (過去) → no_contest", () => {
-    expect(calcGoalStatus(-1.0, -1.0, 2.0, -1)).toBe("no_contest");
+  test("daysToContest が負 (過去) → deadline_ended", () => {
+    expect(calcGoalStatus(-1.0, -1.0, 2.0, -1)).toBe("deadline_ended");
   });
 
   // ── 通常ケース ──
