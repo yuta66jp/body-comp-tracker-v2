@@ -250,6 +250,11 @@ export default async function DashboardPage() {
               設定データの取得中にエラーが発生しました。一部の表示がデフォルト値になります。
             </StatusNotice>
           )}
+          {readinessMetrics.days_to_contest !== null && readinessMetrics.days_to_contest < 0 && (
+            <StatusNotice status="caution">
+              {phase !== "Bulk" ? "大会日" : "目標日"}を過ぎています。設定から次のフェーズに移行してください。
+            </StatusNotice>
+          )}
         </>
       }
     >

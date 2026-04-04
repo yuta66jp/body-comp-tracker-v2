@@ -84,6 +84,18 @@ const STATUS_CONFIG = {
     bg: "bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-600",
     icon: CalendarDays,
   },
+  deadline_today: {
+    label: "", // phase に応じて動的に上書き (see statusLabel)
+    color: "text-slate-600 dark:text-slate-400",
+    bg: "bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-600",
+    icon: CalendarDays,
+  },
+  deadline_ended: {
+    label: "終了済",
+    color: "text-slate-500 dark:text-slate-400",
+    bg: "bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-600",
+    icon: CalendarDays,
+  },
   unknown: {
     label: "データ不足",
     color: "text-slate-400 dark:text-slate-500",
@@ -249,6 +261,10 @@ export function GoalNavigator({
       ? `${deadlineLabel}未設定`
       : status === "contest_imminent"
       ? `${deadlineLabel}直前`
+      : status === "deadline_today"
+      ? `本日が${deadlineLabel}`
+      : status === "deadline_ended"
+      ? "終了済"
       : statusCfg.label;
 
   // ── 設定欠落フォールバック ──
