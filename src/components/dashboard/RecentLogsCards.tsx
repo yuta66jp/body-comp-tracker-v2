@@ -19,6 +19,7 @@ import type { DashboardDailyLog } from "@/lib/supabase/types";
 import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayTags";
 import { formatConditionSummary } from "@/lib/utils/trainingType";
 import { computeWeightDelta, buildRecentLogArrays } from "@/lib/utils/recentLogsUtils";
+import { calcFastingHours } from "@/lib/utils/calendarUtils";
 
 interface RecentLogsCardsProps {
   logs: DashboardDailyLog[];
@@ -73,14 +74,18 @@ export function RecentLogsCards({ logs, seasonMap, currentSeason }: RecentLogsCa
                   </span>
                 ))}
               </div>
-              {(conditionSummary || log.sleep_hours !== null) && (
+              {(conditionSummary || log.sleep_hours !== null || calcFastingHours(log.last_meal_end_time, log.weigh_in_time) !== null) && (
                 <div className="mt-0.5 text-[10px] leading-snug text-slate-400 dark:text-slate-500">
-                  {[
-                    conditionSummary,
-                    log.sleep_hours !== null ? `${log.sleep_hours}h` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" / ")}
+                  {(() => {
+                    const fastingHours = calcFastingHours(log.last_meal_end_time, log.weigh_in_time);
+                    return [
+                      conditionSummary,
+                      log.sleep_hours !== null ? `睡眠${log.sleep_hours}h` : null,
+                      fastingHours !== null ? `断食${fastingHours % 1 === 0 ? fastingHours.toFixed(0) : fastingHours.toFixed(1)}h` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" / ");
+                  })()}
                 </div>
               )}
             </div>

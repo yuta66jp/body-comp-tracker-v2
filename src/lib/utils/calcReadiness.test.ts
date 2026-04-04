@@ -46,6 +46,8 @@ function makeDailyLog(
     is_eating_out: false,
     is_travel_day: false,
     leg_flag: false,
+    last_meal_end_time: null,
+    weigh_in_time: null,
     updated_at: "2026-03-01T00:00:00Z",
     ...overrides,
   };

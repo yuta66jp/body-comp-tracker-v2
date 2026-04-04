@@ -26,6 +26,8 @@ function makeLog(
     is_refeed_day: false,
     is_eating_out: false,
     is_travel_day: false,
+    last_meal_end_time: null,
+    weigh_in_time: null,
     created_at: null,
     updated_at: "2026-01-01T00:00:00Z",
     ...overrides,

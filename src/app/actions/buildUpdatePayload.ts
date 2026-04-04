@@ -40,5 +40,9 @@ export function buildUpdatePayload(
     payload.leg_flag      = deriveLegFlag(input.training_type);
   }
 
+  // #435 追加: 食事タイミング
+  if (input.last_meal_end_time !== undefined) payload.last_meal_end_time = input.last_meal_end_time;
+  if (input.weigh_in_time      !== undefined) payload.weigh_in_time      = input.weigh_in_time;
+
   return payload;
 }

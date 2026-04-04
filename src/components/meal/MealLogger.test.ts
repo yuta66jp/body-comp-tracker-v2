@@ -13,6 +13,8 @@ const base = {
   hadBowelMovementTouched: false,
   trainingTypeTouched: false,
   workModeTouched: false,
+  lastMealEndTimeTouched: false,
+  weighInTimeTouched: false,
 } satisfies Parameters<typeof computeHasContent>[0];
 
 describe("computeHasContent", () => {

@@ -35,6 +35,11 @@ export type SaveDailyLogInput = {
   /** 'off' | 'office' | 'remote' */
   work_mode?: string | null;
   // leg_flag はユーザーから受け取らない。training_type から導出する。
+  // ── #435 追加 ──
+  /** 最後の食事終了時刻 "HH:MM" 形式。null = 明示クリア */
+  last_meal_end_time?: string | null;
+  /** 体重測定時刻 "HH:MM" 形式。null = 明示クリア */
+  weigh_in_time?: string | null;
 };
 
 /** DB に渡す更新ペイロード（undefined フィールドを除去したもの）*/
@@ -100,6 +105,28 @@ export async function saveDailyLog(
   if (input.work_mode !== undefined && input.work_mode !== null) {
     if (!isValidWorkMode(input.work_mode)) {
       return { ok: false, message: "work_mode の値が不正です" };
+    }
+  }
+
+  // 時刻バリデーション: "HH:MM" または "HH:MM:SS" 形式 + 値域チェック
+  for (const key of ["last_meal_end_time", "weigh_in_time"] as const) {
+    const v = input[key];
+    if (v !== undefined && v !== null) {
+      const parts = v.split(":");
+      if (parts.length < 2 || parts.length > 3) {
+        return { ok: false, message: `${key} の形式が正しくありません（HH:MM 形式で入力してください）` };
+      }
+      const h = parseInt(parts[0] ?? "", 10);
+      const m = parseInt(parts[1] ?? "", 10);
+      const s = parts.length === 3 ? parseInt(parts[2] ?? "", 10) : 0;
+      if (
+        isNaN(h) || isNaN(m) || isNaN(s) ||
+        h < 0 || h > 23 ||
+        m < 0 || m > 59 ||
+        s < 0 || s > 59
+      ) {
+        return { ok: false, message: `${key} の値が不正です（時: 0-23、分: 0-59 の範囲で入力してください）` };
+      }
     }
   }
 
