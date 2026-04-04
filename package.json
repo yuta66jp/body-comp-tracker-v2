@@ -28,7 +28,9 @@
     "react-day-picker": "^9.14.0",
     "react-dom": "19.2.3",
     "recharts": "^3.8.0",
-    "swr": "^2.4.1"
+    "sax": "^1.6.0",
+    "swr": "^2.4.1",
+    "unzipper": "^0.12.3"
   },
   "overrides": {
     "flatted": "3.4.2"
@@ -43,6 +45,8 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/sax": "^1.2.7",
+    "@types/unzipper": "^0.10.11",
     "eslint": "^9",
     "eslint-config-next": "16.1.7",
     "jest": "^30.2.0",

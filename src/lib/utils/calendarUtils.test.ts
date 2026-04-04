@@ -32,6 +32,7 @@ function makeLog(overrides: Omit<Partial<DailyLog>, "weight"> & { log_date: stri
     leg_flag:           overrides.leg_flag           ?? null,
     last_meal_end_time: overrides.last_meal_end_time ?? null,
     weigh_in_time:      overrides.weigh_in_time      ?? null,
+    step_count:         overrides.step_count         ?? null,
     updated_at:         overrides.updated_at         ?? "2026-03-01T00:00:00Z",
   };
 }
