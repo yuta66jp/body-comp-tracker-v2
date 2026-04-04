@@ -304,6 +304,25 @@ export function GoalNavigator({
         </div>
       </div>
 
+      {/* ── 状態別案内 (no_contest / deadline_today / deadline_ended) ── */}
+      {(status === "no_contest" || status === "deadline_today" || status === "deadline_ended") && (
+        <div className="border-b border-slate-100 px-5 py-3 dark:border-slate-700">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            {status === "no_contest"
+              ? isCut
+                ? "大会日を設定してください"
+                : "目標日を設定してください"
+              : status === "deadline_today"
+              ? isCut
+                ? "本日が大会日です"
+                : "本日が目標日です"
+              : isCut
+              ? "大会が終了しました。設定からフェーズを更新してください"
+              : "増量期間が終了しました。設定を更新してください"}
+          </p>
+        </div>
+      )}
+
       {/* ── 本体: 3 列 ── */}
       <div className="grid grid-cols-1 gap-0 sm:grid-cols-[1fr_auto_1fr_auto_1fr]">
         {/* ─── 列1: 体重進捗 ─── */}
