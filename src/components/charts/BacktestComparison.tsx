@@ -27,6 +27,8 @@ import { MODEL_DESCRIPTIONS, ModelInfoTooltip } from "./ModelInfoTooltip";
 interface BacktestComparisonProps {
   dailyMetrics: ForecastBacktestMetric[];
   sma7Metrics: ForecastBacktestMetric[];
+  prevDailyMetrics?: ForecastBacktestMetric[];
+  prevSma7Metrics?: ForecastBacktestMetric[];
 }
 
 const HORIZONS = [7, 14, 30] as const;
@@ -45,6 +47,29 @@ const MODEL_LABELS: Record<string, string> = {
 
 function fmt3(v: number | null): string {
   return v !== null ? v.toFixed(3) : "—";
+}
+
+/** 前回比バッジ要素を返す。prev が null のときは null */
+function MaeDeltaBadge({ current, prev }: { current: number | null; prev: number | null }) {
+  if (current === null || prev === null) return null;
+  const delta = current - prev;
+  if (delta < -0.005) {
+    return (
+      <span className="ml-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+        ▼{Math.abs(delta).toFixed(2)}
+      </span>
+    );
+  }
+  if (delta > 0.005) {
+    return (
+      <span className="ml-1 text-[10px] font-semibold text-rose-600 dark:text-rose-400">
+        ▲{Math.abs(delta).toFixed(2)}
+      </span>
+    );
+  }
+  return (
+    <span className="ml-1 text-[10px] text-slate-400 dark:text-slate-500">±0</span>
+  );
 }
 
 /** metrics から (model, horizon) → mae の Map を構築 */
@@ -91,6 +116,8 @@ function noiseReductionColor(pct: number | null): string {
 export function BacktestComparison({
   dailyMetrics,
   sma7Metrics,
+  prevDailyMetrics = [],
+  prevSma7Metrics  = [],
 }: BacktestComparisonProps) {
   // #363 以降の run は複数 policy の行を含む。
   // BacktestComparison は評価軸（単日 vs 7日均）の比較が目的のため、
@@ -104,7 +131,11 @@ export function BacktestComparison({
   if (!hasDailyData && !hasSma7Data) return null;
 
   const dailyMap = buildMaeMap(dailyAll);
-  const sma7Map = buildMaeMap(sma7All);
+  const sma7Map  = buildMaeMap(sma7All);
+
+  // 前回比バッジ用 MAE マップ (all_days のみ)
+  const prevDailyMap = buildMaeMap(prevDailyMetrics.filter((m) => m.eval_policy === "all_days"));
+  const prevSma7Map  = buildMaeMap(prevSma7Metrics.filter((m) => m.eval_policy === "all_days"));
 
   // ホライズン別ベスト MAE (ノイズ除去率計算用)
   const dailyBest: Record<Horizon, { model: string; mae: number } | null> = {
@@ -163,6 +194,8 @@ export function BacktestComparison({
           const dBest = dailyBest[h];
           const sBest = sma7Best[h];
           const nrPct = noiseReductionPct(dBest?.mae ?? null, sBest?.mae ?? null);
+          const prevDailyMaeBest = dBest ? (prevDailyMap.get(`${dBest.model}:${h}`) ?? null) : null;
+          const prevSma7MaeBest  = sBest ? (prevSma7Map.get(`${sBest.model}:${h}`) ?? null) : null;
           return (
             <div key={h} className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
               <p className="mb-2 text-xs font-bold text-slate-600 dark:text-slate-300">D+{h} 日先</p>
@@ -171,14 +204,20 @@ export function BacktestComparison({
                   <div>
                     <p className="mb-0.5 font-medium text-blue-500">単日評価 ★</p>
                     <p className="font-semibold text-slate-700 dark:text-slate-200">{MODEL_LABELS[dBest.model] ?? dBest.model}</p>
-                    <p className="font-mono text-slate-500 dark:text-slate-400">MAE {fmt3(dBest.mae)}</p>
+                    <p className="font-mono text-slate-500 dark:text-slate-400">
+                      MAE {fmt3(dBest.mae)}
+                      <MaeDeltaBadge current={dBest.mae} prev={prevDailyMaeBest} />
+                    </p>
                   </div>
                 )}
                 {hasSma7Data && sBest && (
                   <div>
                     <p className="mb-0.5 font-medium text-emerald-600">7日平均評価 ★</p>
                     <p className="font-semibold text-slate-700 dark:text-slate-200">{MODEL_LABELS[sBest.model] ?? sBest.model}</p>
-                    <p className="font-mono text-slate-500 dark:text-slate-400">MAE {fmt3(sBest.mae)}</p>
+                    <p className="font-mono text-slate-500 dark:text-slate-400">
+                      MAE {fmt3(sBest.mae)}
+                      <MaeDeltaBadge current={sBest.mae} prev={prevSma7MaeBest} />
+                    </p>
                   </div>
                 )}
                 {hasDailyData && hasSma7Data && nrPct !== null && (
@@ -236,10 +275,12 @@ export function BacktestComparison({
                     </span>
                   </td>
                   {HORIZONS.map((h) => {
-                    const dailyMae = dailyMap.get(`${model}:${h}`) ?? null;
-                    const sma7Mae  = sma7Map.get(`${model}:${h}`) ?? null;
-                    const isDailyBest = dailyBest[h]?.model === model;
-                    const isSma7Best  = sma7Best[h]?.model === model;
+                    const dailyMae     = dailyMap.get(`${model}:${h}`) ?? null;
+                    const sma7Mae      = sma7Map.get(`${model}:${h}`) ?? null;
+                    const prevDailyMae = prevDailyMap.get(`${model}:${h}`) ?? null;
+                    const prevSma7Mae  = prevSma7Map.get(`${model}:${h}`) ?? null;
+                    const isDailyBest  = dailyBest[h]?.model === model;
+                    const isSma7Best   = sma7Best[h]?.model === model;
                     return (
                       <Fragment key={`${model}-${h}`}>
                         <td
@@ -253,6 +294,7 @@ export function BacktestComparison({
                           {isDailyBest && hasDailyData && (
                             <span className="ml-1 text-[9px] text-blue-400">★</span>
                           )}
+                          <MaeDeltaBadge current={dailyMae} prev={prevDailyMae} />
                         </td>
                         <td
                           className={`px-3 py-2.5 text-center tabular-nums ${
@@ -266,6 +308,9 @@ export function BacktestComparison({
                           {hasSma7Data ? fmt3(sma7Mae) : "—"}
                           {isSma7Best && hasSma7Data && (
                             <span className="ml-1 text-[9px] text-emerald-600">★</span>
+                          )}
+                          {hasSma7Data && (
+                            <MaeDeltaBadge current={sma7Mae} prev={prevSma7Mae} />
                           )}
                         </td>
                       </Fragment>

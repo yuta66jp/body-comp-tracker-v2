@@ -37,7 +37,7 @@ export default async function ForecastAccuracyPage() {
     );
   }
 
-  const { dailyRun, sma7Run } = runsResult.data;
+  const { dailyRun, sma7Run, prevDailyRun, prevSma7Run } = runsResult.data;
 
   // 両方ともデータなし
   if (!dailyRun && !sma7Run) {
@@ -67,17 +67,22 @@ export default async function ForecastAccuracyPage() {
   }
 
   // metrics と除外日用フラグログを並列取得
-  const [dailyMetricsResult, sma7MetricsResult, flaggedLogs] = await Promise.all([
-    dailyRun ? fetchMetrics(dailyRun.id) : Promise.resolve({ kind: "ok" as const, data: [] }),
-    sma7Run ? fetchMetrics(sma7Run.id) : Promise.resolve({ kind: "ok" as const, data: [] }),
+  const [dailyMetricsResult, sma7MetricsResult, prevDailyMetricsResult, prevSma7MetricsResult, flaggedLogs] = await Promise.all([
+    dailyRun     ? fetchMetrics(dailyRun.id)     : Promise.resolve({ kind: "ok" as const, data: [] }),
+    sma7Run      ? fetchMetrics(sma7Run.id)      : Promise.resolve({ kind: "ok" as const, data: [] }),
+    // 前回 run の metrics (前回比バッジ用。run 不在時は正常系として空配列)
+    prevDailyRun ? fetchMetrics(prevDailyRun.id) : Promise.resolve({ kind: "ok" as const, data: [] }),
+    prevSma7Run  ? fetchMetrics(prevSma7Run.id)  : Promise.resolve({ kind: "ok" as const, data: [] }),
     // dailyRun の除外日一覧再導出用 (ベストエフォート: 失敗しても空配列)
     dailyRun?.train_min_date && dailyRun?.train_max_date
       ? fetchFlaggedLogsForRun(dailyRun.train_min_date, dailyRun.train_max_date)
       : Promise.resolve([]),
   ]);
 
-  const dailyMetrics = dailyMetricsResult.kind === "ok" ? dailyMetricsResult.data : [];
-  const sma7Metrics = sma7MetricsResult.kind === "ok" ? sma7MetricsResult.data : [];
+  const dailyMetrics     = dailyMetricsResult.kind     === "ok" ? dailyMetricsResult.data     : [];
+  const sma7Metrics      = sma7MetricsResult.kind      === "ok" ? sma7MetricsResult.data      : [];
+  const prevDailyMetrics = prevDailyMetricsResult.kind === "ok" ? prevDailyMetricsResult.data : [];
+  const prevSma7Metrics  = prevSma7MetricsResult.kind  === "ok" ? prevSma7MetricsResult.data  : [];
 
   // dailyRun の除外日一覧を再導出 (exclude_flagged_plus_recovery policy が存在する場合のみ表示)
   const hasExcludePolicy = dailyMetrics.some((m) => m.eval_policy === "exclude_flagged_plus_recovery");
@@ -105,6 +110,8 @@ export default async function ForecastAccuracyPage() {
         <BacktestComparison
           dailyMetrics={dailyMetrics}
           sma7Metrics={sma7Metrics}
+          prevDailyMetrics={prevDailyMetrics}
+          prevSma7Metrics={prevSma7Metrics}
         />
 
         {/* ── 全日 vs イベント除外 評価条件別比較 (#364) ──
