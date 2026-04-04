@@ -13,6 +13,7 @@
 import type { DashboardDailyLog } from "@/lib/supabase/types";
 import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "./dayTags";
 import { formatConditionSummary, isValidTrainingType, isValidWorkMode, TRAINING_TYPE_LABELS, WORK_MODE_LABELS } from "./trainingType";
+import { addDaysStr } from "./date";
 
 // ── 型定義 ──────────────────────────────────────────────────────────────────
 
@@ -45,20 +46,25 @@ export interface CalendarDayData {
    */
   conditionTags: CalendarDayTagInfo[];
   /**
-   * 空腹時間（時間単位、小数点1桁）。
-   * last_meal_end_time と weigh_in_time の両方が記録されている場合のみ算出。
-   * 日をまたぐ場合（例: 22:30→07:00）も正しく計算する。
+   * 断食時間（時間単位、小数点1桁）。
+   * 表示日 D の断食時間 = 前日 D-1 の last_meal_end_time と 当日 D の weigh_in_time の差分。
+   * 前日ログなし・前日に last_meal_end_time なし・当日に weigh_in_time なし のいずれかで null。
    */
   fasting_hours: number | null;
 }
 
 /**
- * 最終食事終了時刻と体重測定時刻から空腹時間（h）を算出する。
+ * 2つの時刻文字列から断食時間（h）を算出する低レベルユーティリティ。
  *
  * - 両方の時刻が存在する場合のみ計算する。
- * - 日をまたぐ場合（weigh_in_time < last_meal_end_time）は +24h で補正する。
- * - タイムゾーン情報なし・当日内の時刻として扱う。
+ * - 日をまたぐ場合（weighInTime < lastMealEndTime）は +24h で補正する。
+ * - タイムゾーン情報なし・時刻のみを扱う。
  * - 入力は "HH:MM" または "HH:MM:SS" 形式を許容する（PostgreSQL TIME 型は "HH:MM:SS" で返す）。
+ *
+ * 呼び出し側の責務:
+ *   - lastMealEndTime には「前日 D-1 の last_meal_end_time」を渡すこと
+ *   - weighInTime には「当日 D の weigh_in_time」を渡すこと
+ *   - 前日ログが存在しない場合は null を渡し、呼び出し側でハンドリングすること
  */
 export function calcFastingHours(
   lastMealEndTime: string | null | undefined,
@@ -174,6 +180,9 @@ export function buildCalendarDayMap(logs: DashboardDailyLog[]): Map<string, Cale
   const withWeight = sorted.filter((d) => d.weight !== null);
   const withCals   = sorted.filter((d) => d.calories !== null);
 
+  // 断食時間算出用: 日付 → ログ の高速参照テーブル
+  const logByDate = new Map(sorted.map((l) => [l.log_date, l]));
+
   const map = new Map<string, CalendarDayData>();
 
   for (const log of sorted) {
@@ -218,7 +227,11 @@ export function buildCalendarDayMap(logs: DashboardDailyLog[]): Map<string, Cale
       work_mode:          log.work_mode,
     });
 
-    const fasting_hours = calcFastingHours(log.last_meal_end_time, log.weigh_in_time);
+    // 断食時間: 前日 D-1 の last_meal_end_time → 当日 D の weigh_in_time
+    // 前日ログなし・前日 last_meal_end_time なし・当日 weigh_in_time なし → null
+    const prevDateKey = addDaysStr(log.log_date, -1);
+    const prevDayLog  = prevDateKey ? (logByDate.get(prevDateKey) ?? null) : null;
+    const fasting_hours = calcFastingHours(prevDayLog?.last_meal_end_time, log.weigh_in_time);
 
     map.set(log.log_date, {
       log, weightDelta, calDelta, dayTags, conditionSummary, conditionTags, fasting_hours,
