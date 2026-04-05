@@ -8,6 +8,8 @@
  *   - 理由: MealLogger はフォーム hydration に既存ログの全フィールドが必要
  *   - front 側の Server Component ページは `src/lib/queries/dailyLogs.ts` の projection query を使うこと
  * - 保存後は `mutate()` でキャッシュを更新する（revalidatePath ではなく SWR 側で即時反映）
+ * - 件数上限: 直近 200 件（降順）。MealLogger の hydration 用途では十分な範囲。
+ *   年単位でデータが蓄積された場合のメモリ・転送量増加を防ぐ。
  *
  * ## full read が許容される理由
  * Client Component がブラウザから直接フォームを操作するため、
@@ -24,7 +26,8 @@ async function fetchDailyLogs(): Promise<DailyLog[]> {
   const { data, error } = await supabase
     .from("daily_logs")
     .select("*")
-    .order("log_date", { ascending: false });
+    .order("log_date", { ascending: false })
+    .limit(200);
 
   if (error) throw error;
   return (data as DailyLog[]) ?? [];
