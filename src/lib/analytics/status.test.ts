@@ -21,6 +21,13 @@ describe("getAnalyticsAvailability", () => {
     expect(r.status).toBe("unavailable");
   });
 
+  it("latestDependencyUpdatedAt が undefined (取得失敗) → unavailable", () => {
+    const r = getAnalyticsAvailability("2026-03-14T12:00:00Z", undefined);
+    expect(r.status).toBe("unavailable");
+    expect(r.lastUpdatedDate).toBeNull();
+    expect(r.staleDays).toBeNull();
+  });
+
   // ── fresh ─────────────────────────────────────────────────────────────────
 
   it("latestRawLogDate が null (ログなし) → fresh", () => {
@@ -127,6 +134,11 @@ describe("getEnrichedLogsAvailability", () => {
     expect(r.status).toBe("unavailable");
   });
 
+  it("latestRawLogDate が undefined (取得失敗) → unavailable", () => {
+    const r = getEnrichedLogsAvailability("2026-03-14T12:00:00Z", undefined);
+    expect(r.status).toBe("unavailable");
+  });
+
   it("stale 判定が伝播する", () => {
     const r = getEnrichedLogsAvailability("2026-03-12T00:00:00Z", "2026-03-14");
     expect(r.status).toBe("stale");
@@ -142,6 +154,11 @@ describe("getXgboostAvailability", () => {
 
   it("cacheUpdatedAt が null → unavailable", () => {
     const r = getXgboostAvailability(null, "2026-03-14");
+    expect(r.status).toBe("unavailable");
+  });
+
+  it("latestRawLogDate が undefined (取得失敗) → unavailable", () => {
+    const r = getXgboostAvailability("2026-03-14T12:00:00Z", undefined);
     expect(r.status).toBe("unavailable");
   });
 

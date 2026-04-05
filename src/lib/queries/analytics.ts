@@ -98,10 +98,11 @@ function isValidFactorEntryShape(val: unknown): boolean {
  * @param latestRawLogUpdatedAt  daily_logs の MAX(updated_at) (ISO 8601)。stale 判定に使用する。
  *                               MAX(log_date) ではなく MAX(updated_at) を使うことで、
  *                               過去日の行修正でも stale を正しく検知できる。
- *                               null を渡した場合は cacheUpdatedAt のみで判定する。
+ *                               null      = ログが0件の初期状態（正常）→ fresh を維持
+ *                               undefined = daily_logs の取得が失敗している → unavailable を返す
  */
 export async function fetchEnrichedLogs(
-  latestRawLogUpdatedAt: string | null
+  latestRawLogUpdatedAt: string | null | undefined
 ): Promise<EnrichedLogsResult> {
   const supabase = createClient();
   const { data, error } = await supabase
@@ -172,10 +173,11 @@ export async function fetchEnrichedLogs(
  * @param latestRawLogUpdatedAt  daily_logs の MAX(updated_at) (ISO 8601)。stale 判定に使用する。
  *                               MAX(log_date) ではなく MAX(updated_at) を使うことで、
  *                               過去日の行修正でも stale を正しく検知できる。
- *                               null を渡した場合は cacheUpdatedAt のみで判定する。
+ *                               null      = ログが0件の初期状態（正常）→ fresh を維持
+ *                               undefined = daily_logs の取得が失敗している → unavailable を返す
  */
 export async function fetchFactorAnalysis(
-  latestRawLogUpdatedAt: string | null
+  latestRawLogUpdatedAt: string | null | undefined
 ): Promise<FactorAnalysisResult> {
   const supabase = createClient();
   const { data, error } = await supabase

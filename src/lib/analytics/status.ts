@@ -41,16 +41,20 @@ export function errorAvailability(): AnalyticsAvailability {
  * analytics_cache エントリの新鮮さを判定する汎用関数。
  *
  * @param cacheUpdatedAt             analytics_cache.updated_at (ISO 8601)。null = バッチ未実行
- * @param latestDependencyUpdatedAt  依存データの最新日 (YYYY-MM-DD)。null = 依存データなし
+ * @param latestDependencyUpdatedAt  依存データの最新日 (YYYY-MM-DD)。
+ *                                   null      = 依存データが存在しない（ログ0件の初期状態）→ fresh
+ *                                   undefined = 依存データの取得自体が失敗 → unavailable
  *
  * 判定ロジック:
  *   - cacheUpdatedAt が null → unavailable
+ *   - latestDependencyUpdatedAt が undefined（取得失敗）→ unavailable
+ *   - latestDependencyUpdatedAt が null（依存データなし）→ fresh
  *   - cacheUpdatedAt の日付部分 < latestDependencyUpdatedAt → stale
  *   - それ以外 → fresh
  */
 export function getAnalyticsAvailability(
   cacheUpdatedAt: string | null,
-  latestDependencyUpdatedAt: string | null
+  latestDependencyUpdatedAt: string | null | undefined
 ): AnalyticsAvailability {
   if (!cacheUpdatedAt) {
     return unavailableAvailability();
@@ -58,7 +62,13 @@ export function getAnalyticsAvailability(
 
   const lastUpdatedDate = cacheUpdatedAt.slice(0, 10); // "YYYY-MM-DD" (表示用)
 
-  if (!latestDependencyUpdatedAt) {
+  // undefined = 依存データの取得が失敗している。鮮度を判定できないため unavailable を返す。
+  // null = 依存データが存在しない正常な初期状態（ログ0件）。バッチは最新と見なして fresh を返す。
+  if (latestDependencyUpdatedAt === undefined) {
+    return unavailableAvailability();
+  }
+
+  if (latestDependencyUpdatedAt === null) {
     return { status: "fresh", lastUpdatedDate, staleDays: null };
   }
 
@@ -87,7 +97,7 @@ export function getAnalyticsAvailability(
  */
 export function getEnrichedLogsAvailability(
   cacheUpdatedAt: string | null,
-  latestRawLogDate: string | null
+  latestRawLogDate: string | null | undefined
 ): AnalyticsAvailability {
   return getAnalyticsAvailability(cacheUpdatedAt, latestRawLogDate);
 }
@@ -101,7 +111,7 @@ export function getEnrichedLogsAvailability(
  */
 export function getXgboostAvailability(
   cacheUpdatedAt: string | null,
-  latestRawLogDate: string | null
+  latestRawLogDate: string | null | undefined
 ): AnalyticsAvailability {
   return getAnalyticsAvailability(cacheUpdatedAt, latestRawLogDate);
 }
