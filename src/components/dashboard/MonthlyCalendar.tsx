@@ -208,9 +208,11 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
         {/* ③-b 空腹時間（デスクトップのみ: 情報密度制御） */}
         {data?.fasting_hours != null && (
           <div className="mt-0.5 hidden sm:block leading-none">
-            <span className="text-[10px] text-slate-500 dark:text-slate-400">
-              断食{data.fasting_hours % 1 === 0 ? data.fasting_hours.toFixed(0) : data.fasting_hours.toFixed(1)}h
+            <span className="text-[10px] text-slate-500 dark:text-slate-400">断食</span>
+            <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
+              {data.fasting_hours % 1 === 0 ? data.fasting_hours.toFixed(0) : data.fasting_hours.toFixed(1)}
             </span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400">h</span>
           </div>
         )}
 
