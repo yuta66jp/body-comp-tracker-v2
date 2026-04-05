@@ -279,14 +279,19 @@ export function StepImportSection() {
 
           {/* ── 完了 ── */}
           {phase.kind === "done" && (
-            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm font-medium text-emerald-600 dark:bg-emerald-900/20 dark:border-emerald-700/50 dark:text-emerald-400">
-              <CheckCircle2 size={16} />
-              <span>
-                {phase.saved.toLocaleString()} 日分の歩数を保存しました
-                {phase.skipped > 0 && (
-                  <span className="ml-1 text-amber-600 dark:text-amber-400">（{phase.skipped.toLocaleString()} 件はスキップ）</span>
-                )}
-              </span>
+            <div>
+              <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm font-medium text-emerald-600 dark:bg-emerald-900/20 dark:border-emerald-700/50 dark:text-emerald-400">
+                <CheckCircle2 size={16} />
+                <span>
+                  {phase.saved.toLocaleString()} 日分の歩数を保存しました
+                  {phase.skipped > 0 && (
+                    <span className="ml-1 text-amber-600 dark:text-amber-400">（{phase.skipped.toLocaleString()} 件はスキップ）</span>
+                  )}
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                保存された値は設定画面の CSV エクスポートで step_count 列を確認できます。
+              </p>
             </div>
           )}
 
