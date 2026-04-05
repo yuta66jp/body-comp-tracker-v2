@@ -220,21 +220,20 @@ all_days ⊃ exclude_flagged_plus_recovery ⊃ exclude_long_event_blocks
 
 **#480 のスコープ: 評価ポリシー追加と比較可視化**
 
-### Python 側（backtest.py）
-- `POLICY_EXCLUDE_LONG_EVENT_BLOCKS = "exclude_long_event_blocks"` の定数追加
-- `detect_long_event_blocks(df, threshold=5)` 関数の追加
-  - 連続するイベント日を区間として検出する
-  - 区間長 >= `threshold` を長期イベント区間と判定する
-- `build_exclusion_dates()` を区間処理対応に拡張
-  - 長期区間本体 + 区間末尾から `long_event_recovery_days` 日間を除外
-  - 初期値: `long_event_recovery_days = 5`（CLI 引数 `--long-event-recovery-days` で可変）
-- CLI に `--long-event-threshold` / `--long-event-recovery-days` を追加
-- 評価ポリシーに `exclude_long_event_blocks` を追加し、3 ポリシー並行算出
+以下は現状確認に基づく想定変更箇所である。
+実装時の調査結果によって責務の置き場所・ファイル構成は前後しうる。
 
-### TypeScript 側（backtestExclusion.ts / UI）
-- `buildExclusionList()` の拡張: 長期区間検出ロジックを Python ミラーとして追加
-- `BacktestPolicyComparison.tsx`: 3 ポリシーの比較表示に更新
-- `BacktestExcludedDates.tsx`: 長期区間判定結果の表示追加
+### 想定変更箇所: Python 側
+- `backtest.py` に `exclude_long_event_blocks` ポリシー定数を追加
+- 連続するイベント日を区間として検出し、長期区間（初期閾値: 5日以上）を識別する関数を追加
+- 長期区間本体 + 区間末尾からの回復期間を除外する処理を追加
+  - 初期値: 区間末尾から 5 日間（CLI 引数で可変）
+- 3 ポリシー並行算出（`all_days` / `exclude_flagged_plus_recovery` / `exclude_long_event_blocks`）
+
+### 想定変更箇所: TypeScript 側
+- `backtestExclusion.ts`: Python ミラーとして長期区間検出ロジックを追加
+- `BacktestPolicyComparison.tsx`: 3 ポリシーの比較表示に対応
+- `BacktestExcludedDates.tsx`: 長期区間の判定結果を表示に追加
 
 ### 確認目標
 - 3 ポリシーで MAE / RMSE / Bias / n を比較できる状態を作る
