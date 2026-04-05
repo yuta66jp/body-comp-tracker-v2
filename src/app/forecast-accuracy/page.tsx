@@ -40,14 +40,6 @@ export default async function ForecastAccuracyPage() {
 
   const { dailyRun, sma7Run, prevDailyRun, prevSma7Run, prevDailyRunComparable, prevSma7RunComparable } = runsResult.data;
 
-  // DB に存在する horizon の一覧を数値昇順で整形する。
-  // dailyRun と sma7Run は通常同じ horizons で実行されるが、念のり union を取る。
-  // 0 件の場合は空配列のまま — 各コンポーネントが既存の空表示方針に従う。
-  const horizons: number[] = [...new Set([
-    ...(dailyRun?.horizons ?? []),
-    ...(sma7Run?.horizons  ?? []),
-  ])].sort((a, b) => a - b);
-
   // 両方ともデータなし
   if (!dailyRun && !sma7Run) {
     return (
@@ -92,6 +84,14 @@ export default async function ForecastAccuracyPage() {
   const sma7Metrics      = sma7MetricsResult.kind      === "ok" ? sma7MetricsResult.data      : [];
   const prevDailyMetrics = prevDailyMetricsResult.kind === "ok" ? prevDailyMetricsResult.data : [];
   const prevSma7Metrics  = prevSma7MetricsResult.kind  === "ok" ? prevSma7MetricsResult.data  : [];
+
+  // UI が実際に描画する metrics.horizon_days を情報源にする (#465)。
+  // run.horizons と metrics が将来ずれた場合も列定義と描画対象が一致する。
+  // 0 件の場合は空配列のまま — 各コンポーネントが既存の空表示方針に従う。
+  const horizons: number[] = [...new Set([
+    ...dailyMetrics.map((m) => m.horizon_days),
+    ...sma7Metrics.map((m) => m.horizon_days),
+  ])].sort((a, b) => a - b);
 
   // dailyRun の除外日一覧を再導出 (exclude_flagged_plus_recovery policy が存在する場合のみ表示)
   const hasExcludePolicy    = dailyMetrics.some((m) => m.eval_policy === "exclude_flagged_plus_recovery");
