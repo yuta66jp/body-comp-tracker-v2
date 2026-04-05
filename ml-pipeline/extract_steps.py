@@ -100,7 +100,7 @@ def extract_daily_steps(zip_path: str) -> dict[str, int]:
     logger.info("export.xml を逐次処理中 (大きなファイルは時間がかかります)...")
 
     with zf.open(EXPORT_XML_PATH) as xml_file:
-        for event, elem in iterparse(xml_file, events=("end",)):
+        for _event, elem in iterparse(xml_file, events=("end",)):
             if elem.tag != "Record":
                 elem.clear()
                 continue
