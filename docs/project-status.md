@@ -51,6 +51,21 @@ condition 系特徴量は、データ蓄積後に段階的に投入する。
 - 特定の値に極端に偏っていないか
 - 将来的な分析・説明に使えるだけの意味があるか
 
+#### 観測フィールドの追加状況（#435 / #443 / #444）
+
+以下の 2 フィールドを `daily_logs` に追加し、保存と表示の基盤を整えた。
+いずれも現時点では `feature_registry.py` に未登録であり、条件系特徴量としての投入はデータ蓄積後の判断フェーズで行う。
+
+| フィールド | 概要 | DB 列 |
+|---|---|---|
+| 歩数 | Apple Health から CSV/JSON 経由でインポート | `daily_logs.step_count` |
+| 空腹時間 | 前日の最後の食事終了時刻と当日の体重測定時刻の差分として算出 | `daily_logs.last_meal_end_time`, `daily_logs.weigh_in_time` |
+
+空腹時間は直近ログ（テーブル・カードリスト）で確認できる。
+歩数は現時点で専用表示 UI なし（CSV エクスポートで確認可能）。
+
+詳細: `docs/step-count-and-fasting-hours.md`
+
 ---
 
 ### 2. SHAP ベース説明への移行
@@ -149,4 +164,6 @@ read projection / window 最適化は現時点では保留とする。
 |---|---|
 | [`docs/forecast-model-analysis-and-roadmap.md`](forecast-model-analysis-and-roadmap.md) | バックテスト結果の詳細分析・予測モデルの改善ロードマップ（Phase 1〜4）|
 | [`docs/daily-logs-read-inventory.md`](daily-logs-read-inventory.md) | daily_logs の read API 利用箇所棚卸し・query 分割方針 |
+| [`docs/step-count-and-fasting-hours.md`](step-count-and-fasting-hours.md) | 歩数・空腹時間の記録仕様・入力方法・今後の分析利用方針 |
+| [`docs/apple-health-step-export.md`](apple-health-step-export.md) | Apple Health ZIP → 日次歩数 CSV/JSON 変換ツールの使い方 |
 | `CLAUDE.md` | プロジェクト全体の設計方針・実装原則・非目標 |

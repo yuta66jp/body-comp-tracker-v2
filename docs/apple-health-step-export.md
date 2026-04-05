@@ -110,12 +110,14 @@ date,step_count
 
 ## 次の手順
 
-生成した `daily_steps.csv` は Issue #444 のアプリ側インポート機能（`/api/import/steps` など）で利用する予定。
+生成した `daily_steps.csv` は設定画面の「歩数インポート（CSV / JSON）」セクションからアプリに取り込む（`/api/step-import`）。
 
 ```
-daily_steps.csv
-    ↓
-Issue #444: アプリ側 CSV インポート UI
-    ↓
-daily_logs.step_count に upsert
+extract_steps.py
+    ↓ daily_steps.csv / daily_steps.json を生成
+設定画面 → 歩数インポート（CSV / JSON）
+    ↓ preflight（件数確認）→ 実行
+daily_logs.step_count に保存
 ```
+
+歩数の保存・分析方針の詳細は `docs/step-count-and-fasting-hours.md` を参照。
