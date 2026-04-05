@@ -33,6 +33,9 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidateAfterDailyLogMutation } from "@/lib/cache/revalidate";
 import { parseStepFile } from "./parsers";
 import type { ParseResult } from "./parsers";
+import type { Database } from "@/lib/supabase/types";
+
+type DailyLogInsert = Database["public"]["Tables"]["daily_logs"]["Insert"];
 
 // ── 型定義 ──────────────────────────────────────────────────────────────────
 
@@ -166,24 +169,33 @@ export async function POST(req: NextRequest) {
   let savedCount   = 0;
   let skippedCount = 0;
 
-  // 既存 daily_logs がある日付だけ step_count を更新する
-  // 新規行は作らない（仕様: weight ログがない日はインポートしない）
-  for (const { date, stepCount } of parsed.records) {
-    if (!existingMap.has(date)) {
-      skippedCount++;
-      continue;
-    }
+  // 既存 daily_logs がある日付だけ更新対象に絞る（新規行は生成しない）
+  const toUpdate = parsed.records.filter(({ date }) => existingMap.has(date));
+  skippedCount = parsed.records.length - toUpdate.length;
 
-    const { error: updateError } = await supabase.rpc("save_daily_log_partial", {
-      p_log_date: date,
-      p_fields:   { step_count: stepCount },
-    });
+  // チャンク単位で一括 upsert する
+  //
+  // - toUpdate は existingMap.has() で絞り済みのため、upsert は既存行への UPDATE として動作する
+  // - log_date と step_count のみ指定することで、他カラムへの誤更新を防ぐ
+  //   (PostgREST upsert は ON CONFLICT DO UPDATE SET で指定カラムのみを更新する)
+  // - 逐次 RPC (O(N) round trips) に替えてチャンク単位の upsert (O(N/100) round trips) にすることで
+  //   数百〜千件規模でもタイムアウトに到達しにくくする (#450)
+  // - チャンク単位で失敗した場合はそのチャンクを skippedCount に計上して処理を継続する
+  const IMPORT_CHUNK_SIZE = 100;
 
-    if (updateError) {
-      console.error("[step-import] rpc error:", date, updateError.message);
-      skippedCount++;
+  for (let i = 0; i < toUpdate.length; i += IMPORT_CHUNK_SIZE) {
+    const chunk = toUpdate.slice(i, i + IMPORT_CHUNK_SIZE);
+    const { error: upsertError } = await supabase
+      .from("daily_logs")
+      .upsert(
+        chunk.map(({ date, stepCount }) => ({ log_date: date, step_count: stepCount })) as unknown as DailyLogInsert[],
+        { onConflict: "log_date" },
+      );
+    if (upsertError) {
+      console.error("[step-import] upsert error:", upsertError.message);
+      skippedCount += chunk.length;
     } else {
-      savedCount++;
+      savedCount += chunk.length;
     }
   }
 
