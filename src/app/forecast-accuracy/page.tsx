@@ -38,7 +38,7 @@ export default async function ForecastAccuracyPage() {
     );
   }
 
-  const { dailyRun, sma7Run, prevDailyRun, prevSma7Run } = runsResult.data;
+  const { dailyRun, sma7Run, prevDailyRun, prevSma7Run, prevDailyRunComparable, prevSma7RunComparable } = runsResult.data;
 
   // 両方ともデータなし
   if (!dailyRun && !sma7Run) {
@@ -133,6 +133,8 @@ export default async function ForecastAccuracyPage() {
           sma7Metrics={sma7Metrics}
           prevDailyMetrics={prevDailyMetrics}
           prevSma7Metrics={prevSma7Metrics}
+          prevDailyComparable={prevDailyRunComparable}
+          prevSma7Comparable={prevSma7RunComparable}
         />
 
         {/* ── 全日 vs イベント除外 評価条件別比較 (#364) ──

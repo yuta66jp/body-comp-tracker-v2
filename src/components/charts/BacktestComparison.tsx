@@ -29,6 +29,15 @@ interface BacktestComparisonProps {
   sma7Metrics: ForecastBacktestMetric[];
   prevDailyMetrics?: ForecastBacktestMetric[];
   prevSma7Metrics?: ForecastBacktestMetric[];
+  /**
+   * false のとき: 前回 daily run と実行条件 (horizons / feature_set / origin_step_days) が異なるため
+   * 前回比バッジを表示しない。デフォルト true。
+   */
+  prevDailyComparable?: boolean;
+  /**
+   * false のとき: 前回 sma7 run と実行条件が異なるため前回比バッジを表示しない。デフォルト true。
+   */
+  prevSma7Comparable?: boolean;
 }
 
 const HORIZONS = [7, 14, 30] as const;
@@ -116,8 +125,10 @@ function noiseReductionColor(pct: number | null): string {
 export function BacktestComparison({
   dailyMetrics,
   sma7Metrics,
-  prevDailyMetrics = [],
-  prevSma7Metrics  = [],
+  prevDailyMetrics   = [],
+  prevSma7Metrics    = [],
+  prevDailyComparable = true,
+  prevSma7Comparable  = true,
 }: BacktestComparisonProps) {
   // #363 以降の run は複数 policy の行を含む。
   // BacktestComparison は評価軸（単日 vs 7日均）の比較が目的のため、
@@ -134,8 +145,18 @@ export function BacktestComparison({
   const sma7Map  = buildMaeMap(sma7All);
 
   // 前回比バッジ用 MAE マップ (all_days のみ)
-  const prevDailyMap = buildMaeMap(prevDailyMetrics.filter((m) => m.eval_policy === "all_days"));
-  const prevSma7Map  = buildMaeMap(prevSma7Metrics.filter((m) => m.eval_policy === "all_days"));
+  // 条件不一致の場合は空 Map にして全バッジを抑止する
+  const prevDailyMap = prevDailyComparable
+    ? buildMaeMap(prevDailyMetrics.filter((m) => m.eval_policy === "all_days"))
+    : new Map<string, number>();
+  const prevSma7Map = prevSma7Comparable
+    ? buildMaeMap(prevSma7Metrics.filter((m) => m.eval_policy === "all_days"))
+    : new Map<string, number>();
+
+  // 条件不一致注記を表示するか (前回 run が存在する場合のみ注記が意味を持つ)
+  const showDailyConditionNote  = !prevDailyComparable && prevDailyMetrics.length  > 0;
+  const showSma7ConditionNote   = !prevSma7Comparable  && prevSma7Metrics.length   > 0;
+  const showAnyConditionNote    = showDailyConditionNote || showSma7ConditionNote;
 
   // ホライズン別ベスト MAE (ノイズ除去率計算用)
   const dailyBest: Record<Horizon, { model: string; mae: number } | null> = {
@@ -231,8 +252,13 @@ export function BacktestComparison({
           );
         })}
         <p className="text-[10px] text-slate-400 dark:text-slate-500">
-          ★ = ホライズン別最良モデル / ノイズ除去率 = (1 − 7日均MAE ÷ 単日MAE) × 100%
+          ★ = ホライズン別最良モデル / ▲▼ = 今回のホライズン別最良モデルの自己前回比 / ノイズ除去率 = (1 − 7日均MAE ÷ 単日MAE) × 100%
         </p>
+        {showAnyConditionNote && (
+          <p className="text-[10px] text-amber-600 dark:text-amber-400">
+            ※ 前回と実行条件 (horizons / feature_set / origin_step_days) が異なるため前回比は表示していません。
+          </p>
+        )}
       </div>
 
       {/* ── デスクトップ: 比較テーブル (md+) ── */}
@@ -353,11 +379,16 @@ export function BacktestComparison({
       {/* ── フッター注記（デスクトップのみ）── */}
       <div className="hidden md:block border-t border-slate-50 bg-slate-50 px-5 py-2.5 text-[11px] text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
         <span>
-          ★ = ホライズン別最良モデル / MAE: 平均絶対誤差 (kg) / ノイズ除去率 = (1 − 7日均MAE ÷ 単日MAE) × 100%
+          ★ = ホライズン別最良モデル / ▲▼ = モデル別自己前回比 / MAE: 平均絶対誤差 (kg) / ノイズ除去率 = (1 − 7日均MAE ÷ 単日MAE) × 100%
         </span>
         <span className="ml-3 text-slate-300 dark:text-slate-600">
           リークなし保証: horizon ≥ 7 のため SMA7 評価ウィンドウは訓練期間と重複しない
         </span>
+        {showAnyConditionNote && (
+          <span className="ml-3 text-amber-500 dark:text-amber-400">
+            ※ 前回と実行条件が異なるため▲▼は非表示
+          </span>
+        )}
       </div>
     </div>
   );
