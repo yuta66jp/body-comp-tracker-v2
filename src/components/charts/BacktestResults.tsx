@@ -17,10 +17,6 @@ import { makeTooltipFormatter, buildTooltipStyle } from "@/lib/utils/rechartsFor
 import { MODEL_DESCRIPTIONS, ModelInfoTooltip } from "./ModelInfoTooltip";
 import { useIsDark } from "@/lib/hooks/useIsDark";
 
-// ── 定数 ─────────────────────────────────────────────────────────────────────
-
-const HORIZONS = [7, 14, 30] as const;
-
 // UI 表示順・色
 const MODEL_CONFIG: Record<string, { label: string; color: string; darkColor: string; order: number }> = {
   NeuralProphet:   { label: "NeuralProphet",    color: "#3b82f6", darkColor: "rgba(59,130,246,0.75)",   order: 0 },
@@ -39,6 +35,8 @@ const MODEL_ORDER = Object.entries(MODEL_CONFIG)
 interface Props {
   run: ForecastBacktestRun;
   metrics: ForecastBacktestMetric[];
+  /** DB から取得した horizon 一覧 (数値昇順)。0 件時は空表示。 */
+  horizons: number[];
 }
 
 // ── ヘルパー ─────────────────────────────────────────────────────────────────
@@ -76,8 +74,8 @@ function BiasIcon({ bias }: { bias: number | null }) {
 }
 
 /** MAE のグラフ用データを生成 */
-function buildChartData(metrics: ForecastBacktestMetric[]) {
-  return HORIZONS.map((h) => {
+function buildChartData(metrics: ForecastBacktestMetric[], horizons: number[]) {
+  return horizons.map((h) => {
     const row: Record<string, string | number> = { horizon: `${h}日先` };
     for (const model of MODEL_ORDER) {
       const m = metrics.find((x) => x.horizon_days === h && x.model_name === model);
@@ -89,7 +87,7 @@ function buildChartData(metrics: ForecastBacktestMetric[]) {
 
 // ── コンポーネント ────────────────────────────────────────────────────────────
 
-export function BacktestResults({ run, metrics }: Props) {
+export function BacktestResults({ run, metrics, horizons }: Props) {
   const isDark = useIsDark();
   const chartColors = {
     axis:     isDark ? "#94a3b8" : "#64748b",
@@ -103,7 +101,7 @@ export function BacktestResults({ run, metrics }: Props) {
   const allDaysMetrics = metrics.filter((m) => m.eval_policy === "all_days");
 
   const best = bestModels(allDaysMetrics);
-  const chartData = buildChartData(allDaysMetrics);
+  const chartData = buildChartData(allDaysMetrics, horizons);
 
   return (
     <div className="space-y-6">
@@ -121,7 +119,7 @@ export function BacktestResults({ run, metrics }: Props) {
 
       {/* Horizon 別 Best モデル */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {HORIZONS.map((h) => {
+        {horizons.map((h) => {
           const winner = best[h];
           const cfg = winner ? MODEL_CONFIG[winner] : null;
           const metric = allDaysMetrics.find((m) => m.horizon_days === h && m.model_name === winner);
@@ -190,7 +188,7 @@ export function BacktestResults({ run, metrics }: Props) {
       {/* 詳細指標テーブル — モバイル: horizon 別ランクカード */}
       <div className="md:hidden space-y-3">
         <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">詳細指標（ホライズン別）</h2>
-        {HORIZONS.map((h) => {
+        {horizons.map((h) => {
           const ranked = MODEL_ORDER
             .map((model) => ({
               model,
@@ -245,7 +243,7 @@ export function BacktestResults({ run, metrics }: Props) {
           <thead>
             <tr className="border-b border-slate-100 text-left text-slate-500 dark:border-slate-700 dark:text-slate-400">
               <th className="py-2 pr-4 font-medium">モデル</th>
-              {HORIZONS.map((h) => (
+              {horizons.map((h) => (
                 <th key={h} colSpan={5} className="py-2 pr-4 font-medium text-center">
                   {h} 日先
                 </th>
@@ -253,7 +251,7 @@ export function BacktestResults({ run, metrics }: Props) {
             </tr>
             <tr className="border-b border-slate-100 text-slate-400 dark:border-slate-700 dark:text-slate-500">
               <th className="py-1 pr-4" />
-              {HORIZONS.map((h) => (
+              {horizons.map((h) => (
                 <React.Fragment key={h}>
                   <th className="py-1 px-2 text-right font-normal">MAE↓</th>
                   <th className="py-1 px-2 text-right font-normal">RMSE↓</th>
@@ -280,7 +278,7 @@ export function BacktestResults({ run, metrics }: Props) {
                       )}
                     </span>
                   </td>
-                  {HORIZONS.map((h) => {
+                  {horizons.map((h) => {
                     const m = allDaysMetrics.find(
                       (x) => x.horizon_days === h && x.model_name === model
                     );

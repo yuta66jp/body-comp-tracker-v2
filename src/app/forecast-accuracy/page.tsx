@@ -40,6 +40,14 @@ export default async function ForecastAccuracyPage() {
 
   const { dailyRun, sma7Run, prevDailyRun, prevSma7Run, prevDailyRunComparable, prevSma7RunComparable } = runsResult.data;
 
+  // DB に存在する horizon の一覧を数値昇順で整形する。
+  // dailyRun と sma7Run は通常同じ horizons で実行されるが、念のり union を取る。
+  // 0 件の場合は空配列のまま — 各コンポーネントが既存の空表示方針に従う。
+  const horizons: number[] = [...new Set([
+    ...(dailyRun?.horizons ?? []),
+    ...(sma7Run?.horizons  ?? []),
+  ])].sort((a, b) => a - b);
+
   // 両方ともデータなし
   if (!dailyRun && !sma7Run) {
     return (
@@ -135,13 +143,14 @@ export default async function ForecastAccuracyPage() {
           prevSma7Metrics={prevSma7Metrics}
           prevDailyComparable={prevDailyRunComparable}
           prevSma7Comparable={prevSma7RunComparable}
+          horizons={horizons}
         />
 
         {/* ── 全日 vs イベント除外 評価条件別比較 (#364) ──
             dailyMetrics に all_days / exclude_flagged_plus_recovery の両 policy 行が含まれる場合に表示。
             exclude policy 行がない旧 run では BacktestPolicyComparison が null を返すため表示されない。 */}
         {dailyMetrics.length > 0 && (
-          <BacktestPolicyComparison metrics={dailyMetrics} />
+          <BacktestPolicyComparison metrics={dailyMetrics} horizons={horizons} />
         )}
 
         {/* ── 除外対象日の確認 (#370) ──
@@ -165,6 +174,7 @@ export default async function ForecastAccuracyPage() {
             longEventThreshold={longEventDetails.longEventThreshold}
             longEventRecoveryDays={longEventDetails.longEventRecoveryDays}
             excludedCalendarDays={longEventDetails.excludedCalendarDays}
+            horizons={horizons}
           />
         )}
 
@@ -177,7 +187,7 @@ export default async function ForecastAccuracyPage() {
                 ({dailyRun.created_at.slice(0, 10)} 実行)
               </span>
             </h2>
-            <BacktestResults run={dailyRun} metrics={dailyMetrics} />
+            <BacktestResults run={dailyRun} metrics={dailyMetrics} horizons={horizons} />
           </div>
         ) : dailyRun && dailyMetricsResult.kind === "error" ? (
           <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-700/50 dark:bg-rose-900/30 dark:text-rose-400">
@@ -201,7 +211,7 @@ export default async function ForecastAccuracyPage() {
                 ノイズ除去済み
               </span>
             </h2>
-            <BacktestResults run={sma7Run} metrics={sma7Metrics} />
+            <BacktestResults run={sma7Run} metrics={sma7Metrics} horizons={horizons} />
           </div>
         ) : sma7Run && sma7MetricsResult.kind === "error" ? (
           <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-700/50 dark:bg-rose-900/30 dark:text-rose-400">

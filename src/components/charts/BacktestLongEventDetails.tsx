@@ -22,8 +22,6 @@ import type { LongEventBlock } from "@/lib/utils/backtestExclusion";
 
 // ── 定数 ──────────────────────────────────────────────────────────────────────
 
-const HORIZONS = [7, 14, 30] as const;
-
 const POLICY_ALL        = "all_days";
 const POLICY_EXCLUDE    = "exclude_flagged_plus_recovery";
 const POLICY_LONG_EVENT = "exclude_long_event_blocks";
@@ -52,6 +50,8 @@ interface Props {
   longEventRecoveryDays: number;
   /** 長期イベント除外ポリシーの除外対象日数 (カレンダー日数) */
   excludedCalendarDays: number;
+  /** DB から取得した horizon 一覧 (数値昇順)。0 件時は空表示。 */
+  horizons: number[];
 }
 
 // ── ヘルパー ──────────────────────────────────────────────────────────────────
@@ -86,6 +86,7 @@ export function BacktestLongEventDetails({
   longEventThreshold,
   longEventRecoveryDays,
   excludedCalendarDays,
+  horizons,
 }: Props) {
   const hasLongEventPolicy = metrics.some((m) => m.eval_policy === POLICY_LONG_EVENT);
   if (!hasLongEventPolicy) return null;
@@ -179,7 +180,7 @@ export function BacktestLongEventDetails({
 
           {/* モバイル: horizon × policy カード */}
           <div className="md:hidden space-y-4 p-4">
-            {HORIZONS.map((h) => (
+            {horizons.map((h) => (
               <div key={h}>
                 <p className="mb-2 text-xs font-bold text-slate-600 dark:text-slate-300">D+{h} 日先</p>
                 <div className="space-y-2">
@@ -231,7 +232,7 @@ export function BacktestLongEventDetails({
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
                   <th className="px-4 py-2 text-left">モデル</th>
-                  {HORIZONS.map((h) => (
+                  {horizons.map((h) => (
                     <th
                       key={h}
                       colSpan={visiblePolicies.length * 4}
@@ -243,7 +244,7 @@ export function BacktestLongEventDetails({
                 </tr>
                 <tr className="border-b border-slate-100 bg-slate-50/60 text-[10px] font-medium text-slate-400 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-500">
                   <th className="px-4 py-1.5 text-left"></th>
-                  {HORIZONS.map((h) => (
+                  {horizons.map((h) => (
                     visiblePolicies.map((p) => {
                       const colorClass =
                         p === POLICY_LONG_EVENT ? "text-teal-600 dark:text-teal-400"
@@ -263,7 +264,7 @@ export function BacktestLongEventDetails({
                 </tr>
                 <tr className="border-b border-slate-200 text-[10px] font-medium text-slate-400 dark:border-slate-700 dark:text-slate-500">
                   <th className="px-4 py-1"></th>
-                  {HORIZONS.map((h) => (
+                  {horizons.map((h) => (
                     visiblePolicies.map((p) => (
                       <>
                         <th key={`${h}-${p}-mae`}  className="border-l border-slate-100 px-2 py-1 text-center dark:border-slate-700">MAE</th>
@@ -278,7 +279,7 @@ export function BacktestLongEventDetails({
               <tbody className="divide-y divide-slate-50 dark:divide-slate-700/60">
                 {MODEL_ORDER.map((model) => {
                   // モデルのデータが全 horizon × policy で存在しない場合はスキップ
-                  const hasData = HORIZONS.some((h) =>
+                  const hasData = horizons.some((h) =>
                     visiblePolicies.some((p) => findMetric(metrics, model, h, p) !== undefined)
                   );
                   if (!hasData) return null;
@@ -288,7 +289,7 @@ export function BacktestLongEventDetails({
                       <td className="px-4 py-2 font-medium text-slate-700 dark:text-slate-200">
                         {MODEL_LABELS[model] ?? model}
                       </td>
-                      {HORIZONS.map((h) => (
+                      {horizons.map((h) => (
                         visiblePolicies.map((p) => {
                           const m = findMetric(metrics, model, h, p);
                           const colorClass =

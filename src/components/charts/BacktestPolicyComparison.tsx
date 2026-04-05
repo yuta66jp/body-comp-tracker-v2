@@ -29,9 +29,6 @@ import type { ForecastBacktestMetric } from "@/lib/supabase/types";
 
 // ── 定数 ──────────────────────────────────────────────────────────────────────
 
-const HORIZONS = [7, 14, 30] as const;
-type Horizon = (typeof HORIZONS)[number];
-
 const POLICY_ALL          = "all_days";
 const POLICY_EXCLUDE      = "exclude_flagged_plus_recovery";
 const POLICY_LONG_EVENT   = "exclude_long_event_blocks";
@@ -56,6 +53,8 @@ const MODEL_LABELS: Record<string, string> = {
 
 interface Props {
   metrics: ForecastBacktestMetric[];
+  /** DB から取得した horizon 一覧 (数値昇順)。0 件時は空表示。 */
+  horizons: number[];
 }
 
 // ── ヘルパー ──────────────────────────────────────────────────────────────────
@@ -80,7 +79,7 @@ function findMetric(
 function bestModelForPolicy(
   metrics: ForecastBacktestMetric[],
   policy: string,
-  horizon: Horizon,
+  horizon: number,
 ): { model: string; mae: number } | null {
   let best: { model: string; mae: number } | null = null;
   for (const model of MODEL_ORDER) {
@@ -119,7 +118,7 @@ function isBestMae(
 
 // ── コンポーネント ────────────────────────────────────────────────────────────
 
-export function BacktestPolicyComparison({ metrics }: Props) {
+export function BacktestPolicyComparison({ metrics, horizons }: Props) {
   const hasExcludePolicy    = metrics.some((m) => m.eval_policy === POLICY_EXCLUDE);
   const hasLongEventPolicy  = metrics.some((m) => m.eval_policy === POLICY_LONG_EVENT);
 
@@ -192,7 +191,7 @@ export function BacktestPolicyComparison({ metrics }: Props) {
 
       {/* ── モバイル: horizon 別カード (md 未満) ── */}
       <div className="md:hidden space-y-3 p-4">
-        {HORIZONS.map((h) => {
+        {horizons.map((h) => {
           const allBest       = bestModelForPolicy(metrics, POLICY_ALL, h);
           const exBest        = bestModelForPolicy(metrics, POLICY_EXCLUDE, h);
           const longEventBest = hasLongEventPolicy ? bestModelForPolicy(metrics, POLICY_LONG_EVENT, h) : null;
@@ -269,11 +268,11 @@ export function BacktestPolicyComparison({ metrics }: Props) {
 
       {/* ── デスクトップ: 比較テーブル (md+) ── */}
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full text-sm" style={{ minWidth: hasLongEventPolicy ? "760px" : "640px" }}>
+        <table className="w-full min-w-max text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
               <th className="px-4 py-2.5 text-left">モデル</th>
-              {HORIZONS.map((h) => (
+              {horizons.map((h) => (
                 <th
                   key={h}
                   colSpan={hasLongEventPolicy ? 3 : 3}
@@ -285,7 +284,7 @@ export function BacktestPolicyComparison({ metrics }: Props) {
             </tr>
             <tr className="border-b border-slate-200 text-[11px] font-medium text-slate-400 dark:border-slate-700 dark:text-slate-500">
               <th className="px-4 py-1.5 text-left">MAE (kg) / n</th>
-              {HORIZONS.map((h) => (
+              {horizons.map((h) => (
                 <Fragment key={h}>
                   <th className="border-l border-slate-100 px-3 py-1.5 text-center text-slate-500 dark:border-slate-700">
                     全日
@@ -304,7 +303,7 @@ export function BacktestPolicyComparison({ metrics }: Props) {
               return (
                 <tr key={model} className="transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800">
                   <td className="px-4 py-2.5 font-medium text-slate-700 dark:text-slate-200">{label}</td>
-                  {HORIZONS.map((h) => {
+                  {horizons.map((h) => {
                     const allM   = findMetric(metrics, model, h, POLICY_ALL);
                     const exM    = findMetric(metrics, model, h, POLICY_EXCLUDE);
                     const leM    = hasLongEventPolicy ? findMetric(metrics, model, h, POLICY_LONG_EVENT) : undefined;
