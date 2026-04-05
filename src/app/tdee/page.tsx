@@ -200,7 +200,7 @@ export default async function TdeePage() {
       {rawLogsResult.kind === "error" && (
         <StatusNotice status="error" className="mb-5">
           ログデータの取得中にエラーが発生しました。ページを再読み込みしてください。
-          グラフ・表は取得エラー前のデータを表示しています。
+          グラフ・表のデータを表示できません。
         </StatusNotice>
       )}
       {settingsResult.kind === "error" && (
