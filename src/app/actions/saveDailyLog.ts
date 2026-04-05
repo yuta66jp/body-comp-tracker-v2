@@ -111,6 +111,8 @@ export async function saveDailyLog(
     }
   }
 
+  // step_count は Apple Health インポート専用。MealLogger からは渡されないが、
+  // 万一渡された場合に不正値で上書きされないようバリデーションを維持する。
   if (input.step_count !== undefined && input.step_count !== null) {
     if (!Number.isInteger(input.step_count) || input.step_count < 0 || input.step_count > 200000) {
       return { ok: false, message: "歩数は 0〜200,000 の整数で入力してください" };
