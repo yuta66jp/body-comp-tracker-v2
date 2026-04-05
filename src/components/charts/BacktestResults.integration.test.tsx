@@ -107,7 +107,7 @@ const MOCK_METRICS: ForecastBacktestMetric[] = [
 describe("BacktestResults", () => {
   it("ベストモデルカードが sm:grid-cols-3 レイアウトになっている", () => {
     const { container } = render(
-      <BacktestResults run={MOCK_RUN} metrics={MOCK_METRICS} />
+      <BacktestResults run={MOCK_RUN} metrics={MOCK_METRICS} horizons={MOCK_RUN.horizons} />
     );
     // Best model カードのグリッド wrapper
     const grid = container.querySelector(".sm\\:grid-cols-3");
@@ -115,13 +115,13 @@ describe("BacktestResults", () => {
   });
 
   it("ベストモデルカードが horizon ごとに表示される", () => {
-    render(<BacktestResults run={MOCK_RUN} metrics={MOCK_METRICS} />);
+    render(<BacktestResults run={MOCK_RUN} metrics={MOCK_METRICS} horizons={MOCK_RUN.horizons} />);
     // 7日先 / 14日先 / 30日先 — それぞれ「最良モデル」テキスト
     expect(screen.getAllByText(/日先 — 最良モデル/)).toHaveLength(3);
   });
 
   it("モバイル詳細カードが horizon ごとに見出しを表示する", () => {
-    render(<BacktestResults run={MOCK_RUN} metrics={MOCK_METRICS} />);
+    render(<BacktestResults run={MOCK_RUN} metrics={MOCK_METRICS} horizons={MOCK_RUN.horizons} />);
     // md:hidden 内の h3 "X 日先"
     // Tailwind のクラスは DOM に存在する (非表示はブラウザ側で制御)
     expect(screen.getAllByText("7 日先").length).toBeGreaterThanOrEqual(1);
@@ -131,7 +131,7 @@ describe("BacktestResults", () => {
 
   it("モバイル詳細カードで 7日先の最良モデル (EW Linear Trend) がランク1位に表示される", () => {
     const { container } = render(
-      <BacktestResults run={MOCK_RUN} metrics={MOCK_METRICS} />
+      <BacktestResults run={MOCK_RUN} metrics={MOCK_METRICS} horizons={MOCK_RUN.horizons} />
     );
     // md:hidden のモバイルカードセクション
     const mobileSection = container.querySelector(".md\\:hidden.space-y-3");
@@ -144,7 +144,7 @@ describe("BacktestResults", () => {
 
   it("デスクトップ詳細テーブルが hidden md:block ラッパー内にある", () => {
     const { container } = render(
-      <BacktestResults run={MOCK_RUN} metrics={MOCK_METRICS} />
+      <BacktestResults run={MOCK_RUN} metrics={MOCK_METRICS} horizons={MOCK_RUN.horizons} />
     );
     const desktopTable = container.querySelector(".hidden.md\\:block table");
     expect(desktopTable).not.toBeNull();
@@ -152,7 +152,7 @@ describe("BacktestResults", () => {
 
   it("metrics が空でもクラッシュしない", () => {
     expect(() =>
-      render(<BacktestResults run={MOCK_RUN} metrics={[]} />)
+      render(<BacktestResults run={MOCK_RUN} metrics={[]} horizons={MOCK_RUN.horizons} />)
     ).not.toThrow();
   });
 });
@@ -180,14 +180,14 @@ const SMA7_METRICS: ForecastBacktestMetric[] = [
 describe("BacktestComparison", () => {
   it("dailyMetrics も sma7Metrics も空のときは null をレンダリングする", () => {
     const { container } = render(
-      <BacktestComparison dailyMetrics={[]} sma7Metrics={[]} />
+      <BacktestComparison dailyMetrics={[]} sma7Metrics={[]} horizons={[]} />
     );
     expect(container.firstChild).toBeNull();
   });
 
   it("モバイル horizon サマリーカードが 3 件 (D+7/D+14/D+30) 表示される", () => {
     render(
-      <BacktestComparison dailyMetrics={DAILY_METRICS} sma7Metrics={SMA7_METRICS} />
+      <BacktestComparison dailyMetrics={DAILY_METRICS} sma7Metrics={SMA7_METRICS} horizons={[7, 14, 30]} />
     );
     expect(screen.getByText("D+7 日先")).toBeTruthy();
     expect(screen.getByText("D+14 日先")).toBeTruthy();
@@ -196,7 +196,7 @@ describe("BacktestComparison", () => {
 
   it("モバイルサマリーが md:hidden ラッパー内にある", () => {
     const { container } = render(
-      <BacktestComparison dailyMetrics={DAILY_METRICS} sma7Metrics={SMA7_METRICS} />
+      <BacktestComparison dailyMetrics={DAILY_METRICS} sma7Metrics={SMA7_METRICS} horizons={[7, 14, 30]} />
     );
     const mobileSection = container.querySelector(".md\\:hidden.p-4");
     expect(mobileSection).not.toBeNull();
@@ -206,7 +206,7 @@ describe("BacktestComparison", () => {
 
   it("デスクトップ比較テーブルが hidden md:block ラッパー内にある", () => {
     const { container } = render(
-      <BacktestComparison dailyMetrics={DAILY_METRICS} sma7Metrics={SMA7_METRICS} />
+      <BacktestComparison dailyMetrics={DAILY_METRICS} sma7Metrics={SMA7_METRICS} horizons={[7, 14, 30]} />
     );
     const desktopTable = container.querySelector(".hidden.md\\:block table");
     expect(desktopTable).not.toBeNull();
@@ -214,7 +214,7 @@ describe("BacktestComparison", () => {
 
   it("単日データのみのときモバイルカードが単日評価 ★ を表示する", () => {
     render(
-      <BacktestComparison dailyMetrics={DAILY_METRICS} sma7Metrics={[]} />
+      <BacktestComparison dailyMetrics={DAILY_METRICS} sma7Metrics={[]} horizons={[7, 14, 30]} />
     );
     expect(screen.getAllByText("単日評価 ★").length).toBeGreaterThanOrEqual(1);
   });

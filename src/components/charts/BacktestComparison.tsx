@@ -38,10 +38,9 @@ interface BacktestComparisonProps {
    * false のとき: 前回 sma7 run と実行条件が異なるため前回比バッジを表示しない。デフォルト true。
    */
   prevSma7Comparable?: boolean;
+  /** DB から取得した horizon 一覧 (数値昇順)。0 件時は空表示。 */
+  horizons: number[];
 }
-
-const HORIZONS = [7, 14, 30] as const;
-type Horizon = (typeof HORIZONS)[number];
 
 const MODEL_ORDER = ["NeuralProphet", "MovingAverage7d", "LinearTrend30d", "EWLinearTrend", "Naive"];
 const MODEL_LABELS: Record<string, string> = {
@@ -96,7 +95,7 @@ function buildMaeMap(
 /** horizon ごとの最良 MAE を返す */
 function bestMae(
   maeMap: Map<string, number>,
-  horizon: Horizon
+  horizon: number
 ): { model: string; mae: number } | null {
   let best: { model: string; mae: number } | null = null;
   for (const model of MODEL_ORDER) {
@@ -129,6 +128,7 @@ export function BacktestComparison({
   prevSma7Metrics    = [],
   prevDailyComparable = true,
   prevSma7Comparable  = true,
+  horizons,
 }: BacktestComparisonProps) {
   // #363 以降の run は複数 policy の行を含む。
   // BacktestComparison は評価軸（単日 vs 7日均）の比較が目的のため、
@@ -159,16 +159,12 @@ export function BacktestComparison({
   const showAnyConditionNote    = showDailyConditionNote || showSma7ConditionNote;
 
   // ホライズン別ベスト MAE (ノイズ除去率計算用)
-  const dailyBest: Record<Horizon, { model: string; mae: number } | null> = {
-    7:  bestMae(dailyMap, 7),
-    14: bestMae(dailyMap, 14),
-    30: bestMae(dailyMap, 30),
-  };
-  const sma7Best: Record<Horizon, { model: string; mae: number } | null> = {
-    7:  bestMae(sma7Map, 7),
-    14: bestMae(sma7Map, 14),
-    30: bestMae(sma7Map, 30),
-  };
+  const dailyBest: Record<number, { model: string; mae: number } | null> = Object.fromEntries(
+    horizons.map((h) => [h, bestMae(dailyMap, h)])
+  );
+  const sma7Best: Record<number, { model: string; mae: number } | null> = Object.fromEntries(
+    horizons.map((h) => [h, bestMae(sma7Map, h)])
+  );
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
@@ -211,7 +207,7 @@ export function BacktestComparison({
 
       {/* ── モバイル: horizon 別サマリーカード (md 未満) ── */}
       <div className="md:hidden p-4 space-y-3">
-        {HORIZONS.map((h) => {
+        {horizons.map((h) => {
           const dBest = dailyBest[h];
           const sBest = sma7Best[h];
           const nrPct = noiseReductionPct(dBest?.mae ?? null, sBest?.mae ?? null);
@@ -263,11 +259,11 @@ export function BacktestComparison({
 
       {/* ── デスクトップ: 比較テーブル (md+) ── */}
       <div className="hidden md:block overflow-x-auto">
-        <table className="w-full min-w-[600px] text-sm">
+        <table className="w-full min-w-max text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
               <th className="w-44 px-4 py-2.5 text-left">モデル</th>
-              {HORIZONS.map((h) => (
+              {horizons.map((h) => (
                 <th key={h} colSpan={2} className="border-l border-slate-100 px-3 py-2.5 text-center dark:border-slate-700">
                   D+{h}日先
                 </th>
@@ -275,7 +271,7 @@ export function BacktestComparison({
             </tr>
             <tr className="border-b border-slate-200 text-[11px] font-medium text-slate-400 dark:border-slate-700 dark:text-slate-500">
               <th className="px-4 py-1.5 text-left">MAE (kg)</th>
-              {HORIZONS.map((h) => (
+              {horizons.map((h) => (
                 <Fragment key={h}>
                   <th className="border-l border-slate-100 px-3 py-1.5 text-center text-blue-500 dark:border-slate-700">
                     単日
@@ -300,7 +296,7 @@ export function BacktestComparison({
                       )}
                     </span>
                   </td>
-                  {HORIZONS.map((h) => {
+                  {horizons.map((h) => {
                     const dailyMae     = dailyMap.get(`${model}:${h}`) ?? null;
                     const sma7Mae      = sma7Map.get(`${model}:${h}`) ?? null;
                     const prevDailyMae = prevDailyMap.get(`${model}:${h}`) ?? null;
@@ -355,7 +351,7 @@ export function BacktestComparison({
                   ノイズ除去率
                   <span className="ml-1 font-normal text-slate-400 dark:text-slate-500">(最良モデル)</span>
                 </td>
-                {HORIZONS.map((h) => {
+                {horizons.map((h) => {
                   const pct = noiseReductionPct(
                     dailyBest[h]?.mae ?? null,
                     sma7Best[h]?.mae ?? null
