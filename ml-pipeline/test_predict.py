@@ -116,31 +116,30 @@ class TestFetchDailyLogsTransform:
 
         return _Client(data)
 
-    def test_returns_ds_and_y_columns(self):
-        """返り値は 'ds' と 'y' の2列を持つ。"""
+    def _make_row(self, log_date: str, weight, cheat: bool = False, travel: bool = False) -> dict:
+        return {"log_date": log_date, "weight": weight, "is_cheat_day": cheat, "is_travel_day": travel}
+
+    def test_returns_expected_columns(self):
+        """返り値は 'ds', 'y', 'is_cheat_day', 'is_travel_day' の4列を持つ。"""
         from predict import fetch_daily_logs
         client = self._make_mock_client([
-            {"log_date": "2026-01-01", "weight": 65.0},
-            {"log_date": "2026-01-02", "weight": 64.8},
+            self._make_row("2026-01-01", 65.0),
+            self._make_row("2026-01-02", 64.8),
         ])
         df = fetch_daily_logs(client)
-        assert list(df.columns) == ["ds", "y"]
+        assert list(df.columns) == ["ds", "y", "is_cheat_day", "is_travel_day"]
 
     def test_ds_is_datetime(self):
         """ds 列が datetime 型になっている。"""
         from predict import fetch_daily_logs
-        client = self._make_mock_client([
-            {"log_date": "2026-01-01", "weight": 65.0},
-        ])
+        client = self._make_mock_client([self._make_row("2026-01-01", 65.0)])
         df = fetch_daily_logs(client)
         assert pd.api.types.is_datetime64_any_dtype(df["ds"])
 
     def test_y_is_float(self):
         """y 列が float 型になっている。"""
         from predict import fetch_daily_logs
-        client = self._make_mock_client([
-            {"log_date": "2026-01-01", "weight": 65},  # int として渡す
-        ])
+        client = self._make_mock_client([self._make_row("2026-01-01", 65)])  # int として渡す
         df = fetch_daily_logs(client)
         assert df["y"].dtype == float
 
@@ -148,9 +147,9 @@ class TestFetchDailyLogsTransform:
         """weight が null の行は除外される。"""
         from predict import fetch_daily_logs
         client = self._make_mock_client([
-            {"log_date": "2026-01-01", "weight": 65.0},
-            {"log_date": "2026-01-02", "weight": None},
-            {"log_date": "2026-01-03", "weight": 64.5},
+            self._make_row("2026-01-01", 65.0),
+            self._make_row("2026-01-02", None),
+            self._make_row("2026-01-03", 64.5),
         ])
         df = fetch_daily_logs(client)
         assert len(df) == 2
@@ -160,12 +159,127 @@ class TestFetchDailyLogsTransform:
         """weight が全て null の場合は空 DataFrame を返す。"""
         from predict import fetch_daily_logs
         client = self._make_mock_client([
-            {"log_date": "2026-01-01", "weight": None},
-            {"log_date": "2026-01-02", "weight": None},
+            self._make_row("2026-01-01", None),
+            self._make_row("2026-01-02", None),
         ])
         df = fetch_daily_logs(client)
         assert isinstance(df, pd.DataFrame)
         assert len(df) == 0
+
+
+# ── build_clean_series のテスト ──────────────────────────────────────────────
+
+
+def _make_df(rows: list[dict]) -> pd.DataFrame:
+    """テスト用 DataFrame を生成する。rows は log_date / weight / is_cheat_day / is_travel_day を含む。"""
+    df = pd.DataFrame(rows)
+    df["ds"] = pd.to_datetime(df["log_date"])
+    df["y"] = df["weight"].astype(float)
+    return df[["ds", "y", "is_cheat_day", "is_travel_day"]]
+
+
+class TestBuildCleanSeries:
+    """build_clean_series() の長期イベント除外ロジックを検証する。"""
+
+    def test_no_events_returns_all_rows(self):
+        """イベントフラグが全て False なら全行をそのまま返す。"""
+        from predict import build_clean_series
+        df = _make_df([
+            {"log_date": "2026-01-01", "weight": 65.0, "is_cheat_day": False, "is_travel_day": False},
+            {"log_date": "2026-01-02", "weight": 64.8, "is_cheat_day": False, "is_travel_day": False},
+        ])
+        clean = build_clean_series(df, long_event_threshold=5, long_event_recovery_days=5)
+        assert len(clean) == 2
+        assert list(clean.columns) == ["ds", "y"]
+
+    def test_short_event_not_excluded(self):
+        """threshold 未満の短期イベントは除外されない (3日 < threshold=5)。"""
+        from predict import build_clean_series
+        rows = [
+            {"log_date": f"2026-01-{d:02d}", "weight": 65.0,
+             "is_cheat_day": (3 <= d <= 5), "is_travel_day": False}
+            for d in range(1, 11)
+        ]
+        df = _make_df(rows)
+        clean = build_clean_series(df, long_event_threshold=5, long_event_recovery_days=5)
+        assert len(clean) == 10  # 除外なし
+
+    def test_long_event_block_excluded(self):
+        """threshold 以上 (5日) の連続イベントはブロック + 回復期間が除外される。"""
+        from predict import build_clean_series
+        # 1/05 〜 1/09 (5日連続) = ブロック + 回復 5日 (1/10〜1/14) → 計 10日除外
+        rows = [
+            {"log_date": f"2026-01-{d:02d}", "weight": 65.0,
+             "is_cheat_day": (5 <= d <= 9), "is_travel_day": False}
+            for d in range(1, 21)
+        ]
+        df = _make_df(rows)
+        clean = build_clean_series(df, long_event_threshold=5, long_event_recovery_days=5)
+        # 20行 - 10行(ブロック5日+回復5日) = 10行残る
+        assert len(clean) == 10
+        remaining_dates = clean["ds"].dt.strftime("%Y-%m-%d").tolist()
+        # 1/01〜1/04 は残る
+        assert "2026-01-04" in remaining_dates
+        # 1/05〜1/14 は除外される
+        assert "2026-01-05" not in remaining_dates
+        assert "2026-01-14" not in remaining_dates
+        # 1/15〜1/20 は残る
+        assert "2026-01-15" in remaining_dates
+
+    def test_travel_day_flag_also_triggers_exclusion(self):
+        """is_travel_day フラグも長期ブロックの検出に含まれる。"""
+        from predict import build_clean_series
+        rows = [
+            {"log_date": f"2026-01-{d:02d}", "weight": 65.0,
+             "is_cheat_day": False, "is_travel_day": (3 <= d <= 9)}  # 7日連続
+            for d in range(1, 16)
+        ]
+        df = _make_df(rows)
+        clean = build_clean_series(df, long_event_threshold=5, long_event_recovery_days=3)
+        # ブロック 1/03〜1/09 (7日) + 回復 1/10〜1/12 (3日) = 10日除外
+        assert len(clean) == 5
+
+    def test_mixed_flags_merged_into_single_block(self):
+        """is_cheat_day と is_travel_day が隣接している場合、1つの連続ブロックとして扱われる。"""
+        from predict import build_clean_series
+        rows = [
+            {"log_date": f"2026-01-{d:02d}", "weight": 65.0,
+             "is_cheat_day": (d in [5, 6, 7]), "is_travel_day": (d in [8, 9])}
+            for d in range(1, 16)
+        ]
+        df = _make_df(rows)
+        clean = build_clean_series(df, long_event_threshold=5, long_event_recovery_days=2)
+        # ブロック 1/05〜1/09 (5日) + 回復 1/10〜1/11 (2日) = 7日除外
+        assert len(clean) == 8
+
+    def test_no_flag_columns_returns_ds_y_only(self):
+        """フラグカラムが存在しない場合は全行を ds/y 列のみで返す。"""
+        from predict import build_clean_series
+        df = pd.DataFrame({
+            "ds": pd.to_datetime(["2026-01-01", "2026-01-02"]),
+            "y": [65.0, 64.8],
+        })
+        clean = build_clean_series(df)
+        assert len(clean) == 2
+        assert list(clean.columns) == ["ds", "y"]
+
+    def test_returns_only_ds_y_columns(self):
+        """返り値には ds と y のみが含まれる (フラグカラムは除去される)。"""
+        from predict import build_clean_series
+        rows = [
+            {"log_date": f"2026-01-{d:02d}", "weight": 65.0,
+             "is_cheat_day": False, "is_travel_day": False}
+            for d in range(1, 6)
+        ]
+        df = _make_df(rows)
+        clean = build_clean_series(df)
+        assert list(clean.columns) == ["ds", "y"]
+
+    def test_constants_match_backtest_defaults(self):
+        """_LONG_EVENT_THRESHOLD と _LONG_EVENT_RECOVERY_DAYS が backtest.py のデフォルト値と一致する。"""
+        from predict import _LONG_EVENT_THRESHOLD, _LONG_EVENT_RECOVERY_DAYS
+        assert _LONG_EVENT_THRESHOLD == 5
+        assert _LONG_EVENT_RECOVERY_DAYS == 5
 
 
 # ── record 組み立てロジックのテスト ─────────────────────────────────────────
