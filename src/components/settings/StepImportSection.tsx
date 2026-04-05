@@ -1,33 +1,22 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, FileArchive, CheckCircle2, AlertCircle, Loader2, X, AlertTriangle } from "lucide-react";
-import type { AppleHealthPreflightResult, AppleHealthImportResult } from "@/app/api/apple-health-import/route";
+import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, X, AlertTriangle } from "lucide-react";
+import type { StepPreflightResult, StepImportResult } from "@/app/api/step-import/route";
 
 type Phase =
   | { kind: "idle" }
   | { kind: "parsing" }
-  | { kind: "preflight"; result: AppleHealthPreflightResult }
-  | { kind: "confirming"; result: AppleHealthPreflightResult }
+  | { kind: "preflight"; result: StepPreflightResult }
+  | { kind: "confirming"; result: StepPreflightResult }
   | { kind: "importing" }
   | { kind: "done"; saved: number; skipped: number }
   | { kind: "error"; message: string };
 
 /**
  * fetch レスポンスから安全にエラーメッセージを抽出する。
- *
- * - Content-Type が application/json の場合: { error: string } または { message: string } を読む
- * - 413 の場合: ファイルサイズ超過の専用メッセージを返す
- * - その他（HTML / plaintext / 空）: HTTP ステータスを含む汎用メッセージを返す
- *
- * response.json() を無条件に呼ぶと、中継層由来の HTML / plaintext レスポンス
- * （例: 413 "Request Entity Too Large"）で SyntaxError が発生するため、
- * Content-Type を確認してから JSON パースする。
  */
 async function extractErrorMessage(res: Response): Promise<string> {
-  if (res.status === 413) {
-    return "ファイルサイズが大きすぎます。Apple Health の ZIP が大きい場合はアップロードできない場合があります。";
-  }
   const contentType = res.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
     try {
@@ -38,16 +27,9 @@ async function extractErrorMessage(res: Response): Promise<string> {
       // JSON パース失敗時は fallthrough
     }
   }
-  // HTML / plaintext / 空レスポンスなどは HTTP ステータスだけ伝える
   return `サーバーエラーが発生しました（HTTP ${res.status}）`;
 }
 
-/**
- * fetch レスポンスから JSON を安全に取得する。
- *
- * response.ok かつ Content-Type が application/json の場合のみ JSON パースを試みる。
- * それ以外は extractErrorMessage 経由でエラーメッセージを返す。
- */
 async function safeJsonOrError<T>(res: Response): Promise<{ ok: true; data: T } | { ok: false; message: string }> {
   if (!res.ok) {
     return { ok: false, message: await extractErrorMessage(res) };
@@ -64,7 +46,7 @@ async function safeJsonOrError<T>(res: Response): Promise<{ ok: true; data: T } 
   }
 }
 
-export function AppleHealthImportSection() {
+export function StepImportSection() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -73,8 +55,9 @@ export function AppleHealthImportSection() {
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (!f.name.endsWith(".zip")) {
-      setPhase({ kind: "error", message: "ZIP ファイルを選択してください（.zip）" });
+    const lower = f.name.toLowerCase();
+    if (!lower.endsWith(".csv") && !lower.endsWith(".json")) {
+      setPhase({ kind: "error", message: "CSV または JSON ファイルを選択してください（.csv / .json）" });
       return;
     }
     setFileName(f.name);
@@ -89,18 +72,17 @@ export function AppleHealthImportSection() {
     formData.append("file", f);
 
     try {
-      const res = await fetch("/api/apple-health-import?action=preflight", {
+      const res = await fetch("/api/step-import?action=preflight", {
         method: "POST",
         body: formData,
       });
-      const result = await safeJsonOrError<AppleHealthPreflightResult>(res);
+      const result = await safeJsonOrError<StepPreflightResult>(res);
       if (!result.ok) {
         setPhase({ kind: "error", message: result.message });
         return;
       }
       setPhase({ kind: "preflight", result: result.data });
     } catch (e) {
-      // fetch 自体の失敗（ネットワークエラー等）
       setPhase({ kind: "error", message: e instanceof Error ? e.message : "ネットワークエラーが発生しました" });
     }
   }
@@ -113,11 +95,11 @@ export function AppleHealthImportSection() {
     formData.append("file", file);
 
     try {
-      const res = await fetch("/api/apple-health-import?action=import", {
+      const res = await fetch("/api/step-import?action=import", {
         method: "POST",
         body: formData,
       });
-      const result = await safeJsonOrError<AppleHealthImportResult>(res);
+      const result = await safeJsonOrError<StepImportResult>(res);
       if (!result.ok) {
         setPhase({ kind: "error", message: result.message });
         return;
@@ -146,24 +128,26 @@ export function AppleHealthImportSection() {
 
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
-      <h2 className="mb-1 text-sm font-semibold text-slate-700 dark:text-slate-200">Apple Health インポート（歩数）</h2>
+      <h2 className="mb-1 text-sm font-semibold text-slate-700 dark:text-slate-200">歩数インポート（CSV / JSON）</h2>
       <p className="mb-5 text-xs text-slate-400 dark:text-slate-500">
-        Apple Health からエクスポートした ZIP ファイルを読み込み、歩数（HKQuantityTypeIdentifierStepCount）を日次ログに保存します。
-        体重記録がある日のみ更新し、記録のない日はスキップします。
+        ローカルツール（<code className="rounded bg-slate-100 px-1 text-slate-500 dark:bg-slate-800 dark:text-slate-400">ml-pipeline/extract_steps.py</code>）で生成した日次歩数ファイルを読み込み、体重記録がある日の歩数を保存します。
+        体重記録のない日はスキップします。
       </p>
 
       {isIdle ? (
         /* ── ファイル選択エリア ── */
         <label className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-10 transition-colors hover:border-blue-400 hover:bg-blue-50 dark:border-slate-600 dark:bg-slate-800 dark:hover:border-blue-500 dark:hover:bg-blue-900/20">
-          <FileArchive size={28} className="text-slate-400 dark:text-slate-500" />
+          <FileText size={28} className="text-slate-400 dark:text-slate-500" />
           <div className="text-center">
-            <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Apple Health の ZIP を選択</p>
-            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">ヘルスケア → プロフィール → データをエクスポート</p>
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-300">歩数 CSV または JSON を選択</p>
+            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+              extract_steps.py で生成した daily_steps.csv / daily_steps.json
+            </p>
           </div>
           <input
             ref={fileRef}
             type="file"
-            accept=".zip,application/zip"
+            accept=".csv,.json,text/csv,application/json"
             className="hidden"
             onChange={handleFileChange}
           />
@@ -173,7 +157,7 @@ export function AppleHealthImportSection() {
           {/* ── ファイル情報 ── */}
           <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
             <div className="flex items-center gap-2 min-w-0">
-              <FileArchive size={16} className="flex-shrink-0 text-slate-400 dark:text-slate-500" />
+              <FileText size={16} className="flex-shrink-0 text-slate-400 dark:text-slate-500" />
               <span className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">{fileName}</span>
             </div>
             {!isProcessing && (
@@ -187,7 +171,7 @@ export function AppleHealthImportSection() {
           {phase.kind === "parsing" && (
             <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
               <Loader2 size={14} className="animate-spin" />
-              <span>ZIP を解析中（数秒〜数十秒かかることがあります）...</span>
+              <span>ファイルを解析中...</span>
             </div>
           )}
 
@@ -218,7 +202,12 @@ export function AppleHealthImportSection() {
                 </div>
               </div>
               <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-                ZIP 内の歩数: {preflight.totalDays.toLocaleString()} 日分 ／ 体重ログ一致: {preflight.matchedDays.toLocaleString()} 日分
+                ファイル内の歩数: {preflight.totalDays.toLocaleString()} 日分 ／ 体重ログ一致: {preflight.matchedDays.toLocaleString()} 日分
+                {preflight.invalidRows > 0 && (
+                  <span className="ml-2 text-amber-500 dark:text-amber-400">
+                    （フォーマット不正: {preflight.invalidRows} 行をスキップ）
+                  </span>
+                )}
               </p>
             </div>
           )}
