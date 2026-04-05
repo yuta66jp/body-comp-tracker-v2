@@ -2,10 +2,11 @@ import { BacktestResults } from "@/components/charts/BacktestResults";
 import { BacktestComparison } from "@/components/charts/BacktestComparison";
 import { BacktestPolicyComparison } from "@/components/charts/BacktestPolicyComparison";
 import { BacktestExcludedDates } from "@/components/charts/BacktestExcludedDates";
+import { BacktestLongEventDetails } from "@/components/charts/BacktestLongEventDetails";
 import { ForecastAccuracyRefreshButton } from "@/components/charts/ForecastAccuracyRefreshButton";
 import { BarChart2 } from "lucide-react";
 import { fetchLatestRuns, fetchMetrics, fetchFlaggedLogsForRun } from "@/lib/queries/backtest";
-import { parseRunConfig, buildExclusionList } from "@/lib/utils/backtestExclusion";
+import { parseRunConfig, buildExclusionList, buildLongEventBlocks, buildLongEventExclusionList } from "@/lib/utils/backtestExclusion";
 import { PageShell } from "@/components/ui/PageShell";
 
 export const revalidate = 3600; // 1時間キャッシュ (バッチは週1回)
@@ -85,14 +86,34 @@ export default async function ForecastAccuracyPage() {
   const prevSma7Metrics  = prevSma7MetricsResult.kind  === "ok" ? prevSma7MetricsResult.data  : [];
 
   // dailyRun の除外日一覧を再導出 (exclude_flagged_plus_recovery policy が存在する場合のみ表示)
-  const hasExcludePolicy = dailyMetrics.some((m) => m.eval_policy === "exclude_flagged_plus_recovery");
+  const hasExcludePolicy    = dailyMetrics.some((m) => m.eval_policy === "exclude_flagged_plus_recovery");
+  const hasLongEventPolicy  = dailyMetrics.some((m) => m.eval_policy === "exclude_long_event_blocks");
+
+  const parsedRunConfig = dailyRun ? parseRunConfig(dailyRun.config) : null;
+
   const excludedDateEntries = (() => {
-    if (!hasExcludePolicy || !dailyRun) return null;
-    const { recoveryDays, manualEventPeriods } = parseRunConfig(dailyRun.config);
+    if (!hasExcludePolicy || !parsedRunConfig) return null;
+    const { recoveryDays, manualEventPeriods } = parsedRunConfig;
     return {
       entries: buildExclusionList(flaggedLogs, recoveryDays, manualEventPeriods),
       recoveryDays,
       manualEventPeriods,
+    };
+  })();
+
+  // 長期イベントブロック除外の再導出 (#480)
+  const longEventDetails = (() => {
+    if (!hasLongEventPolicy || !parsedRunConfig) return null;
+    const { longEventThreshold, longEventRecoveryDays, manualEventPeriods } = parsedRunConfig;
+    const blocks = buildLongEventBlocks(flaggedLogs, manualEventPeriods, longEventThreshold);
+    const exclusionEntries = buildLongEventExclusionList(
+      flaggedLogs, manualEventPeriods, longEventThreshold, longEventRecoveryDays,
+    );
+    return {
+      blocks,
+      longEventThreshold,
+      longEventRecoveryDays,
+      excludedCalendarDays: exclusionEntries.length,
     };
   })();
 
@@ -129,6 +150,19 @@ export default async function ForecastAccuracyPage() {
             entries={excludedDateEntries.entries}
             recoveryDays={excludedDateEntries.recoveryDays}
             manualEventPeriods={excludedDateEntries.manualEventPeriods}
+          />
+        )}
+
+        {/* ── 長期イベント区間詳細 (#480) ──
+            exclude_long_event_blocks policy が存在する run のみ表示。
+            検出ブロック一覧 + 全ポリシー詳細指標 (MAE/RMSE/Bias/n) を表示する。 */}
+        {longEventDetails && (
+          <BacktestLongEventDetails
+            metrics={dailyMetrics}
+            longEventBlocks={longEventDetails.blocks}
+            longEventThreshold={longEventDetails.longEventThreshold}
+            longEventRecoveryDays={longEventDetails.longEventRecoveryDays}
+            excludedCalendarDays={longEventDetails.excludedCalendarDays}
           />
         )}
 

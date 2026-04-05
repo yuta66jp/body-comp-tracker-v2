@@ -24,10 +24,13 @@ const REASON_CONFIG: Record<
   ExcludedReason,
   { label: string; badgeClass: string }
 > = {
-  cheat_day:           { label: "チートデイ",       badgeClass: "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400" },
-  travel_day:          { label: "旅行日",            badgeClass: "bg-sky-100 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400" },
-  manual_event_period: { label: "手動イベント期間",  badgeClass: "bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400" },
-  recovery_day:        { label: "回復日",            badgeClass: "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400" },
+  cheat_day:            { label: "チートデイ",         badgeClass: "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400" },
+  travel_day:           { label: "旅行日",              badgeClass: "bg-sky-100 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400" },
+  manual_event_period:  { label: "手動イベント期間",    badgeClass: "bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400" },
+  recovery_day:         { label: "回復日",              badgeClass: "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400" },
+  // 長期イベントブロック除外ポリシー用 (#480) — このコンポーネントでは現状表示されないが型整合のため追加
+  long_event_block:     { label: "長期イベントブロック", badgeClass: "bg-teal-100 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400" },
+  long_event_recovery:  { label: "長期回復日",          badgeClass: "bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-500" },
 };
 
 const SOURCE_LABELS: Record<ExcludedSource, string> = {
@@ -58,6 +61,8 @@ export function BacktestExcludedDates({
     travel_day:          0,
     manual_event_period: 0,
     recovery_day:        0,
+    long_event_block:    0,
+    long_event_recovery: 0,
   };
   for (const e of entries) {
     counts[e.reason]++;
