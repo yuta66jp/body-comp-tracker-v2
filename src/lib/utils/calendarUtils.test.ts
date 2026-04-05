@@ -412,6 +412,33 @@ describe("calcFastingHours", () => {
     expect(calcFastingHours("invalid", "07:00")).toBeNull();
     expect(calcFastingHours("22:30", "not-a-time")).toBeNull();
   });
+
+  // 境界値テスト
+  it("delta=1439（23h59m）: null にならず 24.0h を返す（丸め結果）", () => {
+    // lastMealEndTime=00:01, weighInTime=00:00 → delta=-1+1440=1439 < 1440 → 有効
+    // Math.round(1439/60*10)/10 = Math.round(239.83)/10 = 240/10 = 24.0
+    expect(calcFastingHours("00:01", "00:00")).toBe(24.0);
+  });
+
+  it("小数点切り捨て: 2分差(0.033h) → 0.0h に丸まる", () => {
+    // weighMins=422(07:02) - lastMins=420(07:00) = 2 → Math.round(2/60*10)/10 = 0
+    expect(calcFastingHours("07:00", "07:02")).toBe(0.0);
+  });
+
+  it("小数点切り上げ: 3分差(0.05h) → 0.1h に丸まる", () => {
+    // weighMins=423(07:03) - lastMins=420(07:00) = 3 → Math.round(3/60*10)/10 = 0.1
+    expect(calcFastingHours("07:00", "07:03")).toBe(0.1);
+  });
+
+  it("日またぎ + 小数丸め(切り捨て): 22:00→07:02 → 9.0h", () => {
+    // delta=422-1320=-898+1440=542 → Math.round(542/60*10)/10 = Math.round(90.33)/10 = 9.0
+    expect(calcFastingHours("22:00", "07:02")).toBe(9.0);
+  });
+
+  it("日またぎ + 小数丸め(切り上げ): 22:00→07:05 → 9.1h", () => {
+    // delta=425-1320=-895+1440=545 → Math.round(545/60*10)/10 = Math.round(90.83)/10 = 9.1
+    expect(calcFastingHours("22:00", "07:05")).toBe(9.1);
+  });
 });
 
 // ── getMobileTrainingLabel ────────────────────────────────────────────────────
