@@ -6,7 +6,11 @@
 
 import {
   buildExclusionList,
+  buildLongEventBlocks,
+  buildLongEventExclusionList,
   parseRunConfig,
+  LONG_EVENT_THRESHOLD,
+  LONG_EVENT_RECOVERY_DAYS,
   type ExcludedDateEntry,
 } from "./backtestExclusion";
 import type { Json } from "@/lib/supabase/types";
@@ -251,5 +255,207 @@ describe("buildExclusionList", () => {
     const result = buildExclusionList(logs, 2, []);
     const jan20 = result.filter((e) => e.date === "2026-01-20");
     expect(jan20).toHaveLength(1);
+  });
+});
+
+// ── buildLongEventBlocks ────────────────────────────────────────────────────
+
+describe("buildLongEventBlocks", () => {
+  it("定数のデフォルト値が期待値と一致する", () => {
+    expect(LONG_EVENT_THRESHOLD).toBe(5);
+    expect(LONG_EVENT_RECOVERY_DAYS).toBe(5);
+  });
+
+  it("イベント日がない場合は空配列を返す", () => {
+    const logs = [
+      { log_date: "2026-01-01", is_cheat_day: false, is_travel_day: false },
+    ];
+    expect(buildLongEventBlocks(logs, [], 5)).toEqual([]);
+  });
+
+  it("threshold 未満の連続ブロックは検出されない", () => {
+    // 4連続チートデイ (threshold=5 では対象外)
+    const logs = [
+      { log_date: "2026-01-02", is_cheat_day: true,  is_travel_day: false },
+      { log_date: "2026-01-03", is_cheat_day: true,  is_travel_day: false },
+      { log_date: "2026-01-04", is_cheat_day: true,  is_travel_day: false },
+      { log_date: "2026-01-05", is_cheat_day: true,  is_travel_day: false },
+      { log_date: "2026-01-10", is_cheat_day: false, is_travel_day: false },
+    ];
+    expect(buildLongEventBlocks(logs, [], 5)).toEqual([]);
+  });
+
+  it("ちょうど threshold 日のブロックが検出される", () => {
+    const logs = [
+      { log_date: "2026-01-03", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-04", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-05", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-06", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-07", is_cheat_day: true, is_travel_day: false },
+    ];
+    const blocks = buildLongEventBlocks(logs, [], 5);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toEqual({ start: "2026-01-03", end: "2026-01-07", days: 5 });
+  });
+
+  it("threshold を超えるブロックが正しく検出される", () => {
+    // 7連続旅行日
+    const logs = [
+      { log_date: "2026-01-02", is_cheat_day: false, is_travel_day: true },
+      { log_date: "2026-01-03", is_cheat_day: false, is_travel_day: true },
+      { log_date: "2026-01-04", is_cheat_day: false, is_travel_day: true },
+      { log_date: "2026-01-05", is_cheat_day: false, is_travel_day: true },
+      { log_date: "2026-01-06", is_cheat_day: false, is_travel_day: true },
+      { log_date: "2026-01-07", is_cheat_day: false, is_travel_day: true },
+      { log_date: "2026-01-08", is_cheat_day: false, is_travel_day: true },
+    ];
+    const blocks = buildLongEventBlocks(logs, [], 5);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toEqual({ start: "2026-01-02", end: "2026-01-08", days: 7 });
+  });
+
+  it("短期ブロックと長期ブロックが混在する場合、長期のみ返す", () => {
+    const logs = [
+      // 短期: 2日
+      { log_date: "2026-01-02", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-03", is_cheat_day: true, is_travel_day: false },
+      // 長期: 6日
+      { log_date: "2026-01-10", is_cheat_day: false, is_travel_day: true },
+      { log_date: "2026-01-11", is_cheat_day: false, is_travel_day: true },
+      { log_date: "2026-01-12", is_cheat_day: false, is_travel_day: true },
+      { log_date: "2026-01-13", is_cheat_day: false, is_travel_day: true },
+      { log_date: "2026-01-14", is_cheat_day: false, is_travel_day: true },
+      { log_date: "2026-01-15", is_cheat_day: false, is_travel_day: true },
+    ];
+    const blocks = buildLongEventBlocks(logs, [], 5);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]!.start).toBe("2026-01-10");
+    expect(blocks[0]!.days).toBe(6);
+  });
+
+  it("手動 event period もブロック判定に含まれる", () => {
+    const logs: Array<{ log_date: string; is_cheat_day: boolean; is_travel_day: boolean }> = [];
+    const periods = [{ start: "2026-02-01", end: "2026-02-07" }]; // 7日間
+    const blocks = buildLongEventBlocks(logs, periods, 5);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toEqual({ start: "2026-02-01", end: "2026-02-07", days: 7 });
+  });
+
+  it("DB フラグと手動 period が連続する場合、1ブロックにマージされる", () => {
+    const logs = [
+      { log_date: "2026-01-03", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-04", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-05", is_cheat_day: true, is_travel_day: false },
+    ];
+    // 手動 period が連続 (01-06〜01-09)
+    const periods = [{ start: "2026-01-06", end: "2026-01-09" }];
+    const blocks = buildLongEventBlocks(logs, periods, 5);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]!.start).toBe("2026-01-03");
+    expect(blocks[0]!.end).toBe("2026-01-09");
+    expect(blocks[0]!.days).toBe(7);
+  });
+});
+
+// ── buildLongEventExclusionList ────────────────────────────────────────────
+
+describe("buildLongEventExclusionList", () => {
+  it("長期ブロックがない場合は空配列を返す", () => {
+    const logs = [
+      { log_date: "2026-01-01", is_cheat_day: true, is_travel_day: false },
+    ];
+    expect(buildLongEventExclusionList(logs, [], 5, 5)).toEqual([]);
+  });
+
+  it("ブロック本体と回復期間の日付がすべて含まれる", () => {
+    // 5連続チートデイ (2026-01-03〜07)
+    const logs = [
+      { log_date: "2026-01-03", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-04", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-05", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-06", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-07", is_cheat_day: true, is_travel_day: false },
+    ];
+    const entries = buildLongEventExclusionList(logs, [], 5, 3);
+    const dates = entries.map((e) => e.date);
+
+    // ブロック本体 5日
+    for (let i = 3; i <= 7; i++) {
+      expect(dates).toContain(`2026-01-0${i}`);
+    }
+    // 回復 3日 (01-08〜10)
+    expect(dates).toContain("2026-01-08");
+    expect(dates).toContain("2026-01-09");
+    expect(dates).toContain("2026-01-10");
+    // 回復終了翌日は含まれない
+    expect(dates).not.toContain("2026-01-11");
+  });
+
+  it("ブロック本体エントリの reason が long_event_block", () => {
+    const logs = [
+      { log_date: "2026-01-03", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-04", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-05", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-06", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-07", is_cheat_day: true, is_travel_day: false },
+    ];
+    const entries = buildLongEventExclusionList(logs, [], 5, 2);
+    const blockEntry = entries.find((e) => e.date === "2026-01-03");
+    expect(blockEntry?.reason).toBe("long_event_block");
+  });
+
+  it("回復日エントリの reason が long_event_recovery", () => {
+    const logs = [
+      { log_date: "2026-01-03", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-04", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-05", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-06", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-07", is_cheat_day: true, is_travel_day: false },
+    ];
+    const entries = buildLongEventExclusionList(logs, [], 5, 2);
+    const recoveryEntry = entries.find((e) => e.date === "2026-01-08");
+    expect(recoveryEntry?.reason).toBe("long_event_recovery");
+    expect(recoveryEntry?.source).toBe("derived");
+  });
+
+  it("結果が日付昇順でソートされている", () => {
+    const logs = [
+      { log_date: "2026-01-03", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-04", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-05", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-06", is_cheat_day: true, is_travel_day: false },
+      { log_date: "2026-01-07", is_cheat_day: true, is_travel_day: false },
+    ];
+    const entries = buildLongEventExclusionList(logs, [], 5, 5);
+    for (let i = 1; i < entries.length; i++) {
+      expect(entries[i]!.date >= entries[i - 1]!.date).toBe(true);
+    }
+  });
+});
+
+// ── parseRunConfig: long event fields ──────────────────────────────────────
+
+describe("parseRunConfig: long event fields (#480)", () => {
+  it("long_event_threshold と long_event_recovery_days を抽出できる", () => {
+    const config: Json = {
+      long_event_threshold: 7,
+      long_event_recovery_days: 3,
+    };
+    const result = parseRunConfig(config);
+    expect(result.longEventThreshold).toBe(7);
+    expect(result.longEventRecoveryDays).toBe(3);
+  });
+
+  it("フィールドが欠損している場合はデフォルト値を返す", () => {
+    const config: Json = { recovery_days: 2 };
+    const result = parseRunConfig(config);
+    expect(result.longEventThreshold).toBe(LONG_EVENT_THRESHOLD);
+    expect(result.longEventRecoveryDays).toBe(LONG_EVENT_RECOVERY_DAYS);
+  });
+
+  it("config が null の場合もデフォルト値を返す", () => {
+    const result = parseRunConfig(null);
+    expect(result.longEventThreshold).toBe(LONG_EVENT_THRESHOLD);
+    expect(result.longEventRecoveryDays).toBe(LONG_EVENT_RECOVERY_DAYS);
   });
 });

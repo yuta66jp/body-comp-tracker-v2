@@ -25,6 +25,7 @@ import pytest
 from backtest import (
     POLICY_ALL_DAYS,
     POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY,
+    POLICY_EXCLUDE_LONG_EVENT_BLOCKS,
     SERIES_DAILY,
     SERIES_SMA7,
     BacktestConfig,
@@ -32,6 +33,7 @@ from backtest import (
     PolicyMetrics,
     build_config,
     build_exclusion_dates,
+    build_long_event_exclusion_dates,
     compute_actual_sma7,
     compute_metrics,
     compute_policy_metrics,
@@ -113,6 +115,8 @@ class TestBuildConfig:
             eval_policies=[POLICY_ALL_DAYS, POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY],
             recovery_days=2,
             event_periods=[],
+            long_event_threshold=5,
+            long_event_recovery_days=5,
         )
         defaults.update(kwargs)
         return argparse.Namespace(**defaults)
@@ -868,6 +872,8 @@ class TestBuildConfigEvalPolicy:
             eval_policies=[POLICY_ALL_DAYS, POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY],
             recovery_days=2,
             event_periods=[],
+            long_event_threshold=5,
+            long_event_recovery_days=5,
         )
         defaults.update(kwargs)
         return argparse.Namespace(**defaults)
@@ -890,3 +896,239 @@ class TestBuildConfigEvalPolicy:
         config = build_config(self._make_args(event_periods=[ep]))
         assert len(config.manual_event_periods) == 1
         assert config.manual_event_periods[0].start_date == date(2026, 3, 1)
+
+
+# ── build_long_event_exclusion_dates ──────────────────────────────────────────
+
+class TestBuildLongEventExclusionDates:
+    def _df_with_flags(
+        self,
+        n: int = 30,
+        cheat_indices: list[int] | None = None,
+        travel_indices: list[int] | None = None,
+        start: str = "2026-01-01",
+    ) -> pd.DataFrame:
+        """フラグ列付きの DataFrame を生成する。"""
+        dates     = pd.date_range(start, periods=n, freq="D")
+        weights   = [70.0] * n
+        is_cheat  = [False] * n
+        is_travel = [False] * n
+        for i in (cheat_indices or []):
+            is_cheat[i] = True
+        for i in (travel_indices or []):
+            is_travel[i] = True
+        return pd.DataFrame({
+            "log_date":      dates,
+            "weight":        weights,
+            "is_cheat_day":  is_cheat,
+            "is_travel_day": is_travel,
+        })
+
+    def test_no_events_returns_empty(self):
+        """イベント日がない場合は空集合を返す。"""
+        df = self._df_with_flags(10)
+        excluded = build_long_event_exclusion_dates(
+            df, long_event_threshold=5, long_event_recovery_days=5,
+            manual_event_periods=[],
+        )
+        assert excluded == set()
+
+    def test_short_block_below_threshold_not_excluded(self):
+        """threshold 未満の連続イベント区間は除外されない。"""
+        # 4連続チートデイ (threshold=5 では対象外)
+        df = self._df_with_flags(20, cheat_indices=[2, 3, 4, 5])
+        excluded = build_long_event_exclusion_dates(
+            df, long_event_threshold=5, long_event_recovery_days=5,
+            manual_event_periods=[],
+        )
+        assert excluded == set()
+
+    def test_block_at_threshold_is_excluded(self):
+        """ちょうど threshold 日の連続ブロックは除外される。"""
+        # 5連続チートデイ (threshold=5 でちょうど該当)
+        df = self._df_with_flags(20, cheat_indices=[2, 3, 4, 5, 6])
+        excluded = build_long_event_exclusion_dates(
+            df, long_event_threshold=5, long_event_recovery_days=0,
+            manual_event_periods=[],
+        )
+        # 2026-01-03〜2026-01-07 が除外対象
+        for offset in range(5):
+            assert date(2026, 1, 3) + timedelta(days=offset) in excluded
+
+    def test_block_above_threshold_with_recovery(self):
+        """threshold 以上のブロック本体 + 回復期間が除外される。"""
+        # 7連続旅行日 (index 1〜7 = 2026-01-02〜2026-01-08)
+        df = self._df_with_flags(20, travel_indices=[1, 2, 3, 4, 5, 6, 7])
+        excluded = build_long_event_exclusion_dates(
+            df, long_event_threshold=5, long_event_recovery_days=3,
+            manual_event_periods=[],
+        )
+        # ブロック本体 2026-01-02〜2026-01-08
+        for offset in range(7):
+            assert date(2026, 1, 2) + timedelta(days=offset) in excluded
+        # 回復期間 2026-01-09〜2026-01-11
+        assert date(2026, 1, 9)  in excluded
+        assert date(2026, 1, 10) in excluded
+        assert date(2026, 1, 11) in excluded
+        # 回復期間終了翌日は除外外
+        assert date(2026, 1, 12) not in excluded
+
+    def test_short_block_before_long_block_not_excluded(self):
+        """短期ブロックと長期ブロックが混在する場合、長期ブロックのみ除外される。"""
+        # 2連続チートデイ (short) + gap + 6連続旅行日 (long)
+        df = self._df_with_flags(30, cheat_indices=[1, 2], travel_indices=[8, 9, 10, 11, 12, 13])
+        excluded = build_long_event_exclusion_dates(
+            df, long_event_threshold=5, long_event_recovery_days=2,
+            manual_event_periods=[],
+        )
+        # 短期ブロック (2日) は除外されない
+        assert date(2026, 1, 2) not in excluded
+        assert date(2026, 1, 3) not in excluded
+        # 長期ブロック (6日) は除外される
+        for offset in range(6):
+            assert date(2026, 1, 9) + timedelta(days=offset) in excluded
+
+    def test_manual_event_period_contributes_to_block(self):
+        """手動 event period も連続ブロック判定に含まれる。"""
+        df = self._df_with_flags(30)  # フラグなし
+        ep = ManualEventPeriod(date(2026, 1, 10), date(2026, 1, 16))  # 7日間
+        excluded = build_long_event_exclusion_dates(
+            df, long_event_threshold=5, long_event_recovery_days=2,
+            manual_event_periods=[ep],
+        )
+        # ブロック本体 2026-01-10〜2026-01-16
+        for offset in range(7):
+            assert date(2026, 1, 10) + timedelta(days=offset) in excluded
+        # 回復 2日
+        assert date(2026, 1, 17) in excluded
+        assert date(2026, 1, 18) in excluded
+        assert date(2026, 1, 19) not in excluded
+
+    def test_flag_and_manual_period_merge_into_one_block(self):
+        """DB フラグと手動 event period が連続する場合、1ブロックとしてマージされる。"""
+        # フラグ 2026-01-03〜2026-01-05 + 手動 2026-01-06〜2026-01-10 = 連続8日
+        df = self._df_with_flags(20, cheat_indices=[2, 3, 4])  # 2026-01-03〜05
+        ep = ManualEventPeriod(date(2026, 1, 6), date(2026, 1, 10))  # 2026-01-06〜10
+        excluded = build_long_event_exclusion_dates(
+            df, long_event_threshold=5, long_event_recovery_days=0,
+            manual_event_periods=[ep],
+        )
+        # 連続8日のうち最初の日も除外される
+        assert date(2026, 1, 3) in excluded
+        assert date(2026, 1, 10) in excluded
+
+    def test_missing_flag_columns_uses_manual_only(self):
+        """フラグカラムがない場合は手動 event period のみで判定する。"""
+        df = make_df(10)  # フラグカラムなし
+        ep = ManualEventPeriod(date(2026, 1, 5), date(2026, 1, 11))  # 7日間
+        excluded = build_long_event_exclusion_dates(
+            df, long_event_threshold=5, long_event_recovery_days=1,
+            manual_event_periods=[ep],
+        )
+        # 7日ブロック + 回復1日
+        assert date(2026, 1, 5) in excluded
+        assert date(2026, 1, 11) in excluded
+        assert date(2026, 1, 12) in excluded  # 回復1日
+        assert date(2026, 1, 13) not in excluded
+
+
+# ── compute_policy_metrics: exclude_long_event_blocks ──────────────────────
+
+class TestComputePolicyMetricsLongEvent:
+    def _make_records(
+        self,
+        errors: list[float],
+        actuals: list[float],
+        targets: list[date] | None = None,
+    ) -> list[tuple]:
+        if targets is None:
+            base = date(2026, 2, 1)
+            targets = [base + timedelta(days=i) for i in range(len(errors))]
+        origin = date(2026, 1, 1)
+        return [
+            (err, act, act + err, origin, tgt)
+            for err, act, tgt in zip(errors, actuals, targets)
+        ]
+
+    def test_long_event_policy_excludes_target_in_long_event_set(self):
+        """exclude_long_event_blocks policy は long_event_exclusion_dates の target を除外する。"""
+        targets = [date(2026, 2, 1), date(2026, 2, 2), date(2026, 2, 3)]
+        records = self._make_records([0.1, -0.2, 0.3], [70.0, 70.0, 70.0], targets)
+        long_excluded = {date(2026, 2, 1)}  # 最初の1件を除外
+        result = compute_policy_metrics(
+            records, set(), [POLICY_EXCLUDE_LONG_EVENT_BLOCKS],
+            long_event_exclusion_dates=long_excluded,
+        )
+        assert len(result) == 1
+        pm = result[0]
+        assert pm.policy    == POLICY_EXCLUDE_LONG_EVENT_BLOCKS
+        assert pm.n_total   == 3
+        assert pm.n_used    == 2
+        assert pm.n_excluded == 1
+
+    def test_all_three_policies_returned_together(self):
+        """3ポリシーを同時に指定すると 3 件返ること。"""
+        records = self._make_records([0.1, -0.2], [70.0, 70.0])
+        result = compute_policy_metrics(
+            records, set(),
+            [POLICY_ALL_DAYS, POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY, POLICY_EXCLUDE_LONG_EVENT_BLOCKS],
+            long_event_exclusion_dates=set(),
+        )
+        assert len(result) == 3
+        policies = {pm.policy for pm in result}
+        assert POLICY_ALL_DAYS in policies
+        assert POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY in policies
+        assert POLICY_EXCLUDE_LONG_EVENT_BLOCKS in policies
+
+    def test_long_event_policy_none_exclusion_uses_empty_set(self):
+        """long_event_exclusion_dates=None の場合、除外なし (後方互換)。"""
+        records = self._make_records([0.1, -0.2, 0.3], [70.0, 70.0, 70.0])
+        result = compute_policy_metrics(
+            records, set(), [POLICY_EXCLUDE_LONG_EVENT_BLOCKS],
+            long_event_exclusion_dates=None,
+        )
+        pm = result[0]
+        assert pm.n_used == 3  # 除外なし
+
+    def test_long_event_excludes_only_long_blocks_not_flagged(self):
+        """exclude_long_event_blocks は DB フラグ由来の exclusion_dates とは独立している。"""
+        targets = [date(2026, 2, 1), date(2026, 2, 5), date(2026, 2, 10)]
+        records = self._make_records([5.0, 0.1, 0.1], [70.0, 70.0, 70.0], targets)
+        # DB フラグ由来: 2/1 を除外
+        flagged_excluded = {date(2026, 2, 1)}
+        # 長期イベント由来: 2/5 を除外 (2/1 は除外しない)
+        long_excluded = {date(2026, 2, 5)}
+
+        result_long = compute_policy_metrics(
+            records, flagged_excluded,
+            [POLICY_EXCLUDE_LONG_EVENT_BLOCKS],
+            long_event_exclusion_dates=long_excluded,
+        )
+        pm = result_long[0]
+        assert pm.n_used == 2  # 2/1 と 2/10 が残る (2/5 のみ除外)
+        assert pm.n_excluded == 1
+
+
+# ── BacktestConfig 長期イベントブロック設定 ────────────────────────────────────
+
+class TestBacktestConfigLongEvent:
+    def test_default_long_event_threshold(self):
+        c = BacktestConfig()
+        assert c.long_event_threshold == 5
+
+    def test_default_long_event_recovery_days(self):
+        c = BacktestConfig()
+        assert c.long_event_recovery_days == 5
+
+    def test_default_includes_long_event_policy(self):
+        """デフォルト eval_policies に exclude_long_event_blocks が含まれること。"""
+        c = BacktestConfig()
+        assert POLICY_EXCLUDE_LONG_EVENT_BLOCKS in c.eval_policies
+
+    def test_custom_long_event_threshold(self):
+        c = BacktestConfig(long_event_threshold=7)
+        assert c.long_event_threshold == 7
+
+    def test_custom_long_event_recovery_days(self):
+        c = BacktestConfig(long_event_recovery_days=3)
+        assert c.long_event_recovery_days == 3

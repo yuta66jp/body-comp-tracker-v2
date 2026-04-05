@@ -31,6 +31,11 @@ backtest.py — 体重予測モデルの walk-forward 精度評価
     is_cheat_day / is_travel_day が True の日と、その後 recovery_days 日間を除外する
     手動 event period が指定されている場合は、その期間と recovery_days 日間も除外する
     チートデイや旅行による短期体重ブレを除いた通常日の精度を評価できる
+  exclude_long_event_blocks:
+    連続 long_event_threshold 日以上のイベント区間 (長期イベントブロック) のみを除外する
+    ブロック本体 + ブロック終了後 long_event_recovery_days 日間を除外する
+    長期イベント区間が精度劣化要因かを単独で検証できる (#480)
+    仮説値: long_event_threshold=5, long_event_recovery_days=5 (将来 CLI で変更可)
 
   同一 run に対して複数 policy の metrics を算出し、DB に保存する。
   (#364 で比較表示に利用する)
@@ -49,7 +54,8 @@ backtest.py — 体重予測モデルの walk-forward 精度評価
   python ml-pipeline/backtest.py --feature-set baseline   # 再現メタ (デフォルト)
   python ml-pipeline/backtest.py --recovery-days 3        # 回復期間を変更 (デフォルト: 2)
   python ml-pipeline/backtest.py --event-periods 2026-03-01:2026-03-10  # 手動イベント期間
-  python ml-pipeline/backtest.py --eval-policies all_days exclude_flagged_plus_recovery
+  python ml-pipeline/backtest.py --eval-policies all_days exclude_flagged_plus_recovery exclude_long_event_blocks
+  python ml-pipeline/backtest.py --long-event-threshold 7 --long-event-recovery-days 3  # 長期イベント閾値変更
 """
 
 import argparse
@@ -104,12 +110,31 @@ POLICY_ALL_DAYS = "all_days"
 # 手動 event period も優先適用して除外する
 POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY = "exclude_flagged_plus_recovery"
 
-_DEFAULT_EVAL_POLICIES = [POLICY_ALL_DAYS, POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY]
+# 連続 long_event_threshold 日以上の長期イベント区間のみを除外する (#480)
+# ブロック本体 + ブロック終了後 long_event_recovery_days 日間を除外する
+# 短期イベント (1〜4日) は除外せず、長期連続区間の影響のみを評価できる
+POLICY_EXCLUDE_LONG_EVENT_BLOCKS = "exclude_long_event_blocks"
+
+_DEFAULT_EVAL_POLICIES = [
+    POLICY_ALL_DAYS,
+    POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY,
+    POLICY_EXCLUDE_LONG_EVENT_BLOCKS,
+]
 
 # イベント後の回復期間 (日数)。デフォルト 2 日:
 #   チートデイの翌日〜翌々日は水分変動が残りやすいため除外する。
 #   旅行も同様。イベント種別ごとの自動調整はこの Issue のスコープ外 (#363)。
 _DEFAULT_RECOVERY_DAYS = 2
+
+# 長期イベントブロック判定閾値 (#480 初期仮説値)
+# 連続イベント日数がこの値以上のブロックを「長期イベントブロック」とみなす。
+# 将来のチューニングに備えて定数化。CLI --long-event-threshold で変更可能。
+_DEFAULT_LONG_EVENT_THRESHOLD = 5
+
+# 長期イベントブロック終了後の回復期間 (日数) (#480 初期仮説値)
+# 長期区間後は水分・コンディション回復に時間がかかる想定で長めに設定。
+# CLI --long-event-recovery-days で変更可能。
+_DEFAULT_LONG_EVENT_RECOVERY_DAYS = 5
 
 
 # ── 手動 event period ──────────────────────────────────────────────────────────
@@ -202,6 +227,10 @@ class BacktestConfig:
     recovery_days:        int                    = _DEFAULT_RECOVERY_DAYS
     manual_event_periods: list[ManualEventPeriod] = field(default_factory=list)
 
+    # 長期イベントブロック除外ポリシー用パラメータ (#480 初期仮説値)
+    long_event_threshold:      int = _DEFAULT_LONG_EVENT_THRESHOLD
+    long_event_recovery_days:  int = _DEFAULT_LONG_EVENT_RECOVERY_DAYS
+
     # 内部固定値 (CLI 引数なし。変えるときはコードレビュー必須)
     min_train_rows_np:       int = _MIN_TRAIN_ROWS_NP
     min_train_rows_baseline: int = _MIN_TRAIN_ROWS_BASELINE
@@ -220,6 +249,8 @@ def build_config(args: argparse.Namespace) -> BacktestConfig:
         eval_policies=args.eval_policies,
         recovery_days=args.recovery_days,
         manual_event_periods=args.event_periods,
+        long_event_threshold=args.long_event_threshold,
+        long_event_recovery_days=args.long_event_recovery_days,
     )
 
 
@@ -559,6 +590,88 @@ def build_exclusion_dates(
     return excluded
 
 
+def build_long_event_exclusion_dates(
+    df: pd.DataFrame,
+    long_event_threshold: int,
+    long_event_recovery_days: int,
+    manual_event_periods: Sequence[ManualEventPeriod],
+) -> set[date]:
+    """長期イベント区間 (連続 long_event_threshold 日以上のイベントブロック) のみを除外する。
+
+    イベント候補日:
+      1. df に is_cheat_day=True の行がある日
+      2. df に is_travel_day=True の行がある日
+      3. manual_event_periods の各期間内の全日
+
+    これらのイベント候補日を合算し、連続する区間 (連続日数 >= long_event_threshold) を
+    「長期イベントブロック」として検出する。
+    ブロック本体全日 + ブロック終了日後 long_event_recovery_days 日間を除外する。
+
+    短期イベント (1〜long_event_threshold-1 日) は除外しない点が
+    exclude_flagged_plus_recovery と異なる。
+
+    引数:
+      df                       : 体重履歴 DataFrame (log_date[, is_cheat_day, is_travel_day])
+      long_event_threshold     : 長期イベントブロックとみなす最小連続日数 (初期仮説値: 5)
+      long_event_recovery_days : ブロック終了後の回復期間 (日数) (初期仮説値: 5)
+      manual_event_periods     : 手動指定のイベント期間リスト
+
+    戻り値:
+      除外対象の日付の集合 (set[date])
+    """
+    # イベント候補日を収集 (重複日はセットで自然に除外)
+    event_days: set[date] = set()
+
+    if "is_cheat_day" in df.columns:
+        for d in df.loc[df["is_cheat_day"] == True, "log_date"].dt.date:  # noqa: E712
+            event_days.add(d)
+
+    if "is_travel_day" in df.columns:
+        for d in df.loc[df["is_travel_day"] == True, "log_date"].dt.date:  # noqa: E712
+            event_days.add(d)
+
+    for ep in manual_event_periods:
+        cur = ep.start_date
+        while cur <= ep.end_date:
+            event_days.add(cur)
+            cur += timedelta(days=1)
+
+    if not event_days:
+        return set()
+
+    # 連続ブロックを検出
+    sorted_days = sorted(event_days)
+    blocks: list[tuple[date, date]] = []  # (block_start, block_end)
+    block_start = sorted_days[0]
+    block_end   = sorted_days[0]
+
+    for d in sorted_days[1:]:
+        if d == block_end + timedelta(days=1):
+            block_end = d
+        else:
+            blocks.append((block_start, block_end))
+            block_start = d
+            block_end   = d
+    blocks.append((block_start, block_end))
+
+    # 長期ブロック (>=threshold) のみ除外対象にする
+    excluded: set[date] = set()
+    for (b_start, b_end) in blocks:
+        n_days = (b_end - b_start).days + 1
+        if n_days < long_event_threshold:
+            continue  # 短期イベントはスキップ
+        # ブロック本体
+        cur = b_start
+        while cur <= b_end:
+            excluded.add(cur)
+            cur += timedelta(days=1)
+        # ブロック終了後の回復期間
+        for i in range(1, long_event_recovery_days + 1):
+            excluded.add(b_end + timedelta(days=i))
+
+    return excluded
+
+
 # ── 評価ポリシー: PolicyMetrics と集計 ──────────────────────────────────────────
 
 @dataclass
@@ -590,28 +703,36 @@ def compute_policy_metrics(
     records: list[tuple],
     exclusion_dates: set[date],
     policies: Sequence[str],
+    long_event_exclusion_dates: Optional[set[date]] = None,
 ) -> list[PolicyMetrics]:
     """複数の evaluation policy に対して metrics を計算する。
 
     records の各要素は (error, actual, predicted, origin_date, target_date) の 5-tuple。
-    target_date が exclusion_dates に含まれる場合、exclude 系 policy では除外される。
+    target_date が各 policy の除外日集合に含まれる場合に除外される。
 
     引数:
-      records         : run_backtest が返す 1 モデル × 1 ホライズンの予測結果リスト
-      exclusion_dates : build_exclusion_dates() が返す除外日集合
-      policies        : 計算対象のポリシー名リスト
+      records                    : run_backtest が返す 1 モデル × 1 ホライズンの予測結果リスト
+      exclusion_dates            : build_exclusion_dates() が返す除外日集合
+                                   (POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY で使用)
+      policies                   : 計算対象のポリシー名リスト
+      long_event_exclusion_dates : build_long_event_exclusion_dates() が返す除外日集合
+                                   (POLICY_EXCLUDE_LONG_EVENT_BLOCKS で使用)
+                                   None の場合は空集合として扱う (後方互換)
 
     戻り値:
       PolicyMetrics のリスト (policies と同じ順序)
     """
     n_total = len(records)
     result: list[PolicyMetrics] = []
+    _long_event_excluded = long_event_exclusion_dates or set()
 
     for policy in policies:
         if policy == POLICY_ALL_DAYS:
             used = records
         elif policy == POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY:
             used = [r for r in records if r[4] not in exclusion_dates]
+        elif policy == POLICY_EXCLUDE_LONG_EVENT_BLOCKS:
+            used = [r for r in records if r[4] not in _long_event_excluded]
         else:
             log.warning("未知の eval_policy をスキップ: %s", policy)
             continue
@@ -758,8 +879,20 @@ def save_results(
         df, config.recovery_days, config.manual_event_periods
     )
     log.info(
-        "評価ポリシー除外日: %d 日 (recovery_days=%d, manual_periods=%d)",
+        "評価ポリシー除外日 (exclude_flagged_plus_recovery): %d 日 (recovery_days=%d, manual_periods=%d)",
         len(exclusion_dates), config.recovery_days, len(config.manual_event_periods),
+    )
+
+    # 長期イベントブロック除外日集合を構築 (exclude_long_event_blocks ポリシーで使用)
+    long_event_exclusion_dates = build_long_event_exclusion_dates(
+        df, config.long_event_threshold, config.long_event_recovery_days, config.manual_event_periods
+    )
+    log.info(
+        "評価ポリシー除外日 (exclude_long_event_blocks): %d 日 "
+        "(threshold=%d, recovery=%d)",
+        len(long_event_exclusion_dates),
+        config.long_event_threshold,
+        config.long_event_recovery_days,
     )
 
     # 1. runs テーブルに実行メタ情報を挿入
@@ -802,6 +935,9 @@ def save_results(
                 }
                 for ep in config.manual_event_periods
             ],
+            # 長期イベントブロック除外ポリシー用パラメータ (#480)
+            "long_event_threshold":     config.long_event_threshold,
+            "long_event_recovery_days": config.long_event_recovery_days,
         },
     }
     sb.from_("forecast_backtest_runs").insert(run_row).execute()
@@ -823,7 +959,8 @@ def save_results(
 
             # 全 policy の metrics を一括計算
             policy_metrics_list = compute_policy_metrics(
-                records, exclusion_dates, config.eval_policies
+                records, exclusion_dates, config.eval_policies,
+                long_event_exclusion_dates=long_event_exclusion_dates,
             )
 
             for pm in policy_metrics_list:
@@ -924,15 +1061,20 @@ def log_policy_summary(
     results: BacktestResults,
     config: BacktestConfig,
     exclusion_dates: set[date],
+    long_event_exclusion_dates: Optional[set[date]] = None,
 ) -> None:
     """evaluation policy ごとの metrics サマリーをログ出力する。
 
-    all_days と exclude_flagged_plus_recovery を並べて出力することで、
-    イベント除外前後の精度差を確認できる。
+    all_days / exclude_flagged_plus_recovery / exclude_long_event_blocks を並べて出力し、
+    各ポリシー間の精度差を確認できる。
     """
+    _long_event = long_event_exclusion_dates or set()
     log.info(
-        "=== policy 別サマリー (series_type=%s, recovery_days=%d, n_excluded_dates=%d) ===",
+        "=== policy 別サマリー (series_type=%s, recovery_days=%d, "
+        "n_excluded_dates=%d, n_long_event_excluded=%d, "
+        "long_event_threshold=%d, long_event_recovery=%d) ===",
         config.series_type, config.recovery_days, len(exclusion_dates),
+        len(_long_event), config.long_event_threshold, config.long_event_recovery_days,
     )
     for model_name in results:
         for horizon in config.horizons:
@@ -940,7 +1082,8 @@ def log_policy_summary(
             if not records:
                 continue
             policy_metrics_list = compute_policy_metrics(
-                records, exclusion_dates, config.eval_policies
+                records, exclusion_dates, config.eval_policies,
+                long_event_exclusion_dates=_long_event,
             )
             for pm in policy_metrics_list:
                 if pm.mae is None:
@@ -1021,12 +1164,38 @@ def main() -> None:
         nargs="+",
         default=list(_DEFAULT_EVAL_POLICIES),
         dest="eval_policies",
-        choices=[POLICY_ALL_DAYS, POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY],
+        choices=[
+            POLICY_ALL_DAYS,
+            POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY,
+            POLICY_EXCLUDE_LONG_EVENT_BLOCKS,
+        ],
         metavar="POLICY",
         help=(
             "算出する評価ポリシー (スペース区切りで複数指定可)。"
             f"デフォルト: {_DEFAULT_EVAL_POLICIES}。"
-            f"選択肢: {POLICY_ALL_DAYS} / {POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY}"
+            f"選択肢: {POLICY_ALL_DAYS} / {POLICY_EXCLUDE_FLAGGED_PLUS_RECOVERY} / "
+            f"{POLICY_EXCLUDE_LONG_EVENT_BLOCKS}"
+        ),
+    )
+    parser.add_argument(
+        "--long-event-threshold",
+        type=int,
+        default=_DEFAULT_LONG_EVENT_THRESHOLD,
+        dest="long_event_threshold",
+        help=(
+            f"長期イベントブロックとみなす最小連続イベント日数 (#480 初期仮説値)。"
+            f"デフォルト: {_DEFAULT_LONG_EVENT_THRESHOLD}。"
+            "この値以上の連続イベント区間が exclude_long_event_blocks ポリシーの対象になる。"
+        ),
+    )
+    parser.add_argument(
+        "--long-event-recovery-days",
+        type=int,
+        default=_DEFAULT_LONG_EVENT_RECOVERY_DAYS,
+        dest="long_event_recovery_days",
+        help=(
+            f"長期イベントブロック終了後の回復期間 (日数) (#480 初期仮説値)。"
+            f"デフォルト: {_DEFAULT_LONG_EVENT_RECOVERY_DAYS}。"
         ),
     )
     parser.add_argument(
@@ -1059,10 +1228,12 @@ def main() -> None:
     log.info(
         "実験 config: series_type=%s, feature_set=%s, horizons=%s, "
         "max_origins=%d, origin_step_days=%d, np_epochs=%d, "
-        "eval_policies=%s, recovery_days=%d, manual_event_periods=%d件",
+        "eval_policies=%s, recovery_days=%d, manual_event_periods=%d件, "
+        "long_event_threshold=%d, long_event_recovery_days=%d",
         config.series_type, config.feature_set, config.horizons,
         config.max_origins, config.origin_step_days, config.np_epochs,
         config.eval_policies, config.recovery_days, len(config.manual_event_periods),
+        config.long_event_threshold, config.long_event_recovery_days,
     )
 
     # supabase は実行系でのみ使用する (純粋ロジック層に依存を持ち込まない)
@@ -1087,7 +1258,11 @@ def main() -> None:
     exclusion_dates = build_exclusion_dates(
         df, config.recovery_days, config.manual_event_periods
     )
-    log_policy_summary(results, config, exclusion_dates)
+    long_event_exclusion_dates = build_long_event_exclusion_dates(
+        df, config.long_event_threshold, config.long_event_recovery_days,
+        config.manual_event_periods,
+    )
+    log_policy_summary(results, config, exclusion_dates, long_event_exclusion_dates)
 
     run_id = save_results(sb, df, results, config)
     log.info(

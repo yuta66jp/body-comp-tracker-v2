@@ -1,24 +1,26 @@
 "use client";
 
 /**
- * BacktestPolicyComparison — 評価条件別比較: 全日 vs イベント除外
+ * BacktestPolicyComparison — 評価条件別比較: 全日 / イベント除外 / 長期イベント除外
  *
- * 同一 run の "all_days" / "exclude_flagged_plus_recovery" の 2 policy を
- * モデル × ホライズン で並べて表示する。
+ * 同一 run の複数 eval_policy を モデル × ホライズン で並べて表示する。
  *
- * #363 で実装された evaluation policy 基盤を前提とし、
- * #364 の要求「通常日の予測精度とイベント込み精度を同一画面で比較できる」を満たす。
+ * 表示ポリシー:
+ *   1. all_days                    — 全日 (比較ベースライン)
+ *   2. exclude_flagged_plus_recovery — 通常日 (チートデイ・旅行日+回復期間を除外)
+ *   3. exclude_long_event_blocks   — 長期除外後 (連続5日以上のイベント区間を除外) [#480]
  *
  * 表示設計の判断理由:
- *   - 件数列 (除外数) を必須とし、精度指標だけを強調しすぎない
+ *   - n_predictions (評価使用サンプル数) を必須とし、精度指標だけを強調しすぎない
  *     (除外件数が少ない場合は改善幅を過大評価しやすいため)
  *   - n_predictions=0 / mae=NULL は「全件除外」バッジとして明示
- *     (#363 でこの行も保存するよう修正済みのため、行欠損との区別が可能)
- *   - eval_policy の表示名はこのファイルで管理する (UI 固有文言)
+ *   - policy 行が 1 件もない場合はそのポリシー列を「—」表示
  *
  * 非表示条件:
  *   - "exclude_flagged_plus_recovery" 行が 1 件もない場合は null を返す
  *     (旧 run または --eval-policies all_days のみ実行時)
+ *
+ * 詳細指標 (MAE/RMSE/Bias × 3ポリシー全比較) は BacktestLongEventDetails に分離。
  */
 
 import { Fragment } from "react";
@@ -30,13 +32,15 @@ import type { ForecastBacktestMetric } from "@/lib/supabase/types";
 const HORIZONS = [7, 14, 30] as const;
 type Horizon = (typeof HORIZONS)[number];
 
-const POLICY_ALL     = "all_days";
-const POLICY_EXCLUDE = "exclude_flagged_plus_recovery";
+const POLICY_ALL          = "all_days";
+const POLICY_EXCLUDE      = "exclude_flagged_plus_recovery";
+const POLICY_LONG_EVENT   = "exclude_long_event_blocks";
 
 /** UI 表示名 */
 const POLICY_LABELS: Record<string, string> = {
-  [POLICY_ALL]:     "全日",
-  [POLICY_EXCLUDE]: "通常日（イベント除外）",
+  [POLICY_ALL]:        "全日",
+  [POLICY_EXCLUDE]:    "通常日（イベント除外）",
+  [POLICY_LONG_EVENT]: "長期除外後",
 };
 
 const MODEL_ORDER = ["NeuralProphet", "MovingAverage7d", "LinearTrend30d", "EWLinearTrend", "Naive"];
@@ -90,7 +94,6 @@ function bestModelForPolicy(
 /**
  * policy × horizon の組み合わせごとに最良 MAE 値を返す。
  * キー: "${policy}:${horizon_days}"
- * null MAE（全件除外行）は比較対象外。同率最良は複数セルにマーキングされる。
  */
 function bestMaePerColumn(
   metrics: ForecastBacktestMetric[],
@@ -117,16 +120,22 @@ function isBestMae(
 // ── コンポーネント ────────────────────────────────────────────────────────────
 
 export function BacktestPolicyComparison({ metrics }: Props) {
-  const hasExcludePolicy = metrics.some((m) => m.eval_policy === POLICY_EXCLUDE);
+  const hasExcludePolicy    = metrics.some((m) => m.eval_policy === POLICY_EXCLUDE);
+  const hasLongEventPolicy  = metrics.some((m) => m.eval_policy === POLICY_LONG_EVENT);
+
   if (!hasExcludePolicy) return null;
 
   // デスクトップテーブル用: 各 policy × horizon 列の最良 MAE
   const bestMaes = bestMaePerColumn(metrics);
 
-  // 除外概要: すべての exclude 行のうち n_total > 0 の代表値として h=7, NeuralProphet を優先
+  // 除外概要: h=7, NeuralProphet を代表値として使用
   const summaryRow =
     findMetric(metrics, "NeuralProphet", 7, POLICY_EXCLUDE) ??
     metrics.find((m) => m.eval_policy === POLICY_EXCLUDE && m.n_total > 0);
+
+  const longEventSummary =
+    findMetric(metrics, "NeuralProphet", 7, POLICY_LONG_EVENT) ??
+    metrics.find((m) => m.eval_policy === POLICY_LONG_EVENT && m.n_total > 0);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
@@ -136,10 +145,10 @@ export function BacktestPolicyComparison({ metrics }: Props) {
           <div className="flex items-center gap-2">
             <ShieldCheck size={15} className="text-violet-500" />
             <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
-              評価条件別比較: 全日 vs イベント除外
+              評価条件別比較
             </span>
           </div>
-          <div className="flex gap-3 text-xs">
+          <div className="flex flex-wrap gap-3 text-xs">
             <span className="flex items-center gap-1.5">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-slate-400" />
               {POLICY_LABELS[POLICY_ALL]}
@@ -148,22 +157,33 @@ export function BacktestPolicyComparison({ metrics }: Props) {
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-violet-500" />
               {POLICY_LABELS[POLICY_EXCLUDE]}
             </span>
+            {hasLongEventPolicy && (
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-2.5 w-2.5 rounded-full bg-teal-500" />
+                {POLICY_LABELS[POLICY_LONG_EVENT]}
+              </span>
+            )}
           </div>
         </div>
         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
           <span className="font-medium text-slate-600 dark:text-slate-300">全日</span>はイベント日を含む全サンプルで評価、
-          <span className="font-medium text-violet-600">通常日</span>はチートデイ・旅行日と回復期間（2日）を除外したサンプルで評価します。
+          <span className="font-medium text-violet-600">通常日</span>はチートデイ・旅行日と回復期間（2日）を除外して評価。
+          {hasLongEventPolicy && (
+            <>
+              {" "}<span className="font-medium text-teal-600 dark:text-teal-400">長期除外後</span>は連続5日以上のイベント区間と回復期間（5日）のみを除外して評価。
+            </>
+          )}
           <strong className="text-slate-600 dark:text-slate-300">
             {" "}除外サンプルが少ない場合は精度差を過大評価しないでください。
           </strong>
         </p>
         {summaryRow && summaryRow.n_total > 0 && (
           <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-            除外状況（h=7, NP 代表）: 評価サンプル計 {summaryRow.n_total} 件中{" "}
-            {summaryRow.n_excluded} 件除外 → 評価使用 {summaryRow.n_predictions} 件
-            {summaryRow.n_excluded === 0 && (
-              <span className="ml-1 text-slate-400">
-                ※ 手動イベント期間未設定。自動タグ (cheat/travel) のみが除外対象です。
+            通常日除外（h=7, NP 代表）: {summaryRow.n_total} 件中{" "}
+            {summaryRow.n_excluded} 件除外 → {summaryRow.n_predictions} 件使用
+            {longEventSummary && longEventSummary.n_total > 0 && (
+              <span className="ml-3">
+                / 長期除外（h=7, NP 代表）: {longEventSummary.n_excluded} 件除外 → {longEventSummary.n_predictions} 件使用
               </span>
             )}
           </p>
@@ -173,17 +193,15 @@ export function BacktestPolicyComparison({ metrics }: Props) {
       {/* ── モバイル: horizon 別カード (md 未満) ── */}
       <div className="md:hidden space-y-3 p-4">
         {HORIZONS.map((h) => {
-          const allBest = bestModelForPolicy(metrics, POLICY_ALL, h);
-          const exBest  = bestModelForPolicy(metrics, POLICY_EXCLUDE, h);
-          // 最良モデルの exclude 行 (n_excluded を取るため)
-          const exBestRow = exBest
-            ? findMetric(metrics, exBest.model, h, POLICY_EXCLUDE)
-            : undefined;
-          const allExcluded = exBestRow
-            ? exBestRow.n_predictions === 0
-            : metrics.some(
-                (m) => m.horizon_days === h && m.eval_policy === POLICY_EXCLUDE && m.n_predictions === 0,
-              );
+          const allBest       = bestModelForPolicy(metrics, POLICY_ALL, h);
+          const exBest        = bestModelForPolicy(metrics, POLICY_EXCLUDE, h);
+          const longEventBest = hasLongEventPolicy ? bestModelForPolicy(metrics, POLICY_LONG_EVENT, h) : null;
+          const exBestRow     = exBest ? findMetric(metrics, exBest.model, h, POLICY_EXCLUDE) : undefined;
+          const leBestRow     = longEventBest ? findMetric(metrics, longEventBest.model, h, POLICY_LONG_EVENT) : undefined;
+          const exAllExcluded = exBestRow ? exBestRow.n_predictions === 0
+            : metrics.some((m) => m.horizon_days === h && m.eval_policy === POLICY_EXCLUDE && m.n_predictions === 0);
+          const leAllExcluded = leBestRow ? leBestRow.n_predictions === 0
+            : metrics.some((m) => m.horizon_days === h && m.eval_policy === POLICY_LONG_EVENT && m.n_predictions === 0);
 
           return (
             <div key={h} className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
@@ -202,42 +220,63 @@ export function BacktestPolicyComparison({ metrics }: Props) {
                 {/* 通常日（イベント除外） */}
                 <div>
                   <p className="mb-0.5 font-medium text-violet-600">通常日 ★</p>
-                  {allExcluded ? (
-                    <p className="text-slate-400 dark:text-slate-500">全件除外（除外条件により評価対象なし）</p>
+                  {exAllExcluded ? (
+                    <p className="text-slate-400 dark:text-slate-500">全件除外</p>
                   ) : exBest ? (
                     <>
                       <p className="font-semibold text-slate-700 dark:text-slate-200">
                         {MODEL_LABELS[exBest.model] ?? exBest.model}
                       </p>
                       <p className="font-mono text-slate-500 dark:text-slate-400">MAE {fmt3(exBest.mae)}</p>
-                      {exBestRow && exBestRow.n_excluded > 0 && (
-                        <p className="text-slate-400 dark:text-slate-500">除外 {exBestRow.n_excluded} 件</p>
+                      {exBestRow && (
+                        <p className="text-slate-400 dark:text-slate-500">n={exBestRow.n_predictions}</p>
                       )}
                     </>
                   ) : (
                     <p className="text-slate-400 dark:text-slate-500">データなし</p>
                   )}
                 </div>
+                {/* 長期除外後 */}
+                {hasLongEventPolicy && (
+                  <div>
+                    <p className="mb-0.5 font-medium text-teal-600 dark:text-teal-400">長期除外後 ★</p>
+                    {leAllExcluded ? (
+                      <p className="text-slate-400 dark:text-slate-500">全件除外</p>
+                    ) : longEventBest ? (
+                      <>
+                        <p className="font-semibold text-slate-700 dark:text-slate-200">
+                          {MODEL_LABELS[longEventBest.model] ?? longEventBest.model}
+                        </p>
+                        <p className="font-mono text-slate-500 dark:text-slate-400">MAE {fmt3(longEventBest.mae)}</p>
+                        {leBestRow && (
+                          <p className="text-slate-400 dark:text-slate-500">n={leBestRow.n_predictions}</p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-slate-400 dark:text-slate-500">データなし</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           );
         })}
         <p className="text-[10px] text-slate-400 dark:text-slate-500">
-          ★ = ホライズン別最良モデル / 件数はホライズンごとの評価サンプル数（予測点数）。実日数ではない。
+          ★ = ホライズン別最良モデル / n = 評価使用サンプル数（予測点数）。実日数ではない。
           全件除外 = 除外条件により評価対象サンプルがゼロになった状態（データ欠損ではない）。
         </p>
       </div>
 
       {/* ── デスクトップ: 比較テーブル (md+) ── */}
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[640px] text-sm">
+        <table className="w-full text-sm" style={{ minWidth: hasLongEventPolicy ? "760px" : "640px" }}>
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
               <th className="px-4 py-2.5 text-left">モデル</th>
               {HORIZONS.map((h) => (
                 <th
                   key={h}
-                  colSpan={3}
+                  colSpan={hasLongEventPolicy ? 3 : 3}
                   className="border-l border-slate-100 px-3 py-2.5 text-center dark:border-slate-700"
                 >
                   D+{h}日先
@@ -245,14 +284,16 @@ export function BacktestPolicyComparison({ metrics }: Props) {
               ))}
             </tr>
             <tr className="border-b border-slate-200 text-[11px] font-medium text-slate-400 dark:border-slate-700 dark:text-slate-500">
-              <th className="px-4 py-1.5 text-left">MAE (kg)</th>
+              <th className="px-4 py-1.5 text-left">MAE (kg) / n</th>
               {HORIZONS.map((h) => (
                 <Fragment key={h}>
                   <th className="border-l border-slate-100 px-3 py-1.5 text-center text-slate-500 dark:border-slate-700">
                     全日
                   </th>
                   <th className="px-3 py-1.5 text-center text-violet-500">通常日</th>
-                  <th className="px-2 py-1.5 text-center text-slate-400 dark:text-slate-500">除外†</th>
+                  {hasLongEventPolicy && (
+                    <th className="px-3 py-1.5 text-center text-teal-600 dark:text-teal-400">長期除外後</th>
+                  )}
                 </Fragment>
               ))}
             </tr>
@@ -264,27 +305,37 @@ export function BacktestPolicyComparison({ metrics }: Props) {
                 <tr key={model} className="transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800">
                   <td className="px-4 py-2.5 font-medium text-slate-700 dark:text-slate-200">{label}</td>
                   {HORIZONS.map((h) => {
-                    const allM = findMetric(metrics, model, h, POLICY_ALL);
-                    const exM  = findMetric(metrics, model, h, POLICY_EXCLUDE);
-                    const allExcluded = exM ? exM.n_predictions === 0 : false;
+                    const allM   = findMetric(metrics, model, h, POLICY_ALL);
+                    const exM    = findMetric(metrics, model, h, POLICY_EXCLUDE);
+                    const leM    = hasLongEventPolicy ? findMetric(metrics, model, h, POLICY_LONG_EVENT) : undefined;
+                    const exAllExcluded = exM ? exM.n_predictions === 0 : false;
+                    const leAllExcluded = leM ? leM.n_predictions === 0 : false;
                     const isAllBest = isBestMae(allM?.mae, bestMaes.get(`${POLICY_ALL}:${h}`));
                     const isExBest  = isBestMae(exM?.mae,  bestMaes.get(`${POLICY_EXCLUDE}:${h}`));
+                    const isLeBest  = isBestMae(leM?.mae,  bestMaes.get(`${POLICY_LONG_EVENT}:${h}`));
                     return (
                       <Fragment key={`${model}-${h}`}>
-                        {/* 全日 MAE */}
+                        {/* 全日 MAE / n */}
                         <td
-                          className={`border-l border-slate-100 px-3 py-2.5 text-center font-mono tabular-nums dark:border-slate-700 ${
+                          className={`border-l border-slate-100 px-3 py-2 text-center font-mono tabular-nums dark:border-slate-700 ${
                             isAllBest ? "font-bold text-blue-700 dark:text-blue-400" : "text-slate-600 dark:text-slate-300"
                           }`}
                         >
-                          {fmt3(allM?.mae)}
-                          {isAllBest && (
-                            <span className="ml-1 text-xs text-blue-400" aria-label="最良">★</span>
+                          <div>
+                            {fmt3(allM?.mae)}
+                            {isAllBest && (
+                              <span className="ml-1 text-xs text-blue-400" aria-label="最良">★</span>
+                            )}
+                          </div>
+                          {allM != null && (
+                            <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                              n={allM.n_predictions}
+                            </div>
                           )}
                         </td>
-                        {/* 通常日 MAE / 全件除外バッジ */}
-                        <td className="px-3 py-2.5 text-center font-mono tabular-nums">
-                          {allExcluded ? (
+                        {/* 通常日 MAE / n */}
+                        <td className="px-3 py-2 text-center font-mono tabular-nums">
+                          {exAllExcluded ? (
                             <span
                               className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-400 dark:bg-slate-700 dark:text-slate-400"
                               title="除外条件により評価対象サンプルがゼロになった状態。データ欠損ではありません。"
@@ -293,19 +344,47 @@ export function BacktestPolicyComparison({ metrics }: Props) {
                             </span>
                           ) : (
                             <>
-                              <span className={isExBest ? "font-bold text-violet-700" : "text-violet-600"}>
+                              <div className={isExBest ? "font-bold text-violet-700 dark:text-violet-400" : "text-violet-600"}>
                                 {fmt3(exM?.mae)}
-                              </span>
-                              {isExBest && (
-                                <span className="ml-1 text-xs text-violet-400" aria-label="最良">★</span>
+                                {isExBest && (
+                                  <span className="ml-1 text-xs text-violet-400" aria-label="最良">★</span>
+                                )}
+                              </div>
+                              {exM != null && (
+                                <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                                  n={exM.n_predictions}
+                                </div>
                               )}
                             </>
                           )}
                         </td>
-                        {/* 除外数 */}
-                        <td className="px-2 py-2.5 text-center text-[11px] tabular-nums text-slate-400 dark:text-slate-500">
-                          {exM != null ? exM.n_excluded : "—"}
-                        </td>
+                        {/* 長期除外後 MAE / n */}
+                        {hasLongEventPolicy && (
+                          <td className="px-3 py-2 text-center font-mono tabular-nums">
+                            {leAllExcluded ? (
+                              <span
+                                className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-400 dark:bg-slate-700 dark:text-slate-400"
+                                title="除外条件により評価対象サンプルがゼロになった状態。データ欠損ではありません。"
+                              >
+                                全件除外
+                              </span>
+                            ) : (
+                              <>
+                                <div className={isLeBest ? "font-bold text-teal-700 dark:text-teal-400" : "text-teal-600 dark:text-teal-500"}>
+                                  {fmt3(leM?.mae)}
+                                  {isLeBest && (
+                                    <span className="ml-1 text-xs text-teal-400" aria-label="最良">★</span>
+                                  )}
+                                </div>
+                                {leM != null && (
+                                  <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                                    n={leM.n_predictions}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </td>
+                        )}
                       </Fragment>
                     );
                   })}
@@ -319,9 +398,12 @@ export function BacktestPolicyComparison({ metrics }: Props) {
       {/* ── フッター注記 ── */}
       <div className="border-t border-slate-50 bg-slate-50 px-5 py-2.5 text-[11px] text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
         ★ = 各 horizon 列の最良 MAE（同率の場合は複数）。
-        全日 = イベントを含む全評価サンプルで評価 / 通常日 = cheat_day · travel_day と回復 2 日を除外して評価。
+        全日 = イベントを含む全評価サンプル /
+        通常日 = cheat_day · travel_day と回復 2 日を除外 /
+        {hasLongEventPolicy && " 長期除外後 = 連続5日以上のイベント区間と回復 5 日を除外 / "}
         全件除外 = 除外条件により評価対象サンプルがゼロになった状態（データ欠損ではない）。
-        † 除外数は実日数ではなくホライズンごとの評価サンプル数（予測点数）。除外数が少ないほど精度差は参考程度。
+        n = 評価使用サンプル数（予測点数）。実日数ではない。
+        {hasLongEventPolicy && " 詳細指標 (RMSE/Bias) は「長期イベント区間詳細」を参照。"}
       </div>
     </div>
   );
