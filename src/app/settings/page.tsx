@@ -1,7 +1,7 @@
 import { SettingsForm } from "@/components/settings/SettingsForm";
 import { ExportSection } from "@/components/settings/ExportSection";
 import { ImportSection } from "@/components/settings/ImportSection";
-import { AppleHealthImportSection } from "@/components/settings/AppleHealthImportSection";
+import { StepImportSection } from "@/components/settings/StepImportSection";
 import { DataQualityPanel } from "@/components/settings/DataQualityPanel";
 import { ThemeSection } from "@/components/settings/ThemeSection";
 import { calcDataQuality } from "@/lib/utils/calcDataQuality";
@@ -65,7 +65,7 @@ export default async function SettingsPage() {
             <ImportSection />
           </div>
           <div className="mt-6">
-            <AppleHealthImportSection />
+            <StepImportSection />
           </div>
         </div>
       </div>
