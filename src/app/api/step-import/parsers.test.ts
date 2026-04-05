@@ -78,6 +78,44 @@ describe("parseCsv", () => {
     });
   });
 
+  it("存在しない日付 (2026-02-31) は invalidRows にカウントしてスキップする", () => {
+    const csv = "date,step_count\n2026-02-31,8000\n2024-01-16,5000";
+    const result = parseCsv(csv);
+    expect(result).toEqual({
+      ok: true,
+      records: [{ date: "2024-01-16", stepCount: 5000 }],
+      invalidRows: 1,
+    });
+  });
+
+  it("存在しない月 (2026-13-01) は invalidRows にカウントしてスキップする", () => {
+    const csv = "date,step_count\n2026-13-01,8000";
+    const result = parseCsv(csv);
+    expect(result).toEqual({ ok: true, records: [], invalidRows: 1 });
+  });
+
+  it("存在しない日 (2026-04-31) は invalidRows にカウントしてスキップする", () => {
+    const csv = "date,step_count\n2026-04-31,8000";
+    const result = parseCsv(csv);
+    expect(result).toEqual({ ok: true, records: [], invalidRows: 1 });
+  });
+
+  it("うるう年でない年の 2月29日 (2025-02-29) は invalidRows にカウントしてスキップする", () => {
+    const csv = "date,step_count\n2025-02-29,8000";
+    const result = parseCsv(csv);
+    expect(result).toEqual({ ok: true, records: [], invalidRows: 1 });
+  });
+
+  it("うるう年の 2月29日 (2024-02-29) は通過する", () => {
+    const csv = "date,step_count\n2024-02-29,8000";
+    const result = parseCsv(csv);
+    expect(result).toEqual({
+      ok: true,
+      records: [{ date: "2024-02-29", stepCount: 8000 }],
+      invalidRows: 0,
+    });
+  });
+
   it("step_count が float の行は invalidRows にカウントしてスキップする", () => {
     const csv = "date,step_count\n2024-01-15,8432.9\n2024-01-16,5000";
     const result = parseCsv(csv);
@@ -148,6 +186,29 @@ describe("parseJson", () => {
     expect(result).toEqual({
       ok: true,
       records: [{ date: "2024-01-15", stepCount: 8432 }],
+      invalidRows: 0,
+    });
+  });
+
+  it("存在しない日付 (2026-02-31) は invalidRows にカウントしてスキップする", () => {
+    const result = parseJson('[{"date":"2026-02-31","step_count":8000},{"date":"2024-01-16","step_count":5000}]');
+    expect(result).toEqual({
+      ok: true,
+      records: [{ date: "2024-01-16", stepCount: 5000 }],
+      invalidRows: 1,
+    });
+  });
+
+  it("うるう年でない年の 2月29日 (2025-02-29) は invalidRows にカウントしてスキップする", () => {
+    const result = parseJson('[{"date":"2025-02-29","step_count":8000}]');
+    expect(result).toEqual({ ok: true, records: [], invalidRows: 1 });
+  });
+
+  it("うるう年の 2月29日 (2024-02-29) は通過する", () => {
+    const result = parseJson('[{"date":"2024-02-29","step_count":8000}]');
+    expect(result).toEqual({
+      ok: true,
+      records: [{ date: "2024-02-29", stepCount: 8000 }],
       invalidRows: 0,
     });
   });

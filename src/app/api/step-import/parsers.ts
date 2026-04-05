@@ -17,6 +17,19 @@ export type ParseResult =
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/**
+ * YYYY-MM-DD 形式の文字列がカレンダー上に実在する日付かどうかを検証する。
+ *
+ * DATE_RE によるフォーマットチェック通過後に呼ぶことを前提とする。
+ * new Date("YYYY-MM-DD") は UTC として解釈されるため、
+ * `d.toISOString().slice(0, 10)` が元の文字列と一致するかで存在確認できる。
+ * 2026-02-31 や 2026-13-01 は Invalid Date になる、または繰り上がった日付になるため不一致として弾かれる。
+ */
+function isCalendarDate(dateStr: string): boolean {
+  const d = new Date(dateStr);
+  return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === dateStr;
+}
+
 // ── parseCsv ─────────────────────────────────────────────────────────────────
 
 /**
@@ -54,7 +67,7 @@ export function parseCsv(text: string): ParseResult {
     const date = line.slice(0, commaIdx).trim();
     const stepStr = line.slice(commaIdx + 1).trim();
 
-    if (!DATE_RE.test(date)) { invalidRows++; continue; }
+    if (!DATE_RE.test(date) || !isCalendarDate(date)) { invalidRows++; continue; }
 
     const stepCount = Number(stepStr);
     if (!Number.isInteger(stepCount) || stepCount < 0 || isNaN(stepCount)) { invalidRows++; continue; }
@@ -104,7 +117,7 @@ export function parseJson(text: string): ParseResult {
     const obj = item as Record<string, unknown>;
 
     const date = typeof obj["date"] === "string" ? obj["date"].trim() : "";
-    if (!DATE_RE.test(date)) { invalidRows++; continue; }
+    if (!DATE_RE.test(date) || !isCalendarDate(date)) { invalidRows++; continue; }
 
     const stepRaw = obj["step_count"];
 
