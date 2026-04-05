@@ -82,8 +82,10 @@ export function calcFastingHours(
   const weighMins = parseMins(weighInTime);
   if (lastMins === null || weighMins === null) return null;
   let delta = weighMins - lastMins;
-  if (delta <= 0) delta += 24 * 60; // 日またぎ補正（0 は同時刻を排除）
-  if (delta >= 24 * 60) return null; // 24h 以上は異常値として除外
+  // delta < 0: 日またぎ（例: 前日 22:30 → 翌朝 07:00）→ +24h で正値に補正
+  // delta = 0: 同時刻 → +24h で 1440 になり、次行の >= 1440 判定で null を返す
+  if (delta <= 0) delta += 24 * 60;
+  if (delta >= 24 * 60) return null; // 24h 以上は異常値（同時刻・delta=0 の場合も含む）として除外
   return Math.round(delta / 60 * 10) / 10; // 小数点1桁
 }
 
