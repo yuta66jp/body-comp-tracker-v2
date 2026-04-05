@@ -26,6 +26,56 @@ function getSeriesType(run: ForecastBacktestRun): string {
   return "daily";
 }
 
+/** config JSON から文字列フィールドを安全に読み出す。存在しない場合は null。 */
+function cfgStr(run: ForecastBacktestRun, key: string): string | null {
+  const cfg = run.config;
+  if (cfg && typeof cfg === "object" && !Array.isArray(cfg)) {
+    const v = (cfg as Record<string, Json>)[key];
+    if (typeof v === "string") return v;
+  }
+  return null;
+}
+
+/** config JSON から数値フィールドを安全に読み出す。存在しない場合は null。 */
+function cfgNum(run: ForecastBacktestRun, key: string): number | null {
+  const cfg = run.config;
+  if (cfg && typeof cfg === "object" && !Array.isArray(cfg)) {
+    const v = (cfg as Record<string, Json>)[key];
+    if (typeof v === "number") return v;
+  }
+  return null;
+}
+
+/**
+ * prev run の実行条件が current run と比較可能か判定する。
+ *
+ * 判定フィールド:
+ *   - horizons         : 評価ホライズンセットが異なると同じホライズンの MAE を比較できない
+ *   - feature_set      : 使用特徴量セットが異なると別実験とみなす
+ *   - origin_step_days : 評価ウィンドウのサンプリング間隔が異なると評価精度の分母が変わる
+ *
+ * フィールドが旧 run に存在しない場合は比較可能とみなす (graceful fallback)。
+ * eval_policies は BacktestComparison が all_days のみ参照するため判定不要。
+ */
+function isRunComparable(current: ForecastBacktestRun, prev: ForecastBacktestRun): boolean {
+  // horizons: top-level number[] カラムで比較 (順序不同)
+  const curH = [...(current.horizons ?? [])].sort((a, b) => a - b);
+  const preH = [...(prev.horizons    ?? [])].sort((a, b) => a - b);
+  if (curH.length !== preH.length || curH.some((v, i) => v !== preH[i])) return false;
+
+  // feature_set: config JSON フィールド (どちらかが読めない場合はスキップ)
+  const curFs = cfgStr(current, "feature_set");
+  const preFs = cfgStr(prev,    "feature_set");
+  if (curFs !== null && preFs !== null && curFs !== preFs) return false;
+
+  // origin_step_days: config JSON フィールド (どちらかが読めない場合はスキップ)
+  const curStep = cfgNum(current, "origin_step_days");
+  const preStep = cfgNum(prev,    "origin_step_days");
+  if (curStep !== null && preStep !== null && curStep !== preStep) return false;
+
+  return true;
+}
+
 /**
  * 最新 20 件の run を取得し、daily / sma7 それぞれの最新 run と直前 run を返す。
  * 旧来の run (config.series_type なし) は daily として扱う。
@@ -41,6 +91,10 @@ export async function fetchLatestRuns(): Promise<QueryResult<{
   sma7Run: ForecastBacktestRun | null;
   prevDailyRun: ForecastBacktestRun | null;
   prevSma7Run: ForecastBacktestRun | null;
+  /** true = 前回 daily run と実行条件が一致し、前回比として比較可能。false = 条件が異なり比較不可。 */
+  prevDailyRunComparable: boolean;
+  /** true = 前回 sma7 run と実行条件が一致し、前回比として比較可能。false = 条件が異なり比較不可。 */
+  prevSma7RunComparable: boolean;
 }>> {
   const supabase = createClient();
   const { data, error } = await supabase
@@ -58,13 +112,22 @@ export async function fetchLatestRuns(): Promise<QueryResult<{
   const dailyRuns = runs.filter((r) => getSeriesType(r) === "daily");
   const sma7Runs  = runs.filter((r) => getSeriesType(r) === "sma7");
 
+  // 前回 run が存在する場合のみ比較可能性を判定する。
+  // 前回 run が存在しない場合は true にしておくが、prev metrics が空なので MaeDeltaBadge は表示されない。
+  const prevDailyRunComparable =
+    dailyRuns[0] && dailyRuns[1] ? isRunComparable(dailyRuns[0], dailyRuns[1]) : true;
+  const prevSma7RunComparable =
+    sma7Runs[0] && sma7Runs[1] ? isRunComparable(sma7Runs[0], sma7Runs[1]) : true;
+
   return {
     kind: "ok",
     data: {
-      dailyRun:     dailyRuns[0] ?? null,
-      sma7Run:      sma7Runs[0]  ?? null,
-      prevDailyRun: dailyRuns[1] ?? null,
-      prevSma7Run:  sma7Runs[1]  ?? null,
+      dailyRun:              dailyRuns[0] ?? null,
+      sma7Run:               sma7Runs[0]  ?? null,
+      prevDailyRun:          dailyRuns[1] ?? null,
+      prevSma7Run:           sma7Runs[1]  ?? null,
+      prevDailyRunComparable,
+      prevSma7RunComparable,
     },
   };
 }
