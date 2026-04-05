@@ -60,6 +60,10 @@ export function ImportSection() {
   /**
    * DB の既存 log_date を取得して事前集計を計算する。
    * 結果は preflight state に格納し、UI がサマリーを表示できるようにする。
+   *
+   * 全件取得ではなく CSV の日付範囲（minDate〜maxDate）に絞り込んで取得する。
+   * これにより蓄積件数が増えてもクライアント転送量が CSV 件数に比例する範囲に収まる。
+   * step-import の /api/step-import（#448）と同方式。
    */
   async function runPreflight(
     rows: { log_date: string }[],
@@ -68,7 +72,14 @@ export function ImportSection() {
     setPreflightLoading(true);
     try {
       const supabase = createClient();
-      const { data, error } = await supabase.from("daily_logs").select("log_date");
+      const dates = rows.map((r) => r.log_date).sort();
+      const minDate = dates[0]!;
+      const maxDate = dates[dates.length - 1]!;
+      const { data, error } = await supabase
+        .from("daily_logs")
+        .select("log_date")
+        .gte("log_date", minDate)
+        .lte("log_date", maxDate);
       if (error) {
         setErrorMsg("既存データの取得に失敗しました: " + error.message);
         setResult("error");
