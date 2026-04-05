@@ -99,10 +99,16 @@ export default async function DashboardPage() {
 
   // MAX(updated_at) を使って stale 判定する。
   // MAX(log_date) ではなく MAX(updated_at) を使うことで、過去日の行修正でも stale を正しく検知できる。
-  const latestRawLogUpdatedAt = logs.reduce<string | null>((max, l) => {
-    if (!l.updated_at) return max;
-    return max === null || l.updated_at > max ? l.updated_at : max;
-  }, null);
+  //
+  // logsResult.kind === "error" のとき undefined を渡すことで、analytics の鮮度判定を
+  // "unavailable" に落とす。null（ログが0件の正常初期状態）と区別するため undefined を使う。
+  const latestRawLogUpdatedAt: string | null | undefined =
+    logsResult.kind === "error"
+      ? undefined
+      : logsResult.data.reduce<string | null>((max, l) => {
+          if (!l.updated_at) return max;
+          return max === null || l.updated_at > max ? l.updated_at : max;
+        }, null);
   const enrichedResult = await fetchEnrichedLogs(latestRawLogUpdatedAt);
 
   const enrichedRows = enrichedResult.rows;
