@@ -73,7 +73,8 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  * - 重複日付は後勝ちで上書き（Apple Health 出力の日付重複は起こらないが念のため）
  */
 function parseCsv(text: string): ParseResult {
-  const lines = text.trim().split(/\r?\n/);
+  // BOM（\uFEFF）を除去する。Excel で開いて上書き保存した CSV に付くことがある。
+  const lines = text.replace(/^\uFEFF/, "").trim().split(/\r?\n/);
   if (lines.length === 0) return { ok: false, message: "ファイルが空です" };
 
   const header = lines[0]?.trim();
