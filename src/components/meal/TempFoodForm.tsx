@@ -193,6 +193,19 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
             {errors.carbs && <p className="mt-1 text-xs text-rose-500">{errors.carbs}</p>}
           </div>
         </div>
+        {/* PFC由来kcal 参考表示 */}
+        {(() => {
+          const p = parseFloat(form.protein);
+          const f = parseFloat(form.fat);
+          const c = parseFloat(form.carbs);
+          if (!Number.isFinite(p) || !Number.isFinite(f) || !Number.isFinite(c)) return null;
+          const pfcKcal = Math.round(p * 4 + f * 9 + c * 4);
+          return (
+            <p className="mt-2 text-xs text-amber-700/70 dark:text-amber-500/70">
+              PFC由来kcal: <span className="font-medium">{pfcKcal} kcal</span>
+            </p>
+          );
+        })()}
       </div>
 
       <button
