@@ -147,9 +147,14 @@ function parseJson(text: string): ParseResult {
     if (!DATE_RE.test(date)) { invalidRows++; continue; }
 
     const stepRaw = obj["step_count"];
+
+    // 浮動小数点数（例: 1234.9）は無効行としてスキップする。
+    // Math.trunc で暗黙的に整数化しない。
+    if (typeof stepRaw === "number" && !Number.isInteger(stepRaw)) { invalidRows++; continue; }
+
     const stepCount =
       typeof stepRaw === "number"
-        ? Math.trunc(stepRaw)
+        ? stepRaw
         : parseInt(String(stepRaw ?? ""), 10);
 
     if (!Number.isInteger(stepCount) || stepCount < 0 || isNaN(stepCount)) { invalidRows++; continue; }
