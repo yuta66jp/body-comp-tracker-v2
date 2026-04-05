@@ -282,6 +282,19 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
               )}
             </div>
           </div>
+          {/* PFC由来kcal 参考表示 */}
+          {(() => {
+            const p = parseFloat(form.protein);
+            const f = parseFloat(form.fat);
+            const c = parseFloat(form.carbs);
+            if (!Number.isFinite(p) || !Number.isFinite(f) || !Number.isFinite(c)) return null;
+            const pfcKcal = Math.round(p * 4 + f * 9 + c * 4);
+            return (
+              <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+                PFC由来kcal: <span className="font-medium text-slate-600 dark:text-slate-300">{pfcKcal} kcal</span>
+              </p>
+            );
+          })()}
           {error && <p className="mt-2 text-xs text-rose-500">{error}</p>}
           <div className="mt-3 flex items-center justify-end gap-2">
             {saveSuccess && (
