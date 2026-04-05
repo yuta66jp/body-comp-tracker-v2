@@ -24,7 +24,7 @@ const emptyForm = {
 type FormField = keyof typeof emptyForm;
 
 /** 数値フィールドのバリデーション: 空文字 NG、負数 NG、非数値 NG。小数は保持する。 */
-function parseNonNegative(value: string): number | null {
+export function parseNonNegative(value: string): number | null {
   if (value.trim() === "") return null;
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0) return null;
@@ -144,9 +144,8 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
             <label htmlFor="temp-food-calories" className="mb-1 block text-[11px] text-slate-400 dark:text-slate-500">カロリー (kcal)</label>
             <input
               id="temp-food-calories"
-              type="number"
+              type="text"
               inputMode="decimal"
-              min={0}
               placeholder="350"
               value={form.calories}
               onChange={(e) => setField("calories", e.target.value)}
@@ -158,9 +157,8 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
             <label htmlFor="temp-food-protein" className="mb-1 block text-[11px] text-slate-400 dark:text-slate-500">たんぱく質 (g)</label>
             <input
               id="temp-food-protein"
-              type="number"
+              type="text"
               inputMode="decimal"
-              min={0}
               placeholder="25"
               value={form.protein}
               onChange={(e) => setField("protein", e.target.value)}
@@ -172,9 +170,8 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
             <label htmlFor="temp-food-fat" className="mb-1 block text-[11px] text-slate-400 dark:text-slate-500">脂質 (g)</label>
             <input
               id="temp-food-fat"
-              type="number"
+              type="text"
               inputMode="decimal"
-              min={0}
               placeholder="12"
               value={form.fat}
               onChange={(e) => setField("fat", e.target.value)}
@@ -186,9 +183,8 @@ export function TempFoodForm({ onAdd }: TempFoodFormProps) {
             <label htmlFor="temp-food-carbs" className="mb-1 block text-[11px] text-slate-400 dark:text-slate-500">炭水化物 (g)</label>
             <input
               id="temp-food-carbs"
-              type="number"
+              type="text"
               inputMode="decimal"
-              min={0}
               placeholder="30"
               value={form.carbs}
               onChange={(e) => setField("carbs", e.target.value)}
