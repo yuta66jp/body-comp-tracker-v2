@@ -220,22 +220,34 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 解析結果の日付一覧を取得
+  // 解析結果の日付一覧を取得（昇順ソート��み）
   const dates = parsed.records.map((r) => r.date).sort();
+  const datesSet = new Set(dates);
+  const minDate = dates[0]!;
+  const maxDate = dates[dates.length - 1]!;
 
   // DB から対象日付範囲の daily_logs を取得
+  //
+  // `.in("log_date", dates)` は PostgREST により URL クエリパラメータに展開されるため、
+  // 日付件数が多い（数百〜数千件）と URL 長制限を超���て 400 Bad Request になる。
+  // 代わりに minDate〜maxDate の範囲取得を使い、アプリ側で datesSet との突合を行う。
+  // 範囲内に import 対象外の日付が含まれる場合があるが、datesSet フィルタで除外する。
   const supabase = createClient();
   const { data: existingLogs, error: fetchError } = await supabase
     .from("daily_logs")
     .select("log_date, step_count")
-    .in("log_date", dates);
+    .gte("log_date", minDate)
+    .lte("log_date", maxDate);
 
   if (fetchError) {
     return NextResponse.json({ error: "DB 取得エラー: " + fetchError.message }, { status: 500 });
   }
 
+  // 範囲取得結果のうち import 対象日だけを Map に収録する
   const existingMap = new Map<string, number | null>(
-    (existingLogs ?? []).map((row) => [row.log_date, row.step_count as number | null]),
+    (existingLogs ?? [])
+      .filter((row) => datesSet.has(row.log_date))
+      .map((row) => [row.log_date, row.step_count as number | null]),
   );
 
   // ── preflight ──────────────────────────────────────────────────────────────
