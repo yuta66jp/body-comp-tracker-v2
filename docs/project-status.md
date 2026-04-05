@@ -166,4 +166,5 @@ read projection / window 最適化は現時点では保留とする。
 | [`docs/daily-logs-read-inventory.md`](daily-logs-read-inventory.md) | daily_logs の read API 利用箇所棚卸し・query 分割方針 |
 | [`docs/step-count-and-fasting-hours.md`](step-count-and-fasting-hours.md) | 歩数・空腹時間の記録仕様・入力方法・今後の分析利用方針 |
 | [`docs/apple-health-step-export.md`](apple-health-step-export.md) | Apple Health ZIP → 日次歩数 CSV/JSON 変換ツールの使い方 |
+| [`docs/long-event-policy-design.md`](long-event-policy-design.md) | 長期イベント区間を考慮した予測評価・予測生成ポリシーの親テーマ設計（#479） |
 | `CLAUDE.md` | プロジェクト全体の設計方針・実装原則・非目標 |
