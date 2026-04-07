@@ -42,8 +42,8 @@ export interface HasContentInput {
   note: string | null;            // null = 明示的クリア予定
   noteTouched: boolean;           // ユーザーが note を操作したか
   touchedTags: Set<DayTag>;
-  /** 就寝時刻。touched=true なら空欄(="")でも null 送信（明示クリア）として扱う */
-  bedTimeTouched: boolean;
+  bedTime: string | null;        // null = 明示的クリア予定（X ボタンで設定）
+  bedTimeTouched: boolean;       // ユーザーが bedTime を操作したか（hydrate のみでは false）
   hadBowelMovementTouched: boolean; // ボタンを一度でも操作したか
   trainingTypeTouched: boolean;
   workModeTouched: boolean;
@@ -108,9 +108,9 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
   const [errorMessage, setErrorMessage] = useState<string>("");
 
   // ── Phase 2.5 新規フィールド ──
-  // bed_time: "" = 未入力, "HH:MM" = 入力値。weighInTime と同じパターン（null 状態なし）。
-  // touched=true かつ "" の場合は null 送信（明示クリア）として扱う。
-  const [bedTime, setBedTime] = useState("");
+  // bed_time: "" = 未入力, "HH:MM" = 入力値, null = 明示的クリア予定（X ボタンで設定）。
+  // weight / note と同じ 3 状態パターン。
+  const [bedTime, setBedTime] = useState<string | null>("");
   const [bedTimeTouched, setBedTimeTouched] = useState(false);
   // had_bowel_movement: null=未記録（未選択）, true=便通あり, false=便通なし
   // hadBowelMovementTouched=true のとき: null→null 送信（明示クリア=未記録），true/false→値送信
@@ -287,9 +287,15 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
           ? (note === null     ? null   : (note     !== "" ? note                 : undefined))
           : undefined,
         ...tagPayload,
-        // #501 追加: 就寝時刻。touched かつ非空 → 値保存、touched かつ空 → null（明示クリア）、未操作 → undefined
+        // #501 追加: 就寝時刻。
+        //   null (X ボタン) → null 送信（明示クリア）
+        //   "HH:MM"        → 値送信（上書き）
+        //   "" (空入力)    → undefined 送信（保存しない / 既存値を保持）
+        //   未操作         → undefined 送信（既存値を保持）
         // sleep_hours の算出は saveDailyLog (保存基盤) が bed_time + weigh_in_time から行う。
-        bed_time: bedTimeTouched ? (bedTime !== "" ? bedTime : null) : undefined,
+        bed_time: bedTimeTouched
+          ? (bedTime === null ? null : bedTime !== "" ? bedTime : undefined)
+          : undefined,
         // ルール: touched=true → hadBowelMovement の値をそのまま送信
         //           null  = 明示クリア（未記録に戻す）
         //           true  = 便通あり
@@ -351,7 +357,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
   const hasContent = computeHasContent({
     weight, weightTouched, cartItems, cartEverHadItems,
     note, noteTouched, touchedTags,
-    bedTimeTouched,
+    bedTime, bedTimeTouched,
     hadBowelMovementTouched, trainingTypeTouched, workModeTouched,
     lastMealEndTimeTouched, weighInTimeTouched,
   });
@@ -510,16 +516,54 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
           {/* 就寝時刻 */}
           <div>
             <label htmlFor="meal-log-bed-time" className="mb-1.5 block text-xs font-medium text-slate-500">就寝時刻</label>
-            <input
-              id="meal-log-bed-time"
-              type="time"
-              value={bedTime}
-              onChange={(e) => { setBedTime(e.target.value); setBedTimeTouched(true); }}
-              className={inputCls}
-            />
-            <p className="mt-1 text-[10px] text-slate-400">
-              就寝時刻と体重測定時刻から推定睡眠時間を自動算出します
-            </p>
+            <div className="relative">
+              {bedTime === null ? (
+                <input type="time" disabled placeholder="削除予定" className={inputClearedCls} />
+              ) : (
+                <input
+                  id="meal-log-bed-time"
+                  type="time"
+                  value={bedTime}
+                  onChange={(e) => { setBedTime(e.target.value); setBedTimeTouched(true); }}
+                  className={inputCls}
+                />
+              )}
+              {bedTime !== null && bedTime !== "" && (
+                <button
+                  type="button"
+                  onClick={() => { setBedTime(null); setBedTimeTouched(true); }}
+                  aria-label="就寝時刻を削除予定にする"
+                  title="保存時にこの値を削除する"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-rose-400 transition-colors"
+                >
+                  <X size={15} />
+                </button>
+              )}
+            </div>
+            {bedTime === null ? (
+              <p className="mt-1 flex items-center gap-1 text-xs text-rose-500">
+                <Undo2 size={11} className="shrink-0" />
+                <span>
+                  {hydratedLog?.bed_time
+                    ? `保存すると就寝時刻 (${hydratedLog.bed_time.slice(0, 5)}) を削除します。`
+                    : "保存時に就寝時刻を空欄で送信します。"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBedTime(hydratedLog?.bed_time?.slice(0, 5) ?? "");
+                    setBedTimeTouched(false);
+                  }}
+                  className="underline font-medium"
+                >
+                  元に戻す
+                </button>
+              </p>
+            ) : (
+              <p className="mt-1 text-[10px] text-slate-400">
+                就寝時刻と体重測定時刻から推定睡眠時間を自動算出します
+              </p>
+            )}
           </div>
           {/* 最終食事終了時刻 */}
           <div>
