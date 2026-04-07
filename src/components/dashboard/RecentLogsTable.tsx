@@ -83,7 +83,7 @@ export function RecentLogsTable({ logs, embedded = false, seasonMap, currentSeas
                       <div className="mt-1 text-xs leading-snug text-slate-500 dark:text-slate-400">
                         {[
                           conditionSummary,
-                          log.sleep_hours !== null ? `睡眠${log.sleep_hours}h` : null,
+                          log.sleep_hours !== null ? `推定睡眠${log.sleep_hours}h` : null,
                           fastingHours !== null ? `断食${fastingHours % 1 === 0 ? fastingHours.toFixed(0) : fastingHours.toFixed(1)}h` : null,
                         ]
                           .filter(Boolean)
