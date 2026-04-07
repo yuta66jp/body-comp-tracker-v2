@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidateAfterDailyLogMutation } from "@/lib/cache/revalidate";
 import { isValidTrainingType, isValidWorkMode } from "@/lib/utils/trainingType";
+import { deriveSleepHours } from "@/lib/utils/sleep";
 import { buildUpdatePayload } from "./buildUpdatePayload";
 import { parseLocalDateStr } from "@/lib/utils/date";
 
@@ -43,10 +44,18 @@ export type SaveDailyLogInput = {
   // ── #436 追加 ──
   /** Apple Health 歩数（日次集計）。null = 明示クリア */
   step_count?: number | null;
+  // ── #501 追加 ──
+  /**
+   * 就寝時刻 "HH:MM" 形式。null = 明示クリア。
+   * bed_time + weigh_in_time が両方揃った場合、保存時に sleep_hours を自動算出する。
+   * bed_time を null でクリアした場合、sleep_hours も null にリセットする。
+   */
+  bed_time?: string | null;
 };
 
 /** DB に渡す更新ペイロード（undefined フィールドを除去したもの）*/
 export type DailyLogPayload = Omit<SaveDailyLogInput, "log_date"> & {
+  /** training_type から導出される派生値。buildUpdatePayload が自動で追加する。 */
   leg_flag?: boolean | null;
 };
 
@@ -120,7 +129,7 @@ export async function saveDailyLog(
   }
 
   // 時刻バリデーション: "HH:MM" または "HH:MM:SS" 形式 + 値域チェック
-  for (const key of ["last_meal_end_time", "weigh_in_time"] as const) {
+  for (const key of ["last_meal_end_time", "weigh_in_time", "bed_time"] as const) {
     const v = input[key];
     if (v !== undefined && v !== null) {
       const parts = v.split(":");
@@ -139,6 +148,56 @@ export async function saveDailyLog(
         return { ok: false, message: `${key} の値が不正です（時: 0-23、分: 0-59 の範囲で入力してください）` };
       }
     }
+  }
+
+  // Supabase クライアントを早期に生成する。
+  // sleep_hours 算出で既存行を読む可能性があるため、RPC より前に用意する。
+  const supabase = createClient();
+
+  // ── sleep_hours 自動算出 (#501) ────────────────────────────────────────────
+  // 計算ロジックは deriveSleepHours (src/lib/utils/sleep.ts) に集約している。
+  //
+  // 仕様:
+  //   A. bed_time (null)                   → sleep_hours も null にリセット (明示クリア連動)
+  //   B. bed_time (値) + weigh_in_time (値) → 両方 payload にある場合はそのまま算出
+  //   C. 片側のみ payload にある場合        → 既存 DB 値を取得してマージし再算出
+  //      - bed_time のみ更新  : DB の weigh_in_time を取得
+  //      - weigh_in_time のみ更新: DB の bed_time を取得
+  //   D. どちらも payload になし            → sleep_hours を変更しない
+  //
+  // 片側更新時に stale になるのを防ぐため、DB フェッチによるマージを行う。
+  // 算出結果が null (異常値・片側 null 等) の場合は sleep_hours を変更しない。
+  {
+    const bedInPayload  = input.bed_time      !== undefined;
+    const weighInPayload = input.weigh_in_time !== undefined;
+
+    if (bedInPayload && input.bed_time === null) {
+      // A: bed_time 明示クリア → sleep_hours も連動クリア
+      input.sleep_hours = null;
+    } else if (bedInPayload || weighInPayload) {
+      // B / C: いずれかが更新される → payload 値を優先し、なければ DB の現在値を使う
+
+      // payload 側の確定値 (undefined は「使わない」側なので null に落とす)
+      let finalBed:     string | null = bedInPayload   ? (input.bed_time as string)      : null;
+      let finalWeighIn: string | null = weighInPayload ? (input.weigh_in_time as string | null) : null;
+
+      if (bedInPayload !== weighInPayload) {
+        // 片側のみ更新 → もう片側を DB から取得してマージ (C)
+        const existing = await fetchExistingTimeFields(supabase, input.log_date);
+        if (!bedInPayload)   finalBed     = existing?.bed_time      ?? null;
+        if (!weighInPayload) finalWeighIn = existing?.weigh_in_time ?? null;
+      }
+
+      // 両方 non-null なら算出、どちらかが null なら変更しない
+      if (finalBed !== null && finalWeighIn !== null) {
+        const derived = deriveSleepHours(finalBed, finalWeighIn);
+        if (derived !== null) {
+          input.sleep_hours = derived;
+        }
+        // derived === null (異常値) → sleep_hours を変更しない
+      }
+    }
+    // D: 両方 undefined → 何もしない
   }
 
   // undefined フィールドを除去したペイロードを構築
@@ -161,7 +220,6 @@ export async function saveDailyLog(
   // 既存行への partial update は INSERT 側の NOT NULL 制約に触れない。
   // 新規行作成時に weight がなければ RPC が new_log_requires_weight 例外を返す。
   // payload の JSONB キー存在が undefined/null/値の 3 状態を担保する。
-  const supabase = createClient();
 
   const { error: saveError } = await supabase.rpc("save_daily_log_partial", {
     p_log_date: input.log_date,
@@ -184,4 +242,24 @@ export async function saveDailyLog(
   }
 
   return { ok: true };
+}
+
+// ─── 内部ヘルパー ──────────────────────────────────────────────────────────────
+
+/**
+ * 既存行の bed_time / weigh_in_time を取得する。
+ *
+ * 片側のみ更新する場合に、もう片側の現在値を取得して sleep_hours の再算出に使う。
+ * 行が存在しない場合は null を返す（新規行作成シナリオでは両値ともペイロードにあるはずなので問題なし）。
+ */
+async function fetchExistingTimeFields(
+  supabase: ReturnType<typeof createClient>,
+  logDate: string
+): Promise<{ bed_time: string | null; weigh_in_time: string | null } | null> {
+  const { data } = await supabase
+    .from("daily_logs")
+    .select("bed_time, weigh_in_time")
+    .eq("log_date", logDate)
+    .maybeSingle();
+  return (data as { bed_time: string | null; weigh_in_time: string | null } | null) ?? null;
 }
