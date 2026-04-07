@@ -270,17 +270,21 @@ function deriveSleepSavePlan(
 
   const overnightTarget = addDaysStr(input.log_date, 1);
   const nextWeigh = weighInPayload ? input.weigh_in_time ?? null : nextRow?.weigh_in_time ?? null;
+  const currentRowAlreadyHasWakeDateOvernightPair = (
+    currentRow?.bed_time !== null &&
+    currentRow?.bed_time !== undefined &&
+    currentRow?.weigh_in_time !== null &&
+    currentRow?.weigh_in_time !== undefined &&
+    deriveSleepHours(currentRow.bed_time, currentRow.weigh_in_time) !== null &&
+    timeIsOnOrBefore(currentRow.weigh_in_time, currentRow.bed_time)
+  );
   const shouldShiftToNextDay = (
     input.bed_time !== undefined &&
     input.bed_time !== null &&
     nextWeigh !== null &&
     deriveSleepHours(input.bed_time, nextWeigh) !== null &&
-    timeIsOnOrBefore(nextWeigh, input.bed_time)
-  ) || (
-    currentBed !== null &&
-    currentWeigh !== null &&
-    deriveSleepHours(currentBed, currentWeigh) !== null &&
-    timeIsOnOrBefore(currentWeigh, currentBed)
+    timeIsOnOrBefore(nextWeigh, input.bed_time) &&
+    !currentRowAlreadyHasWakeDateOvernightPair
   );
 
   const targetLogDate = shouldShiftToNextDay && overnightTarget ? overnightTarget : input.log_date;
