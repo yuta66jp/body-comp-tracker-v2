@@ -29,7 +29,15 @@ type RpcCapture = {
   name?: string;
   p_log_date?: string;
   p_fields?: Record<string, unknown>;
+  calls: Array<{ name: string; p_log_date: string; p_fields: Record<string, unknown> }>;
 };
+
+type TimeFields = { bed_time: string | null; weigh_in_time: string | null };
+type TimeFieldMap = Record<string, TimeFields | null>;
+
+function isTimeFields(value: unknown): value is TimeFields {
+  return typeof value === "object" && value !== null && "bed_time" in value && "weigh_in_time" in value;
+}
 
 /**
  * saveDailyLog が内部で呼ぶ supabase クライアントをモックする。
@@ -44,9 +52,12 @@ type RpcCapture = {
  */
 function makeRpcMock(
   rpcError?: { message: string },
-  existingRow?: { bed_time: string | null; weigh_in_time: string | null } | null
+  existingRow?:
+    | TimeFields
+    | TimeFieldMap
+    | null
 ): RpcCapture {
-  const capture: RpcCapture = {};
+  const capture: RpcCapture = { calls: [] };
 
   const mockClient: Record<string, unknown> = {
     rpc: jest.fn().mockImplementation(
@@ -54,22 +65,26 @@ function makeRpcMock(
         capture.name       = name;
         capture.p_log_date = args.p_log_date;
         capture.p_fields   = args.p_fields;
+        capture.calls.push({ name, p_log_date: args.p_log_date, p_fields: args.p_fields });
         return Promise.resolve({ error: rpcError ?? null });
       }
     ),
   };
 
-  // existingRow が指定されている場合のみ from チェーンをモック
-  // bed_time / weigh_in_time の片側のみ更新するテストで必要
-  if (existingRow !== undefined) {
-    mockClient.from = jest.fn().mockReturnValue({
-      select: jest.fn().mockReturnValue({
-        eq: jest.fn().mockReturnValue({
-          maybeSingle: jest.fn().mockResolvedValue({ data: existingRow, error: null }),
-        }),
-      }),
-    });
-  }
+  const rowMap: TimeFieldMap =
+    existingRow === undefined
+      ? {}
+      : (existingRow === null || isTimeFields(existingRow))
+          ? { "2026-04-07": existingRow }
+          : existingRow;
+
+  mockClient.from = jest.fn().mockReturnValue({
+    select: jest.fn().mockReturnValue({
+      eq: jest.fn().mockImplementation((_: string, logDate: string) => ({
+        maybeSingle: jest.fn().mockResolvedValue({ data: rowMap[logDate] ?? null, error: null }),
+      })),
+    }),
+  });
 
   mockCreateClient.mockReturnValueOnce(mockClient as unknown as ReturnType<typeof createClient>);
   return capture;
@@ -739,8 +754,7 @@ describe("buildUpdatePayload — bed_time (#501)", () => {
 describe("saveDailyLog — bed_time 保存 (#501)", () => {
   // ── 両方が同一 payload にある場合 ──────────────────────────────────────────
 
-  test("bed_time + weigh_in_time が両方あれば sleep_hours が自動算出される (23:00→07:00=8h)", async () => {
-    // 両方 payload にある場合は DB フェッチは走らない
+  test("前日夜就寝は翌日の起床日レコードへ保存される (23:00→07:00=8h)", async () => {
     const capture = makeRpcMock();
     const result = await saveDailyLog({
       log_date: "2026-04-07",
@@ -749,22 +763,39 @@ describe("saveDailyLog — bed_time 保存 (#501)", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(capture.p_fields?.bed_time).toBe("23:00");
-    expect(capture.p_fields?.weigh_in_time).toBe("07:00");
-    // 23:00 → 07:00 = 8h (日またぎ補正)
-    expect(capture.p_fields?.sleep_hours).toBe(8.0);
+    expect(capture.calls).toHaveLength(1);
+    expect(capture.calls[0]?.p_log_date).toBe("2026-04-08");
+    expect(capture.calls[0]?.p_fields.bed_time).toBe("23:00");
+    expect(capture.calls[0]?.p_fields.weigh_in_time).toBe("07:00");
+    expect(capture.calls[0]?.p_fields.sleep_hours).toBe(8.0);
   });
 
-  test("床_time + weigh_in_time が日またぎなしの場合も正しく算出される (03:00→07:00=4h)", async () => {
+  test("当日深夜就寝は同日の起床日レコードへ保存される (01:30→08:00=6.5h)", async () => {
     const capture = makeRpcMock();
     const result = await saveDailyLog({
-      log_date: "2026-04-07",
-      bed_time: "03:00",
-      weigh_in_time: "07:00",
+      log_date: "2026-04-08",
+      bed_time: "01:30",
+      weigh_in_time: "08:00",
     });
 
     expect(result.ok).toBe(true);
-    expect(capture.p_fields?.sleep_hours).toBe(4.0);
+    expect(capture.calls).toHaveLength(1);
+    expect(capture.calls[0]?.p_log_date).toBe("2026-04-08");
+    expect(capture.calls[0]?.p_fields.sleep_hours).toBe(6.5);
+  });
+
+  test("早朝就寝も同日の起床日レコードへ保存される (04:00→10:00=6h)", async () => {
+    const capture = makeRpcMock();
+    const result = await saveDailyLog({
+      log_date: "2026-04-08",
+      bed_time: "04:00",
+      weigh_in_time: "10:00",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(capture.calls).toHaveLength(1);
+    expect(capture.calls[0]?.p_log_date).toBe("2026-04-08");
+    expect(capture.calls[0]?.p_fields.sleep_hours).toBe(6.0);
   });
 
   test("両方 payload にある・算出結果が異常値 (同一時刻→24h) の場合 sleep_hours は更新しない", async () => {
@@ -783,20 +814,22 @@ describe("saveDailyLog — bed_time 保存 (#501)", () => {
 
   // ── 片側のみ payload にある場合 (DB マージ) ────────────────────────────────
 
-  test("bed_time のみ更新: DB に weigh_in_time あり → sleep_hours が再算出される", async () => {
-    // 既存 DB: weigh_in_time = "07:00"、DB の bed_time は関係ない(上書きされる)
-    const capture = makeRpcMock(undefined, { bed_time: null, weigh_in_time: "07:00" });
+  test("bed_time のみ更新: 翌日レコードに weigh_in_time があれば翌日起床日レコードで再計算する", async () => {
+    const capture = makeRpcMock(undefined, {
+      "2026-04-07": { bed_time: null, weigh_in_time: null },
+      "2026-04-08": { bed_time: null, weigh_in_time: "07:00" },
+    });
     const result = await saveDailyLog({
       log_date: "2026-04-07",
       bed_time: "23:00",
     });
 
     expect(result.ok).toBe(true);
-    expect(capture.p_fields?.bed_time).toBe("23:00");
-    // DB の weigh_in_time "07:00" と合成 → 23:00→07:00 = 8h
-    expect(capture.p_fields?.sleep_hours).toBe(8.0);
-    // weigh_in_time は今回更新しないのでペイロードに含まれない
-    expect("weigh_in_time" in (capture.p_fields ?? {})).toBe(false);
+    expect(capture.calls).toHaveLength(1);
+    expect(capture.calls[0]?.p_log_date).toBe("2026-04-08");
+    expect(capture.calls[0]?.p_fields.bed_time).toBe("23:00");
+    expect(capture.calls[0]?.p_fields.sleep_hours).toBe(8.0);
+    expect("weigh_in_time" in (capture.calls[0]?.p_fields ?? {})).toBe(false);
   });
 
   test("weigh_in_time のみ更新: DB に bed_time あり → sleep_hours が再算出される", async () => {
@@ -831,7 +864,10 @@ describe("saveDailyLog — bed_time 保存 (#501)", () => {
 
   test("bed_time のみ更新: 既存行なし (新規) → sleep_hours は更新されない", async () => {
     // DB: 行なし (null)
-    const capture = makeRpcMock(undefined, null);
+    const capture = makeRpcMock(undefined, {
+      "2026-04-07": null,
+      "2026-04-08": null,
+    });
     const result = await saveDailyLog({
       log_date: "2026-04-07",
       weight: 70.0,
@@ -842,6 +878,29 @@ describe("saveDailyLog — bed_time 保存 (#501)", () => {
     expect(capture.p_fields?.bed_time).toBe("23:00");
     // 行がない場合は weigh_in_time が取れないので算出不能
     expect("sleep_hours" in (capture.p_fields ?? {})).toBe(false);
+  });
+
+  test("睡眠系と食事系を同時保存しても、睡眠系だけ翌日の起床日レコードへ分離される", async () => {
+    const capture = makeRpcMock();
+    const result = await saveDailyLog({
+      log_date: "2026-04-07",
+      calories: 2100,
+      last_meal_end_time: "22:00",
+      bed_time: "23:30",
+      weigh_in_time: "07:00",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(capture.calls).toHaveLength(2);
+    expect(capture.calls[0]?.p_log_date).toBe("2026-04-07");
+    expect(capture.calls[0]?.p_fields.calories).toBe(2100);
+    expect(capture.calls[0]?.p_fields.last_meal_end_time).toBe("22:00");
+    expect("bed_time" in (capture.calls[0]?.p_fields ?? {})).toBe(false);
+
+    expect(capture.calls[1]?.p_log_date).toBe("2026-04-08");
+    expect(capture.calls[1]?.p_fields.bed_time).toBe("23:30");
+    expect(capture.calls[1]?.p_fields.weigh_in_time).toBe("07:00");
+    expect(capture.calls[1]?.p_fields.sleep_hours).toBe(7.5);
   });
 
   test("片側更新で合成後に異常値になる場合 sleep_hours は更新されない", async () => {

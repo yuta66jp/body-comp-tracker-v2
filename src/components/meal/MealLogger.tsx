@@ -388,6 +388,9 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
           ) : (
             <p className="mt-1 text-xs text-slate-400">新規入力</p>
           )}
+          <p className="mt-1 text-[10px] text-slate-400">
+            体重・睡眠系は起床 / 測定日基準で保存します。前夜 23:30 就寝 → 翌朝 07:00 測定なら翌朝の日付が対応先です
+          </p>
         </div>
         <div>
           <label htmlFor="meal-log-weight" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">体重 (kg)</label>
@@ -561,7 +564,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
               </p>
             ) : (
               <p className="mt-1 text-[10px] text-slate-400">
-                前夜または当日深夜の就寝時刻（この日の起床前）。体重測定時刻との差から推定睡眠時間を算出します
+                この日の起床前に始まった睡眠の就寝時刻です。前夜就寝 / 当日深夜就寝 / 早朝就寝を同じ起床日レコードにそろえます
               </p>
             )}
           </div>
@@ -586,6 +589,9 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
               onChange={(e) => { setWeighInTime(e.target.value); setWeighInTimeTouched(true); }}
               className={inputCls}
             />
+            <p className="mt-1 text-[10px] text-slate-400">
+              起床日レコードを決める基準時刻です。就寝時刻との差から推定睡眠時間を再計算します
+            </p>
           </div>
           {/* 便通 */}
           <div>
