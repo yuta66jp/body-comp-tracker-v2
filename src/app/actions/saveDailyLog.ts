@@ -150,30 +150,54 @@ export async function saveDailyLog(
     }
   }
 
+  // Supabase クライアントを早期に生成する。
+  // sleep_hours 算出で既存行を読む可能性があるため、RPC より前に用意する。
+  const supabase = createClient();
+
   // ── sleep_hours 自動算出 (#501) ────────────────────────────────────────────
-  // bed_time と weigh_in_time の両方が同一ペイロードに揃っている場合のみ算出する。
   // 計算ロジックは deriveSleepHours (src/lib/utils/sleep.ts) に集約している。
   //
   // 仕様:
-  //   A. bed_time (値あり) + weigh_in_time (値あり) → sleep_hours を算出して上書き
-  //      ※ 算出結果が null (異常値) の場合は sleep_hours を更新しない
-  //   B. bed_time (null) → sleep_hours も null にリセット (明示クリア連動)
-  //   C. bed_time が undefined (未操作) → sleep_hours を変更しない
-  //   D. bed_time (値あり) だが weigh_in_time が未操作 → sleep_hours を変更しない
-  //      (現ペイロードだけでは算出不能。次回 weigh_in_time を含む保存で算出される)
-  if (input.bed_time !== undefined) {
-    if (input.bed_time === null) {
-      // B: bed_time をクリアした場合は sleep_hours も連動してクリア
+  //   A. bed_time (null)                   → sleep_hours も null にリセット (明示クリア連動)
+  //   B. bed_time (値) + weigh_in_time (値) → 両方 payload にある場合はそのまま算出
+  //   C. 片側のみ payload にある場合        → 既存 DB 値を取得してマージし再算出
+  //      - bed_time のみ更新  : DB の weigh_in_time を取得
+  //      - weigh_in_time のみ更新: DB の bed_time を取得
+  //   D. どちらも payload になし            → sleep_hours を変更しない
+  //
+  // 片側更新時に stale になるのを防ぐため、DB フェッチによるマージを行う。
+  // 算出結果が null (異常値・片側 null 等) の場合は sleep_hours を変更しない。
+  {
+    const bedInPayload  = input.bed_time      !== undefined;
+    const weighInPayload = input.weigh_in_time !== undefined;
+
+    if (bedInPayload && input.bed_time === null) {
+      // A: bed_time 明示クリア → sleep_hours も連動クリア
       input.sleep_hours = null;
-    } else if (input.weigh_in_time !== undefined && input.weigh_in_time !== null) {
-      // A: 両方揃っている場合に算出
-      const derived = deriveSleepHours(input.bed_time, input.weigh_in_time);
-      if (derived !== null) {
-        input.sleep_hours = derived;
+    } else if (bedInPayload || weighInPayload) {
+      // B / C: いずれかが更新される → payload 値を優先し、なければ DB の現在値を使う
+
+      // payload 側の確定値 (undefined は「使わない」側なので null に落とす)
+      let finalBed:     string | null = bedInPayload   ? (input.bed_time as string)      : null;
+      let finalWeighIn: string | null = weighInPayload ? (input.weigh_in_time as string | null) : null;
+
+      if (bedInPayload !== weighInPayload) {
+        // 片側のみ更新 → もう片側を DB から取得してマージ (C)
+        const existing = await fetchExistingTimeFields(supabase, input.log_date);
+        if (!bedInPayload)   finalBed     = existing?.bed_time      ?? null;
+        if (!weighInPayload) finalWeighIn = existing?.weigh_in_time ?? null;
       }
-      // 異常値 (derived === null) の場合は sleep_hours を変更しない
+
+      // 両方 non-null なら算出、どちらかが null なら変更しない
+      if (finalBed !== null && finalWeighIn !== null) {
+        const derived = deriveSleepHours(finalBed, finalWeighIn);
+        if (derived !== null) {
+          input.sleep_hours = derived;
+        }
+        // derived === null (異常値) → sleep_hours を変更しない
+      }
     }
-    // D: weigh_in_time が未操作の場合は何もしない
+    // D: 両方 undefined → 何もしない
   }
 
   // undefined フィールドを除去したペイロードを構築
@@ -196,7 +220,6 @@ export async function saveDailyLog(
   // 既存行への partial update は INSERT 側の NOT NULL 制約に触れない。
   // 新規行作成時に weight がなければ RPC が new_log_requires_weight 例外を返す。
   // payload の JSONB キー存在が undefined/null/値の 3 状態を担保する。
-  const supabase = createClient();
 
   const { error: saveError } = await supabase.rpc("save_daily_log_partial", {
     p_log_date: input.log_date,
@@ -219,4 +242,24 @@ export async function saveDailyLog(
   }
 
   return { ok: true };
+}
+
+// ─── 内部ヘルパー ──────────────────────────────────────────────────────────────
+
+/**
+ * 既存行の bed_time / weigh_in_time を取得する。
+ *
+ * 片側のみ更新する場合に、もう片側の現在値を取得して sleep_hours の再算出に使う。
+ * 行が存在しない場合は null を返す（新規行作成シナリオでは両値ともペイロードにあるはずなので問題なし）。
+ */
+async function fetchExistingTimeFields(
+  supabase: ReturnType<typeof createClient>,
+  logDate: string
+): Promise<{ bed_time: string | null; weigh_in_time: string | null } | null> {
+  const { data } = await supabase
+    .from("daily_logs")
+    .select("bed_time, weigh_in_time")
+    .eq("log_date", logDate)
+    .maybeSingle();
+  return (data as { bed_time: string | null; weigh_in_time: string | null } | null) ?? null;
 }
