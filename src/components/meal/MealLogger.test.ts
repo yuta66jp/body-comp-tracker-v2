@@ -8,8 +8,8 @@ const base = {
   note: "" as string | null,
   noteTouched: false,
   touchedTags: new Set<import("@/lib/utils/dayTags").DayTag>(),
-  sleepHours: "" as string | null,
-  sleepHoursTouched: false,
+  bedTime: "" as string | null,
+  bedTimeTouched: false,
   hadBowelMovementTouched: false,
   trainingTypeTouched: false,
   workModeTouched: false,
@@ -32,8 +32,8 @@ describe("computeHasContent", () => {
     expect(computeHasContent({ ...base, note: "調子良い", noteTouched: false })).toBe(false);
   });
 
-  it("hydrate で sleepHours が表示されているだけ（touched=false）の場合は false", () => {
-    expect(computeHasContent({ ...base, sleepHours: "7.5", sleepHoursTouched: false })).toBe(false);
+  it("hydrate で bedTime が表示されているだけ（touched=false）の場合は false", () => {
+    expect(computeHasContent({ ...base, bedTime: "23:00", bedTimeTouched: false })).toBe(false);
   });
 
   // ── 体重・食事・メモ（ユーザー操作あり） ──
@@ -64,12 +64,16 @@ describe("computeHasContent", () => {
     expect(computeHasContent({ ...base, note: null, noteTouched: true })).toBe(true);
   });
 
-  it("sleepHours が null（明示クリア）かつ touched=true のとき true", () => {
-    expect(computeHasContent({ ...base, sleepHours: null, sleepHoursTouched: true })).toBe(true);
+  it("bedTime が null（明示クリア）かつ touched=true のとき true", () => {
+    expect(computeHasContent({ ...base, bedTime: null, bedTimeTouched: true })).toBe(true);
   });
 
-  it("sleepHours が入力されている（touched=true）場合は true", () => {
-    expect(computeHasContent({ ...base, sleepHours: "7.5", sleepHoursTouched: true })).toBe(true);
+  it("bedTime が null でも touched=false のとき false（hydrate 後の未操作クリア状態）", () => {
+    expect(computeHasContent({ ...base, bedTime: null, bedTimeTouched: false })).toBe(false);
+  });
+
+  it("bedTime が入力されている（touched=true）場合は true", () => {
+    expect(computeHasContent({ ...base, bedTime: "23:00", bedTimeTouched: true })).toBe(true);
   });
 
   it("cartEverHadItems=true（カートを追加後に空にした）のとき true", () => {
@@ -132,5 +136,18 @@ describe("computeHasContent", () => {
   it("hydrate で weight が表示されているがタグだけ変更した場合は true", () => {
     const touchedTags = new Set<import("@/lib/utils/dayTags").DayTag>(["is_cheat_day"]);
     expect(computeHasContent({ ...base, weight: "70.5", weightTouched: false, touchedTags })).toBe(true);
+  });
+
+  // ── bedTime 操作 ──
+  it("bedTimeTouched=false のとき false（hydrate のみ）", () => {
+    expect(computeHasContent({ ...base, bedTime: "23:00", bedTimeTouched: false })).toBe(false);
+  });
+
+  it("bedTimeTouched=true + 値あり → true", () => {
+    expect(computeHasContent({ ...base, bedTime: "23:00", bedTimeTouched: true })).toBe(true);
+  });
+
+  it("bedTimeTouched=true + null（X ボタンで削除予定）→ true", () => {
+    expect(computeHasContent({ ...base, bedTime: null, bedTimeTouched: true })).toBe(true);
   });
 });
