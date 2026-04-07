@@ -47,6 +47,11 @@ export type SaveDailyLogInput = {
   // ── #501 追加 ──
   /**
    * 就寝時刻 "HH:MM" 形式。null = 明示クリア。
+   *
+   * 起床日基準（#507）: この log_date の朝に終了した睡眠セッションの開始時刻を表す。
+   * 前日夜就寝（例: 23:30）・当日深夜就寝（例: 01:30）・早朝就寝（例: 04:00）のいずれも
+   * 起床した日の log_date に属する値として保存する。
+   *
    * bed_time + weigh_in_time が両方揃った場合、保存時に sleep_hours を自動算出する。
    * bed_time を null でクリアした場合、sleep_hours も null にリセットする。
    */

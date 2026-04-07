@@ -561,7 +561,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
               </p>
             ) : (
               <p className="mt-1 text-[10px] text-slate-400">
-                就寝時刻と体重測定時刻から推定睡眠時間を自動算出します
+                前夜または当日深夜の就寝時刻（この日の起床前）。体重測定時刻との差から推定睡眠時間を算出します
               </p>
             )}
           </div>
