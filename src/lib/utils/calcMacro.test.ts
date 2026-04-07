@@ -25,6 +25,7 @@ function makeLog(log_date: string, overrides: Partial<DailyLog> = {}): DailyLog 
     last_meal_end_time: null,
     weigh_in_time:      null,
     step_count: null,
+    bed_time:           null,
     updated_at:         "2026-03-01T00:00:00Z",
     ...overrides,
   };

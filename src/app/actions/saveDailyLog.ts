@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidateAfterDailyLogMutation } from "@/lib/cache/revalidate";
 import { isValidTrainingType, isValidWorkMode } from "@/lib/utils/trainingType";
+import { deriveSleepHours } from "@/lib/utils/sleep";
 import { buildUpdatePayload } from "./buildUpdatePayload";
 import { parseLocalDateStr } from "@/lib/utils/date";
 
@@ -43,10 +44,18 @@ export type SaveDailyLogInput = {
   // ── #436 追加 ──
   /** Apple Health 歩数（日次集計）。null = 明示クリア */
   step_count?: number | null;
+  // ── #501 追加 ──
+  /**
+   * 就寝時刻 "HH:MM" 形式。null = 明示クリア。
+   * bed_time + weigh_in_time が両方揃った場合、保存時に sleep_hours を自動算出する。
+   * bed_time を null でクリアした場合、sleep_hours も null にリセットする。
+   */
+  bed_time?: string | null;
 };
 
 /** DB に渡す更新ペイロード（undefined フィールドを除去したもの）*/
 export type DailyLogPayload = Omit<SaveDailyLogInput, "log_date"> & {
+  /** training_type から導出される派生値。buildUpdatePayload が自動で追加する。 */
   leg_flag?: boolean | null;
 };
 
@@ -120,7 +129,7 @@ export async function saveDailyLog(
   }
 
   // 時刻バリデーション: "HH:MM" または "HH:MM:SS" 形式 + 値域チェック
-  for (const key of ["last_meal_end_time", "weigh_in_time"] as const) {
+  for (const key of ["last_meal_end_time", "weigh_in_time", "bed_time"] as const) {
     const v = input[key];
     if (v !== undefined && v !== null) {
       const parts = v.split(":");
@@ -139,6 +148,32 @@ export async function saveDailyLog(
         return { ok: false, message: `${key} の値が不正です（時: 0-23、分: 0-59 の範囲で入力してください）` };
       }
     }
+  }
+
+  // ── sleep_hours 自動算出 (#501) ────────────────────────────────────────────
+  // bed_time と weigh_in_time の両方が同一ペイロードに揃っている場合のみ算出する。
+  // 計算ロジックは deriveSleepHours (src/lib/utils/sleep.ts) に集約している。
+  //
+  // 仕様:
+  //   A. bed_time (値あり) + weigh_in_time (値あり) → sleep_hours を算出して上書き
+  //      ※ 算出結果が null (異常値) の場合は sleep_hours を更新しない
+  //   B. bed_time (null) → sleep_hours も null にリセット (明示クリア連動)
+  //   C. bed_time が undefined (未操作) → sleep_hours を変更しない
+  //   D. bed_time (値あり) だが weigh_in_time が未操作 → sleep_hours を変更しない
+  //      (現ペイロードだけでは算出不能。次回 weigh_in_time を含む保存で算出される)
+  if (input.bed_time !== undefined) {
+    if (input.bed_time === null) {
+      // B: bed_time をクリアした場合は sleep_hours も連動してクリア
+      input.sleep_hours = null;
+    } else if (input.weigh_in_time !== undefined && input.weigh_in_time !== null) {
+      // A: 両方揃っている場合に算出
+      const derived = deriveSleepHours(input.bed_time, input.weigh_in_time);
+      if (derived !== null) {
+        input.sleep_hours = derived;
+      }
+      // 異常値 (derived === null) の場合は sleep_hours を変更しない
+    }
+    // D: weigh_in_time が未操作の場合は何もしない
   }
 
   // undefined フィールドを除去したペイロードを構築

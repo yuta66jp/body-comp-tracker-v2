@@ -690,6 +690,147 @@ describe("saveDailyLog — 既存行 partial update (fix: INSERT NOT NULL 回避
 
 const mockRevalidatePath = revalidatePath as jest.MockedFunction<typeof revalidatePath>;
 
+// ════════════════════════════════════════════════════════════════════════════
+// buildUpdatePayload — bed_time (#501)
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("buildUpdatePayload — bed_time (#501)", () => {
+  test("bed_time を指定するとペイロードに含まれる", () => {
+    const payload = buildUpdatePayload({ bed_time: "23:00" });
+    expect(payload.bed_time).toBe("23:00");
+    expect("weight" in payload).toBe(false);
+  });
+
+  test("bed_time: null → 明示的クリア", () => {
+    const payload = buildUpdatePayload({ bed_time: null });
+    expect("bed_time" in payload).toBe(true);
+    expect(payload.bed_time).toBeNull();
+  });
+
+  test("bed_time: undefined → ペイロードに含まれない", () => {
+    const payload = buildUpdatePayload({});
+    expect("bed_time" in payload).toBe(false);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// saveDailyLog — bed_time / sleep_hours 自動算出 (#501)
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("saveDailyLog — bed_time 保存 (#501)", () => {
+  test("bed_time のみ → p_fields に bed_time が含まれ sleep_hours は含まれない", async () => {
+    const capture = makeRpcMock();
+    const result = await saveDailyLog({
+      log_date: "2026-04-07",
+      bed_time: "23:00",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(capture.p_fields?.bed_time).toBe("23:00");
+    // weigh_in_time が不明なので sleep_hours は算出されない
+    expect("sleep_hours" in (capture.p_fields ?? {})).toBe(false);
+  });
+
+  test("bed_time: null → p_fields に bed_time と sleep_hours が null で含まれる（連動クリア）", async () => {
+    const capture = makeRpcMock();
+    const result = await saveDailyLog({
+      log_date: "2026-04-07",
+      bed_time: null,
+    });
+
+    expect(result.ok).toBe(true);
+    expect("bed_time" in (capture.p_fields ?? {})).toBe(true);
+    expect(capture.p_fields?.bed_time).toBeNull();
+    // bed_time クリア時は sleep_hours も連動してクリア
+    expect("sleep_hours" in (capture.p_fields ?? {})).toBe(true);
+    expect(capture.p_fields?.sleep_hours).toBeNull();
+  });
+
+  test("bed_time: undefined → p_fields に bed_time も sleep_hours も含まれない", async () => {
+    const capture = makeRpcMock();
+    const result = await saveDailyLog({
+      log_date: "2026-04-07",
+      weight: 70.0,
+    });
+
+    expect(result.ok).toBe(true);
+    expect("bed_time" in (capture.p_fields ?? {})).toBe(false);
+    expect("sleep_hours" in (capture.p_fields ?? {})).toBe(false);
+  });
+
+  test("bed_time + weigh_in_time が両方あれば sleep_hours が自動算出される (23:00→07:00=8h)", async () => {
+    const capture = makeRpcMock();
+    const result = await saveDailyLog({
+      log_date: "2026-04-07",
+      bed_time: "23:00",
+      weigh_in_time: "07:00",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(capture.p_fields?.bed_time).toBe("23:00");
+    expect(capture.p_fields?.weigh_in_time).toBe("07:00");
+    // 23:00 → 07:00 = 8h (日またぎ補正)
+    expect(capture.p_fields?.sleep_hours).toBe(8.0);
+  });
+
+  test("bed_time + weigh_in_time が日またぎなしの場合も正しく算出される (03:00→07:00=4h)", async () => {
+    const capture = makeRpcMock();
+    const result = await saveDailyLog({
+      log_date: "2026-04-07",
+      bed_time: "03:00",
+      weigh_in_time: "07:00",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(capture.p_fields?.sleep_hours).toBe(4.0);
+  });
+
+  test("床_time + weigh_in_time で算出結果が異常値 (同一時刻 → 24h) の場合 sleep_hours は更新しない", async () => {
+    const capture = makeRpcMock();
+    const result = await saveDailyLog({
+      log_date: "2026-04-07",
+      bed_time: "07:00",
+      weigh_in_time: "07:00",
+    });
+
+    // bed_time と weigh_in_time は valid なので保存自体は成功する
+    expect(result.ok).toBe(true);
+    expect(capture.p_fields?.bed_time).toBe("07:00");
+    // 同一時刻 → 日またぎで 24h → 無効 → sleep_hours はペイロードに含まれない
+    expect("sleep_hours" in (capture.p_fields ?? {})).toBe(false);
+  });
+
+  test("weigh_in_time: null でも bed_time: null なら sleep_hours は null になる", async () => {
+    const capture = makeRpcMock();
+    const result = await saveDailyLog({
+      log_date: "2026-04-07",
+      bed_time: null,
+      weigh_in_time: null,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(capture.p_fields?.bed_time).toBeNull();
+    // bed_time が null → sleep_hours も null
+    expect(capture.p_fields?.sleep_hours).toBeNull();
+  });
+
+  test("bed_time フォーマット不正 → ok: false", async () => {
+    const result = await saveDailyLog({
+      log_date: "2026-04-07",
+      bed_time: "25:00",
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  test("bed_time コロンなし → ok: false", async () => {
+    const result = await saveDailyLog({
+      log_date: "2026-04-07",
+      bed_time: "2300",
+    });
+    expect(result.ok).toBe(false);
+  });
+});
+
 describe("saveDailyLog — skipRevalidate オプション", () => {
   beforeEach(() => {
     mockRevalidatePath.mockClear();
