@@ -278,10 +278,16 @@ function deriveSleepSavePlan(
     deriveSleepHours(currentRow.bed_time, currentRow.weigh_in_time) !== null &&
     timeIsOnOrBefore(currentRow.weigh_in_time, currentRow.bed_time)
   );
+  // 翌日レコードが存在しない場合はシフトしない。
+  // weighInPayload=true のとき nextWeigh はペイロード値を使うため、
+  // nextRow=null でも deriveSleepHours が有効値を返してしまう。
+  // 翌日が存在しないままシフトすると save_daily_log_partial が
+  // 新規 INSERT を試みて new_log_requires_weight エラーを起こす。
   const shouldShiftToNextDay = (
     input.bed_time !== undefined &&
     input.bed_time !== null &&
     nextWeigh !== null &&
+    nextRow !== null &&
     deriveSleepHours(input.bed_time, nextWeigh) !== null &&
     timeIsOnOrBefore(nextWeigh, input.bed_time) &&
     !currentRowAlreadyHasWakeDateOvernightPair

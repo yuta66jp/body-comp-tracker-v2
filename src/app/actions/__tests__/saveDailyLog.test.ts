@@ -755,7 +755,11 @@ describe("saveDailyLog — bed_time 保存 (#501)", () => {
   // ── 両方が同一 payload にある場合 ──────────────────────────────────────────
 
   test("前日夜就寝は翌日の起床日レコードへ保存される (23:00→07:00=8h)", async () => {
-    const capture = makeRpcMock();
+    // 翌日レコードが存在する場合のみシフトが発生する (#511 fix)
+    const capture = makeRpcMock(undefined, {
+      "2026-04-07": { bed_time: null, weigh_in_time: null },
+      "2026-04-08": { bed_time: null, weigh_in_time: null },
+    });
     const result = await saveDailyLog({
       log_date: "2026-04-07",
       bed_time: "23:00",
@@ -765,6 +769,28 @@ describe("saveDailyLog — bed_time 保存 (#501)", () => {
     expect(result.ok).toBe(true);
     expect(capture.calls).toHaveLength(1);
     expect(capture.calls[0]?.p_log_date).toBe("2026-04-08");
+    expect(capture.calls[0]?.p_fields.bed_time).toBe("23:00");
+    expect(capture.calls[0]?.p_fields.weigh_in_time).toBe("07:00");
+    expect(capture.calls[0]?.p_fields.sleep_hours).toBe(8.0);
+  });
+
+  test("翌日レコードが存在しない場合、overnight ペアでも当日に保存される (new_log_requires_weight を防ぐ)", async () => {
+    // 4/8 が存在しない → シフトせず 4/7 に保存 (#511 fix)
+    const capture = makeRpcMock(undefined, {
+      "2026-04-07": null,
+      "2026-04-08": null,
+    });
+    const result = await saveDailyLog({
+      log_date: "2026-04-07",
+      weight: 70.0,
+      bed_time: "23:00",
+      weigh_in_time: "07:00",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(capture.calls).toHaveLength(1);
+    // 翌日レコードなし → シフトしない → 当日 (4/7) に保存
+    expect(capture.calls[0]?.p_log_date).toBe("2026-04-07");
     expect(capture.calls[0]?.p_fields.bed_time).toBe("23:00");
     expect(capture.calls[0]?.p_fields.weigh_in_time).toBe("07:00");
     expect(capture.calls[0]?.p_fields.sleep_hours).toBe(8.0);
@@ -914,8 +940,12 @@ describe("saveDailyLog — bed_time 保存 (#501)", () => {
     expect("sleep_hours" in (capture.p_fields ?? {})).toBe(false);
   });
 
-  test("睡眠系と食事系を同時保存しても、睡眠系だけ翌日の起床日レコードへ分離される", async () => {
-    const capture = makeRpcMock();
+  test("睡眠系と食事系を同時保存しても、翌日レコードがあれば睡眠系だけ翌日の起床日レコードへ分離される", async () => {
+    // 翌日レコードが存在する場合のみシフトが発生する (#511 fix)
+    const capture = makeRpcMock(undefined, {
+      "2026-04-07": { bed_time: null, weigh_in_time: null },
+      "2026-04-08": { bed_time: null, weigh_in_time: null },
+    });
     const result = await saveDailyLog({
       log_date: "2026-04-07",
       calories: 2100,
@@ -935,6 +965,31 @@ describe("saveDailyLog — bed_time 保存 (#501)", () => {
     expect(capture.calls[1]?.p_fields.bed_time).toBe("23:30");
     expect(capture.calls[1]?.p_fields.weigh_in_time).toBe("07:00");
     expect(capture.calls[1]?.p_fields.sleep_hours).toBe(7.5);
+  });
+
+  test("睡眠系と食事系を同時保存・翌日レコードなしの場合は sleep も当日にまとめて保存される", async () => {
+    // 翌日レコードなし → シフトせず当日にまとめる (#511 fix: 部分保存エラーも防ぐ)
+    const capture = makeRpcMock(undefined, {
+      "2026-04-07": { bed_time: null, weigh_in_time: null },
+      "2026-04-08": null,
+    });
+    const result = await saveDailyLog({
+      log_date: "2026-04-07",
+      calories: 2100,
+      last_meal_end_time: "22:00",
+      bed_time: "23:30",
+      weigh_in_time: "07:00",
+    });
+
+    expect(result.ok).toBe(true);
+    // 翌日レコードなし → 1回のRPCで当日(4/7)にまとめる
+    expect(capture.calls).toHaveLength(1);
+    expect(capture.calls[0]?.p_log_date).toBe("2026-04-07");
+    expect(capture.calls[0]?.p_fields.calories).toBe(2100);
+    expect(capture.calls[0]?.p_fields.last_meal_end_time).toBe("22:00");
+    expect(capture.calls[0]?.p_fields.bed_time).toBe("23:30");
+    expect(capture.calls[0]?.p_fields.weigh_in_time).toBe("07:00");
+    expect(capture.calls[0]?.p_fields.sleep_hours).toBe(7.5);
   });
 
   test("片側更新で合成後に異常値になる場合 sleep_hours は更新されない", async () => {
