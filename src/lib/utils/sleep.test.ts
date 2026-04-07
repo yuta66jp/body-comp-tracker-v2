@@ -7,6 +7,30 @@
 
 import { deriveSleepHours } from "./sleep";
 
+/**
+ * 起床日基準の canonical ケース (#507)
+ *
+ * sleep_hours は log_date（起床・測定日）に属する睡眠セッションの長さ。
+ * 前日夜就寝・当日深夜就寝・早朝就寝のいずれも同じ log_date に紐づく。
+ * 以下の 3 例はすべて log_date = 2026-04-08 に対応する。
+ */
+describe("deriveSleepHours — 起床日基準 (#507)", () => {
+  test("前日夜就寝: bed=23:30(D-1), weigh=07:00(D) → 7.5h [日またぎ補正あり]", () => {
+    // 2026-04-07 23:30 就寝 → 2026-04-08 07:00 起床, log_date=2026-04-08
+    expect(deriveSleepHours("23:30", "07:00")).toBe(7.5);
+  });
+
+  test("当日深夜就寝: bed=01:30(D), weigh=08:00(D) → 6.5h [日またぎ補正なし]", () => {
+    // 2026-04-08 01:30 就寝 → 2026-04-08 08:00 起床, log_date=2026-04-08
+    expect(deriveSleepHours("01:30", "08:00")).toBe(6.5);
+  });
+
+  test("早朝就寝: bed=04:00(D), weigh=10:00(D) → 6.0h [日またぎ補正なし]", () => {
+    // 2026-04-08 04:00 就寝 → 2026-04-08 10:00 起床, log_date=2026-04-08
+    expect(deriveSleepHours("04:00", "10:00")).toBe(6.0);
+  });
+});
+
 describe("deriveSleepHours — 日またぎなし（当日内）", () => {
   test("03:00 → 07:00: 4h", () => {
     expect(deriveSleepHours("03:00", "07:00")).toBe(4.0);

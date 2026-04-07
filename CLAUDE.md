@@ -144,7 +144,7 @@ body-comp-tracker-v2/
   - leg_flag は派生値（deriveLegFlag のみ定義源）。直接書き込まない
   - `sleep_hours` は `bed_time`（就寝時刻）と `weigh_in_time`（体重測定時刻）の差分から自動導出される推定睡眠時間。直接書き込まない（`deriveSleepHours()` のみが定義源）。`is_poor_sleep` カラムは削除済み（#338）
   - `last_meal_end_time` / `weigh_in_time` は TIME 型・nullable。空腹時間算出用（#435）
-  - `bed_time` は TIME 型・nullable。就寝時刻入力用（#501）。MealLogger から手動入力
+  - `bed_time` は TIME 型・nullable。就寝時刻入力用（#501）。MealLogger から手動入力。**起床日基準（#507）**: この log_date の朝に起床した睡眠セッションの開始時刻を表す（前日夜就寝でも当日深夜就寝でも同じ log_date に属する）
   - `step_count` は INTEGER 型・nullable。Apple Health インポート専用（#436）。手動入力 UI なし
   - `work_mode` の DB CHECK 制約は `off/office/remote/active/travel/other` の 6 値を許容するが、
     フロントエンド（`src/lib/utils/trainingType.ts`）では `off/office/remote` の 3 値のみ定義している。
