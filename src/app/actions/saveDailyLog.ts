@@ -52,8 +52,9 @@ export type SaveDailyLogInput = {
    * 前日夜就寝（例: 23:30）・当日深夜就寝（例: 01:30）・早朝就寝（例: 04:00）のいずれも
    * 起床した日の log_date に属する値として保存する。
    *
-   * bed_time + weigh_in_time が両方揃った場合、保存時に sleep_hours を自動算出する。
-   * bed_time を null でクリアした場合、sleep_hours も null にリセットする。
+   * #515 以降は sleep_sessions が睡眠の source of truth。MealLogger からは送信しない。
+   * 移行期カラムとして DB には残存する（将来 #518 で廃止予定）。
+   * weigh_in_time のみ更新した場合に sleep_hours を再計算しないよう deriveSleepSavePlan が制御する。
    */
   bed_time?: string | null;
 };
@@ -305,9 +306,12 @@ function deriveSleepSavePlan(
   if (bedInPayload) sleepInput.bed_time = input.bed_time;
   if (weighInPayload) sleepInput.weigh_in_time = input.weigh_in_time;
 
+  // sleep_hours の計算・書き込みは bed_time が明示的にペイロードにある場合のみ行う。
+  // weigh_in_time のみ更新のケースでは計算しない（sleep_hours は sleep_sessions DB
+  // トリガーが管理するため、saveDailyLog が上書きすることを防ぐ）。
   if (bedInPayload && input.bed_time === null) {
     sleepInput.sleep_hours = null;
-  } else if (targetBed !== null && targetWeigh !== null) {
+  } else if (bedInPayload && targetBed !== null && targetWeigh !== null) {
     const derived = deriveSleepHours(targetBed, targetWeigh);
     if (derived !== null) sleepInput.sleep_hours = derived;
   }

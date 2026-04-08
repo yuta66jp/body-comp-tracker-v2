@@ -86,7 +86,7 @@ export function RecentLogsCards({ logs, seasonMap, currentSeason }: RecentLogsCa
                   <div className="mt-0.5 text-[10px] leading-snug text-slate-400 dark:text-slate-500">
                     {[
                       conditionSummary,
-                      log.sleep_hours !== null ? `推定睡眠${log.sleep_hours}h` : null,
+                      log.sleep_hours !== null ? `睡眠${log.sleep_hours}h` : null,
                       fastingHours !== null ? `断食${fastingHours % 1 === 0 ? fastingHours.toFixed(0) : fastingHours.toFixed(1)}h` : null,
                     ]
                       .filter(Boolean)
