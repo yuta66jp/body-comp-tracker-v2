@@ -42,8 +42,8 @@ export interface HasContentInput {
   note: string | null;            // null = 明示的クリア予定
   noteTouched: boolean;           // ユーザーが note を操作したか
   touchedTags: Set<DayTag>;
-  // bedTimeTouched は #515 で削除。睡眠は saveSleepSession 経由で保存するため
-  // daily_log の "保存するものがあるか" 判定から除外する。
+  bedTime: string | null;        // null = 明示的クリア予定（X ボタンで設定）
+  bedTimeTouched: boolean;       // ユーザーが bedTime を操作したか（hydrate のみでは false）
   hadBowelMovementTouched: boolean; // ボタンを一度でも操作したか
   trainingTypeTouched: boolean;
   workModeTouched: boolean;
@@ -61,7 +61,7 @@ export function computeHasContent(input: HasContentInput): boolean {
     input.cartEverHadItems ||       // カートを空にした場合も null 送信のため有効化
     input.noteTouched ||
     input.touchedTags.size > 0 ||
-    // bedTimeTouched は #515 で削除（sleep は saveSleepSession 経由）
+    input.bedTimeTouched ||
     input.hadBowelMovementTouched || // touched なら null 送信も含め有効化
     input.trainingTypeTouched ||
     input.workModeTouched ||
@@ -287,7 +287,15 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
           ? (note === null     ? null   : (note     !== "" ? note                 : undefined))
           : undefined,
         ...tagPayload,
-        // bed_time は #515 で削除。sleep_sessions 経由で保存する (saveSleepSession)。
+        // #501 追加: 就寝時刻。
+        //   null (X ボタン) → null 送信（明示クリア）
+        //   "HH:MM"        → 値送信（上書き）
+        //   "" (空入力)    → undefined 送信（保存しない / 既存値を保持）
+        //   未操作         → undefined 送信（既存値を保持）
+        // sleep_hours の算出は saveDailyLog (保存基盤) が bed_time + weigh_in_time から行う。
+        bed_time: bedTimeTouched
+          ? (bedTime === null ? null : bedTime !== "" ? bedTime : undefined)
+          : undefined,
         // ルール: touched=true → hadBowelMovement の値をそのまま送信
         //           null  = 明示クリア（未記録に戻す）
         //           true  = 便通あり
@@ -349,7 +357,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
   const hasContent = computeHasContent({
     weight, weightTouched, cartItems, cartEverHadItems,
     note, noteTouched, touchedTags,
-    // bedTimeTouched は #515 で削除（sleep は saveSleepSession 経由）
+    bedTime, bedTimeTouched,
     hadBowelMovementTouched, trainingTypeTouched, workModeTouched,
     lastMealEndTimeTouched, weighInTimeTouched,
   });
