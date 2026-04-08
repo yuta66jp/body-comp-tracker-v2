@@ -858,8 +858,9 @@ describe("saveDailyLog — bed_time 保存 (#501)", () => {
     expect("weigh_in_time" in (capture.calls[0]?.p_fields ?? {})).toBe(false);
   });
 
-  test("weigh_in_time のみ更新: DB に bed_time あり → sleep_hours が再算出される", async () => {
-    // 既存 DB: bed_time = "23:00"
+  test("weigh_in_time のみ更新: sleep_hours はペイロードに含まれない（DB トリガーが管理）", async () => {
+    // #515 以降: sleep_hours は sleep_sessions DB トリガーが管理するため、
+    // weigh_in_time のみ更新しても saveDailyLog は sleep_hours を書き込まない。
     const capture = makeRpcMock(undefined, { bed_time: "23:00", weigh_in_time: null });
     const result = await saveDailyLog({
       log_date: "2026-04-07",
@@ -868,13 +869,15 @@ describe("saveDailyLog — bed_time 保存 (#501)", () => {
 
     expect(result.ok).toBe(true);
     expect(capture.p_fields?.weigh_in_time).toBe("07:00");
-    // DB の bed_time "23:00" と合成 → 23:00→07:00 = 8h
-    expect(capture.p_fields?.sleep_hours).toBe(8.0);
+    // sleep_hours はペイロードに含まれない（DB トリガー専管）
+    expect("sleep_hours" in (capture.p_fields ?? {})).toBe(false);
     // bed_time は今回更新しないのでペイロードに含まれない
     expect("bed_time" in (capture.p_fields ?? {})).toBe(false);
   });
 
   test("既に起床日基準で保存済みの overnight レコードで weigh_in_time だけ更新しても翌日に再シフトしない", async () => {
+    // weigh_in_time のみ更新 → 翌日シフトは発生しない（bed_time が payload にないため）
+    // sleep_hours は DB トリガー専管なのでペイロードに含まれない
     const capture = makeRpcMock(undefined, {
       "2026-04-08": { bed_time: "23:30", weigh_in_time: "07:00" },
       "2026-04-09": null,
@@ -888,7 +891,8 @@ describe("saveDailyLog — bed_time 保存 (#501)", () => {
     expect(capture.calls).toHaveLength(1);
     expect(capture.calls[0]?.p_log_date).toBe("2026-04-08");
     expect(capture.calls[0]?.p_fields.weigh_in_time).toBe("06:45");
-    expect(capture.calls[0]?.p_fields.sleep_hours).toBe(7.3);
+    // sleep_hours はペイロードに含まれない（DB トリガー専管）
+    expect("sleep_hours" in (capture.calls[0]?.p_fields ?? {})).toBe(false);
   });
 
   test("既に起床日基準で保存済みの overnight レコードで bed_time だけ更新しても翌日に再シフトしない", async () => {
