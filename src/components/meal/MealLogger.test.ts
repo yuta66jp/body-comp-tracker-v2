@@ -8,8 +8,7 @@ const base = {
   note: "" as string | null,
   noteTouched: false,
   touchedTags: new Set<import("@/lib/utils/dayTags").DayTag>(),
-  bedTime: "" as string | null,
-  bedTimeTouched: false,
+  sleepSessionTouched: false,
   hadBowelMovementTouched: false,
   trainingTypeTouched: false,
   workModeTouched: false,
@@ -32,8 +31,8 @@ describe("computeHasContent", () => {
     expect(computeHasContent({ ...base, note: "調子良い", noteTouched: false })).toBe(false);
   });
 
-  it("hydrate で bedTime が表示されているだけ（touched=false）の場合は false", () => {
-    expect(computeHasContent({ ...base, bedTime: "23:00", bedTimeTouched: false })).toBe(false);
+  it("sleepSessionTouched=false のとき false（hydrate のみ）", () => {
+    expect(computeHasContent({ ...base, sleepSessionTouched: false })).toBe(false);
   });
 
   // ── 体重・食事・メモ（ユーザー操作あり） ──
@@ -64,20 +63,17 @@ describe("computeHasContent", () => {
     expect(computeHasContent({ ...base, note: null, noteTouched: true })).toBe(true);
   });
 
-  it("bedTime が null（明示クリア）かつ touched=true のとき true", () => {
-    expect(computeHasContent({ ...base, bedTime: null, bedTimeTouched: true })).toBe(true);
-  });
-
-  it("bedTime が null でも touched=false のとき false（hydrate 後の未操作クリア状態）", () => {
-    expect(computeHasContent({ ...base, bedTime: null, bedTimeTouched: false })).toBe(false);
-  });
-
-  it("bedTime が入力されている（touched=true）場合は true", () => {
-    expect(computeHasContent({ ...base, bedTime: "23:00", bedTimeTouched: true })).toBe(true);
-  });
-
   it("cartEverHadItems=true（カートを追加後に空にした）のとき true", () => {
     expect(computeHasContent({ ...base, cartEverHadItems: true })).toBe(true);
+  });
+
+  // ── 睡眠セッション ──
+  it("sleepSessionTouched=true（就寝/起床時刻を入力）のとき true", () => {
+    expect(computeHasContent({ ...base, sleepSessionTouched: true })).toBe(true);
+  });
+
+  it("sleepSessionTouched=true（セッション削除操作）のとき true", () => {
+    expect(computeHasContent({ ...base, sleepSessionTouched: true })).toBe(true);
   });
 
   // ── 特殊日タグ ──
@@ -138,16 +134,12 @@ describe("computeHasContent", () => {
     expect(computeHasContent({ ...base, weight: "70.5", weightTouched: false, touchedTags })).toBe(true);
   });
 
-  // ── bedTime 操作 ──
-  it("bedTimeTouched=false のとき false（hydrate のみ）", () => {
-    expect(computeHasContent({ ...base, bedTime: "23:00", bedTimeTouched: false })).toBe(false);
+  // ── 睡眠 + 他フィールドの複合 ──
+  it("睡眠入力 + 体重入力の複合でも true", () => {
+    expect(computeHasContent({ ...base, sleepSessionTouched: true, weight: "70.0", weightTouched: true })).toBe(true);
   });
 
-  it("bedTimeTouched=true + 値あり → true", () => {
-    expect(computeHasContent({ ...base, bedTime: "23:00", bedTimeTouched: true })).toBe(true);
-  });
-
-  it("bedTimeTouched=true + null（X ボタンで削除予定）→ true", () => {
-    expect(computeHasContent({ ...base, bedTime: null, bedTimeTouched: true })).toBe(true);
+  it("睡眠未操作 + 体重のみ操作 → 睡眠由来では true にならないが体重由来で true", () => {
+    expect(computeHasContent({ ...base, sleepSessionTouched: false, weight: "70.0", weightTouched: true })).toBe(true);
   });
 });
