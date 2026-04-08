@@ -387,6 +387,39 @@ export type Database = {
         }
         Relationships: []
       }
+      sleep_sessions: {
+        Row: {
+          id: string
+          wake_date: string
+          bed_at: string
+          wake_at: string
+          source: string
+          note: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          wake_date: string
+          bed_at: string
+          wake_at: string
+          source?: string
+          note?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          wake_date?: string
+          bed_at?: string
+          wake_at?: string
+          source?: string
+          note?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -562,6 +595,8 @@ export type MacroDailyLog = Pick<DailyLog, "log_date" | "weight" | "calories" | 
  *         training_type / work_mode / note / leg_flag / updated_at — TDEE 計算で不要なため除外。
  */
 export type TdeeDailyLog = Pick<DailyLog, "log_date" | "weight" | "calories">;
+
+export type SleepSession = Database["public"]["Tables"]["sleep_sessions"]["Row"];
 
 export type FoodMaster  = Database["public"]["Tables"]["food_master"]["Row"];
 export type MenuMaster  = Database["public"]["Tables"]["menu_master"]["Row"];
