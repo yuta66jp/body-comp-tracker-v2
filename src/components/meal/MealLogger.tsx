@@ -302,8 +302,14 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
             bed_time:  sleepBedTime,
             wake_time: sleepWakeTime,
           });
+        } else if (sleepBedTime || sleepWakeTime) {
+          // どちらか片方だけ入力 → 保存を止めてユーザーに知らせる
+          setErrorMessage("就寝時刻と起床時刻はセットで入力してください。");
+          setStatus("error");
+          setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
+          return;
         } else {
-          // どちらか片方だけ入力 → スキップ（エラーにはしない）
+          // 両方空 (操作なし) → スキップ
           sleepResult = { ok: true };
         }
         if (!sleepResult.ok) {
@@ -417,6 +423,12 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     if (!dt) return null;
     return calcSleepDurationHours(dt.bedAt, dt.wakeAt);
   }, [date, sleepBedTime, sleepWakeTime]);
+
+  // 就寝・起床どちらか片方だけ入力されている（不完全な状態）
+  const sleepInputIsPartial =
+    sleepSessionTouched &&
+    !sleepSessionPendingDelete &&
+    (!!sleepBedTime !== !!sleepWakeTime);
 
   const inputCls =
     "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800 dark:focus:border-blue-500 dark:focus:ring-blue-900/40";
@@ -574,7 +586,8 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
         <div className={`grid gap-3 ${sidebar ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
           {/* 睡眠セクション（就寝時刻 + 起床時刻 + 推定時間）*/}
           <div className="sm:col-span-2 rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-800/40">
-            <p className="mb-2 text-xs font-medium text-slate-500">睡眠</p>
+            <p className="mb-0.5 text-xs font-medium text-slate-500">睡眠</p>
+            <p className="mb-2 text-[10px] text-slate-400 dark:text-slate-500">起床後にこの日の欄へ入力。前日夜の就寝でも今日の画面に記録します。</p>
             {sleepSessionPendingDelete ? (
               /* 削除予定状態 */
               <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 dark:border-rose-700/50 dark:bg-rose-900/20">
@@ -609,7 +622,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
               <div className="flex flex-col gap-2">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label htmlFor="meal-log-sleep-bed-time" className="mb-1 block text-[10px] text-slate-400">就寝時刻</label>
+                    <label htmlFor="meal-log-sleep-bed-time" className="mb-1 block text-[10px] text-slate-400">就寝時刻（昨夜〜深夜）</label>
                     <input
                       id="meal-log-sleep-bed-time"
                       type="time"
@@ -619,7 +632,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
                     />
                   </div>
                   <div>
-                    <label htmlFor="meal-log-sleep-wake-time" className="mb-1 block text-[10px] text-slate-400">起床時刻</label>
+                    <label htmlFor="meal-log-sleep-wake-time" className="mb-1 block text-[10px] text-slate-400">起床時刻（今朝）</label>
                     <input
                       id="meal-log-sleep-wake-time"
                       type="time"
@@ -629,6 +642,12 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
                     />
                   </div>
                 </div>
+                {/* 片方だけ入力時の警告 */}
+                {sleepInputIsPartial && (
+                  <p className="text-[10px] text-amber-500 dark:text-amber-400">
+                    就寝時刻と起床時刻はセットで入力してください。
+                  </p>
+                )}
                 {/* 推定睡眠時間（入力フィードバック） */}
                 {sleepDurationHours !== null && (
                   <p className="text-[10px] text-slate-500 dark:text-slate-400">
