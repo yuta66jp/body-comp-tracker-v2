@@ -142,9 +142,9 @@ body-comp-tracker-v2/
   last_meal_end_time, weigh_in_time, bed_time, step_count
   - `had_bowel_movement` は `BOOLEAN DEFAULT NULL`（三状態: null=未記録 / false=便通なし / true=便通あり）
   - leg_flag は派生値（deriveLegFlag のみ定義源）。直接書き込まない
-  - `sleep_hours` は `bed_time`（就寝時刻）と `weigh_in_time`（体重測定時刻）の差分から自動導出される推定睡眠時間。直接書き込まない（`deriveSleepHours()` のみが定義源）。`is_poor_sleep` カラムは削除済み（#338）
-  - `last_meal_end_time` / `weigh_in_time` は TIME 型・nullable。空腹時間算出用（#435）
-  - `bed_time` は TIME 型・nullable。就寝時刻入力用（#501）。MealLogger から手動入力。**起床日基準（#507）**: この log_date の朝に起床した睡眠セッションの開始時刻を表す（前日夜就寝でも当日深夜就寝でも同じ log_date に属する）
+  - `sleep_hours` は `sleep_sessions` の `bed_at` / `wake_at` から DB トリガー（`trg_sync_sleep_hours`）が自動同期する **projection 値**。直接書き込まない（定義源はトリガー、`deriveSleepHours()` ではない）。`is_poor_sleep` カラムは削除済み（#338）
+  - `last_meal_end_time` / `weigh_in_time` は TIME 型・nullable。空腹時間算出用（#435）。`weigh_in_time` は睡眠の `wake_at` とは独立したフィールド
+  - `bed_time` は TIME 型・nullable。**移行期カラム（廃止方向）**。#515 で睡眠の source of truth は `sleep_sessions` へ移行済み。MealLogger からの新規書き込みは行わない。廃止 migration は将来の別 Issue で作成予定
   - `step_count` は INTEGER 型・nullable。Apple Health インポート専用（#436）。手動入力 UI なし
   - `work_mode` の DB CHECK 制約は `off/office/remote/active/travel/other` の 6 値を許容するが、
     フロントエンド（`src/lib/utils/trainingType.ts`）では `off/office/remote` の 3 値のみ定義している。
@@ -157,6 +157,13 @@ body-comp-tracker-v2/
 - `settings` — key(PK), value_num, value_str
 - `predictions` — id, ds(DATE), yhat(FLOAT), model_version(TEXT), created_at
 - `analytics_cache` — metric_type(PK), payload(JSONB), updated_at
+- `sleep_sessions` — id(UUID PK), wake_date(DATE UNIQUE), bed_at(TIMESTAMPTZ), wake_at(TIMESTAMPTZ), source, note, created_at, updated_at
+  - 睡眠の **source of truth**。1行 = 1セッション（就寝〜起床）。`wake_date` で `daily_logs.log_date` と JOIN する（#514/#515）
+  - `wake_date`（起床日）が結合キー。ユーザーは「起床後にその日の朝に終わった睡眠を当日画面で入力する」
+  - `bed_at` / `wake_at` は TIMESTAMPTZ（日付+時刻+TZ）。TIME 型の日付曖昧性を解消
+  - INSERT/UPDATE/DELETE 後に `trg_sync_sleep_hours` トリガーが `daily_logs.sleep_hours` を自動更新する
+  - UNIQUE (wake_date): 主睡眠 1件制約。nap 対応時に外す予定（将来拡張）
+  - `source`: `manual`（MealLogger 手動入力）/ `apple_health`（将来のインポート用）
 
 ## Supabase クライアント / 権限設計
 

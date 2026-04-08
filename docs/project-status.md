@@ -60,9 +60,9 @@ condition 系特徴量は、データ蓄積後に段階的に投入する。
 |---|---|---|
 | 歩数 | Apple Health から CSV/JSON 経由でインポート | `daily_logs.step_count` |
 | 空腹時間 | 前日の最後の食事終了時刻と当日の体重測定時刻の差分として算出 | `daily_logs.last_meal_end_time`, `daily_logs.weigh_in_time` |
-| 推定睡眠時間 | 就寝時刻と体重測定時刻の差分から自動導出。直接入力ではなく時刻差分の近似値 | `daily_logs.bed_time`（入力）, `daily_logs.sleep_hours`（導出・保存） |
+| 睡眠時間 | 就寝・起床日時（TIMESTAMPTZ）を `sleep_sessions` に記録。DB トリガーが `daily_logs.sleep_hours` へ projection する（#514〜#517） | `sleep_sessions`（source of truth）, `daily_logs.sleep_hours`（projection） |
 
-空腹時間・推定睡眠時間は直近ログ（テーブル・カードリスト）で確認できる。
+空腹時間・睡眠時間は直近ログ（テーブル・カードリスト）で確認できる。
 歩数は現時点で専用表示 UI なし（CSV エクスポートで確認可能）。
 
 詳細: `docs/step-count-and-fasting-hours.md`
