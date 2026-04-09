@@ -13,7 +13,6 @@ const base = {
   trainingTypeTouched: false,
   workModeTouched: false,
   lastMealEndTimeTouched: false,
-  weighInTimeTouched: false,
 } satisfies Parameters<typeof computeHasContent>[0];
 
 describe("computeHasContent", () => {
@@ -204,10 +203,6 @@ describe("computeHasDailyLogChanges", () => {
 
   it("lastMealEndTimeTouched=true → true", () => {
     expect(computeHasDailyLogChanges({ ...base, lastMealEndTimeTouched: true })).toBe(true);
-  });
-
-  it("weighInTimeTouched=true → true", () => {
-    expect(computeHasDailyLogChanges({ ...base, weighInTimeTouched: true })).toBe(true);
   });
 
   // ── 複合ケース ──

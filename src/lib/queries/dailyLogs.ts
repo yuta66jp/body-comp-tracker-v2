@@ -45,7 +45,7 @@ import type { QueryResult } from "./queryResult";
  *   log_date, weight, calories, protein, fat, carbs,
  *   is_cheat_day, is_refeed_day, is_eating_out, is_travel_day,
  *   sleep_hours, had_bowel_movement, training_type, work_mode, updated_at,
- *   last_meal_end_time, weigh_in_time, step_count
+ *   last_meal_end_time, weigh_in_time (sleep_sessions.wake_at から自動同期 #526), step_count
  *
  * 除外列 (2列):
  *   - note     : Dashboard のいずれの関数・コンポーネントでも参照されない

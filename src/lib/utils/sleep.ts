@@ -1,14 +1,15 @@
 /**
  * 推定睡眠時間算出ユーティリティ
  *
- * bed_time (就寝時刻) と weigh_in_time (起床・体重測定時刻) から
+ * bed_time (就寝時刻) と weigh_in_time (起床時刻) から
  * 推定睡眠時間 (sleep_hours) を算出する純粋関数群。
  *
  * ## 起床日基準（#507）
  *
- * sleep_hours は「log_date（起床・測定日）に属する睡眠セッション」の長さを表す。
+ * sleep_hours は「log_date（起床日）に属する睡眠セッション」の長さを表す。
  * bed_time が前日夜・当日深夜・早朝のいずれであっても、
- * weigh_in_time（= 起床 proxy）と同じ log_date に属する値として扱う。
+ * weigh_in_time（= 起床時刻。#526 以降は sleep_sessions.wake_at から DB トリガーで自動同期）
+ * と同じ log_date に属する値として扱う。
  *
  * 例（いずれも log_date = 2026-04-08）:
  *   - 前日夜就寝: bed_time=23:30, weigh_in_time=07:00 → 7.5h （日またぎ補正あり）
@@ -48,34 +49,36 @@ function timeToMinutes(time: string): number | null {
 }
 
 /**
- * bed_time と weigh_in_time から推定睡眠時間 (sleep_hours) を算出する。
+ * bed_time と wake_up_time から推定睡眠時間 (sleep_hours) を算出する。
  *
  * 起床日基準: bedTime は log_date の朝に起床した睡眠セッションの開始時刻を表す。
  * 前日夜（23:30 等）・当日深夜（01:30 等）・早朝（04:00 等）のいずれも同じ計算式で処理する。
  *
+ * #526: wake_up_time (= weigh_in_time) は sleep_sessions.wake_at から DB トリガーで自動同期される。
+ *
  * @param bedTime     就寝時刻 "HH:MM" または "HH:MM:SS"
  *                    （この log_date の朝の起床に対応する睡眠セッションの開始時刻）
- * @param weighInTime 起床・体重測定時刻 "HH:MM" または "HH:MM:SS"
+ * @param wakeUpTime  起床時刻 "HH:MM" または "HH:MM:SS"（daily_logs.weigh_in_time の値）
  * @returns 推定睡眠時間 (h, 小数点以下 1 桁)、または null (算出不能・異常値)
  *
  * 仕様:
- *   - weigh_in_time <= bed_time: 日またぎとみなし weigh_in_time に 24h を加算
- *     （log_date の朝 = bed_time の翌朝にあたる前日夜就寝ケース）
+ *   - wakeUpTime <= bedTime: 日またぎとみなし wakeUpTime に 24h を加算
+ *     （log_date の朝 = bedTime の翌朝にあたる前日夜就寝ケース）
  *   - 有効範囲: 0h 超かつ 24h 未満 (境界値を除く)
- *     - 0h 以下: 同一時刻または weigh_in_time が bed_time より前すぎる異常値
+ *     - 0h 以下: 同一時刻または wakeUpTime が bedTime より前すぎる異常値
  *     - 24h 以上: 就寝・起床が同一時刻 (日またぎ補正後 24h) = 異常値
  *   - 時刻形式が不正な場合は null を返す
  */
 export function deriveSleepHours(
   bedTime: string,
-  weighInTime: string
+  wakeUpTime: string
 ): number | null {
   const bedMin = timeToMinutes(bedTime);
-  const weighMin = timeToMinutes(weighInTime);
+  const weighMin = timeToMinutes(wakeUpTime);
 
   if (bedMin === null || weighMin === null) return null;
 
-  // 日またぎ補正: weigh_in_time <= bed_time → 前日夜就寝（log_date の朝が bed_time の翌朝）
+  // 日またぎ補正: wakeUpTime <= bedTime → 前日夜就寝（log_date の朝が bedTime の翌朝）
   const adjustedWeighMin = weighMin <= bedMin ? weighMin + 24 * 60 : weighMin;
 
   const diffHours = (adjustedWeighMin - bedMin) / 60;

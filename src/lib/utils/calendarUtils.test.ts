@@ -416,7 +416,7 @@ describe("calcFastingHours", () => {
 
   // 境界値テスト
   it("delta=1439（23h59m）: null にならず 24.0h を返す（丸め結果）", () => {
-    // lastMealEndTime=00:01, weighInTime=00:00 → delta=-1+1440=1439 < 1440 → 有効
+    // lastMealEndTime=00:01, wakeUpTime=00:00 → delta=-1+1440=1439 < 1440 → 有効
     // Math.round(1439/60*10)/10 = Math.round(239.83)/10 = 240/10 = 24.0
     expect(calcFastingHours("00:01", "00:00")).toBe(24.0);
   });

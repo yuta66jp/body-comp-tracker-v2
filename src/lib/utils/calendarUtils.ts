@@ -48,6 +48,7 @@ export interface CalendarDayData {
   /**
    * 断食時間（時間単位、小数点1桁）。
    * 表示日 D の断食時間 = 前日 D-1 の last_meal_end_time と 当日 D の weigh_in_time の差分。
+   * weigh_in_time は sleep_sessions.wake_at から DB トリガーで自動同期される（#526）。
    * 前日ログなし・前日に last_meal_end_time なし・当日に weigh_in_time なし のいずれかで null。
    */
   fasting_hours: number | null;
@@ -57,20 +58,20 @@ export interface CalendarDayData {
  * 2つの時刻文字列から断食時間（h）を算出する低レベルユーティリティ。
  *
  * - 両方の時刻が存在する場合のみ計算する。
- * - 日をまたぐ場合（weighInTime < lastMealEndTime）は +24h で補正する。
+ * - 日をまたぐ場合（wakeUpTime < lastMealEndTime）は +24h で補正する。
  * - タイムゾーン情報なし・時刻のみを扱う。
  * - 入力は "HH:MM" または "HH:MM:SS" 形式を許容する（PostgreSQL TIME 型は "HH:MM:SS" で返す）。
  *
  * 呼び出し側の責務:
  *   - lastMealEndTime には「前日 D-1 の last_meal_end_time」を渡すこと
- *   - weighInTime には「当日 D の weigh_in_time」を渡すこと
+ *   - wakeUpTime には「当日 D の weigh_in_time」を渡すこと（sleep_sessions.wake_at から自動同期）
  *   - 前日ログが存在しない場合は null を渡し、呼び出し側でハンドリングすること
  */
 export function calcFastingHours(
   lastMealEndTime: string | null | undefined,
-  weighInTime: string | null | undefined,
+  wakeUpTime: string | null | undefined,
 ): number | null {
-  if (!lastMealEndTime || !weighInTime) return null;
+  if (!lastMealEndTime || !wakeUpTime) return null;
   const parseMins = (t: string): number | null => {
     const parts = t.split(":");
     const h = parseInt(parts[0] ?? "");
@@ -79,7 +80,7 @@ export function calcFastingHours(
     return h * 60 + m;
   };
   const lastMins  = parseMins(lastMealEndTime);
-  const weighMins = parseMins(weighInTime);
+  const weighMins = parseMins(wakeUpTime);
   if (lastMins === null || weighMins === null) return null;
   let delta = weighMins - lastMins;
   // delta < 0: 日またぎ（例: 前日 22:30 → 翌朝 07:00）→ +24h で正値に補正
@@ -229,7 +230,7 @@ export function buildCalendarDayMap(logs: DashboardDailyLog[]): Map<string, Cale
       work_mode:          log.work_mode,
     });
 
-    // 断食時間: 前日 D-1 の last_meal_end_time → 当日 D の weigh_in_time
+    // 断食時間: 前日 D-1 の last_meal_end_time → 当日 D の weigh_in_time (sleep_sessions.wake_at から自動同期)
     // 前日ログなし・前日 last_meal_end_time なし・当日 weigh_in_time なし → null
     const prevDateKey = addDaysStr(log.log_date, -1);
     const prevDayLog  = prevDateKey ? (logByDate.get(prevDateKey) ?? null) : null;

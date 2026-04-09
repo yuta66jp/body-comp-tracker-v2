@@ -143,7 +143,8 @@ body-comp-tracker-v2/
   - `had_bowel_movement` は `BOOLEAN DEFAULT NULL`（三状態: null=未記録 / false=便通なし / true=便通あり）
   - leg_flag は派生値（deriveLegFlag のみ定義源）。直接書き込まない
   - `sleep_hours` は `sleep_sessions` の `bed_at` / `wake_at` から DB トリガー（`trg_sync_sleep_hours`）が自動同期する **projection 値**。直接書き込まない（定義源はトリガー、`deriveSleepHours()` ではない）。`is_poor_sleep` カラムは削除済み（#338）
-  - `last_meal_end_time` / `weigh_in_time` は TIME 型・nullable。空腹時間算出用（#435）。`weigh_in_time` は睡眠の `wake_at` とは独立したフィールド
+  - `last_meal_end_time` は TIME 型・nullable。空腹時間算出用（#435）。
+  - `weigh_in_time` は TIME 型・nullable。**projection 値**。`sleep_sessions.wake_at` から DB トリガー（`trg_sync_weigh_in_time`）が自動同期する（#526）。ユーザーは手動入力不可。空腹時間算出（`calcFastingHours`）が透過的に参照する。
   - `bed_time` は TIME 型・nullable。**移行期カラム（廃止方向）**。#515 で睡眠の source of truth は `sleep_sessions` へ移行済み。MealLogger からの新規書き込みは行わない。廃止 migration は将来の別 Issue で作成予定
   - `step_count` は INTEGER 型・nullable。Apple Health インポート専用（#436）。手動入力 UI なし
   - `work_mode` の DB CHECK 制約は `off/office/remote/active/travel/other` の 6 値を許容するが、
