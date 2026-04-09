@@ -28,7 +28,7 @@ import {
 import { useDailyLogs } from "@/lib/hooks/useDailyLogs";
 import { useSleepSessions } from "@/lib/hooks/useSleepSessions";
 import { parseStrictNumber } from "@/lib/utils/parseNumber";
-import { buildSleepSessionDatetimes, calcSleepDurationHours } from "@/lib/utils/sleepSession";
+import { buildSleepSessionDatetimes, calcSleepDurationHours, extractJstHHMM } from "@/lib/utils/sleepSession";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -69,6 +69,29 @@ export function computeHasContent(input: HasContentInput): boolean {
     input.workModeTouched ||
     input.lastMealEndTimeTouched ||
     input.weighInTimeTouched
+  );
+}
+
+/**
+ * daily_logs 側に保存すべき変更があるかを判定する。
+ *
+ * sleepSessionTouched は sleep_sessions への変更を示し daily_logs とは独立しているため、
+ * この関数では含めない。handleSave で saveDailyLog を呼ぶ前に必ずチェックし、
+ * 睡眠のみ変更された場合に「保存するデータがありません」エラーを防ぐ。
+ */
+export function computeHasDailyLogChanges(input: HasContentInput): boolean {
+  return (
+    input.weightTouched ||
+    input.cartItems.length > 0 ||
+    input.cartEverHadItems ||
+    input.noteTouched ||
+    input.touchedTags.size > 0 ||
+    input.hadBowelMovementTouched ||
+    input.trainingTypeTouched ||
+    input.workModeTouched ||
+    input.lastMealEndTimeTouched ||
+    input.weighInTimeTouched
+    // sleepSessionTouched は sleep_sessions 側の変更。daily_logs には含めない。
   );
 }
 
@@ -203,11 +226,12 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       setWeighInTime("");
     }
 
-    // 睡眠セッション: TIMESTAMPTZ から "HH:MM" を復元
-    // bed_at="2026-04-07T23:30:00+09:00" → 時刻部分 "23:30"
+    // 睡眠セッション: TIMESTAMPTZ (UTC) から JST の "HH:MM" を復元
+    // Supabase は TIMESTAMPTZ を UTC 形式（例: "2026-04-07T14:30:00+00:00"）で返すため、
+    // slice(11, 16) は UTC 時刻を切り出してしまう。extractJstHHMM() で JST に変換する。
     if (existingSleep) {
-      setSleepBedTime(existingSleep.bed_at.slice(11, 16));
-      setSleepWakeTime(existingSleep.wake_at.slice(11, 16));
+      setSleepBedTime(extractJstHHMM(existingSleep.bed_at) ?? "");
+      setSleepWakeTime(extractJstHHMM(existingSleep.wake_at) ?? "");
     } else {
       setSleepBedTime("");
       setSleepWakeTime("");
@@ -321,83 +345,99 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
         }
       }
 
-      const totals = calcCartTotals(cartItems);
-
-      // 明示的にトグルされたタグのみペイロードに含める
-      const tagPayload: Partial<Record<DayTag, boolean>> = {};
-      for (const tag of touchedTags) {
-        tagPayload[tag] = tags[tag as keyof typeof tags] ?? false;
-      }
-
-      const result = await saveDailyLog({
-        log_date: date,
-        // touched=true かつユーザーが操作した場合のみ送信。
-        // touched=false (hydrate のみ) は undefined → 既存値を保持。
-        weight:   weightTouched
-          ? (weight === null   ? null   : parseStrictNumber(weight)   ?? undefined)
-          : undefined,
-        // カートに一度でも追加後に空にした → null 送信（マクロをクリア）
-        calories: cartItems.length > 0 ? totals.calories : (cartEverHadItems ? null : undefined),
-        protein:  cartItems.length > 0 ? totals.protein  : (cartEverHadItems ? null : undefined),
-        fat:      cartItems.length > 0 ? totals.fat      : (cartEverHadItems ? null : undefined),
-        carbs:    cartItems.length > 0 ? totals.carbs    : (cartEverHadItems ? null : undefined),
-        note:     noteTouched
-          ? (note === null     ? null   : (note     !== "" ? note                 : undefined))
-          : undefined,
-        ...tagPayload,
-        // bed_time は sleep_sessions に移行したため MealLogger からは送信しない
-        // ルール: touched=true → hadBowelMovement の値をそのまま送信
-        //           null  = 明示クリア（未記録に戻す）
-        //           true  = 便通あり
-        //           false = 便通なし
-        //         touched=false → undefined（既存値を保持）
-        had_bowel_movement: hadBowelMovementTouched ? hadBowelMovement : undefined,
-        training_type:      trainingTypeTouched ? trainingType : undefined,
-        work_mode:          workModeTouched     ? workMode     : undefined,
-        // 時刻: touched かつ非空 → 値保存、touched かつ空 → null（明示クリア）、未操作 → undefined
-        last_meal_end_time: lastMealEndTimeTouched ? (lastMealEndTime !== "" ? lastMealEndTime : null) : undefined,
-        weigh_in_time:      weighInTimeTouched     ? (weighInTime      !== "" ? weighInTime      : null) : undefined,
+      // ── daily_logs 保存（変更がある場合のみ）──
+      // sleepSessionTouched のみが true の場合（睡眠だけ変更）は daily_logs 更新は不要。
+      // computeHasDailyLogChanges で判定して saveDailyLog を呼ぶか決める。
+      // 呼ばずに済ませることで「保存するデータがありません」エラーを防ぐ。
+      const hasDailyLogChanges = computeHasDailyLogChanges({
+        weight, weightTouched, cartItems, cartEverHadItems,
+        note, noteTouched, touchedTags,
+        sleepSessionTouched, // 渡すが computeHasDailyLogChanges 内では無視される
+        hadBowelMovementTouched, trainingTypeTouched, workModeTouched,
+        lastMealEndTimeTouched, weighInTimeTouched,
       });
 
-      if (!result.ok) {
-        console.error("[MealLogger] save error:", result.message);
-        setErrorMessage(result.message);
-        setStatus("error");
-        setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
-      } else {
-        setStatus("saved");
-        // フォームをリセット（保存後は空フォームに戻す）
-        setHydratedLog(null);
-        setHydratedSleepSession(null);
-        setCartItems([]);
-        setCartEverHadItems(false);
-        setWeight("");
-        setWeightTouched(false);
-        setNote("");
-        setNoteTouched(false);
-        setTags(emptyTagState());
-        setTouchedTags(new Set());
-        setSleepBedTime("");
-        setSleepWakeTime("");
-        setSleepSessionTouched(false);
-        setSleepSessionPendingDelete(false);
-        setHadBowelMovement(null);
-        setHadBowelMovementTouched(false);
-        setTrainingType(null);
-        setTrainingTypeTouched(false);
-        setWorkMode(null);
-        setWorkModeTouched(false);
-        setLastMealEndTime("");
-        setLastMealEndTimeTouched(false);
-        setWeighInTime("");
-        setWeighInTimeTouched(false);
-        // SWR キャッシュを更新して次回 hydrate に最新ログを反映させる
-        void mutateLogs();
-        void mutateSleepSessions();
-        setTimeout(() => setStatus("idle"), 2000);
-        // 保存成功コールバック: Toast が少し見えてから modal / sheet を閉じる
-        if (onSaveSuccess) setTimeout(onSaveSuccess, 800);
+      if (hasDailyLogChanges) {
+        const totals = calcCartTotals(cartItems);
+
+        // 明示的にトグルされたタグのみペイロードに含める
+        const tagPayload: Partial<Record<DayTag, boolean>> = {};
+        for (const tag of touchedTags) {
+          tagPayload[tag] = tags[tag as keyof typeof tags] ?? false;
+        }
+
+        const result = await saveDailyLog({
+          log_date: date,
+          // touched=true かつユーザーが操作した場合のみ送信。
+          // touched=false (hydrate のみ) は undefined → 既存値を保持。
+          weight:   weightTouched
+            ? (weight === null   ? null   : parseStrictNumber(weight)   ?? undefined)
+            : undefined,
+          // カートに一度でも追加後に空にした → null 送信（マクロをクリア）
+          calories: cartItems.length > 0 ? totals.calories : (cartEverHadItems ? null : undefined),
+          protein:  cartItems.length > 0 ? totals.protein  : (cartEverHadItems ? null : undefined),
+          fat:      cartItems.length > 0 ? totals.fat      : (cartEverHadItems ? null : undefined),
+          carbs:    cartItems.length > 0 ? totals.carbs    : (cartEverHadItems ? null : undefined),
+          note:     noteTouched
+            ? (note === null     ? null   : (note     !== "" ? note                 : undefined))
+            : undefined,
+          ...tagPayload,
+          // bed_time は sleep_sessions に移行したため MealLogger からは送信しない
+          // ルール: touched=true → hadBowelMovement の値をそのまま送信
+          //           null  = 明示クリア（未記録に戻す）
+          //           true  = 便通あり
+          //           false = 便通なし
+          //         touched=false → undefined（既存値を保持）
+          had_bowel_movement: hadBowelMovementTouched ? hadBowelMovement : undefined,
+          training_type:      trainingTypeTouched ? trainingType : undefined,
+          work_mode:          workModeTouched     ? workMode     : undefined,
+          // 時刻: touched かつ非空 → 値保存、touched かつ空 → null（明示クリア）、未操作 → undefined
+          last_meal_end_time: lastMealEndTimeTouched ? (lastMealEndTime !== "" ? lastMealEndTime : null) : undefined,
+          weigh_in_time:      weighInTimeTouched     ? (weighInTime      !== "" ? weighInTime      : null) : undefined,
+        });
+
+        if (!result.ok) {
+          console.error("[MealLogger] save error:", result.message);
+          setErrorMessage(result.message);
+          setStatus("error");
+          setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
+          return;
+        }
       }
+
+      // ── 保存成功 ──
+      setStatus("saved");
+      // フォームをリセット（保存後は空フォームに戻す）
+      setHydratedLog(null);
+      setHydratedSleepSession(null);
+      setCartItems([]);
+      setCartEverHadItems(false);
+      setWeight("");
+      setWeightTouched(false);
+      setNote("");
+      setNoteTouched(false);
+      setTags(emptyTagState());
+      setTouchedTags(new Set());
+      setSleepBedTime("");
+      setSleepWakeTime("");
+      setSleepSessionTouched(false);
+      setSleepSessionPendingDelete(false);
+      setHadBowelMovement(null);
+      setHadBowelMovementTouched(false);
+      setTrainingType(null);
+      setTrainingTypeTouched(false);
+      setWorkMode(null);
+      setWorkModeTouched(false);
+      setLastMealEndTime("");
+      setLastMealEndTimeTouched(false);
+      setWeighInTime("");
+      setWeighInTimeTouched(false);
+      // SWR キャッシュを更新して次回 hydrate に最新ログを反映させる
+      void mutateLogs();
+      void mutateSleepSessions();
+      setTimeout(() => setStatus("idle"), 2000);
+      // 保存成功コールバック: Toast が少し見えてから modal / sheet を閉じる
+      if (onSaveSuccess) setTimeout(onSaveSuccess, 800);
     } catch (e) {
       // 予期しない例外のフォールバック。
       // これがないと status が "saving" のまま固まり、保存ボタンが永久に押せなくなる。
@@ -595,7 +635,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
                   <Undo2 size={11} className="shrink-0" />
                   <span>
                     {hydratedSleepSession
-                      ? `保存すると睡眠記録（就寝 ${hydratedSleepSession.bed_at.slice(11, 16)} / 起床 ${hydratedSleepSession.wake_at.slice(11, 16)}）を削除します。`
+                      ? `保存すると睡眠記録（就寝 ${extractJstHHMM(hydratedSleepSession.bed_at) ?? "?"} / 起床 ${extractJstHHMM(hydratedSleepSession.wake_at) ?? "?"}）を削除します。`
                       : "保存すると睡眠記録を削除します。"}
                   </span>
                   <button
@@ -604,8 +644,8 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
                       setSleepSessionPendingDelete(false);
                       setSleepSessionTouched(false);
                       if (hydratedSleepSession) {
-                        setSleepBedTime(hydratedSleepSession.bed_at.slice(11, 16));
-                        setSleepWakeTime(hydratedSleepSession.wake_at.slice(11, 16));
+                        setSleepBedTime(extractJstHHMM(hydratedSleepSession.bed_at) ?? "");
+                        setSleepWakeTime(extractJstHHMM(hydratedSleepSession.wake_at) ?? "");
                       } else {
                         setSleepBedTime("");
                         setSleepWakeTime("");

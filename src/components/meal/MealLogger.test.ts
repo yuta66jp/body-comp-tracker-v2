@@ -1,4 +1,4 @@
-import { computeHasContent } from "./MealLogger";
+import { computeHasContent, computeHasDailyLogChanges } from "./MealLogger";
 
 const base = {
   weight: "" as string | null,
@@ -141,5 +141,93 @@ describe("computeHasContent", () => {
 
   it("睡眠未操作 + 体重のみ操作 → 睡眠由来では true にならないが体重由来で true", () => {
     expect(computeHasContent({ ...base, sleepSessionTouched: false, weight: "70.0", weightTouched: true })).toBe(true);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// computeHasDailyLogChanges (#524 — 睡眠のみ変更時の "保存するデータがありません" 防止)
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("computeHasDailyLogChanges", () => {
+  // ── 睡眠のみ変更 → daily_logs 変更なし ──
+
+  it("sleepSessionTouched=true のみ → false (sleep_sessions 側の変更。daily_logs には含めない)", () => {
+    // これが #524 の核心: 睡眠だけ変更した場合に saveDailyLog を呼ばないようにする
+    expect(computeHasDailyLogChanges({ ...base, sleepSessionTouched: true })).toBe(false);
+  });
+
+  it("sleepSessionTouched=true + sleepSessionPendingDelete → false", () => {
+    expect(computeHasDailyLogChanges({ ...base, sleepSessionTouched: true })).toBe(false);
+  });
+
+  // ── 何も変更なし ──
+
+  it("何も変更なし → false", () => {
+    expect(computeHasDailyLogChanges({ ...base })).toBe(false);
+  });
+
+  // ── daily_logs 変更あり ──
+
+  it("weightTouched=true → true", () => {
+    expect(computeHasDailyLogChanges({ ...base, weight: "70.0", weightTouched: true })).toBe(true);
+  });
+
+  it("cartItems に食品あり → true", () => {
+    const item = { kind: "regular" as const, food: { id: "test-id", name: "chicken", calories: 165, protein: 31, fat: 3.6, carbs: 0, category: null, created_at: null }, grams: 100 };
+    expect(computeHasDailyLogChanges({ ...base, cartItems: [item] })).toBe(true);
+  });
+
+  it("cartEverHadItems=true → true (カートを追加後に空にした場合も null 送信が必要)", () => {
+    expect(computeHasDailyLogChanges({ ...base, cartEverHadItems: true })).toBe(true);
+  });
+
+  it("noteTouched=true → true", () => {
+    expect(computeHasDailyLogChanges({ ...base, note: "メモ", noteTouched: true })).toBe(true);
+  });
+
+  it("touchedTags に変更あり → true", () => {
+    const touchedTags = new Set<import("@/lib/utils/dayTags").DayTag>(["is_cheat_day"]);
+    expect(computeHasDailyLogChanges({ ...base, touchedTags })).toBe(true);
+  });
+
+  it("hadBowelMovementTouched=true → true", () => {
+    expect(computeHasDailyLogChanges({ ...base, hadBowelMovementTouched: true })).toBe(true);
+  });
+
+  it("trainingTypeTouched=true → true", () => {
+    expect(computeHasDailyLogChanges({ ...base, trainingTypeTouched: true })).toBe(true);
+  });
+
+  it("workModeTouched=true → true", () => {
+    expect(computeHasDailyLogChanges({ ...base, workModeTouched: true })).toBe(true);
+  });
+
+  it("lastMealEndTimeTouched=true → true", () => {
+    expect(computeHasDailyLogChanges({ ...base, lastMealEndTimeTouched: true })).toBe(true);
+  });
+
+  it("weighInTimeTouched=true → true", () => {
+    expect(computeHasDailyLogChanges({ ...base, weighInTimeTouched: true })).toBe(true);
+  });
+
+  // ── 複合ケース ──
+
+  it("sleepSessionTouched=true + weightTouched=true → true (daily_logs 変更あり)", () => {
+    // 睡眠もあるが daily_logs 変更もあるので true
+    expect(computeHasDailyLogChanges({
+      ...base,
+      sleepSessionTouched: true,
+      weight: "70.0",
+      weightTouched: true,
+    })).toBe(true);
+  });
+
+  it("sleepSessionTouched=true + noteTouched=true → true", () => {
+    expect(computeHasDailyLogChanges({
+      ...base,
+      sleepSessionTouched: true,
+      note: "メモ",
+      noteTouched: true,
+    })).toBe(true);
   });
 });
