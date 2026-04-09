@@ -37,6 +37,38 @@ import { addDaysStr, parseLocalDateStr } from "./date";
 /** JST タイムゾーンオフセット文字列。TIMESTAMPTZ 組み立て時に付加する。 */
 const JST_OFFSET = "+09:00";
 
+/** JST オフセット (ms)。UTC + この値 = JST */
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+/**
+ * TIMESTAMPTZ 文字列から JST の HH:MM を抽出する。
+ *
+ * Supabase は TIMESTAMPTZ を UTC 形式（例: "2026-04-07T14:30:00+00:00"）で
+ * 返す。`slice(11, 16)` はこの UTC 時刻を切り出してしまうため、
+ * まず Date に変換して JST（UTC+9）へ変換してから HH:MM を取り出す。
+ *
+ * 入力が "+09:00" 付きで保存されていた場合も、Date 経由で正しく変換される。
+ *
+ * @param timestamptz ISO 8601 文字列（Supabase から取得した bed_at / wake_at など）
+ * @returns JST の "HH:MM" 文字列。不正入力の場合は null。
+ *
+ * @example
+ *   extractJstHHMM("2026-04-07T14:30:00+00:00") // → "23:30"  (UTC 14:30 = JST 23:30)
+ *   extractJstHHMM("2026-04-07T23:30:00+09:00") // → "23:30"  (JST 表記をそのまま返す)
+ *   extractJstHHMM("2026-04-07T22:00:00+00:00") // → "07:00"  (UTC 22:00 = JST 翌 07:00)
+ */
+export function extractJstHHMM(timestamptz: string): string | null {
+  const date = new Date(timestamptz);
+  if (isNaN(date.getTime())) return null;
+
+  // UTC ミリ秒に +9h を加算して JST の「UTC ベース」を作る
+  const jstDate = new Date(date.getTime() + JST_OFFSET_MS);
+
+  const h = String(jstDate.getUTCHours()).padStart(2, "0");
+  const m = String(jstDate.getUTCMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
 /**
  * HH:MM 形式の時刻文字列を検証する。
  * 有効な場合は true を返す。
