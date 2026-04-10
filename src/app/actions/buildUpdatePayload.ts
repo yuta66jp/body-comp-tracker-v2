@@ -30,7 +30,6 @@ export function buildUpdatePayload(
   if (input.is_travel_day !== undefined) payload.is_travel_day = input.is_travel_day;
 
   // Phase 2.5 新規フィールド
-  if (input.sleep_hours !== undefined)         payload.sleep_hours         = input.sleep_hours;
   if (input.had_bowel_movement !== undefined)  payload.had_bowel_movement  = input.had_bowel_movement;
   if (input.work_mode !== undefined)           payload.work_mode           = input.work_mode;
 
