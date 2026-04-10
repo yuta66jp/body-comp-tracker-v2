@@ -46,8 +46,5 @@ export function buildUpdatePayload(
   // #436 追加: 歩数（Apple Health インポート専用。MealLogger からは渡されない）
   if (input.step_count !== undefined) payload.step_count = input.step_count;
 
-  // #501 追加: 就寝時刻（sleep_hours 自動算出の入力源。deriveSleepHours は saveDailyLog.ts で実行済み）
-  if (input.bed_time !== undefined) payload.bed_time = input.bed_time;
-
   return payload;
 }
