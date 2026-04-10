@@ -52,7 +52,6 @@ export async function importDailyLogs(
       is_refeed_day: row.is_refeed_day,
       is_eating_out: row.is_eating_out,
       is_travel_day: row.is_travel_day,
-      sleep_hours: row.sleep_hours,
       had_bowel_movement: row.had_bowel_movement,
       training_type: row.training_type,
       work_mode: row.work_mode,

@@ -125,23 +125,6 @@ describe("buildUpdatePayload — undefined/null/値の区別", () => {
 });
 
 describe("buildUpdatePayload — Phase 2.5 新規フィールド", () => {
-  test("sleep_hours を指定するとペイロードに含まれる", () => {
-    const payload = buildUpdatePayload({ sleep_hours: 7.5 });
-    expect(payload.sleep_hours).toBe(7.5);
-    expect("weight" in payload).toBe(false);
-  });
-
-  test("sleep_hours: null → 明示的クリア", () => {
-    const payload = buildUpdatePayload({ sleep_hours: null });
-    expect("sleep_hours" in payload).toBe(true);
-    expect(payload.sleep_hours).toBeNull();
-  });
-
-  test("sleep_hours: undefined → ペイロードに含まれない", () => {
-    const payload = buildUpdatePayload({});
-    expect("sleep_hours" in payload).toBe(false);
-  });
-
   test("had_bowel_movement: true → ペイロードに含まれる", () => {
     const payload = buildUpdatePayload({ had_bowel_movement: true });
     expect(payload.had_bowel_movement).toBe(true);
@@ -221,12 +204,10 @@ describe("buildUpdatePayload — Phase 2.5 新規フィールド", () => {
 
   test("Phase 2.5 全フィールドを同時指定", () => {
     const payload = buildUpdatePayload({
-      sleep_hours: 6.5,
       had_bowel_movement: true,
       training_type: "back",
       work_mode: "remote",
     });
-    expect(payload.sleep_hours).toBe(6.5);
     expect(payload.had_bowel_movement).toBe(true);
     expect(payload.training_type).toBe("back");
     expect(payload.leg_flag).toBe(false);
@@ -468,20 +449,19 @@ describe("saveDailyLog — 連続保存シナリオ（体重→macro）", () => 
     expect(capture.p_fields?.leg_flag).toBeNull();
   });
 
-  test("sleep_hours・had_bowel_movement・work_mode のみ保存: 他フィールドは含まれない", async () => {
+  test("had_bowel_movement・work_mode のみ保存: 他フィールドは含まれない", async () => {
     const capture = makeRpcMock();
     const result = await saveDailyLog({
       log_date: "2026-03-13",
-      sleep_hours: 7.0,
       had_bowel_movement: true,
       work_mode: "office",
     });
 
     expect(result.ok).toBe(true);
-    expect(capture.p_fields?.sleep_hours).toBe(7.0);
     expect(capture.p_fields?.had_bowel_movement).toBe(true);
     expect(capture.p_fields?.work_mode).toBe("office");
     expect("weight"        in (capture.p_fields ?? {})).toBe(false);
+    expect("sleep_hours"   in (capture.p_fields ?? {})).toBe(false);
     expect("training_type" in (capture.p_fields ?? {})).toBe(false);
     expect("leg_flag"      in (capture.p_fields ?? {})).toBe(false);
   });
@@ -574,23 +554,6 @@ describe("saveDailyLog — log_date バリデーション", () => {
 });
 
 describe("saveDailyLog — Phase 2.5 バリデーション", () => {
-  test("sleep_hours が 25 → ok: false", async () => {
-    const result = await saveDailyLog({ log_date: "2026-03-13", sleep_hours: 25 });
-    expect(result.ok).toBe(false);
-  });
-
-  test("sleep_hours が -1 → ok: false", async () => {
-    const result = await saveDailyLog({ log_date: "2026-03-13", sleep_hours: -1 });
-    expect(result.ok).toBe(false);
-  });
-
-  test("sleep_hours が 0 → ok: true (境界値)", async () => {
-    const capture = makeRpcMock();
-    const result = await saveDailyLog({ log_date: "2026-03-13", sleep_hours: 0 });
-    expect(result.ok).toBe(true);
-    expect(capture.p_fields?.sleep_hours).toBe(0);
-  });
-
   test("training_type: 'off' → ok: true (有効値)", async () => {
     const capture = makeRpcMock();
     const result = await saveDailyLog({ log_date: "2026-03-13", training_type: "off" });
@@ -644,18 +607,6 @@ describe("saveDailyLog — 既存行 partial update (fix: INSERT NOT NULL 回避
 
     expect(result.ok).toBe(true);
     expect(capture.p_fields?.work_mode).toBe("remote");
-    expect("weight" in (capture.p_fields ?? {})).toBe(false);
-  });
-
-  test("既存行に sleep_hours だけ更新: weight なしでも ok: true", async () => {
-    const capture = makeRpcMock();
-    const result = await saveDailyLog({
-      log_date: "2026-03-13",
-      sleep_hours: 6.5,
-    });
-
-    expect(result.ok).toBe(true);
-    expect(capture.p_fields?.sleep_hours).toBe(6.5);
     expect("weight" in (capture.p_fields ?? {})).toBe(false);
   });
 

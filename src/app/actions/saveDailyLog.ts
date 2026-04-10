@@ -27,7 +27,6 @@ export type SaveDailyLogInput = {
   is_eating_out?: boolean;
   is_travel_day?: boolean;
   // ── Phase 2.5 追加 ──
-  sleep_hours?: number | null;
   /** null = 明示クリア（未記録に戻す） */
   had_bowel_movement?: boolean | null;
   /** 'off' | 'chest' | 'back' | 'shoulders' | 'glutes_hamstrings' | 'quads' */
@@ -90,12 +89,6 @@ export async function saveDailyLog(
 
   if (input.note !== undefined && input.note !== null && input.note.length > 500) {
     return { ok: false, message: "メモは 500 文字以内で入力してください" };
-  }
-
-  if (input.sleep_hours !== undefined && input.sleep_hours !== null) {
-    if (!isFinite(input.sleep_hours) || input.sleep_hours < 0 || input.sleep_hours > 24) {
-      return { ok: false, message: "睡眠時間は 0〜24 時間の範囲で入力してください" };
-    }
   }
 
   if (input.training_type !== undefined && input.training_type !== null) {
