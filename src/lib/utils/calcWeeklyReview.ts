@@ -95,6 +95,17 @@ export interface WeeklyTdee {
   balancePerDay: number | null;
 }
 
+export interface WeeklySleep {
+  /**
+   * 直近 7 暦日のうち sleep_hours が記録されている日の平均 (h)。
+   * source of truth: daily_logs.sleep_hours
+   * (sleep_sessions の bed_at / wake_at から DB トリガーが自動同期する projection 値)
+   */
+  avgSleepHours: number | null;
+  /** sleep_hours が非 null の日数 */
+  sleepDaysLogged: number;
+}
+
 /** 直近 7 日の特殊日集計 */
 export interface SpecialDaySummary {
   cheatDays: number;
@@ -111,6 +122,7 @@ export interface WeeklyReviewData {
   weight: WeeklyWeight;
   nutrition: WeeklyNutrition;
   tdee: WeeklyTdee;
+  sleep: WeeklySleep;
   quality: {
     score: number;
     weightMissingDays: number;
@@ -495,6 +507,21 @@ export function calcWeeklyReview(
     fatCaloriesRatioPct,
   };
 
+  // ── Sleep (直近 7 暦日の平均睡眠時間) ──
+  // source of truth: daily_logs.sleep_hours
+  // (sleep_sessions の bed_at / wake_at から DB トリガーが自動同期する projection 値)
+  // null 日はスキップし、記録がある日のみで平均を算出する
+  const sleepVals = windowLogs
+    .filter((l) => l.sleep_hours !== null)
+    .map((l) => l.sleep_hours as number);
+  const sleep: WeeklySleep = {
+    avgSleepHours:
+      sleepVals.length > 0
+        ? sleepVals.reduce((a, b) => a + b, 0) / sleepVals.length
+        : null,
+    sleepDaysLogged: sleepVals.length,
+  };
+
   // ── TDEE (直近 7 日の推定 TDEE 平均) ──
   const tdee7vals = last7Dates
     .map((d) => enrichedTdeeMap?.get(d) ?? null)
@@ -559,6 +586,7 @@ export function calcWeeklyReview(
     weight,
     nutrition,
     tdee,
+    sleep,
     quality,
     stagnation,
     specialDays,

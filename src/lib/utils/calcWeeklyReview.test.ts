@@ -91,6 +91,46 @@ describe("calcWeeklyReview", () => {
     expect(result.nutrition.fatCaloriesRatioPct).toBeCloseTo(22.5, 1);
   });
 
+  it("直近 7 暦日の平均睡眠時間を算出する", () => {
+    const logs = [
+      makeLog("2026-03-27", { sleep_hours: 7.0 }),
+      makeLog("2026-03-28", { sleep_hours: 8.0 }),
+      makeLog("2026-03-29", { sleep_hours: 7.5 }),
+      makeLog("2026-03-30", { sleep_hours: null }), // 欠損は除外
+      makeLog("2026-03-31", { sleep_hours: 6.5 }),
+      makeLog("2026-04-01", { sleep_hours: 8.0 }),
+      makeLog("2026-04-02", { sleep_hours: 7.0 }),
+    ];
+
+    const result = calcWeeklyReview(
+      logs,
+      makeMetrics(),
+      makeQualityReport(),
+      { today: "2026-04-02", phase: "Cut" }
+    );
+
+    // (7.0 + 8.0 + 7.5 + 6.5 + 8.0 + 7.0) / 6 = 44 / 6 ≈ 7.333
+    expect(result.sleep.avgSleepHours).toBeCloseTo(44 / 6, 5);
+    expect(result.sleep.sleepDaysLogged).toBe(6);
+  });
+
+  it("sleep_hours が全て null のときは avgSleepHours が null になる", () => {
+    const logs = [
+      makeLog("2026-03-27", { sleep_hours: null }),
+      makeLog("2026-03-28", { sleep_hours: null }),
+    ];
+
+    const result = calcWeeklyReview(
+      logs,
+      makeMetrics(),
+      makeQualityReport(),
+      { today: "2026-04-02", phase: "Cut" }
+    );
+
+    expect(result.sleep.avgSleepHours).toBeNull();
+    expect(result.sleep.sleepDaysLogged).toBe(0);
+  });
+
   it("基準体重や脂質/カロリーが欠けるときは null にフォールバックする", () => {
     const logs = [
       makeLog("2026-03-27", { calories: 2000, protein: 140, fat: null }),

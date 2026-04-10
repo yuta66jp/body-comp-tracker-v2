@@ -57,8 +57,9 @@ function fmtSigned(v: number, decimals: number): string {
  *   2. エネルギー収支 (phase に基づく良否判定)
  *   3. タンパク質 (g/kg BW)
  *   4. 脂質比 (%)
- *   5. データ品質警告 (欠損がある場合のみ)
- *   6. 特殊日サマリー (タグがある場合のみ)
+ *   5. 睡眠 (avgSleepHours が非 null の場合のみ)
+ *   6. データ品質警告 (欠損がある場合のみ) → 7
+ *   7. 特殊日サマリー (タグがある場合のみ) → 8
  *
  * 集計ロジック (calcWeeklyReview) は変更しない。
  * 所見の内容は generateFindings と同等だが、カード表示向けに構造化する。
@@ -202,7 +203,32 @@ export function deriveWeeklyInsightItems(
     });
   }
 
-  // ── 5. データ品質警告 ────────────────────────────────────────────────────
+  // ── 5. 睡眠 ──────────────────────────────────────────────────────────────
+  if (data.sleep.avgSleepHours !== null) {
+    const h = data.sleep.avgSleepHours;
+    const hStr = h.toFixed(1);
+    let status: InsightStatus;
+    let label: string;
+    let detail: string | undefined;
+
+    if (h < 7) {
+      status = "caution";
+      label = `平均睡眠 ${hStr}h — 短め`;
+      detail = "目安: 7〜9 時間";
+    } else if (h <= 9) {
+      status = "ok";
+      label = `平均睡眠 ${hStr}h — 適正`;
+      detail = undefined;
+    } else {
+      status = "neutral";
+      label = `平均睡眠 ${hStr}h — 長め`;
+      detail = "目安: 7〜9 時間";
+    }
+
+    items.push({ status, title: label, detail });
+  }
+
+  // ── 7. データ品質警告 ────────────────────────────────────────────────────
   {
     const missing: string[] = [];
     if (quality.weightMissingDays > 0) {
@@ -220,7 +246,7 @@ export function deriveWeeklyInsightItems(
     }
   }
 
-  // ── 6. 特殊日サマリー ────────────────────────────────────────────────────
+  // ── 8. 特殊日サマリー ────────────────────────────────────────────────────
   if (specialDays.totalTaggedDays > 0) {
     const parts: string[] = [];
     if (specialDays.cheatDays > 0)

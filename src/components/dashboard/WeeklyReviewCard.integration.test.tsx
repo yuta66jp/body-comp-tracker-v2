@@ -23,6 +23,7 @@ jest.mock("lucide-react", () => ({
   HelpCircle: () => <span data-testid="icon-help" />,
   Flame: () => <span data-testid="icon-flame" />,
   Beef: () => <span data-testid="icon-beef" />,
+  Moon: () => <span data-testid="icon-moon" />,
 }));
 
 function makeData(overrides: Partial<WeeklyReviewData> = {}): WeeklyReviewData {
@@ -48,6 +49,10 @@ function makeData(overrides: Partial<WeeklyReviewData> = {}): WeeklyReviewData {
     tdee: {
       avgEstimated: 2300,
       balancePerDay: -300,
+    },
+    sleep: {
+      avgSleepHours: null,
+      sleepDaysLogged: 0,
     },
     quality: {
       score: 90,
@@ -96,6 +101,51 @@ describe("WeeklyReviewCard", () => {
 
     expect(screen.getByText("脂質比 23%（平均 50 g/日）")).toBeInTheDocument();
     expect(screen.getAllByText("推奨レンジ内を維持")).toHaveLength(2);
+  });
+
+  it("avgSleepHours が非 null のとき睡眠セクションを表示し、ステータスラベルを付与する", () => {
+    render(
+      <WeeklyReviewCard
+        data={makeData({ sleep: { avgSleepHours: 7.5, sleepDaysLogged: 6 } })}
+        phase="Cut"
+      />
+    );
+
+    expect(screen.getByText("睡眠 (6 日分)")).toBeInTheDocument();
+    expect(screen.getByText("平均睡眠時間")).toBeInTheDocument();
+    expect(screen.getByText("h")).toBeInTheDocument();
+    expect(screen.getByText("目安: 7〜9 時間")).toBeInTheDocument();
+    expect(screen.getByText("適正")).toBeInTheDocument();
+  });
+
+  it("avgSleepHours < 7 のとき「短め」ラベルを表示する", () => {
+    render(
+      <WeeklyReviewCard
+        data={makeData({ sleep: { avgSleepHours: 6.0, sleepDaysLogged: 5 } })}
+        phase="Cut"
+      />
+    );
+    expect(screen.getByText("短め")).toBeInTheDocument();
+  });
+
+  it("avgSleepHours > 9 のとき「長め」ラベルを表示する", () => {
+    render(
+      <WeeklyReviewCard
+        data={makeData({ sleep: { avgSleepHours: 9.5, sleepDaysLogged: 7 } })}
+        phase="Cut"
+      />
+    );
+    expect(screen.getByText("長め")).toBeInTheDocument();
+  });
+
+  it("avgSleepHours が null のとき睡眠セクションを表示しない", () => {
+    render(
+      <WeeklyReviewCard
+        data={makeData({ sleep: { avgSleepHours: null, sleepDaysLogged: 0 } })}
+        phase="Cut"
+      />
+    );
+    expect(screen.queryByText("平均睡眠時間")).not.toBeInTheDocument();
   });
 
   it("必要値が欠けるときは — 表示にフォールバックし、該当所見カードを出さない", () => {

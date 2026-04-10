@@ -31,6 +31,7 @@ import {
   HelpCircle,
   Flame,
   Beef,
+  Moon,
 } from "lucide-react";
 import type { WeeklyReviewData, StagnationLevel } from "@/lib/utils/calcWeeklyReview";
 import { DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayTags";
@@ -94,6 +95,23 @@ const FAT_RANGE_STATUS_CONFIG: Record<
   low:      { label: "やや低め",   color: "text-amber-600 dark:text-amber-400" },
   high:     { label: "やや高め",   color: "text-amber-600 dark:text-amber-400" },
 };
+
+// ─── 睡眠ステータス ──────────────────────────────────────────────────────────
+// 一般的な目安（7〜9 時間）をベースにした UI 分類。医療判断ではない。
+
+type SleepStatus = "short" | "ok" | "long";
+
+const SLEEP_STATUS_CONFIG: Record<SleepStatus, { label: string; color: string }> = {
+  short: { label: "短め",   color: "text-amber-600 dark:text-amber-400" },
+  ok:    { label: "適正",   color: "text-emerald-600 dark:text-emerald-400" },
+  long:  { label: "長め",   color: "text-slate-500 dark:text-slate-400" },
+};
+
+function calcSleepStatus(hours: number): SleepStatus {
+  if (hours < 7) return "short";
+  if (hours <= 9) return "ok";
+  return "long";
+}
 
 function calcRangeStatus(value: number, min: number, max: number): NutritionRangeStatus {
   if (value < min) return "low";
@@ -201,7 +219,7 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
   const stCfg = STAGNATION_CONFIG[data.stagnation.level];
   const StIcon = stCfg.icon;
 
-  const { weight, nutrition, tdee, quality } = data;
+  const { weight, nutrition, tdee, sleep, quality } = data;
 
   // 所見カード用データを導出 (既存 findings string[] とは別に生成)
   const insightItems = deriveWeeklyInsightItems(data, phase);
@@ -373,6 +391,39 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
               </div>
             )}
           </div>
+
+          {/* 睡眠 */}
+          {sleep.avgSleepHours !== null && (
+            <div>
+              <SectionLabel icon={<Moon size={12} className="text-indigo-400" />}>
+                睡眠 ({sleep.sleepDaysLogged} 日分)
+              </SectionLabel>
+              <div className="space-y-0.5">
+                {(() => {
+                  const status = calcSleepStatus(sleep.avgSleepHours);
+                  const cfg = SLEEP_STATUS_CONFIG[status];
+                  return (
+                    <>
+                      <StatRow
+                        label="平均睡眠時間"
+                        value={sleep.avgSleepHours.toFixed(1)}
+                        unit="h"
+                        valueColor={cfg.color}
+                      />
+                      <div className="flex items-center justify-between py-0.5">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                          目安: 7〜9 時間
+                        </span>
+                        <span className={`text-[11px] font-semibold ${cfg.color}`}>
+                          {cfg.label}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
 
           {/* 特殊日サマリー */}
           {data.specialDays.totalTaggedDays > 0 && (
