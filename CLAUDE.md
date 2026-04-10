@@ -140,7 +140,7 @@ body-comp-tracker-v2/
 - `daily_logs` — log_date(PK), weight, calories, protein, fat, carbs, note,
   sleep_hours, had_bowel_movement, training_type, work_mode,
   last_meal_end_time, step_count
-  - `had_bowel_movement` は `BOOLEAN DEFAULT NULL`（三状態: null=未記録 / false=便通なし / true=未記録）
+  - `had_bowel_movement` は `BOOLEAN DEFAULT NULL`（三状態: null=未記録 / false=便通なし / true=便通あり）
   - leg_flag は派生値（deriveLegFlag のみ定義源）。直接書き込まない
   - `sleep_hours` は `sleep_sessions` の `bed_at` / `wake_at` から DB トリガー（`trg_sync_sleep_hours`）が自動同期する **projection 値**。直接書き込まない（定義源はトリガー、`deriveSleepHours()` ではない）。`is_poor_sleep` カラムは削除済み（#338）
   - `last_meal_end_time` は TIME 型・nullable。空腹時間算出用（#435）。
