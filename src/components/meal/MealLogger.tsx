@@ -302,45 +302,19 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     setStatus("saving");
 
     try {
-      // ── 睡眠セッション保存（sleep_sessions が source of truth）──
-      // saveDailyLog とは独立して先に処理する。
-      // DB トリガーが daily_logs.sleep_hours を自動更新するため、
-      // 後続の saveDailyLog 時点では sleep_hours が既に反映されている。
-      if (sleepSessionTouched) {
-        let sleepResult: { ok: boolean; message?: string };
-        if (sleepSessionPendingDelete && hydratedSleepSession) {
-          // セッション削除
-          sleepResult = await deleteSleepSession(date);
-        } else if (sleepBedTime && sleepWakeTime) {
-          // セッション保存（新規 or 上書き）
-          sleepResult = await saveSleepSession({
-            wake_date: date,
-            bed_time:  sleepBedTime,
-            wake_time: sleepWakeTime,
-          });
-        } else if (sleepBedTime || sleepWakeTime) {
-          // どちらか片方だけ入力 → 保存を止めてユーザーに知らせる
-          setErrorMessage("就寝時刻と起床時刻はセットで入力してください。");
-          setStatus("error");
-          setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
-          return;
-        } else {
-          // 両方空 (操作なし) → スキップ
-          sleepResult = { ok: true };
-        }
-        if (!sleepResult.ok) {
-          console.error("[MealLogger] sleep save error:", sleepResult.message);
-          setErrorMessage(sleepResult.message ?? "睡眠記録の保存に失敗しました");
-          setStatus("error");
-          setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
-          return;
-        }
-      }
-
       // ── daily_logs 保存（変更がある場合のみ）──
+      // sleep_sessions より先に保存する (#528)。
+      //
+      // 【保存順序の重要性】
+      // DB トリガー (trg_sync_sleep_hours) は sleep_sessions の INSERT/UPDATE 後に
+      // `UPDATE daily_logs SET sleep_hours=... WHERE log_date=wake_date` を実行する。
+      // 新規日付の場合、saveSleepSession を先に呼ぶとトリガーが発火した時点で
+      // daily_logs 行がまだ存在せず、UPDATE が 0 行で終わって sleep_hours が null のまま残る。
+      // daily_logs を先に作成してから saveSleepSession を呼ぶことで、
+      // トリガーが正しく sleep_hours を書き込める。
+      //
       // sleepSessionTouched のみが true の場合（睡眠だけ変更）は daily_logs 更新は不要。
       // computeHasDailyLogChanges で判定して saveDailyLog を呼ぶか決める。
-      // 呼ばずに済ませることで「保存するデータがありません」エラーを防ぐ。
       const hasDailyLogChanges = computeHasDailyLogChanges({
         weight, weightTouched, cartItems, cartEverHadItems,
         note, noteTouched, touchedTags,
@@ -390,6 +364,43 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
         if (!result.ok) {
           console.error("[MealLogger] save error:", result.message);
           setErrorMessage(result.message);
+          setStatus("error");
+          setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
+          return;
+        }
+      }
+
+      // ── 睡眠セッション保存（sleep_sessions が source of truth）──
+      // daily_logs より後に保存する (#528)。
+      // DB トリガー (trg_sync_sleep_hours) が daily_logs.sleep_hours を更新するとき、
+      // daily_logs 行が既に存在している必要がある。
+      // 既存日はどちらの順序でも動作するが、新規日でも正しく動作するよう
+      // daily_logs を先に保存する順序を維持すること。
+      if (sleepSessionTouched) {
+        let sleepResult: { ok: boolean; message?: string };
+        if (sleepSessionPendingDelete && hydratedSleepSession) {
+          // セッション削除
+          sleepResult = await deleteSleepSession(date);
+        } else if (sleepBedTime && sleepWakeTime) {
+          // セッション保存（新規 or 上書き）
+          sleepResult = await saveSleepSession({
+            wake_date: date,
+            bed_time:  sleepBedTime,
+            wake_time: sleepWakeTime,
+          });
+        } else if (sleepBedTime || sleepWakeTime) {
+          // どちらか片方だけ入力 → 保存を止めてユーザーに知らせる
+          setErrorMessage("就寝時刻と起床時刻はセットで入力してください。");
+          setStatus("error");
+          setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
+          return;
+        } else {
+          // 両方空 (操作なし) → スキップ
+          sleepResult = { ok: true };
+        }
+        if (!sleepResult.ok) {
+          console.error("[MealLogger] sleep save error:", sleepResult.message);
+          setErrorMessage(sleepResult.message ?? "睡眠記録の保存に失敗しました");
           setStatus("error");
           setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
           return;
