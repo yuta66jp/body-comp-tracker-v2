@@ -15,6 +15,9 @@ jest.mock("@/lib/supabase/server", () => ({ createClient: jest.fn() }));
 
 import { NextRequest } from "next/server";
 import { GET, isValidDateParam } from "./route";
+import { createClient } from "@/lib/supabase/server";
+
+const mockCreateClient = createClient as jest.Mock;
 
 // ── isValidDateParam ─────────────────────────────────────────────────────────
 
@@ -170,8 +173,6 @@ describe("GET /api/export — daily_logs CSV with sleep times", () => {
   });
 
   it("sleep_bed_time / sleep_wake_time が CSV ヘッダーとデータ行に含まれる", async () => {
-    const { createClient } = require("@/lib/supabase/server") as { createClient: jest.Mock };
-
     const dailyLogsQuery = makeChainableQuery({ data: [SAMPLE_LOG], error: null });
     const sleepQuery = makeChainableQuery({
       data: [{
@@ -184,7 +185,7 @@ describe("GET /api/export — daily_logs CSV with sleep times", () => {
       error: null,
     });
 
-    createClient.mockReturnValue({
+    mockCreateClient.mockReturnValue({
       from: jest.fn((table: string) =>
         table === "daily_logs" ? dailyLogsQuery : sleepQuery
       ),
@@ -206,15 +207,13 @@ describe("GET /api/export — daily_logs CSV with sleep times", () => {
   });
 
   it("sleep_sessions がない日は sleep_bed_time / sleep_wake_time が空欄になる", async () => {
-    const { createClient } = require("@/lib/supabase/server") as { createClient: jest.Mock };
-
     const dailyLogsQuery = makeChainableQuery({
       data: [{ ...SAMPLE_LOG, sleep_hours: null }],
       error: null,
     });
     const sleepQuery = makeChainableQuery({ data: [], error: null }); // セッションなし
 
-    createClient.mockReturnValue({
+    mockCreateClient.mockReturnValue({
       from: jest.fn((table: string) =>
         table === "daily_logs" ? dailyLogsQuery : sleepQuery
       ),
