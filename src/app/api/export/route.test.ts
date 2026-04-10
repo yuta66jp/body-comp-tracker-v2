@@ -1,12 +1,12 @@
 /**
- * /api/export route — バリデーションテスト
+ * /api/export route — バリデーション + CSV 出力テスト
  *
  * テスト構成:
  *   1. isValidDateParam — 純粋関数のユニットテスト
  *   2. GET handler — table / start / end の不正入力で 400 を返すことを検証
+ *   3. GET handler — daily_logs CSV 出力（sleep_bed_time / sleep_wake_time 含む）
  *
- * 注: GET handler テストでは supabase をモックする。
- * バリデーション 400 ケースは DB 呼び出し前に return するため、
+ * 注: バリデーション 400 ケースは DB 呼び出し前に return するため、
  * supabase モックが実際に呼ばれることはない。
  */
 
@@ -15,6 +15,9 @@ jest.mock("@/lib/supabase/server", () => ({ createClient: jest.fn() }));
 
 import { NextRequest } from "next/server";
 import { GET, isValidDateParam } from "./route";
+import { createClient } from "@/lib/supabase/server";
+
+const mockCreateClient = createClient as jest.Mock;
 
 // ── isValidDateParam ─────────────────────────────────────────────────────────
 
@@ -122,5 +125,109 @@ describe("GET /api/export — バリデーション", () => {
   it("start 未指定（空文字）はバリデーションをスキップする（isValidDateParam の空文字テストで担保）", () => {
     // GET 内: if (start && !isValidDateParam(start)) → start="" は falsy なので skip
     expect(isValidDateParam("")).toBe(false); // 空文字を直接渡せば false — GET では skip されることを確認
+  });
+});
+
+// ── GET handler — daily_logs CSV 出力（sleep times 含む） ──────────────────────
+
+/**
+ * supabase の chained query builder をモックする。
+ * select / order / gte / lte が連鎖可能で、await した際に result を返す。
+ */
+type QueryResult = { data: unknown[] | null; error: { message: string } | null };
+
+function makeChainableQuery(result: QueryResult): unknown {
+  // Promise を継承しつつメソッドチェーンも可能にする
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const p = Promise.resolve(result) as any;
+  for (const m of ["select", "order", "gte", "lte"]) {
+    p[m] = jest.fn().mockReturnValue(p);
+  }
+  return p;
+}
+
+const SAMPLE_LOG = {
+  log_date: "2026-04-01",
+  weight: 70.0,
+  calories: 2000,
+  protein: 140,
+  fat: 50,
+  carbs: 220,
+  note: null,
+  is_cheat_day: false,
+  is_refeed_day: false,
+  is_eating_out: false,
+  is_travel_day: false,
+  sleep_hours: 7.5,
+  had_bowel_movement: null,
+  training_type: null,
+  work_mode: null,
+  leg_flag: null,
+  last_meal_end_time: null,
+  step_count: null,
+};
+
+describe("GET /api/export — daily_logs CSV with sleep times", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("sleep_bed_time / sleep_wake_time が CSV ヘッダーとデータ行に含まれる", async () => {
+    const dailyLogsQuery = makeChainableQuery({ data: [SAMPLE_LOG], error: null });
+    const sleepQuery = makeChainableQuery({
+      data: [{
+        wake_date: "2026-04-01",
+        // UTC 14:30 = JST 23:30
+        bed_at:  "2026-03-31T14:30:00+00:00",
+        // UTC 22:00 = JST 07:00
+        wake_at: "2026-03-31T22:00:00+00:00",
+      }],
+      error: null,
+    });
+
+    mockCreateClient.mockReturnValue({
+      from: jest.fn((table: string) =>
+        table === "daily_logs" ? dailyLogsQuery : sleepQuery
+      ),
+    });
+
+    const res = await GET(makeRequest({ table: "daily_logs" }));
+    expect(res.status).toBe(200);
+    const csv = await res.text();
+    const lines = csv.split("\n");
+
+    // ヘッダーに sleep_hours / sleep_bed_time / sleep_wake_time が含まれること
+    expect(lines[0]).toContain("sleep_hours");
+    expect(lines[0]).toContain("sleep_bed_time");
+    expect(lines[0]).toContain("sleep_wake_time");
+
+    // データ行に JST HH:MM が含まれること
+    expect(lines[1]).toContain("23:30"); // bed_time JST
+    expect(lines[1]).toContain("07:00"); // wake_time JST
+  });
+
+  it("sleep_sessions がない日は sleep_bed_time / sleep_wake_time が空欄になる", async () => {
+    const dailyLogsQuery = makeChainableQuery({
+      data: [{ ...SAMPLE_LOG, sleep_hours: null }],
+      error: null,
+    });
+    const sleepQuery = makeChainableQuery({ data: [], error: null }); // セッションなし
+
+    mockCreateClient.mockReturnValue({
+      from: jest.fn((table: string) =>
+        table === "daily_logs" ? dailyLogsQuery : sleepQuery
+      ),
+    });
+
+    const res = await GET(makeRequest({ table: "daily_logs" }));
+    expect(res.status).toBe(200);
+    const csv = await res.text();
+    const lines = csv.split("\n");
+
+    const headers = lines[0]!.split(",");
+    const values  = lines[1]!.split(",");
+
+    expect(values[headers.indexOf("sleep_bed_time")]).toBe("");
+    expect(values[headers.indexOf("sleep_wake_time")]).toBe("");
   });
 });
