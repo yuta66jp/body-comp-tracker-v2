@@ -378,6 +378,40 @@ describe("buildCalendarDayMap — fasting_hours", () => {
   });
 });
 
+// ── buildCalendarDayMap — sleep_hours ────────────────────────────────────────
+
+describe("buildCalendarDayMap — sleep_hours", () => {
+  it("sleep_hours が設定されているとき CalendarDayData.sleep_hours に格納される", () => {
+    const logs = [makeLog({ log_date: "2026-03-10", weight: 70, sleep_hours: 7.5 })];
+    const map = buildCalendarDayMap(logs);
+    expect(map.get("2026-03-10")!.sleep_hours).toBe(7.5);
+  });
+
+  it("sleep_hours が null のとき CalendarDayData.sleep_hours は null", () => {
+    const logs = [makeLog({ log_date: "2026-03-10", weight: 70, sleep_hours: null })];
+    const map = buildCalendarDayMap(logs);
+    expect(map.get("2026-03-10")!.sleep_hours).toBeNull();
+  });
+
+  it("整数値 (8.0) も正しく格納される", () => {
+    const logs = [makeLog({ log_date: "2026-03-10", weight: 70, sleep_hours: 8.0 })];
+    const map = buildCalendarDayMap(logs);
+    expect(map.get("2026-03-10")!.sleep_hours).toBe(8.0);
+  });
+
+  it("複数ログでそれぞれの sleep_hours が独立して格納される", () => {
+    const logs = [
+      makeLog({ log_date: "2026-03-10", weight: 70, sleep_hours: 7.0 }),
+      makeLog({ log_date: "2026-03-11", weight: 70, sleep_hours: null }),
+      makeLog({ log_date: "2026-03-12", weight: 70, sleep_hours: 8.5 }),
+    ];
+    const map = buildCalendarDayMap(logs);
+    expect(map.get("2026-03-10")!.sleep_hours).toBe(7.0);
+    expect(map.get("2026-03-11")!.sleep_hours).toBeNull();
+    expect(map.get("2026-03-12")!.sleep_hours).toBe(8.5);
+  });
+});
+
 // ── calcFastingHours ─────────────────────────────────────────────────────────
 
 describe("calcFastingHours", () => {
