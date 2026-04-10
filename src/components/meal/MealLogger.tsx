@@ -364,7 +364,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
             ? (note === null     ? null   : (note     !== "" ? note                 : undefined))
             : undefined,
           ...tagPayload,
-          // bed_time は sleep_sessions に移行したため MealLogger からは送信しない
           // ルール: touched=true → hadBowelMovement の値をそのまま送信
           //           null  = 明示クリア（未記録に戻す）
           //           true  = 便通あり

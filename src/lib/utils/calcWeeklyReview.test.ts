@@ -27,7 +27,6 @@ function makeLog(
     work_mode: null,
     last_meal_end_time: null,
     step_count: null,
-    bed_time: null,
     ...overrides,
   };
 }

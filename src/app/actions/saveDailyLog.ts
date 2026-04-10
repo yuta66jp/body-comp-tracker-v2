@@ -3,10 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidateAfterDailyLogMutation } from "@/lib/cache/revalidate";
 import { isValidTrainingType, isValidWorkMode } from "@/lib/utils/trainingType";
-import { deriveSleepHours } from "@/lib/utils/sleep";
-import { extractJstHHMM } from "@/lib/utils/sleepSession";
 import { buildUpdatePayload } from "./buildUpdatePayload";
-import { addDaysStr, parseLocalDateStr } from "@/lib/utils/date";
+import { parseLocalDateStr } from "@/lib/utils/date";
 
 /**
  * フィールドの意味:
@@ -43,19 +41,6 @@ export type SaveDailyLogInput = {
   // ── #436 追加 ──
   /** Apple Health 歩数（日次集計）。null = 明示クリア */
   step_count?: number | null;
-  // ── #501 追加 ──
-  /**
-   * 就寝時刻 "HH:MM" 形式。null = 明示クリア。
-   *
-   * 起床日基準（#507）: この log_date の朝に終了した睡眠セッションの開始時刻を表す。
-   * 前日夜就寝（例: 23:30）・当日深夜就寝（例: 01:30）・早朝就寝（例: 04:00）のいずれも
-   * 起床した日の log_date に属する値として保存する。
-   *
-   * #515 以降は sleep_sessions が睡眠の source of truth。MealLogger からは送信しない。
-   * 移行期カラムとして DB には残存する（将来 #518 で廃止予定）。
-   * #515 以降は sleep_sessions が source of truth。#526 で weigh_in_time カラムは廃止済み。
-   */
-  bed_time?: string | null;
 };
 
 /** DB に渡す更新ペイロード（undefined フィールドを除去したもの）*/
@@ -134,7 +119,7 @@ export async function saveDailyLog(
   }
 
   // 時刻バリデーション: "HH:MM" または "HH:MM:SS" 形式 + 値域チェック
-  for (const key of ["last_meal_end_time", "bed_time"] as const) {
+  for (const key of ["last_meal_end_time"] as const) {
     const v = input[key];
     if (v !== undefined && v !== null) {
       const parts = v.split(":");
@@ -155,78 +140,30 @@ export async function saveDailyLog(
     }
   }
 
-  // Supabase クライアントを早期に生成する。
-  // sleep_hours 算出で既存行を読む可能性があるため、RPC より前に用意する。
   const supabase = createClient();
 
-  let payload = buildUpdatePayload(input);
-  let hasBasePayload = Object.keys(payload).length > 0;
-  let sleepPlan: SleepSavePlan = { targetLogDate: input.log_date, payload: {} };
-  let hasSleepPayload = false;
+  const payload = buildUpdatePayload(input);
+  const hasBasePayload = Object.keys(payload).length > 0;
 
-  if (input.bed_time !== undefined) {
-    const baseInput: SaveDailyLogInput = { ...input };
-    const overnightLogDate = addDaysStr(input.log_date, 1);
-    const nextDayTimeFields = overnightLogDate
-      ? await fetchExistingTimeFields(supabase, overnightLogDate)
-      : null;
-    const currentTimeFields = await fetchExistingTimeFields(supabase, input.log_date);
-
-    sleepPlan = deriveSleepSavePlan(baseInput, currentTimeFields, nextDayTimeFields);
-    const saveSleepSeparately = sleepPlan.targetLogDate !== input.log_date;
-
-    if (saveSleepSeparately) {
-      baseInput.bed_time = undefined;
-      baseInput.sleep_hours = undefined;
-    } else {
-      baseInput.sleep_hours = sleepPlan.payload.sleep_hours;
-    }
-
-    payload = buildUpdatePayload(baseInput);
-    hasBasePayload = Object.keys(payload).length > 0;
-    hasSleepPayload = saveSleepSeparately && Object.keys(sleepPlan.payload).length > 0;
-  }
-
-  if (!hasBasePayload && !hasSleepPayload) {
+  if (!hasBasePayload) {
     return { ok: false, message: "保存するデータがありません" };
   }
 
-  if (hasBasePayload) {
-    if (process.env.NODE_ENV !== "production") {
-      console.log("[saveDailyLog]", input.log_date, "fields:", Object.keys(payload).join(", "));
-    }
-
-    const { error: saveError } = await supabase.rpc("save_daily_log_partial", {
-      p_log_date: input.log_date,
-      p_fields: payload,
-    });
-
-    if (saveError) {
-      if (saveError.message === "new_log_requires_weight") {
-        return { ok: false, message: "新しい日付を作成するには体重の入力が必要です" };
-      }
-      console.error("[saveDailyLog] rpc error:", saveError.message, "| payload keys:", Object.keys(payload));
-      return { ok: false, message: "保存に失敗しました: " + saveError.message };
-    }
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[saveDailyLog]", input.log_date, "fields:", Object.keys(payload).join(", "));
   }
 
-  if (hasSleepPayload) {
-    if (process.env.NODE_ENV !== "production") {
-      console.log("[saveDailyLog:sleep]", sleepPlan.targetLogDate, "fields:", Object.keys(sleepPlan.payload).join(", "));
-    }
+  const { error: saveError } = await supabase.rpc("save_daily_log_partial", {
+    p_log_date: input.log_date,
+    p_fields: payload,
+  });
 
-    const { error: saveError } = await supabase.rpc("save_daily_log_partial", {
-      p_log_date: sleepPlan.targetLogDate,
-      p_fields: sleepPlan.payload,
-    });
-
-    if (saveError) {
-      if (saveError.message === "new_log_requires_weight") {
-        return { ok: false, message: "新しい日付を作成するには体重の入力が必要です" };
-      }
-      console.error("[saveDailyLog] sleep rpc error:", saveError.message, "| payload keys:", Object.keys(sleepPlan.payload));
-      return { ok: false, message: "保存に失敗しました: " + saveError.message };
+  if (saveError) {
+    if (saveError.message === "new_log_requires_weight") {
+      return { ok: false, message: "新しい日付を作成するには体重の入力が必要です" };
     }
+    console.error("[saveDailyLog] rpc error:", saveError.message, "| payload keys:", Object.keys(payload));
+    return { ok: false, message: "保存に失敗しました: " + saveError.message };
   }
 
   // --- On-demand revalidation ---
@@ -238,110 +175,3 @@ export async function saveDailyLog(
   return { ok: true };
 }
 
-type ExistingTimeFields = { bed_time: string | null; wake_at: string | null } | null;
-
-type SleepSavePlan = {
-  targetLogDate: string;
-  payload: DailyLogPayload;
-};
-
-function deriveSleepSavePlan(
-  input: SaveDailyLogInput,
-  currentRow: ExistingTimeFields,
-  nextRow: ExistingTimeFields
-): SleepSavePlan {
-  if (input.bed_time === undefined) {
-    return { targetLogDate: input.log_date, payload: {} };
-  }
-
-  const bedInPayload = true; // bed_time が undefined でないことを明示
-
-  if (input.bed_time === null) {
-    return {
-      targetLogDate: input.log_date,
-      payload: buildUpdatePayload({ bed_time: null, sleep_hours: null }),
-    };
-  }
-
-  // ここまで到達した場合、input.bed_time は string（undefined/null は早期 return 済み）
-  const bedTime: string = input.bed_time;
-
-  // 起床時刻は sleep_sessions.wake_at を JST HH:MM に変換して使う (#526)
-  const currentWeigh = currentRow?.wake_at ? extractJstHHMM(currentRow.wake_at) : null;
-
-  const overnightTarget = addDaysStr(input.log_date, 1);
-  // nextWeigh は翌日 sleep_sessions の wake_at を JST HH:MM に変換した値
-  const nextWeigh = nextRow?.wake_at ? extractJstHHMM(nextRow.wake_at) : null;
-  const currentWakeHHMM = currentRow?.wake_at ? extractJstHHMM(currentRow.wake_at) : null;
-  const currentRowAlreadyHasWakeDateOvernightPair = (
-    currentRow?.bed_time !== null &&
-    currentRow?.bed_time !== undefined &&
-    currentWakeHHMM !== null &&
-    deriveSleepHours(currentRow.bed_time, currentWakeHHMM) !== null &&
-    timeIsOnOrBefore(currentWakeHHMM, currentRow.bed_time)
-  );
-  // 翌日レコードが存在しない場合はシフトしない。
-  // 翌日が存在しないままシフトすると save_daily_log_partial が
-  // 新規 INSERT を試みて new_log_requires_weight エラーを起こす。
-  const shouldShiftToNextDay = (
-    nextWeigh !== null &&
-    nextRow !== null &&
-    deriveSleepHours(bedTime, nextWeigh) !== null &&
-    timeIsOnOrBefore(nextWeigh, bedTime) &&
-    !currentRowAlreadyHasWakeDateOvernightPair
-  );
-
-  const targetLogDate = shouldShiftToNextDay && overnightTarget ? overnightTarget : input.log_date;
-  // targetBed は常に user's new value（bedInPayload/null は上の早期 return で保証済み）
-  const targetBed   = bedTime;
-  const targetWeigh = shouldShiftToNextDay ? nextWeigh : currentWeigh;
-
-  const sleepInput: Omit<SaveDailyLogInput, "log_date"> = {};
-  if (bedInPayload) sleepInput.bed_time = bedTime;
-
-  if (targetWeigh !== null) {
-    const derived = deriveSleepHours(targetBed, targetWeigh);
-    if (derived !== null) sleepInput.sleep_hours = derived;
-  }
-
-  return {
-    targetLogDate,
-    payload: buildUpdatePayload(sleepInput),
-  };
-}
-
-function timeIsOnOrBefore(lhs: string, rhs: string): boolean {
-  return lhs.localeCompare(rhs) <= 0;
-}
-
-// ─── 内部ヘルパー ──────────────────────────────────────────────────────────────
-
-/**
- * bed_time (daily_logs) と wake_at (sleep_sessions) を並行取得する。
- *
- * 片側のみ更新する場合に、もう片側の現在値を取得して sleep_hours の再算出に使う。
- * daily_logs 行が存在しない場合は null を返す。
- * sleep_sessions が存在しない場合は wake_at = null として返す。
- */
-async function fetchExistingTimeFields(
-  supabase: ReturnType<typeof createClient>,
-  logDate: string
-): Promise<ExistingTimeFields> {
-  const [dailyLogRes, sleepSessionRes] = await Promise.all([
-    supabase
-      .from("daily_logs")
-      .select("bed_time")
-      .eq("log_date", logDate)
-      .maybeSingle(),
-    supabase
-      .from("sleep_sessions")
-      .select("wake_at")
-      .eq("wake_date", logDate)
-      .maybeSingle(),
-  ]);
-
-  if (!dailyLogRes.data) return null;
-  const bed_time = (dailyLogRes.data as { bed_time: string | null }).bed_time;
-  const wake_at  = (sleepSessionRes.data as { wake_at: string } | null)?.wake_at ?? null;
-  return { bed_time, wake_at };
-}

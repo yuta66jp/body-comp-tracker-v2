@@ -61,7 +61,6 @@ export type Database = {
       }
       daily_logs: {
         Row: {
-          bed_time: string | null
           calories: number | null
           carbs: number | null
           created_at: string | null
@@ -85,7 +84,6 @@ export type Database = {
           work_mode: string | null
         }
         Insert: {
-          bed_time?: string | null
           calories?: number | null
           carbs?: number | null
           created_at?: string | null
@@ -109,7 +107,6 @@ export type Database = {
           work_mode?: string | null
         }
         Update: {
-          bed_time?: string | null
           calories?: number | null
           carbs?: number | null
           created_at?: string | null
