@@ -233,4 +233,37 @@ describe("MealLogger handleSave — 保存順序 (#528 回帰)", () => {
     expect(mockSaveSleepSession).not.toHaveBeenCalled();
     expect(callOrder).toEqual(["saveDailyLog"]);
   });
+
+  /**
+   * daily_logs 変更あり + 睡眠が片側入力のとき、何も保存しない (#528 事前チェック回帰)。
+   *
+   * 修正前は saveDailyLog → 片側入力エラーの順序だったため、
+   * daily_logs だけ保存されてからエラーが返る回帰が存在した。
+   * 片側入力の妥当性チェックを saveDailyLog より前に移動することで
+   * 両方未保存のまま早期 return されることを確認する。
+   */
+  it("daily_logs 変更あり + 睡眠が片側入力のとき saveDailyLog / saveSleepSession ともに呼ばれない", async () => {
+    render(<MealLogger />);
+
+    // 体重を入力（daily_logs の変更フラグを立てる）
+    const weightInput = screen.getByLabelText(/体重/);
+    fireEvent.change(weightInput, { target: { value: "70.5" } });
+
+    // 就寝時刻のみ入力（起床時刻は空のまま = 片側入力）
+    const bedTimeInput = screen.getByLabelText(/就寝時刻/);
+    fireEvent.change(bedTimeInput, { target: { value: "23:00" } });
+    // wakeTimeInput は変更しない
+
+    const saveButton = screen.getByRole("button", { name: /保存/ });
+    fireEvent.click(saveButton);
+
+    // 片側入力エラーで早期 return → どちらも呼ばれない
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: /保存中/ })).toBeNull();
+    });
+
+    expect(mockSaveDailyLog).not.toHaveBeenCalled();
+    expect(mockSaveSleepSession).not.toHaveBeenCalled();
+    expect(callOrder).toEqual([]);
+  });
 });

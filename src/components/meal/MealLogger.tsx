@@ -302,6 +302,22 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     setStatus("saving");
 
     try {
+      // ── 睡眠入力の事前妥当性チェック ──
+      // saveDailyLog より先に実行する (#528)。
+      // 片側だけ入力されたまま saveDailyLog まで進むと、daily_logs が保存された後に
+      // エラーが返る回帰が生じるため、何も保存する前にここでガードする。
+      if (
+        sleepSessionTouched &&
+        !sleepSessionPendingDelete &&
+        (sleepBedTime || sleepWakeTime) &&
+        !(sleepBedTime && sleepWakeTime)
+      ) {
+        setErrorMessage("就寝時刻と起床時刻はセットで入力してください。");
+        setStatus("error");
+        setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
+        return;
+      }
+
       // ── daily_logs 保存（変更がある場合のみ）──
       // sleep_sessions より先に保存する (#528)。
       //
@@ -388,14 +404,9 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
             bed_time:  sleepBedTime,
             wake_time: sleepWakeTime,
           });
-        } else if (sleepBedTime || sleepWakeTime) {
-          // どちらか片方だけ入力 → 保存を止めてユーザーに知らせる
-          setErrorMessage("就寝時刻と起床時刻はセットで入力してください。");
-          setStatus("error");
-          setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
-          return;
         } else {
           // 両方空 (操作なし) → スキップ
+          // 片側入力は tryブロック冒頭の事前チェックで弾いているため、ここには到達しない。
           sleepResult = { ok: true };
         }
         if (!sleepResult.ok) {
