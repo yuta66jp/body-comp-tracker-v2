@@ -15,7 +15,8 @@
  */
 
 import { ArrowDown, ArrowUp, Minus } from "lucide-react";
-import type { DashboardDailyLog } from "@/lib/supabase/types";
+import type { DashboardDailyLog, SleepSession } from "@/lib/supabase/types";
+import { extractJstHHMM } from "@/lib/utils/sleepSession";
 import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayTags";
 import { formatConditionSummary } from "@/lib/utils/trainingType";
 import { computeWeightDelta, buildRecentLogArrays } from "@/lib/utils/recentLogsUtils";
@@ -24,14 +25,21 @@ import { addDaysStr } from "@/lib/utils/date";
 
 interface RecentLogsCardsProps {
   logs: DashboardDailyLog[];
+  sleepSessions?: Pick<SleepSession, "wake_date" | "wake_at">[];
   seasonMap?: Map<string, string>;
   currentSeason?: string | null;
 }
 
-export function RecentLogsCards({ logs, seasonMap, currentSeason }: RecentLogsCardsProps) {
+export function RecentLogsCards({ logs, sleepSessions = [], seasonMap, currentSeason }: RecentLogsCardsProps) {
   const { sorted, ascending } = buildRecentLogArrays(logs);
   // 断食時間算出用: 日付 → ログ の高速参照テーブル（前日 D-1 の last_meal_end_time を参照するため）
   const logByDate = new Map(ascending.map((l) => [l.log_date, l]));
+  // 断食時間算出用: wake_date → wake_at (JST HH:MM) の高速参照テーブル
+  const wakeTimeByDate = new Map(
+    sleepSessions
+      .map((s) => [s.wake_date, extractJstHHMM(s.wake_at)] as [string, string | null])
+      .filter((entry): entry is [string, string] => entry[1] !== null)
+  );
 
   if (sorted.length === 0) {
     return (
@@ -80,7 +88,8 @@ export function RecentLogsCards({ logs, seasonMap, currentSeason }: RecentLogsCa
               {(() => {
                 const prevDate    = addDaysStr(log.log_date, -1);
                 const prevDayLog  = prevDate ? (logByDate.get(prevDate) ?? null) : null;
-                const fastingHours = calcFastingHours(prevDayLog?.last_meal_end_time, log.weigh_in_time);
+                const wakeUpTime  = wakeTimeByDate.get(log.log_date) ?? null;
+                const fastingHours = calcFastingHours(prevDayLog?.last_meal_end_time, wakeUpTime);
                 if (!conditionSummary && log.sleep_hours === null && fastingHours === null) return null;
                 return (
                   <div className="mt-0.5 text-[10px] leading-snug text-slate-400 dark:text-slate-500">

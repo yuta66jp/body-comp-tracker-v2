@@ -1,7 +1,7 @@
 /**
  * deriveSleepHours — ユニットテスト
  *
- * 就寝時刻 (bed_time) と体重測定時刻 (weigh_in_time) から
+ * 就寝時刻 (bed_time) と起床時刻 (wake_up_time) から
  * 推定睡眠時間 (sleep_hours) を算出する純粋関数の検証。
  */
 
@@ -41,7 +41,7 @@ describe("deriveSleepHours — 日またぎなし（当日内）", () => {
   });
 
   test("22:00 → 22:30: 0.5h", () => {
-    // weigh_in_time (22:30) > bed_time (22:00) → 日またぎなし
+    // wake_up_time (22:30) > bed_time (22:00) → 日またぎなし
     expect(deriveSleepHours("22:00", "22:30")).toBe(0.5);
   });
 });
@@ -78,7 +78,7 @@ describe("deriveSleepHours — 小数点丸め", () => {
 
 describe("deriveSleepHours — 異常値 (null を返す)", () => {
   test("同一時刻: 日またぎ補正後 24h → null", () => {
-    // bed_time = weigh_in_time → 日またぎで +24h → diffHours = 24 → 無効
+    // bed_time = wake_up_time → 日またぎで +24h → diffHours = 24 → 無効
     expect(deriveSleepHours("07:00", "07:00")).toBeNull();
   });
 

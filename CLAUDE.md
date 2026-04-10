@@ -139,20 +139,20 @@ body-comp-tracker-v2/
 
 - `daily_logs` — log_date(PK), weight, calories, protein, fat, carbs, note,
   sleep_hours, had_bowel_movement, training_type, work_mode,
-  last_meal_end_time, weigh_in_time, bed_time, step_count
+  last_meal_end_time, bed_time, step_count
   - `had_bowel_movement` は `BOOLEAN DEFAULT NULL`（三状態: null=未記録 / false=便通なし / true=便通あり）
   - leg_flag は派生値（deriveLegFlag のみ定義源）。直接書き込まない
   - `sleep_hours` は `sleep_sessions` の `bed_at` / `wake_at` から DB トリガー（`trg_sync_sleep_hours`）が自動同期する **projection 値**。直接書き込まない（定義源はトリガー、`deriveSleepHours()` ではない）。`is_poor_sleep` カラムは削除済み（#338）
   - `last_meal_end_time` は TIME 型・nullable。空腹時間算出用（#435）。
-  - `weigh_in_time` は TIME 型・nullable。**projection 値**。`sleep_sessions.wake_at` から DB トリガー（`trg_sync_weigh_in_time`）が自動同期する（#526）。ユーザーは手動入力不可。空腹時間算出（`calcFastingHours`）が透過的に参照する。
+  - `weigh_in_time` は **#526 で廃止済み**。起床時刻は `sleep_sessions.wake_at` を直接参照する。`calcFastingHours` は `sleepSessions` prop 経由で `wake_at` を受け取る
   - `bed_time` は TIME 型・nullable。**移行期カラム（廃止方向）**。#515 で睡眠の source of truth は `sleep_sessions` へ移行済み。MealLogger からの新規書き込みは行わない。廃止 migration は将来の別 Issue で作成予定
   - `step_count` は INTEGER 型・nullable。Apple Health インポート専用（#436）。手動入力 UI なし
   - `work_mode` の DB CHECK 制約は `off/office/remote/active/travel/other` の 6 値を許容するが、
     フロントエンド（`src/lib/utils/trainingType.ts`）では `off/office/remote` の 3 値のみ定義している。
     `active/travel/other` はフロント UI・CSV import・表示整形で現状扱われない（将来拡張余地）
   - **`save_daily_log_partial` RPC を `CREATE OR REPLACE` で再定義する際は、廃止済みカラム
-    （`is_poor_sleep` など）を誤って含めないこと。過去 migration のコピー元に廃止前のコードが
-    残っている場合があるため、最新 migration を参照すること（#442 で発生した regression）**
+    （`is_poor_sleep` / `weigh_in_time` など）を誤って含めないこと。過去 migration のコピー元に廃止前のコードが
+    残っている場合があるため、最新 migration を参照すること（#442 / #526 で発生した regression）**
 - `food_master` — name(PK), protein, fat, carbs, calories, category
 - `menu_master` — name(PK), recipe(JSONB)
 - `settings` — key(PK), value_num, value_str

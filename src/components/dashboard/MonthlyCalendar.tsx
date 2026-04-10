@@ -33,7 +33,7 @@ import { createContext, useContext, useMemo, useState } from "react";
 import { DayPicker } from "react-day-picker";
 import { ja } from "date-fns/locale";
 import * as JapaneseHolidays from "japanese-holidays";
-import type { DashboardDailyLog } from "@/lib/supabase/types";
+import type { DashboardDailyLog, SleepSession } from "@/lib/supabase/types";
 import { buildCalendarDayMap, getMobileTrainingLabel, toDateKey, type CalendarDayData } from "@/lib/utils/calendarUtils";
 import type { DayProps } from "react-day-picker";
 import { toJstDateStr } from "@/lib/utils/date";
@@ -257,15 +257,16 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
 
 interface MonthlyCalendarProps {
   logs: DashboardDailyLog[];
+  sleepSessions?: Pick<SleepSession, "wake_date" | "wake_at">[];
 }
 
-export function MonthlyCalendar({ logs }: MonthlyCalendarProps) {
+export function MonthlyCalendar({ logs, sleepSessions = [] }: MonthlyCalendarProps) {
   // 当月（JST 基準）でデフォルト初期化
   const todayKey          = toJstDateStr();
   const [y, m]            = todayKey.split("-").map(Number) as [number, number, number];
   const [month, setMonth] = useState<Date>(new Date(y, m - 1, 1));
 
-  const dayMap = useMemo(() => buildCalendarDayMap(logs), [logs]);
+  const dayMap = useMemo(() => buildCalendarDayMap(logs, sleepSessions), [logs, sleepSessions]);
 
   const ctxValue: CalendarCtx = useMemo(
     () => ({ dayMap, todayKey }),

@@ -11,9 +11,11 @@
  */
 
 import type { DashboardDailyLog } from "@/lib/supabase/types";
+import type { SleepSession } from "@/lib/supabase/types";
 import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "./dayTags";
 import { formatConditionSummary, isValidTrainingType, isValidWorkMode, TRAINING_TYPE_LABELS, WORK_MODE_LABELS } from "./trainingType";
 import { addDaysStr } from "./date";
+import { extractJstHHMM } from "./sleepSession";
 
 // ── 型定義 ──────────────────────────────────────────────────────────────────
 
@@ -47,9 +49,8 @@ export interface CalendarDayData {
   conditionTags: CalendarDayTagInfo[];
   /**
    * 断食時間（時間単位、小数点1桁）。
-   * 表示日 D の断食時間 = 前日 D-1 の last_meal_end_time と 当日 D の weigh_in_time の差分。
-   * weigh_in_time は sleep_sessions.wake_at から DB トリガーで自動同期される（#526）。
-   * 前日ログなし・前日に last_meal_end_time なし・当日に weigh_in_time なし のいずれかで null。
+   * 表示日 D の断食時間 = 前日 D-1 の last_meal_end_time と 当日 D の sleep_sessions.wake_at の差分。
+   * 前日ログなし・前日に last_meal_end_time なし・当日に sleep_sessions なし のいずれかで null。
    */
   fasting_hours: number | null;
 }
@@ -64,7 +65,7 @@ export interface CalendarDayData {
  *
  * 呼び出し側の責務:
  *   - lastMealEndTime には「前日 D-1 の last_meal_end_time」を渡すこと
- *   - wakeUpTime には「当日 D の weigh_in_time」を渡すこと（sleep_sessions.wake_at から自動同期）
+ *   - wakeUpTime には「当日 D の sleep_sessions.wake_at を JST 変換した HH:MM」を渡すこと
  *   - 前日ログが存在しない場合は null を渡し、呼び出し側でハンドリングすること
  */
 export function calcFastingHours(
@@ -176,7 +177,10 @@ export function getMobileTrainingLabel(
  * - ログが存在しない日は Map に含まれない
  * - 差分は「直前のログ日の記録値」との差分（欠損日を跨ぐ）
  */
-export function buildCalendarDayMap(logs: DashboardDailyLog[]): Map<string, CalendarDayData> {
+export function buildCalendarDayMap(
+  logs: DashboardDailyLog[],
+  sleepSessions: Pick<SleepSession, "wake_date" | "wake_at">[] = [],
+): Map<string, CalendarDayData> {
   const sorted = [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date));
 
   // 体重・カロリーそれぞれの「記録ありログ」リスト（差分計算用）
@@ -185,6 +189,13 @@ export function buildCalendarDayMap(logs: DashboardDailyLog[]): Map<string, Cale
 
   // 断食時間算出用: 日付 → ログ の高速参照テーブル
   const logByDate = new Map(sorted.map((l) => [l.log_date, l]));
+
+  // 断食時間算出用: wake_date → wake_at (JST HH:MM) の高速参照テーブル
+  const wakeTimeByDate = new Map(
+    sleepSessions
+      .map((s) => [s.wake_date, extractJstHHMM(s.wake_at)] as [string, string | null])
+      .filter((entry): entry is [string, string] => entry[1] !== null)
+  );
 
   const map = new Map<string, CalendarDayData>();
 
@@ -230,11 +241,12 @@ export function buildCalendarDayMap(logs: DashboardDailyLog[]): Map<string, Cale
       work_mode:          log.work_mode,
     });
 
-    // 断食時間: 前日 D-1 の last_meal_end_time → 当日 D の weigh_in_time (sleep_sessions.wake_at から自動同期)
-    // 前日ログなし・前日 last_meal_end_time なし・当日 weigh_in_time なし → null
+    // 断食時間: 前日 D-1 の last_meal_end_time → 当日 D の sleep_sessions.wake_at (JST HH:MM)
+    // 前日ログなし・前日 last_meal_end_time なし・当日 sleep_sessions なし → null
     const prevDateKey = addDaysStr(log.log_date, -1);
     const prevDayLog  = prevDateKey ? (logByDate.get(prevDateKey) ?? null) : null;
-    const fasting_hours = calcFastingHours(prevDayLog?.last_meal_end_time, log.weigh_in_time);
+    const wakeUpTime  = wakeTimeByDate.get(log.log_date) ?? null;
+    const fasting_hours = calcFastingHours(prevDayLog?.last_meal_end_time, wakeUpTime);
 
     map.set(log.log_date, {
       log, weightDelta, calDelta, dayTags, conditionSummary, conditionTags, fasting_hours,

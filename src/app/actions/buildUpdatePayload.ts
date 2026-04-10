@@ -41,7 +41,6 @@ export function buildUpdatePayload(
   }
 
   // #435 追加: 食事タイミング
-  // weigh_in_time は #526 で手動入力廃止。sleep_sessions.wake_at からの DB トリガーで自動同期される。
   if (input.last_meal_end_time !== undefined) payload.last_meal_end_time = input.last_meal_end_time;
 
   // #436 追加: 歩数（Apple Health インポート専用。MealLogger からは渡されない）

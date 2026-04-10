@@ -1,24 +1,24 @@
 /**
  * 推定睡眠時間算出ユーティリティ
  *
- * bed_time (就寝時刻) と weigh_in_time (起床時刻) から
+ * bed_time (就寝時刻) と wake_up_time (起床時刻) から
  * 推定睡眠時間 (sleep_hours) を算出する純粋関数群。
  *
  * ## 起床日基準（#507）
  *
  * sleep_hours は「log_date（起床日）に属する睡眠セッション」の長さを表す。
  * bed_time が前日夜・当日深夜・早朝のいずれであっても、
- * weigh_in_time（= 起床時刻。#526 以降は sleep_sessions.wake_at から DB トリガーで自動同期）
+ * wake_up_time（= 起床時刻。sleep_sessions.wake_at を extractJstHHMM で変換した値）
  * と同じ log_date に属する値として扱う。
  *
  * 例（いずれも log_date = 2026-04-08）:
- *   - 前日夜就寝: bed_time=23:30, weigh_in_time=07:00 → 7.5h （日またぎ補正あり）
- *   - 当日深夜就寝: bed_time=01:30, weigh_in_time=08:00 → 6.5h
- *   - 早朝就寝: bed_time=04:00, weigh_in_time=10:00 → 6.0h
+ *   - 前日夜就寝: bed_time=23:30, wake_up_time=07:00 → 7.5h （日またぎ補正あり）
+ *   - 当日深夜就寝: bed_time=01:30, wake_up_time=08:00 → 6.5h
+ *   - 早朝就寝: bed_time=04:00, wake_up_time=10:00 → 6.0h
  *
  * 設計方針:
  *   - 計算ロジックをここに集約し、UI 側での再実装を禁止する
- *   - 日またぎ補正: weigh_in_time <= bed_time の場合、weigh_in_time に 24h を加算
+ *   - 日またぎ補正: wake_up_time <= bed_time の場合、wake_up_time に 24h を加算
  *     （log_date の朝 = bed_time の翌朝にあたるため）
  *   - 有効範囲: (0, 24) — 0h 以下・24h 以上は異常値として null を返す
  *   - 結果は小数点以下 1 桁に丸める (例: 7.5h)
@@ -54,11 +54,11 @@ function timeToMinutes(time: string): number | null {
  * 起床日基準: bedTime は log_date の朝に起床した睡眠セッションの開始時刻を表す。
  * 前日夜（23:30 等）・当日深夜（01:30 等）・早朝（04:00 等）のいずれも同じ計算式で処理する。
  *
- * #526: wake_up_time (= weigh_in_time) は sleep_sessions.wake_at から DB トリガーで自動同期される。
+ * #526: wake_up_time は sleep_sessions.wake_at を extractJstHHMM で JST 変換した値。
  *
  * @param bedTime     就寝時刻 "HH:MM" または "HH:MM:SS"
  *                    （この log_date の朝の起床に対応する睡眠セッションの開始時刻）
- * @param wakeUpTime  起床時刻 "HH:MM" または "HH:MM:SS"（daily_logs.weigh_in_time の値）
+ * @param wakeUpTime  起床時刻 "HH:MM" または "HH:MM:SS"（sleep_sessions.wake_at の JST 変換値）
  * @returns 推定睡眠時間 (h, 小数点以下 1 桁)、または null (算出不能・異常値)
  *
  * 仕様:

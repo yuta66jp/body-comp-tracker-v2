@@ -81,7 +81,6 @@ export type Database = {
           step_count: number | null
           training_type: string | null
           updated_at: string
-          weigh_in_time: string | null
           weight: number
           work_mode: string | null
         }
@@ -106,7 +105,6 @@ export type Database = {
           step_count?: number | null
           training_type?: string | null
           updated_at?: string
-          weigh_in_time?: string | null
           weight: number
           work_mode?: string | null
         }
@@ -131,7 +129,6 @@ export type Database = {
           step_count?: number | null
           training_type?: string | null
           updated_at?: string
-          weigh_in_time?: string | null
           weight?: number
           work_mode?: string | null
         }

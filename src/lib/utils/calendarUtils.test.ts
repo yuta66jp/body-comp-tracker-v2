@@ -31,7 +31,6 @@ function makeLog(overrides: Omit<Partial<DailyLog>, "weight"> & { log_date: stri
     work_mode:          overrides.work_mode          ?? null,
     leg_flag:           overrides.leg_flag           ?? null,
     last_meal_end_time: overrides.last_meal_end_time ?? null,
-    weigh_in_time:      overrides.weigh_in_time      ?? null,
     step_count:         overrides.step_count         ?? null,
     bed_time:           overrides.bed_time           ?? null,
     updated_at:         overrides.updated_at         ?? "2026-03-01T00:00:00Z",
@@ -297,13 +296,14 @@ describe("buildConditionTags", () => {
 // ── buildCalendarDayMap — fasting_hours (前日参照仕様) ─────────────────────────
 
 describe("buildCalendarDayMap — fasting_hours", () => {
-  it("前日 last_meal_end_time と当日 weigh_in_time から算出する", () => {
+  it("前日 last_meal_end_time と当日 sleep_sessions.wake_at から算出する", () => {
     // 前日 22:30 → 当日 07:00 = 8.5h
     const logs = [
       makeLog({ log_date: "2026-03-09", weight: 70, last_meal_end_time: "22:30:00" }),
-      makeLog({ log_date: "2026-03-10", weight: 70, weigh_in_time: "07:00:00" }),
+      makeLog({ log_date: "2026-03-10", weight: 70 }),
     ];
-    const map = buildCalendarDayMap(logs);
+    const sleepSessions = [{ wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00" }];
+    const map = buildCalendarDayMap(logs, sleepSessions);
     expect(map.get("2026-03-10")!.fasting_hours).toBe(8.5);
   });
 
@@ -311,9 +311,10 @@ describe("buildCalendarDayMap — fasting_hours", () => {
     // 2026-03-11 の前日 (2026-03-10) はログなし
     const logs = [
       makeLog({ log_date: "2026-03-09", weight: 70, last_meal_end_time: "22:30:00" }),
-      makeLog({ log_date: "2026-03-11", weight: 70, weigh_in_time: "07:00:00" }),
+      makeLog({ log_date: "2026-03-11", weight: 70 }),
     ];
-    const map = buildCalendarDayMap(logs);
+    const sleepSessions = [{ wake_date: "2026-03-11", wake_at: "2026-03-11T07:00:00+09:00" }];
+    const map = buildCalendarDayMap(logs, sleepSessions);
     // 2026-03-10 のログが存在しないので 2026-03-11 は null
     expect(map.get("2026-03-11")!.fasting_hours).toBeNull();
   });
@@ -321,17 +322,19 @@ describe("buildCalendarDayMap — fasting_hours", () => {
   it("前日 last_meal_end_time がない場合は null", () => {
     const logs = [
       makeLog({ log_date: "2026-03-09", weight: 70, last_meal_end_time: null }),
-      makeLog({ log_date: "2026-03-10", weight: 70, weigh_in_time: "07:00:00" }),
+      makeLog({ log_date: "2026-03-10", weight: 70 }),
     ];
-    const map = buildCalendarDayMap(logs);
+    const sleepSessions = [{ wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00" }];
+    const map = buildCalendarDayMap(logs, sleepSessions);
     expect(map.get("2026-03-10")!.fasting_hours).toBeNull();
   });
 
-  it("当日 weigh_in_time がない場合は null", () => {
+  it("当日 sleep_sessions がない場合は null", () => {
     const logs = [
       makeLog({ log_date: "2026-03-09", weight: 70, last_meal_end_time: "22:30:00" }),
-      makeLog({ log_date: "2026-03-10", weight: 70, weigh_in_time: null }),
+      makeLog({ log_date: "2026-03-10", weight: 70 }),
     ];
+    // sleepSessions を渡さない（2026-03-10 の sleep_session なし）
     const map = buildCalendarDayMap(logs);
     expect(map.get("2026-03-10")!.fasting_hours).toBeNull();
   });
@@ -339,28 +342,34 @@ describe("buildCalendarDayMap — fasting_hours", () => {
   it("当日の same-day last_meal_end_time は断食時間に使われない", () => {
     // 当日 D に last_meal_end_time があっても、前日がなければ null
     const logs = [
-      makeLog({ log_date: "2026-03-10", weight: 70, last_meal_end_time: "22:30:00", weigh_in_time: "07:00:00" }),
+      makeLog({ log_date: "2026-03-10", weight: 70, last_meal_end_time: "22:30:00" }),
     ];
-    const map = buildCalendarDayMap(logs);
+    const sleepSessions = [{ wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00" }];
+    const map = buildCalendarDayMap(logs, sleepSessions);
     // 前日ログがないので null（旧仕様では 8.5h だった）
     expect(map.get("2026-03-10")!.fasting_hours).toBeNull();
   });
 
   it("ログが1件のみ（前日参照不能）の場合は null", () => {
     const logs = [
-      makeLog({ log_date: "2026-03-10", weight: 70, last_meal_end_time: "22:30:00", weigh_in_time: "07:00:00" }),
+      makeLog({ log_date: "2026-03-10", weight: 70, last_meal_end_time: "22:30:00" }),
     ];
-    const map = buildCalendarDayMap(logs);
+    const sleepSessions = [{ wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00" }];
+    const map = buildCalendarDayMap(logs, sleepSessions);
     expect(map.get("2026-03-10")!.fasting_hours).toBeNull();
   });
 
   it("連続ログが複数ある場合、各日は正しく前日を参照する", () => {
     const logs = [
       makeLog({ log_date: "2026-03-08", weight: 70, last_meal_end_time: "21:00:00" }),
-      makeLog({ log_date: "2026-03-09", weight: 70, last_meal_end_time: "22:30:00", weigh_in_time: "06:00:00" }),
-      makeLog({ log_date: "2026-03-10", weight: 70, weigh_in_time: "07:00:00" }),
+      makeLog({ log_date: "2026-03-09", weight: 70, last_meal_end_time: "22:30:00" }),
+      makeLog({ log_date: "2026-03-10", weight: 70 }),
     ];
-    const map = buildCalendarDayMap(logs);
+    const sleepSessions = [
+      { wake_date: "2026-03-09", wake_at: "2026-03-09T06:00:00+09:00" },
+      { wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00" },
+    ];
+    const map = buildCalendarDayMap(logs, sleepSessions);
     // 2026-03-09: 前日(08) 21:00 → 当日(09) 06:00 = 9h
     expect(map.get("2026-03-09")!.fasting_hours).toBe(9);
     // 2026-03-10: 前日(09) 22:30 → 当日(10) 07:00 = 8.5h

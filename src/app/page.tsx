@@ -17,6 +17,7 @@ import { buildMonthlyGoalSummaryRows, buildMonthlyGoalComparisonRows } from "@/l
 import { calcMonthlyBehaviorStats } from "@/lib/utils/calcMonthlyBehaviorStats";
 import { resolveMonthlyPlanHistoryAnchor } from "@/lib/utils/monthlyPlanHistory";
 import { fetchDashboardDailyLogs, fetchPredictions, fetchCareerLogsForDashboard } from "@/lib/queries/dailyLogs";
+import { fetchSleepSessionsForRange } from "@/lib/queries/sleepSessions";
 import { fetchSettings } from "@/lib/queries/settings";
 import { fetchEnrichedLogs } from "@/lib/queries/analytics";
 import { mapToAppSettings } from "@/lib/domain/settings";
@@ -96,6 +97,13 @@ export default async function DashboardPage() {
   // QueryResult を展開。エラー時はフォールバック値で graceful degradation を維持する。
   const logs = logsResult.kind === "ok" ? logsResult.data : [];
   const settings = settingsResult.kind === "ok" ? settingsResult.data : mapToAppSettings([]);
+
+  // 断食時間算出用: sleep_sessions を logs の日付範囲で取得する
+  const firstLogDate = logs.at(0)?.log_date ?? null;
+  const lastLogDate  = logs.at(-1)?.log_date ?? null;
+  const sleepSessions = firstLogDate && lastLogDate
+    ? await fetchSleepSessionsForRange(firstLogDate, lastLogDate)
+    : [];
 
   // MAX(updated_at) を使って stale 判定する。
   // MAX(log_date) ではなく MAX(updated_at) を使うことで、過去日の行修正でも stale を正しく検知できる。
@@ -304,6 +312,7 @@ export default async function DashboardPage() {
           )}
           <LogsAndSummaryTabs
             logs={logs}
+            sleepSessions={sleepSessions}
             monthStats={monthStats}
             seasonMap={seasonMap}
             currentSeason={currentSeason}
