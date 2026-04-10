@@ -41,15 +41,16 @@ import type { QueryResult } from "./queryResult";
  *
  * ## 取得列と除外列の根拠（#165 棚卸し済み、#435 で時刻列追加、#436 で step_count 追加）
  *
- * 取得列 (19列):
+ * 取得列 (18列):
  *   log_date, weight, calories, protein, fat, carbs,
  *   is_cheat_day, is_refeed_day, is_eating_out, is_travel_day,
  *   sleep_hours, had_bowel_movement, training_type, work_mode, updated_at,
- *   last_meal_end_time, weigh_in_time, step_count
+ *   last_meal_end_time, step_count, bed_time
  *
- * 除外列 (2列):
- *   - note     : Dashboard のいずれの関数・コンポーネントでも参照されない
- *   - leg_flag : Dashboard では参照されない（training_type から導出される派生値）
+ * 除外列 (3列):
+ *   - note          : Dashboard のいずれの関数・コンポーネントでも参照されない
+ *   - leg_flag      : Dashboard では参照されない（training_type から導出される派生値）
+ *   - weigh_in_time : #526 で廃止。起床時刻は sleep_sessions.wake_at を直接参照する
  *
  * ## 用途別の列対応
  *   - calcReadiness          : log_date, weight
@@ -84,7 +85,7 @@ export async function fetchDashboardDailyLogs(): Promise<QueryResult<DashboardDa
       "log_date, weight, calories, protein, fat, carbs, " +
       "is_cheat_day, is_refeed_day, is_eating_out, is_travel_day, " +
       "sleep_hours, had_bowel_movement, training_type, work_mode, updated_at, " +
-      "last_meal_end_time, weigh_in_time, step_count"
+      "last_meal_end_time, step_count, bed_time"
     )
     .order("log_date", { ascending: true });
   if (error) {

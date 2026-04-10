@@ -27,7 +27,6 @@ function makeLog(
     is_eating_out: false,
     is_travel_day: false,
     last_meal_end_time: null,
-    weigh_in_time: null,
     step_count: null,
     bed_time: null,
     created_at: null,

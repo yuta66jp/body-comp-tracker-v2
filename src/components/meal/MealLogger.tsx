@@ -50,7 +50,6 @@ export interface HasContentInput {
   trainingTypeTouched: boolean;
   workModeTouched: boolean;
   lastMealEndTimeTouched: boolean;
-  weighInTimeTouched: boolean;
 }
 
 export function computeHasContent(input: HasContentInput): boolean {
@@ -67,8 +66,7 @@ export function computeHasContent(input: HasContentInput): boolean {
     input.hadBowelMovementTouched || // touched なら null 送信も含め有効化
     input.trainingTypeTouched ||
     input.workModeTouched ||
-    input.lastMealEndTimeTouched ||
-    input.weighInTimeTouched
+    input.lastMealEndTimeTouched
   );
 }
 
@@ -89,8 +87,7 @@ export function computeHasDailyLogChanges(input: HasContentInput): boolean {
     input.hadBowelMovementTouched ||
     input.trainingTypeTouched ||
     input.workModeTouched ||
-    input.lastMealEndTimeTouched ||
-    input.weighInTimeTouched
+    input.lastMealEndTimeTouched
     // sleepSessionTouched は sleep_sessions 側の変更。daily_logs には含めない。
   );
 }
@@ -162,8 +159,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
   // "" = 未入力, "HH:MM" = 入力値。null は使わない（time input はクリアで "" になる）
   const [lastMealEndTime, setLastMealEndTime] = useState("");
   const [lastMealEndTimeTouched, setLastMealEndTimeTouched] = useState(false);
-  const [weighInTime, setWeighInTime] = useState("");
-  const [weighInTimeTouched, setWeighInTimeTouched] = useState(false);
 
   // 食品を追加セクションの開閉状態（初期: 非表示）
   const [foodPickerOpen, setFoodPickerOpen] = useState(false);
@@ -191,7 +186,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     setTrainingTypeTouched(false);
     setWorkModeTouched(false);
     setLastMealEndTimeTouched(false);
-    setWeighInTimeTouched(false);
     setTouchedTags(new Set());
 
     // カートはマクロ値から復元不可のためリセット
@@ -213,7 +207,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       });
       // TIME 型は "HH:MM:SS" で返るため、input[type=time] 用に "HH:MM" に切り出す
       setLastMealEndTime(existingLog.last_meal_end_time?.slice(0, 5) ?? "");
-      setWeighInTime(existingLog.weigh_in_time?.slice(0, 5) ?? "");
     } else {
       // 新規日付: 空フォームにリセット
       setWeight("");
@@ -223,7 +216,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       setWorkMode(null);
       setTags(emptyTagState());
       setLastMealEndTime("");
-      setWeighInTime("");
     }
 
     // 睡眠セッション: TIMESTAMPTZ (UTC) から JST の "HH:MM" を復元
@@ -354,7 +346,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
         note, noteTouched, touchedTags,
         sleepSessionTouched, // 渡すが computeHasDailyLogChanges 内では無視される
         hadBowelMovementTouched, trainingTypeTouched, workModeTouched,
-        lastMealEndTimeTouched, weighInTimeTouched,
+        lastMealEndTimeTouched,
       });
 
       if (hasDailyLogChanges) {
@@ -393,7 +385,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
           work_mode:          workModeTouched     ? workMode     : undefined,
           // 時刻: touched かつ非空 → 値保存、touched かつ空 → null（明示クリア）、未操作 → undefined
           last_meal_end_time: lastMealEndTimeTouched ? (lastMealEndTime !== "" ? lastMealEndTime : null) : undefined,
-          weigh_in_time:      weighInTimeTouched     ? (weighInTime      !== "" ? weighInTime      : null) : undefined,
         });
 
         if (!result.ok) {
@@ -430,8 +421,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       setWorkModeTouched(false);
       setLastMealEndTime("");
       setLastMealEndTimeTouched(false);
-      setWeighInTime("");
-      setWeighInTimeTouched(false);
       // SWR キャッシュを更新して次回 hydrate に最新ログを反映させる
       void mutateLogs();
       void mutateSleepSessions();
@@ -453,7 +442,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     note, noteTouched, touchedTags,
     sleepSessionTouched,
     hadBowelMovementTouched, trainingTypeTouched, workModeTouched,
-    lastMealEndTimeTouched, weighInTimeTouched,
+    lastMealEndTimeTouched,
   });
 
   // 就寝・起床時刻から推定睡眠時間をリアルタイム計算（入力フィードバック用）
@@ -717,20 +706,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
               onChange={(e) => { setLastMealEndTime(e.target.value); setLastMealEndTimeTouched(true); }}
               className={inputCls}
             />
-          </div>
-          {/* 体重測定時刻 */}
-          <div>
-            <label htmlFor="meal-log-weigh-in-time" className="mb-1.5 block text-xs font-medium text-slate-500">体重測定時刻</label>
-            <input
-              id="meal-log-weigh-in-time"
-              type="time"
-              value={weighInTime}
-              onChange={(e) => { setWeighInTime(e.target.value); setWeighInTimeTouched(true); }}
-              className={inputCls}
-            />
-            <p className="mt-1 text-[10px] text-slate-400">
-              空腹時間算出に使用（最終食事終了〜測定まで）
-            </p>
           </div>
           {/* 便通 */}
           <div>

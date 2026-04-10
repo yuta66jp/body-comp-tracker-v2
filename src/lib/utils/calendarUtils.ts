@@ -11,9 +11,11 @@
  */
 
 import type { DashboardDailyLog } from "@/lib/supabase/types";
+import type { SleepSession } from "@/lib/supabase/types";
 import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "./dayTags";
 import { formatConditionSummary, isValidTrainingType, isValidWorkMode, TRAINING_TYPE_LABELS, WORK_MODE_LABELS } from "./trainingType";
 import { addDaysStr } from "./date";
+import { extractJstHHMM } from "./sleepSession";
 
 // ── 型定義 ──────────────────────────────────────────────────────────────────
 
@@ -47,8 +49,8 @@ export interface CalendarDayData {
   conditionTags: CalendarDayTagInfo[];
   /**
    * 断食時間（時間単位、小数点1桁）。
-   * 表示日 D の断食時間 = 前日 D-1 の last_meal_end_time と 当日 D の weigh_in_time の差分。
-   * 前日ログなし・前日に last_meal_end_time なし・当日に weigh_in_time なし のいずれかで null。
+   * 表示日 D の断食時間 = 前日 D-1 の last_meal_end_time と 当日 D の sleep_sessions.wake_at の差分。
+   * 前日ログなし・前日に last_meal_end_time なし・当日に sleep_sessions なし のいずれかで null。
    */
   fasting_hours: number | null;
 }
@@ -57,20 +59,20 @@ export interface CalendarDayData {
  * 2つの時刻文字列から断食時間（h）を算出する低レベルユーティリティ。
  *
  * - 両方の時刻が存在する場合のみ計算する。
- * - 日をまたぐ場合（weighInTime < lastMealEndTime）は +24h で補正する。
+ * - 日をまたぐ場合（wakeUpTime < lastMealEndTime）は +24h で補正する。
  * - タイムゾーン情報なし・時刻のみを扱う。
  * - 入力は "HH:MM" または "HH:MM:SS" 形式を許容する（PostgreSQL TIME 型は "HH:MM:SS" で返す）。
  *
  * 呼び出し側の責務:
  *   - lastMealEndTime には「前日 D-1 の last_meal_end_time」を渡すこと
- *   - weighInTime には「当日 D の weigh_in_time」を渡すこと
+ *   - wakeUpTime には「当日 D の sleep_sessions.wake_at を JST 変換した HH:MM」を渡すこと
  *   - 前日ログが存在しない場合は null を渡し、呼び出し側でハンドリングすること
  */
 export function calcFastingHours(
   lastMealEndTime: string | null | undefined,
-  weighInTime: string | null | undefined,
+  wakeUpTime: string | null | undefined,
 ): number | null {
-  if (!lastMealEndTime || !weighInTime) return null;
+  if (!lastMealEndTime || !wakeUpTime) return null;
   const parseMins = (t: string): number | null => {
     const parts = t.split(":");
     const h = parseInt(parts[0] ?? "");
@@ -79,7 +81,7 @@ export function calcFastingHours(
     return h * 60 + m;
   };
   const lastMins  = parseMins(lastMealEndTime);
-  const weighMins = parseMins(weighInTime);
+  const weighMins = parseMins(wakeUpTime);
   if (lastMins === null || weighMins === null) return null;
   let delta = weighMins - lastMins;
   // delta < 0: 日またぎ（例: 前日 22:30 → 翌朝 07:00）→ +24h で正値に補正
@@ -175,7 +177,10 @@ export function getMobileTrainingLabel(
  * - ログが存在しない日は Map に含まれない
  * - 差分は「直前のログ日の記録値」との差分（欠損日を跨ぐ）
  */
-export function buildCalendarDayMap(logs: DashboardDailyLog[]): Map<string, CalendarDayData> {
+export function buildCalendarDayMap(
+  logs: DashboardDailyLog[],
+  sleepSessions: Pick<SleepSession, "wake_date" | "wake_at">[] = [],
+): Map<string, CalendarDayData> {
   const sorted = [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date));
 
   // 体重・カロリーそれぞれの「記録ありログ」リスト（差分計算用）
@@ -184,6 +189,13 @@ export function buildCalendarDayMap(logs: DashboardDailyLog[]): Map<string, Cale
 
   // 断食時間算出用: 日付 → ログ の高速参照テーブル
   const logByDate = new Map(sorted.map((l) => [l.log_date, l]));
+
+  // 断食時間算出用: wake_date → wake_at (JST HH:MM) の高速参照テーブル
+  const wakeTimeByDate = new Map(
+    sleepSessions
+      .map((s) => [s.wake_date, extractJstHHMM(s.wake_at)] as [string, string | null])
+      .filter((entry): entry is [string, string] => entry[1] !== null)
+  );
 
   const map = new Map<string, CalendarDayData>();
 
@@ -229,11 +241,12 @@ export function buildCalendarDayMap(logs: DashboardDailyLog[]): Map<string, Cale
       work_mode:          log.work_mode,
     });
 
-    // 断食時間: 前日 D-1 の last_meal_end_time → 当日 D の weigh_in_time
-    // 前日ログなし・前日 last_meal_end_time なし・当日 weigh_in_time なし → null
+    // 断食時間: 前日 D-1 の last_meal_end_time → 当日 D の sleep_sessions.wake_at (JST HH:MM)
+    // 前日ログなし・前日 last_meal_end_time なし・当日 sleep_sessions なし → null
     const prevDateKey = addDaysStr(log.log_date, -1);
     const prevDayLog  = prevDateKey ? (logByDate.get(prevDateKey) ?? null) : null;
-    const fasting_hours = calcFastingHours(prevDayLog?.last_meal_end_time, log.weigh_in_time);
+    const wakeUpTime  = wakeTimeByDate.get(log.log_date) ?? null;
+    const fasting_hours = calcFastingHours(prevDayLog?.last_meal_end_time, wakeUpTime);
 
     map.set(log.log_date, {
       log, weightDelta, calDelta, dayTags, conditionSummary, conditionTags, fasting_hours,
