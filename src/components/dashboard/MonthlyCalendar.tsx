@@ -216,6 +216,19 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
           </div>
         )}
 
+        {/* ③-c 睡眠時間（デスクトップのみ: 情報密度制御）
+              source of truth: daily_logs.sleep_hours
+              (sleep_sessions から DB トリガーが自動同期する projection 値) */}
+        {data?.sleep_hours != null && (
+          <div className="mt-0.5 hidden sm:block leading-none">
+            <span className="text-[10px] text-slate-500 dark:text-slate-400">睡眠</span>
+            <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
+              {data.sleep_hours % 1 === 0 ? data.sleep_hours.toFixed(0) : data.sleep_hours.toFixed(1)}
+            </span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400">h</span>
+          </div>
+        )}
+
         {/* ④ 特殊日タグ（優先順位最上位の 1 件のみ表示） */}
         {topDayTag && (
           <div className="mt-0.5">

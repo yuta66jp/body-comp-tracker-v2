@@ -53,6 +53,13 @@ export interface CalendarDayData {
    * 前日ログなし・前日に last_meal_end_time なし・当日に sleep_sessions なし のいずれかで null。
    */
   fasting_hours: number | null;
+  /**
+   * 日次の睡眠時間（時間単位）。
+   * source of truth: daily_logs.sleep_hours
+   * (sleep_sessions の bed_at / wake_at から DB トリガー trg_sync_sleep_hours が自動同期する projection 値)
+   * null = 睡眠記録なし。
+   */
+  sleep_hours: number | null;
 }
 
 /**
@@ -250,6 +257,7 @@ export function buildCalendarDayMap(
 
     map.set(log.log_date, {
       log, weightDelta, calDelta, dayTags, conditionSummary, conditionTags, fasting_hours,
+      sleep_hours: log.sleep_hours,
     });
   }
 
