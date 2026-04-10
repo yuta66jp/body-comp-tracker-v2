@@ -7,6 +7,8 @@ const NEW_FIELD_DEFAULTS = {
   is_eating_out: false,
   is_travel_day: false,
   sleep_hours: null,
+  sleep_bed_time: null,
+  sleep_wake_time: null,
   had_bowel_movement: null,
   training_type: null,
   work_mode: null,
@@ -34,7 +36,8 @@ function toCSV(rows: Record<string, unknown>[], columns: string[]): string {
 const DAILY_LOG_COLUMNS = [
   "log_date", "weight", "calories", "protein", "fat", "carbs", "note",
   "is_cheat_day", "is_refeed_day", "is_eating_out", "is_travel_day",
-  "sleep_hours", "had_bowel_movement", "training_type", "work_mode", "leg_flag",
+  "sleep_hours", "sleep_bed_time", "sleep_wake_time",
+  "had_bowel_movement", "training_type", "work_mode", "leg_flag",
 ];
 
 // =========================================================
@@ -369,6 +372,143 @@ describe("parseCSV", () => {
     expect(result.rows[0]!.work_mode).toBeNull();
   });
 
+  // ---- sleep_bed_time / sleep_wake_time ----
+
+  it("sleep列: 両方ある場合は正しくパースされる", () => {
+    const csv = [
+      "log_date,weight,sleep_bed_time,sleep_wake_time",
+      "2026-04-01,70.0,23:30,07:00",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.errors).toHaveLength(0);
+    expect(result.rows[0]).toMatchObject({
+      sleep_bed_time:  "23:30",
+      sleep_wake_time: "07:00",
+    });
+  });
+
+  it("sleep列: 当日就寝（床時刻 < 起床時刻）も正しくパースされる", () => {
+    const csv = [
+      "log_date,sleep_bed_time,sleep_wake_time",
+      "2026-04-01,01:00,08:00",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.errors).toHaveLength(0);
+    expect(result.rows[0]!.sleep_bed_time).toBe("01:00");
+    expect(result.rows[0]!.sleep_wake_time).toBe("08:00");
+  });
+
+  it("sleep列: 両方ない場合は sleep_bed_time / sleep_wake_time が null", () => {
+    const csv = [
+      "log_date,weight",
+      "2026-04-01,70.0",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.errors).toHaveLength(0);
+    expect(result.rows[0]!.sleep_bed_time).toBeNull();
+    expect(result.rows[0]!.sleep_wake_time).toBeNull();
+  });
+
+  it("sleep列: 列があり両方空の場合は null として扱う", () => {
+    const csv = [
+      "log_date,sleep_bed_time,sleep_wake_time",
+      "2026-04-01,,",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.errors).toHaveLength(0);
+    expect(result.rows[0]!.sleep_bed_time).toBeNull();
+    expect(result.rows[0]!.sleep_wake_time).toBeNull();
+  });
+
+  it("sleep列: sleep_bed_time だけある場合は行をスキップしエラーを記録する", () => {
+    const csv = [
+      "log_date,sleep_bed_time,sleep_wake_time",
+      "2026-04-01,23:30,",
+      "2026-04-02,70.0,",  // sleep列なし行（weight として invalid だが別問題）
+    ].join("\n");
+
+    // 最初の行が sleep 片側エラーでスキップされることを確認
+    const csv2 = [
+      "log_date,weight,sleep_bed_time,sleep_wake_time",
+      "2026-04-01,70.0,23:30,",
+      "2026-04-02,69.0,,",
+    ].join("\n");
+    const result = parseCSV(csv2);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("片方だけ");
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]!.log_date).toBe("2026-04-02");
+  });
+
+  it("sleep列: sleep_wake_time だけある場合は行をスキップしエラーを記録する", () => {
+    const csv = [
+      "log_date,weight,sleep_bed_time,sleep_wake_time",
+      "2026-04-01,70.0,,07:00",
+      "2026-04-02,69.0,,",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("片方だけ");
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]!.log_date).toBe("2026-04-02");
+  });
+
+  it("sleep列: sleep_bed_time が不正フォーマット（9:30 → ゼロ埋めなし）は行をスキップ", () => {
+    const csv = [
+      "log_date,weight,sleep_bed_time,sleep_wake_time",
+      "2026-04-01,70.0,9:30,07:00",
+      "2026-04-02,69.0,,",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("sleep_bed_time");
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]!.log_date).toBe("2026-04-02");
+  });
+
+  it("sleep列: sleep_wake_time が不正フォーマットは行をスキップ", () => {
+    const csv = [
+      "log_date,weight,sleep_bed_time,sleep_wake_time",
+      "2026-04-01,70.0,23:30,7:00",
+      "2026-04-02,69.0,,",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("sleep_wake_time");
+    expect(result.rows).toHaveLength(1);
+  });
+
+  it("sleep列: 時刻が値域外 (25:00) は行をスキップ", () => {
+    const csv = [
+      "log_date,weight,sleep_bed_time,sleep_wake_time",
+      "2026-04-01,70.0,25:00,07:00",
+      "2026-04-02,69.0,,",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.errors).toHaveLength(1);
+    expect(result.rows).toHaveLength(1);
+  });
+
+  it("sleep列: 分が値域外 (23:60) は行をスキップ", () => {
+    const csv = [
+      "log_date,weight,sleep_bed_time,sleep_wake_time",
+      "2026-04-01,70.0,23:60,07:00",
+      "2026-04-02,69.0,,",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.errors).toHaveLength(1);
+    expect(result.rows).toHaveLength(1);
+  });
+
   it("旧 CSV（新カラムなし）をインポートしても新フィールドはデフォルト値になる", () => {
     const csv = [
       "log_date,weight,calories,protein,fat,carbs,note",
@@ -506,8 +646,8 @@ describe("deduplicateByLogDate", () => {
   const base = {
     weight: null, calories: null, protein: null, fat: null, carbs: null,
     note: null, is_cheat_day: false, is_refeed_day: false, is_eating_out: false,
-    is_travel_day: false, sleep_hours: null, had_bowel_movement: null,
-    training_type: null, work_mode: null, leg_flag: null,
+    is_travel_day: false, sleep_hours: null, sleep_bed_time: null, sleep_wake_time: null,
+    had_bowel_movement: null, training_type: null, work_mode: null, leg_flag: null,
   };
 
   it("重複なし: 全行そのまま返す", () => {
