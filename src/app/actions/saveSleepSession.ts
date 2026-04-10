@@ -43,12 +43,22 @@ export type SaveSleepSessionResult =
   | { ok: true }
   | { ok: false; message: string };
 
+export type SaveSleepSessionOptions = {
+  /**
+   * true を渡すと保存後の revalidatePath 呼び出しを省略する。
+   * CSV バッチインポートなど、複数行を連続保存して最後にまとめて revalidate したい場合に使う。
+   * 通常の単体保存では渡さなくてよい。
+   */
+  skipRevalidate?: boolean;
+};
+
 /**
  * 睡眠セッションを保存 (upsert) する。
  * wake_date が既存なら上書き、なければ新規作成。
  */
 export async function saveSleepSession(
-  input: SaveSleepSessionInput
+  input: SaveSleepSessionInput,
+  options?: SaveSleepSessionOptions
 ): Promise<SaveSleepSessionResult> {
   // ── バリデーション ──
   if (parseLocalDateStr(input.wake_date) === null) {
@@ -109,7 +119,10 @@ export async function saveSleepSession(
 
   // DB トリガーが daily_logs.sleep_hours を自動更新するため
   // ダッシュボード等が依存するキャッシュを再検証する
-  revalidateAfterDailyLogMutation();
+  // skipRevalidate: true の場合は呼び出し元で一括 revalidate するため省略する
+  if (!options?.skipRevalidate) {
+    revalidateAfterDailyLogMutation();
+  }
 
   return { ok: true };
 }

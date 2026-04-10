@@ -28,7 +28,16 @@ export interface ParsedRow {
   is_refeed_day: boolean;
   is_eating_out: boolean;
   is_travel_day: boolean;
+  /**
+   * import では使用しない（projection 値）。
+   * CSV に列があってもパースするが saveDailyLog に渡さない。
+   * 就寝・起床時刻は sleep_bed_time / sleep_wake_time を使うこと。
+   */
   sleep_hours: number | null;
+  /** 就寝時刻 "HH:MM" 形式。null = 未指定。 */
+  sleep_bed_time: string | null;
+  /** 起床時刻 "HH:MM" 形式。null = 未指定。 */
+  sleep_wake_time: string | null;
   /** null=未記録, true=便通あり, false=便通なし */
   had_bowel_movement: boolean | null;
   training_type: string | null;
@@ -55,11 +64,25 @@ const ALIASES: Record<string, keyof ParsedRow> = {
   is_eating_out: "is_eating_out",
   is_travel_day: "is_travel_day",
   sleep_hours: "sleep_hours",
+  sleep_bed_time: "sleep_bed_time",
+  sleep_wake_time: "sleep_wake_time",
   had_bowel_movement: "had_bowel_movement",
   training_type: "training_type",
   work_mode: "work_mode",
   leg_flag: "leg_flag",
 };
+
+/**
+ * HH:MM 形式の時刻文字列を検証する（形式 + 値域）。
+ * sleepSession.ts の isValidHHMM と同等だが、csvParser は sleepSession に依存しないため独立して定義する。
+ */
+function isValidHHMM(v: string): boolean {
+  if (!/^\d{2}:\d{2}$/.test(v)) return false;
+  const [hStr, mStr] = v.split(":");
+  const h = parseInt(hStr ?? "", 10);
+  const m = parseInt(mStr ?? "", 10);
+  return h >= 0 && h <= 23 && m >= 0 && m <= 59;
+}
 
 export function normalizeKey(raw: string): keyof ParsedRow | null {
   return ALIASES[raw.toLowerCase().trim().replace(/\s+/g, "")] ?? null;
@@ -264,6 +287,25 @@ export function parseCSV(text: string): ParseResult {
     }
     const work_mode = rawWorkMode;
 
+    // sleep_bed_time / sleep_wake_time: 両方ある・両方ないのどちらかでなければスキップ
+    // import での source of truth は sleep_sessions であり、片側だけの入力は不正とする。
+    const rawBedTime  = raw["sleep_bed_time"]  || null;
+    const rawWakeTime = raw["sleep_wake_time"] || null;
+    const hasBed  = rawBedTime  !== null;
+    const hasWake = rawWakeTime !== null;
+    if (hasBed !== hasWake) {
+      errors.push(`行 ${i + 1}: sleep_bed_time と sleep_wake_time はどちらか片方だけ指定できません — スキップ`);
+      continue;
+    }
+    if (hasBed && rawBedTime && !isValidHHMM(rawBedTime)) {
+      errors.push(`行 ${i + 1}: sleep_bed_time の形式が正しくありません（HH:MM で入力してください）— スキップ`);
+      continue;
+    }
+    if (hasWake && rawWakeTime && !isValidHHMM(rawWakeTime)) {
+      errors.push(`行 ${i + 1}: sleep_wake_time の形式が正しくありません（HH:MM で入力してください）— スキップ`);
+      continue;
+    }
+
     rows.push({
       log_date: normalized,
       weight: parseNum(raw["weight"] ?? ""),
@@ -277,6 +319,8 @@ export function parseCSV(text: string): ParseResult {
       is_eating_out: parseBool(raw["is_eating_out"] ?? ""),
       is_travel_day: parseBool(raw["is_travel_day"] ?? ""),
       sleep_hours: parseNum(raw["sleep_hours"] ?? ""),
+      sleep_bed_time:  rawBedTime,
+      sleep_wake_time: rawWakeTime,
       had_bowel_movement: parseBoolNullable(raw["had_bowel_movement"] ?? ""),
       training_type,
       work_mode,

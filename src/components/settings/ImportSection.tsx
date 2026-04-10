@@ -18,7 +18,7 @@ export function ImportSection() {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [result, setResult] = useState<"success" | "error" | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [importCount, setImportCount] = useState<{ saved: number; skipped: number } | null>(null);
+  const [importCount, setImportCount] = useState<{ saved: number; skipped: number; sleepSkipped: number } | null>(null);
 
   // 事前集計 (preflight)
   const [preflight, setPreflight] = useState<ImportPreflightSummary | null>(null);
@@ -120,19 +120,21 @@ export function ImportSection() {
     try {
       let totalSaved = 0;
       let totalSkipped = 0;
+      let totalSleepSkipped = 0;
       for (let i = 0; i < total; i += BATCH_SIZE) {
         const batch = parsed.rows.slice(i, i + BATCH_SIZE);
         const res = await importDailyLogs(batch);
         if (!res.ok) throw new Error(res.message);
         totalSaved += res.count;
         totalSkipped += res.skipped;
+        totalSleepSkipped += res.sleepSkipped;
         setProgress({ done: Math.min(i + BATCH_SIZE, total), total });
       }
       // 全バッチ完了後に 1 回だけ revalidate する
       if (totalSaved > 0) {
         await revalidateAfterImport();
       }
-      setImportCount({ saved: totalSaved, skipped: totalSkipped });
+      setImportCount({ saved: totalSaved, skipped: totalSkipped, sleepSkipped: totalSleepSkipped });
       setResult("success");
     } catch (e) {
       setResult("error");
@@ -345,14 +347,24 @@ export function ImportSection() {
 
           {/* 結果 */}
           {result === "success" && importCount && (
-            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm font-medium text-emerald-600 dark:bg-emerald-900/20 dark:border-emerald-700/50 dark:text-emerald-400">
-              <CheckCircle2 size={16} />
-              <span>
-                {importCount.saved.toLocaleString()} 件をインポートしました
-                {importCount.skipped > 0 && (
-                  <span className="ml-1 text-amber-600 dark:text-amber-400">（{importCount.skipped.toLocaleString()} 件はスキップ）</span>
-                )}
-              </span>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm font-medium text-emerald-600 dark:bg-emerald-900/20 dark:border-emerald-700/50 dark:text-emerald-400">
+                <CheckCircle2 size={16} />
+                <span>
+                  {importCount.saved.toLocaleString()} 件をインポートしました
+                  {importCount.skipped > 0 && (
+                    <span className="ml-1 text-amber-600 dark:text-amber-400">（{importCount.skipped.toLocaleString()} 件はスキップ）</span>
+                  )}
+                </span>
+              </div>
+              {importCount.sleepSkipped > 0 && (
+                <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 text-sm text-amber-700 dark:bg-amber-900/20 dark:border-amber-700/50 dark:text-amber-400">
+                  <AlertTriangle size={16} className="flex-shrink-0" />
+                  <span>
+                    {importCount.sleepSkipped.toLocaleString()} 件の睡眠データ（sleep_sessions）を保存できませんでした。日次ログ自体は保存済みです。
+                  </span>
+                </div>
+              )}
             </div>
           )}
           {result === "error" && (
