@@ -196,7 +196,7 @@ sleep_sessions モデルでは:
 
 | 項目 | sleep_sessions | daily_logs |
 |---|---|---|
-| 就寝日時 (bed_at) | ✅ source of truth | ❌ 廃止 (bed_time を削除予定) |
+| 就寝日時 (bed_at) | ✅ source of truth | ❌ 廃止済み (#529 で bed_time 削除) |
 | 起床日時 (wake_at) | ✅ source of truth | ❌ 不要 (weigh_in_time は空腹時間算出専用に残す) |
 | 起床日 (wake_date) | ✅ PK代理・結合キー | ✅ log_date として継続 |
 | 推定睡眠時間 | ✅ wake_at - bed_at で計算 | ✅ sleep_hours を projection 値として保持 |
@@ -320,7 +320,7 @@ sleep_sessions モデルでは:
 |---|---|---|
 | `weigh_in_time` と `wake_at` の UI 共有 | 2 フィールドを 1 入力欄にするかどうか UX 要確認 | #516 |
 | DB トリガー vs enrich.py での `sleep_hours` 更新 | バッチ設計依存 | #515 |
-| `daily_logs.bed_time` の廃止タイミング | migration 互換性・移行期の長さ | #515/#518 |
+| `daily_logs.bed_time` の廃止タイミング | ~~migration 互換性・移行期の長さ~~ | **#529 で廃止済み** |
 | `sleep_sessions` の RLS ポリシー | 既存パターンと同じ（anon 全許可）のはずだが確認が必要 | #515 |
 | sleep_sessions の wake_date UNIQUE 制約の将来外し判断 | nap 対応のタイミングで決定 | 将来 Issue |
 
@@ -335,10 +335,9 @@ sleep_sessions モデルでは:
 - `save_sleep_session` RPC または supabase-js 直接 upsert を実装する
   - upsert key: `wake_date`（主睡眠 1件制約を維持）
 - `daily_logs.sleep_hours` を更新する手段を決定する（トリガー推奨）
-- `daily_logs.bed_time` は廃止しない（移行期は読み取り専用として残す）
-- **`saveDailyLog.ts` の `deriveSleepSavePlan` / sleep shift ロジックは削除対象**
-  - sleep 系フィールドは `sleep_sessions` テーブルへ保存するルートに切り替える
-  - `SaveDailyLogInput` から `bed_time` を削除し、睡眠は別の action/route で保存する
+- `daily_logs.bed_time` カラムおよび `saveDailyLog.ts` の `deriveSleepSavePlan` / sleep shift ロジックは #529 で削除済み
+  - sleep 系フィールドは `sleep_sessions` テーブルへ保存するルートに切り替え済み
+  - `SaveDailyLogInput` から `bed_time` を削除済み
 
 ### #516: UI/UX
 
@@ -373,7 +372,7 @@ sleep_sessions モデルでは:
 | セッション日 | 起床日（wake_date）を canonical とする。daily_logs.log_date と一致。 |
 | 日付型 | bed_at / wake_at は TIMESTAMPTZ（日付+時刻+タイムゾーン）。TIME 型は廃止方向。 |
 | source of truth | sleep_sessions が睡眠の source of truth。daily_logs.sleep_hours は projection 値として当面保持。 |
-| daily_logs.bed_time | 移行期は残存（読み取り専用）。最終的に廃止 migration を作成。 |
+| daily_logs.bed_time | **#529 で廃止済み**（migration: `20260411000000_drop_bed_time_from_daily_logs.sql`）。 |
 | daily_logs.weigh_in_time | 空腹時間算出専用として継続。sleep_sessions とは独立。 |
 | UNIQUE 制約 | wake_date に UNIQUE（主睡眠 1件制約）。将来の nap 対応時に外す。 |
 | bed_at 日付推論ルール | bed_time > wake_time → bed_date = wake_date - 1日。それ以外 → bed_date = wake_date。 |
