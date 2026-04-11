@@ -393,13 +393,13 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
           </div>
 
           {/* 睡眠 */}
-          {sleep.avgSleepHours !== null && (
+          {(sleep.avgSleepHours !== null || sleep.avgBedTime !== null || sleep.avgWakeTime !== null) && (
             <div>
               <SectionLabel icon={<Moon size={12} className="text-indigo-400" />}>
-                睡眠 ({sleep.sleepDaysLogged} 日分)
+                睡眠 ({Math.max(sleep.sleepDaysLogged, sleep.timeDaysLogged)} 日分)
               </SectionLabel>
               <div className="space-y-0.5">
-                {(() => {
+                {sleep.avgSleepHours !== null && (() => {
                   const status = calcSleepStatus(sleep.avgSleepHours);
                   const cfg = SLEEP_STATUS_CONFIG[status];
                   return (
@@ -421,6 +421,28 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
                     </>
                   );
                 })()}
+                {sleep.avgBedTime !== null && (
+                  <StatRow
+                    label="就寝"
+                    value={sleep.avgBedTime}
+                    sub={
+                      sleep.avgBedTimeDeltaMins !== null
+                        ? `(${sleep.avgBedTimeDeltaMins >= 0 ? "+" : ""}${sleep.avgBedTimeDeltaMins}分)`
+                        : undefined
+                    }
+                  />
+                )}
+                {sleep.avgWakeTime !== null && (
+                  <StatRow
+                    label="起床"
+                    value={sleep.avgWakeTime}
+                    sub={
+                      sleep.avgWakeTimeDeltaMins !== null
+                        ? `(${sleep.avgWakeTimeDeltaMins >= 0 ? "+" : ""}${sleep.avgWakeTimeDeltaMins}分)`
+                        : undefined
+                    }
+                  />
+                )}
               </div>
             </div>
           )}

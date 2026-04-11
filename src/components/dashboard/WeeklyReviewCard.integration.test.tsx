@@ -53,6 +53,11 @@ function makeData(overrides: Partial<WeeklyReviewData> = {}): WeeklyReviewData {
     sleep: {
       avgSleepHours: null,
       sleepDaysLogged: 0,
+      avgBedTime: null,
+      avgWakeTime: null,
+      avgBedTimeDeltaMins: null,
+      avgWakeTimeDeltaMins: null,
+      timeDaysLogged: 0,
     },
     quality: {
       score: 90,
@@ -106,7 +111,7 @@ describe("WeeklyReviewCard", () => {
   it("avgSleepHours が非 null のとき睡眠セクションを表示し、ステータスラベルを付与する", () => {
     render(
       <WeeklyReviewCard
-        data={makeData({ sleep: { avgSleepHours: 7.5, sleepDaysLogged: 6 } })}
+        data={makeData({ sleep: { avgSleepHours: 7.5, sleepDaysLogged: 6, avgBedTime: null, avgWakeTime: null, avgBedTimeDeltaMins: null, avgWakeTimeDeltaMins: null, timeDaysLogged: 0 } })}
         phase="Cut"
       />
     );
@@ -121,7 +126,7 @@ describe("WeeklyReviewCard", () => {
   it("avgSleepHours < 7 のとき「短め」ラベルを表示する", () => {
     render(
       <WeeklyReviewCard
-        data={makeData({ sleep: { avgSleepHours: 6.0, sleepDaysLogged: 5 } })}
+        data={makeData({ sleep: { avgSleepHours: 6.0, sleepDaysLogged: 5, avgBedTime: null, avgWakeTime: null, avgBedTimeDeltaMins: null, avgWakeTimeDeltaMins: null, timeDaysLogged: 0 } })}
         phase="Cut"
       />
     );
@@ -131,21 +136,90 @@ describe("WeeklyReviewCard", () => {
   it("avgSleepHours > 9 のとき「長め」ラベルを表示する", () => {
     render(
       <WeeklyReviewCard
-        data={makeData({ sleep: { avgSleepHours: 9.5, sleepDaysLogged: 7 } })}
+        data={makeData({ sleep: { avgSleepHours: 9.5, sleepDaysLogged: 7, avgBedTime: null, avgWakeTime: null, avgBedTimeDeltaMins: null, avgWakeTimeDeltaMins: null, timeDaysLogged: 0 } })}
         phase="Cut"
       />
     );
     expect(screen.getByText("長め")).toBeInTheDocument();
   });
 
-  it("avgSleepHours が null のとき睡眠セクションを表示しない", () => {
+  it("avgSleepHours が null のとき睡眠セクションを表示しない (bed/wake も null)", () => {
     render(
       <WeeklyReviewCard
-        data={makeData({ sleep: { avgSleepHours: null, sleepDaysLogged: 0 } })}
+        data={makeData({ sleep: { avgSleepHours: null, sleepDaysLogged: 0, avgBedTime: null, avgWakeTime: null, avgBedTimeDeltaMins: null, avgWakeTimeDeltaMins: null, timeDaysLogged: 0 } })}
         phase="Cut"
       />
     );
     expect(screen.queryByText("平均睡眠時間")).not.toBeInTheDocument();
+  });
+
+  it("avgBedTime / avgWakeTime が非 null のとき就寝・起床時刻を表示する", () => {
+    render(
+      <WeeklyReviewCard
+        data={makeData({
+          sleep: {
+            avgSleepHours: 7.5,
+            sleepDaysLogged: 6,
+            avgBedTime: "23:30",
+            avgWakeTime: "07:00",
+            avgBedTimeDeltaMins: 15,
+            avgWakeTimeDeltaMins: -10,
+            timeDaysLogged: 6,
+          },
+        })}
+        phase="Cut"
+      />
+    );
+    expect(screen.getByText("就寝")).toBeInTheDocument();
+    expect(screen.getByText("23:30")).toBeInTheDocument();
+    expect(screen.getByText("(+15分)")).toBeInTheDocument();
+    expect(screen.getByText("起床")).toBeInTheDocument();
+    expect(screen.getByText("07:00")).toBeInTheDocument();
+    expect(screen.getByText("(-10分)")).toBeInTheDocument();
+  });
+
+  it("avgBedTimeDeltaMins が null のとき delta を表示しない", () => {
+    render(
+      <WeeklyReviewCard
+        data={makeData({
+          sleep: {
+            avgSleepHours: null,
+            sleepDaysLogged: 0,
+            avgBedTime: "23:30",
+            avgWakeTime: "07:00",
+            avgBedTimeDeltaMins: null,
+            avgWakeTimeDeltaMins: null,
+            timeDaysLogged: 3,
+          },
+        })}
+        phase="Cut"
+      />
+    );
+    expect(screen.getByText("就寝")).toBeInTheDocument();
+    expect(screen.getByText("23:30")).toBeInTheDocument();
+    // delta が null のときは delta テキストが出ない
+    const text = document.body.textContent ?? "";
+    expect(text).not.toMatch(/\+\d+分/);
+  });
+
+  it("sleepDaysLogged と timeDaysLogged のうち大きい方をヘッダーに表示する", () => {
+    render(
+      <WeeklyReviewCard
+        data={makeData({
+          sleep: {
+            avgSleepHours: 7.0,
+            sleepDaysLogged: 4,
+            avgBedTime: "23:00",
+            avgWakeTime: "07:00",
+            avgBedTimeDeltaMins: null,
+            avgWakeTimeDeltaMins: null,
+            timeDaysLogged: 6,
+          },
+        })}
+        phase="Cut"
+      />
+    );
+    expect(screen.getByText("睡眠 (6 日分)")).toBeInTheDocument();
   });
 
   it("必要値が欠けるときは — 表示にフォールバックし、該当所見カードを出さない", () => {

@@ -47,6 +47,11 @@ function makeData(overrides: Partial<WeeklyReviewData> = {}): WeeklyReviewData {
     sleep: {
       avgSleepHours: null,
       sleepDaysLogged: 0,
+      avgBedTime: null,
+      avgWakeTime: null,
+      avgBedTimeDeltaMins: null,
+      avgWakeTimeDeltaMins: null,
+      timeDaysLogged: 0,
     },
     quality: {
       score: 90,
