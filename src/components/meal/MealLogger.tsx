@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Loader2, PenLine, X, Undo2, ChevronDown, Plus } from "lucide-react";
 import { Toast } from "@/components/ui/Toast";
 import { saveDailyLog } from "@/app/actions/saveDailyLog";
@@ -234,6 +234,26 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     setDate(newDate);
     hydrateForm(newDate);
   }
+
+  // SWR 初回ロード完了後に選択中日付の既存値を自動 prefill する (#555)
+  //
+  // マウント直後は logs / sleepSessions が undefined（SWR 未解決）のため
+  // 空フォームで表示される。両方が揃ったタイミングで一度だけ hydrateForm を呼び出し、
+  // 当日ログや睡眠セッションを初期表示に反映する。
+  //
+  // initialHydrateDone で「1回のみ」を保証し、以降の SWR 再検証や
+  // 保存後 mutate では再実行しない（ユーザー入力を上書きしないため）。
+  const initialHydrateDone = useRef(false);
+  useEffect(() => {
+    if (initialHydrateDone.current) return;
+    if (logs === undefined || sleepSessions === undefined) return;
+    initialHydrateDone.current = true;
+    hydrateForm(date);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // hydrateForm は logs / sleepSessions のクロージャを参照するため deps に含めると
+    // 毎レンダーで新しい関数参照になり無限ループになる。
+    // date は初回ロード時点の selectedDate で固定するため deps から除外する。
+  }, [logs, sleepSessions]);
 
   function toggleTag(tag: DayTag) {
     setTags((prev) => ({ ...prev, [tag]: !(prev as Record<DayTag, boolean>)[tag] }));
