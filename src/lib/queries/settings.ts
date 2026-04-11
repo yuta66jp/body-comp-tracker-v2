@@ -63,10 +63,13 @@ export async function fetchSettingsRows(): Promise<QueryResult<Setting[]>> {
 export async function fetchMacroTargets(): Promise<MacroTargets & { calTarget: number | null }> {
   const supabase = createClient();
   const keys = ["target_calories_kcal", "target_protein_g", "target_fat_g", "target_carbs_g", "goal_calories"];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("settings")
     .select("key, value_num")
     .in("key", keys);
+  if (error) {
+    console.error("[fetchMacroTargets] settings fetch error:", error.message, { code: error.code });
+  }
   const map: Record<string, number | null> = {};
   for (const row of (data as { key: string; value_num: number | null }[]) ?? []) {
     map[row.key] = row.value_num;
