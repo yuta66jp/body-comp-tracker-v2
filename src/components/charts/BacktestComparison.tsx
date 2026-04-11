@@ -80,14 +80,25 @@ function MaeDeltaBadge({ current, prev }: { current: number | null; prev: number
   );
 }
 
-/** metrics から (model, horizon) → mae の Map を構築 */
+/**
+ * metrics から (model, horizon) → mae の Map を構築。
+ *
+ * 同一 (model_name, horizon_days) が複数行ある場合は最小 MAE を採用する。
+ * DB の UNIQUE 制約 (run_id, model_name, horizon_days, eval_policy) が有効な
+ * 通常運用では重複は生じないが、constraint 追加前の旧データや
+ * バッチ再実行による旧 run への混入に対して安全側に倒す (#545)。
+ */
 function buildMaeMap(
   metrics: ForecastBacktestMetric[]
 ): Map<string, number> {
   const m = new Map<string, number>();
   for (const row of metrics) {
     if (row.mae === null) continue; // n_used=0 の policy 行をスキップ
-    m.set(`${row.model_name}:${row.horizon_days}`, row.mae);
+    const key = `${row.model_name}:${row.horizon_days}`;
+    const existing = m.get(key);
+    if (existing === undefined || row.mae < existing) {
+      m.set(key, row.mae); // 重複がある場合は最小 MAE を優先 (last-wins だと行順に依存する)
+    }
   }
   return m;
 }
