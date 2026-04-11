@@ -261,12 +261,12 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       lastMealEndTimeTouched || touchedTags.size > 0 || cartEverHadItems
     ) return;
     hydrateForm(date);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     // touched 系フラグ・hydrateForm・date は deps から意図的に除外する。
     // touched 系: logs/sleepSessions 変化時のスナップショットとして読むだけで、
     //   deps に含めるとユーザー操作ごとに再実行されてしまう。
     // hydrateForm: 毎レンダーで新しい関数参照になるため deps に含めると無限ループになる。
     // date: 初回ロード時点の selectedDate で固定するため除外。
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logs, sleepSessions]);
 
   function toggleTag(tag: DayTag) {
