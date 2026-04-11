@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useTransition } from "react";
 import { Trash2, Plus, Search, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { mutate } from "swr";
 import type { FoodMaster, TablesInsert } from "@/lib/supabase/types";
 import { parseStrictNumber } from "@/lib/utils/parseNumber";
 import { insertFood, deleteFood } from "@/app/actions/foods";
@@ -136,6 +137,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
 
     // 成功パス: リストを更新し、成功を表示してから1.2秒後に閉じる
     setFoods((prev) => [...prev, payload as FoodMaster].sort((a, b) => a.name.localeCompare(b.name)));
+    void mutate("food_master"); // FoodPicker (useFoodList) の SWR キャッシュを無効化
     setSaveSuccess(true);
     setTimeout(() => {
       setShowForm(false);
@@ -150,7 +152,10 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
   function handleDelete(name: string) {
     startTransition(async () => {
       const { error: err } = await deleteFood(name);
-      if (!err) setFoods((prev) => prev.filter((f) => f.name !== name));
+      if (!err) {
+        setFoods((prev) => prev.filter((f) => f.name !== name));
+        void mutate("food_master"); // FoodPicker (useFoodList) の SWR キャッシュを無効化
+      }
     });
   }
 

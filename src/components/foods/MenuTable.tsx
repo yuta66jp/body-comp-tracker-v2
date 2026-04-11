@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useTransition } from "react";
 import { Plus, Trash2, Save, ChevronDown, ChevronUp, X } from "lucide-react";
+import { mutate } from "swr";
 import type { FoodMaster, RecipeItem } from "@/lib/supabase/types";
 import type { MenuEntry } from "@/lib/hooks/useMenuList";
 import { insertMenu, updateMenu, deleteMenu } from "@/app/actions/foods";
@@ -110,6 +111,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
         a.name.localeCompare(b.name)
       );
     });
+    void mutate("menu_master"); // MenuPicker (useMenuList) の SWR キャッシュを無効化
     setSaveSuccess(true);
     // 成功メッセージを表示してから閉じる
     setTimeout(() => {
@@ -122,7 +124,10 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
   function handleDelete(name: string) {
     startTransition(async () => {
       const { error } = await deleteMenu(name);
-      if (!error) setMenus((prev) => prev.filter((m) => m.name !== name));
+      if (!error) {
+        setMenus((prev) => prev.filter((m) => m.name !== name));
+        void mutate("menu_master"); // MenuPicker (useMenuList) の SWR キャッシュを無効化
+      }
     });
   }
 

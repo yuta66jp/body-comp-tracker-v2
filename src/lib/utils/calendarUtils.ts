@@ -88,9 +88,9 @@ export function calcFastingHours(
     return h * 60 + m;
   };
   const lastMins  = parseMins(lastMealEndTime);
-  const weighMins = parseMins(wakeUpTime);
-  if (lastMins === null || weighMins === null) return null;
-  let delta = weighMins - lastMins;
+  const wakeMins = parseMins(wakeUpTime);
+  if (lastMins === null || wakeMins === null) return null;
+  let delta = wakeMins - lastMins;
   // delta < 0: 日またぎ（例: 前日 22:30 → 翌朝 07:00）→ +24h で正値に補正
   // delta = 0: 同時刻 → +24h で 1440 になり、次行の >= 1440 判定で null を返す
   if (delta <= 0) delta += 24 * 60;

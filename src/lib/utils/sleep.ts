@@ -74,14 +74,14 @@ export function deriveSleepHours(
   wakeUpTime: string
 ): number | null {
   const bedMin = timeToMinutes(bedTime);
-  const weighMin = timeToMinutes(wakeUpTime);
+  const wakeMin = timeToMinutes(wakeUpTime);
 
-  if (bedMin === null || weighMin === null) return null;
+  if (bedMin === null || wakeMin === null) return null;
 
   // 日またぎ補正: wakeUpTime <= bedTime → 前日夜就寝（log_date の朝が bedTime の翌朝）
-  const adjustedWeighMin = weighMin <= bedMin ? weighMin + 24 * 60 : weighMin;
+  const adjustedWakeMin = wakeMin <= bedMin ? wakeMin + 24 * 60 : wakeMin;
 
-  const diffHours = (adjustedWeighMin - bedMin) / 60;
+  const diffHours = (adjustedWakeMin - bedMin) / 60;
 
   // 有効範囲: (0, 24) — 境界値は異常値として除外
   if (diffHours <= 0 || diffHours >= 24) return null;
