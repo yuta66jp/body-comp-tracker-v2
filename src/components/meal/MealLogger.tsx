@@ -238,21 +238,35 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
   // SWR 初回ロード完了後に選択中日付の既存値を自動 prefill する (#555)
   //
   // マウント直後は logs / sleepSessions が undefined（SWR 未解決）のため
-  // 空フォームで表示される。両方が揃ったタイミングで一度だけ hydrateForm を呼び出し、
+  // 空フォームで表示される。両方が揃ったタイミングで hydrateForm を呼び出し
   // 当日ログや睡眠セッションを初期表示に反映する。
   //
+  // 実行条件:
+  //   1. logs / sleepSessions が両方 resolved（undefined → 配列）になった初回のみ
+  //   2. フォームが pristine（ユーザーが何も操作していない）であること
+  //      → SWR 解決前にユーザーが入力を始めていた場合は上書きしない
+  //
   // initialHydrateDone で「1回のみ」を保証し、以降の SWR 再検証や
-  // 保存後 mutate では再実行しない（ユーザー入力を上書きしないため）。
+  // 保存後 mutate では再実行しない。
   const initialHydrateDone = useRef(false);
   useEffect(() => {
     if (initialHydrateDone.current) return;
     if (logs === undefined || sleepSessions === undefined) return;
+    // SWR が解決した時点で一度だけ実行する（pristine チェックの有無に関わらず）
     initialHydrateDone.current = true;
+    // touched フラグが1つでも立っていたらユーザーが既に操作済みとみなして skip
+    if (
+      weightTouched || noteTouched || sleepSessionTouched ||
+      hadBowelMovementTouched || trainingTypeTouched || workModeTouched ||
+      lastMealEndTimeTouched || touchedTags.size > 0 || cartEverHadItems
+    ) return;
     hydrateForm(date);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    // hydrateForm は logs / sleepSessions のクロージャを参照するため deps に含めると
-    // 毎レンダーで新しい関数参照になり無限ループになる。
-    // date は初回ロード時点の selectedDate で固定するため deps から除外する。
+    // touched 系フラグ・hydrateForm・date は deps から意図的に除外する。
+    // touched 系: logs/sleepSessions 変化時のスナップショットとして読むだけで、
+    //   deps に含めるとユーザー操作ごとに再実行されてしまう。
+    // hydrateForm: 毎レンダーで新しい関数参照になるため deps に含めると無限ループになる。
+    // date: 初回ロード時点の selectedDate で固定するため除外。
   }, [logs, sleepSessions]);
 
   function toggleTag(tag: DayTag) {
