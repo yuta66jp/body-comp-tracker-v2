@@ -425,13 +425,7 @@ describe("parseCSV", () => {
   });
 
   it("sleep列: sleep_bed_time だけある場合は行をスキップしエラーを記録する", () => {
-    const csv = [
-      "log_date,sleep_bed_time,sleep_wake_time",
-      "2026-04-01,23:30,",
-      "2026-04-02,70.0,",  // sleep列なし行（weight として invalid だが別問題）
-    ].join("\n");
-
-    // 最初の行が sleep 片側エラーでスキップされることを確認
+    // sleep_bed_time は値あり・sleep_wake_time が空の場合にスキップされることを確認
     const csv2 = [
       "log_date,weight,sleep_bed_time,sleep_wake_time",
       "2026-04-01,70.0,23:30,",
