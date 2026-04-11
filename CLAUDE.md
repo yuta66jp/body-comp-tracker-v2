@@ -50,9 +50,12 @@ body-comp-tracker-v2/
 │   │   │   ├── page.tsx            # 設定画面
 │   │   │   ├── loading.tsx         # Settings loading skeleton
 │   │   │   └── actions.ts          # Server Actions (settings 保存)
-│   │   ├── actions/                # Server Actions (daily_logs 保存)
+│   │   ├── actions/                # Server Actions
 │   │   │   ├── saveDailyLog.ts
-│   │   │   └── buildUpdatePayload.ts
+│   │   │   ├── buildUpdatePayload.ts
+│   │   │   ├── saveSleepSession.ts
+│   │   │   ├── foods.ts
+│   │   │   └── importDailyLogs.ts
 │   │   └── api/export/route.ts     # CSV エクスポート
 │   ├── components/                 # UIコンポーネント
 │   │   ├── dashboard/              # KpiCards, GoalNavigator, WeeklyReviewCard, LogsAndSummaryTabs, MonthlyCalendar, MobileMealLoggerSheet
@@ -122,7 +125,8 @@ body-comp-tracker-v2/
 ## Tech Stack & Libraries
 
 ### Frontend
-- **Framework**: Next.js 15 (App Router, TypeScript)
+- **Framework**: Next.js 16 (App Router, TypeScript)
+- **Runtime**: React 19
 - **Styling**: Tailwind CSS 4
 - **Charts**: Recharts
 - **Calendar**: react-day-picker v9 (月間カレンダー)
@@ -396,7 +400,7 @@ body-comp-tracker-v2/
 - UI integration tests: `src/components/settings/SettingsForm.integration.test.tsx` など
   - 保存導線 / fallback 導線を壊さないことが重要
   - flaky を避けるため、安定したモック方針（Server Action mock）を維持する
-- テスト実行: `node_modules/.bin/jest --no-coverage`
+- テスト実行: `npx jest --no-coverage`
 
 ### アクセシビリティ
 - タブ / トグル / チップの ARIA パターンを正しく区別する:
@@ -419,8 +423,8 @@ body-comp-tracker-v2/
 - `npm run dev` — 開発サーバー起動
 - `npm run build` — 本番ビルド
 - `npm run lint` — ESLint 実行
-- `node_modules/.bin/tsc --noEmit` — 型チェック
-- `node_modules/.bin/jest --no-coverage` — テスト実行（unit + UI integration）
+- `npx tsc --noEmit` — 型チェック
+- `npx jest --no-coverage` — テスト実行（unit + UI integration）
 - `supabase db push` — migration を本番 DB に適用
 - `supabase gen types typescript --project-id <id> > src/lib/supabase/types.ts` — 型生成
 
