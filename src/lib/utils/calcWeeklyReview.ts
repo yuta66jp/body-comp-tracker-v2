@@ -15,7 +15,7 @@
  *   - generateFindings で「チートデイ後の水分増加の可能性」を注記
  */
 
-import type { DashboardDailyLog } from "@/lib/supabase/types";
+import type { DashboardDailyLog, SleepSession } from "@/lib/supabase/types";
 import type { ReadinessMetrics } from "./calcReadiness";
 import type { DataQualityReport } from "./calcDataQuality";
 import { addDaysStr, dateRangeStr, toJstDateStr } from "./date";
@@ -104,6 +104,28 @@ export interface WeeklySleep {
   avgSleepHours: number | null;
   /** sleep_hours が非 null の日数 */
   sleepDaysLogged: number;
+  /**
+   * 直近 7 暦日の平均就寝時刻 "HH:MM" (JST)。
+   * sleepSessions が渡されない場合、または当週のデータがない場合は null。
+   */
+  avgBedTime: string | null;
+  /**
+   * 直近 7 暦日の平均起床時刻 "HH:MM" (JST)。
+   * sleepSessions が渡されない場合、または当週のデータがない場合は null。
+   */
+  avgWakeTime: string | null;
+  /**
+   * 就寝時刻の前週比（分）。正=遅くなった、負=早くなった。
+   * 前週データが不足している場合は null。
+   */
+  avgBedTimeDeltaMins: number | null;
+  /**
+   * 起床時刻の前週比（分）。正=遅くなった、負=早くなった。
+   * 前週データが不足している場合は null。
+   */
+  avgWakeTimeDeltaMins: number | null;
+  /** 直近 7 日のうち bed_at / wake_at がある日数 */
+  timeDaysLogged: number;
 }
 
 /** 直近 7 日の特殊日集計 */
@@ -405,6 +427,78 @@ function generateFindings(
   return findings;
 }
 
+// ─── 睡眠時刻ヘルパー ─────────────────────────────────────────────────────────
+
+/**
+ * TIMESTAMPTZ 文字列を JST の深夜 0 時からの経過分 (0–1439) に変換する。
+ * 不正な入力は null を返す。
+ */
+function timestampToJstMinutes(ts: string): number | null {
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return null;
+  // UTC 時刻 + JST オフセット (+9h = +540min) → 1440 で剰余
+  return (d.getUTCHours() * 60 + d.getUTCMinutes() + 9 * 60) % (24 * 60);
+}
+
+/**
+ * 経過分数 (任意の実数) を "HH:MM" 形式に変換する。
+ * 1440 以上や負数は折り返し処理する。
+ */
+function minutesToHHMM(minutes: number): string {
+  const normalized = ((Math.round(minutes) % 1440) + 1440) % 1440;
+  const h = Math.floor(normalized / 60);
+  const m = normalized % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/**
+ * 就寝時刻の日付越え補正。
+ * 0:00–11:59 (0–719 分) の時刻は「翌朝の時刻（前日夜の延長）」として 1440 分を加算する。
+ * これにより 23:30 と 0:30 の平均が 0:00 になる。
+ */
+function applyBedTimeCrossing(mins: number): number {
+  return mins < 12 * 60 ? mins + 1440 : mins;
+}
+
+type AvgTimeResult = { avgMins: number; count: number };
+
+/**
+ * 指定した wake_date セットに対応する睡眠セッションの平均就寝時刻を計算する。
+ * 日付越え補正済みの生の avgMins を返す（minutesToHHMM で変換する前の値）。
+ */
+function computeAvgBedTime(
+  sessions: SleepSession[],
+  dateSet: Set<string>
+): AvgTimeResult | null {
+  const vals: number[] = [];
+  for (const s of sessions) {
+    if (!dateSet.has(s.wake_date)) continue;
+    const mins = timestampToJstMinutes(s.bed_at);
+    if (mins === null) continue;
+    vals.push(applyBedTimeCrossing(mins));
+  }
+  if (vals.length === 0) return null;
+  return { avgMins: vals.reduce((a, b) => a + b, 0) / vals.length, count: vals.length };
+}
+
+/**
+ * 指定した wake_date セットに対応する睡眠セッションの平均起床時刻を計算する。
+ */
+function computeAvgWakeTime(
+  sessions: SleepSession[],
+  dateSet: Set<string>
+): AvgTimeResult | null {
+  const vals: number[] = [];
+  for (const s of sessions) {
+    if (!dateSet.has(s.wake_date)) continue;
+    const mins = timestampToJstMinutes(s.wake_at);
+    if (mins === null) continue;
+    vals.push(mins);
+  }
+  if (vals.length === 0) return null;
+  return { avgMins: vals.reduce((a, b) => a + b, 0) / vals.length, count: vals.length };
+}
+
 // ─── メイン関数 ──────────────────────────────────────────────────────────────
 
 /**
@@ -416,6 +510,8 @@ function generateFindings(
  * @param options.enrichedTdeeMap  log_date → tdee_estimated の Map
  * @param options.phase  "Cut" | "Bulk" (デフォルト "Cut")
  * @param options.today  基準日 YYYY-MM-DD (省略時 JST 今日)
+ * @param options.sleepSessions  sleep_sessions テーブルの行。就寝・起床平均時刻の算出に使う。
+ *                               渡されない場合は avgBedTime / avgWakeTime が null になる。
  */
 export function calcWeeklyReview(
   logs: DashboardDailyLog[],
@@ -425,9 +521,10 @@ export function calcWeeklyReview(
     enrichedTdeeMap?: Map<string, number>;
     phase?: string;
     today?: string;
+    sleepSessions?: SleepSession[];
   } = {}
 ): WeeklyReviewData {
-  const { enrichedTdeeMap, phase = "Cut", today } = options;
+  const { enrichedTdeeMap, phase = "Cut", today, sleepSessions } = options;
   const todayStr = today ?? toJstDateStr(new Date());
 
   // ── 7 暦日リスト ──
@@ -507,19 +604,56 @@ export function calcWeeklyReview(
     fatCaloriesRatioPct,
   };
 
-  // ── Sleep (直近 7 暦日の平均睡眠時間) ──
-  // source of truth: daily_logs.sleep_hours
-  // (sleep_sessions の bed_at / wake_at から DB トリガーが自動同期する projection 値)
-  // null 日はスキップし、記録がある日のみで平均を算出する
+  // ── Sleep ──
+
+  // 平均睡眠時間: daily_logs.sleep_hours (sleep_sessions からの DB トリガー projection 値)
   const sleepVals = windowLogs
     .filter((l) => l.sleep_hours !== null)
     .map((l) => l.sleep_hours as number);
+
+  // 就寝・起床平均時刻: sleep_sessions.bed_at / wake_at から算出
+  // 前週比のため、前の 7 暦日 (8〜14 日前) も集計する
+  const d7DateSet = new Set(last7Dates);
+  const prevD14Start = addDaysStr(todayStr, -13) ?? todayStr;
+  const prevD8       = addDaysStr(todayStr, -7)  ?? todayStr;
+  const prev7DateSet = new Set(dateRangeStr(prevD14Start, prevD8));
+
+  let avgBedTime: string | null = null;
+  let avgWakeTime: string | null = null;
+  let avgBedTimeDeltaMins: number | null = null;
+  let avgWakeTimeDeltaMins: number | null = null;
+  let timeDaysLogged = 0;
+
+  if (sleepSessions && sleepSessions.length > 0) {
+    const currBed  = computeAvgBedTime(sleepSessions, d7DateSet);
+    const currWake = computeAvgWakeTime(sleepSessions, d7DateSet);
+    const prevBed  = computeAvgBedTime(sleepSessions, prev7DateSet);
+    const prevWake = computeAvgWakeTime(sleepSessions, prev7DateSet);
+
+    avgBedTime  = currBed  ? minutesToHHMM(currBed.avgMins)  : null;
+    avgWakeTime = currWake ? minutesToHHMM(currWake.avgMins) : null;
+    avgBedTimeDeltaMins =
+      currBed && prevBed
+        ? Math.round(currBed.avgMins - prevBed.avgMins)
+        : null;
+    avgWakeTimeDeltaMins =
+      currWake && prevWake
+        ? Math.round(currWake.avgMins - prevWake.avgMins)
+        : null;
+    timeDaysLogged = currBed?.count ?? currWake?.count ?? 0;
+  }
+
   const sleep: WeeklySleep = {
     avgSleepHours:
       sleepVals.length > 0
         ? sleepVals.reduce((a, b) => a + b, 0) / sleepVals.length
         : null,
     sleepDaysLogged: sleepVals.length,
+    avgBedTime,
+    avgWakeTime,
+    avgBedTimeDeltaMins,
+    avgWakeTimeDeltaMins,
+    timeDaysLogged,
   };
 
   // ── TDEE (直近 7 日の推定 TDEE 平均) ──

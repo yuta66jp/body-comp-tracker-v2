@@ -1,5 +1,5 @@
 import { calcWeeklyReview } from "./calcWeeklyReview";
-import type { DashboardDailyLog } from "@/lib/supabase/types";
+import type { DashboardDailyLog, SleepSession } from "@/lib/supabase/types";
 import type { ReadinessMetrics } from "./calcReadiness";
 import type { DataQualityReport } from "./calcDataQuality";
 
@@ -129,6 +129,121 @@ describe("calcWeeklyReview", () => {
 
     expect(result.sleep.avgSleepHours).toBeNull();
     expect(result.sleep.sleepDaysLogged).toBe(0);
+  });
+
+  it("新フィールドのデフォルト: sleepSessions 未指定のとき全て null / 0", () => {
+    const result = calcWeeklyReview(
+      [makeLog("2026-04-02")],
+      makeMetrics(),
+      makeQualityReport(),
+      { today: "2026-04-02" }
+    );
+    expect(result.sleep.avgBedTime).toBeNull();
+    expect(result.sleep.avgWakeTime).toBeNull();
+    expect(result.sleep.avgBedTimeDeltaMins).toBeNull();
+    expect(result.sleep.avgWakeTimeDeltaMins).toBeNull();
+    expect(result.sleep.timeDaysLogged).toBe(0);
+  });
+
+  // ─── 就寝・起床平均時刻 ───────────────────────────────────────────────────────
+
+  function makeSleepSession(
+    wakeDate: string,
+    bedAtUtc: string,
+    wakeAtUtc: string
+  ): SleepSession {
+    return {
+      id: `session-${wakeDate}`,
+      wake_date: wakeDate,
+      bed_at: bedAtUtc,
+      wake_at: wakeAtUtc,
+      source: "manual",
+      note: null,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+    };
+  }
+
+  it("sleepSessions から就寝・起床平均時刻を算出する", () => {
+    // today = 2026-04-02, 当週: 2026-03-27〜2026-04-02
+    // セッション 1 (wake_date=2026-04-01): bed 23:00 JST, wake 7:00 JST
+    //   bed_at UTC: JST23:00=UTC14:00 → "2026-03-31T14:00:00Z"
+    //   wake_at UTC: JST07:00=UTC22:00(前日) → "2026-03-31T22:00:00Z"
+    // セッション 2 (wake_date=2026-04-02): bed 23:30 JST, wake 7:00 JST
+    //   bed_at UTC: JST23:30=UTC14:30 → "2026-04-01T14:30:00Z"
+    //   wake_at UTC: JST07:00=UTC22:00 → "2026-04-01T22:00:00Z"
+    const sessions = [
+      makeSleepSession("2026-04-01", "2026-03-31T14:00:00Z", "2026-03-31T22:00:00Z"),
+      makeSleepSession("2026-04-02", "2026-04-01T14:30:00Z", "2026-04-01T22:00:00Z"),
+    ];
+    const result = calcWeeklyReview(
+      [makeLog("2026-04-01"), makeLog("2026-04-02")],
+      makeMetrics(),
+      makeQualityReport(),
+      { today: "2026-04-02", sleepSessions: sessions }
+    );
+    // avg bed: (23:00=1380 + 23:30=1410) / 2 = 1395 → 23:15
+    expect(result.sleep.avgBedTime).toBe("23:15");
+    // avg wake: (7:00=420 + 7:00=420) / 2 = 420 → 07:00
+    expect(result.sleep.avgWakeTime).toBe("07:00");
+    expect(result.sleep.timeDaysLogged).toBe(2);
+  });
+
+  it("就寝時刻の日付越え補正: 0:30 と 23:30 の平均が 0:00", () => {
+    // 0:30 JST = UTC 15:30 前日 → timestampToJstMinutes → 30 → +1440 = 1470
+    // 23:30 JST = UTC 14:30 → 1410 → 補正なし
+    // avg = (1470 + 1410) / 2 = 1440 → minutesToHHMM(1440) = 1440%1440=0 → "00:00"
+    const sessions = [
+      makeSleepSession("2026-04-01", "2026-03-31T15:30:00Z", "2026-04-01T22:00:00Z"),
+      makeSleepSession("2026-04-02", "2026-04-01T14:30:00Z", "2026-04-01T22:00:00Z"),
+    ];
+    const result = calcWeeklyReview(
+      [makeLog("2026-04-01"), makeLog("2026-04-02")],
+      makeMetrics(),
+      makeQualityReport(),
+      { today: "2026-04-02", sleepSessions: sessions }
+    );
+    expect(result.sleep.avgBedTime).toBe("00:00");
+  });
+
+  it("前週データがある場合に就寝・起床時刻の前週比を算出する", () => {
+    // today = 2026-04-14
+    // 当週: 2026-04-08〜2026-04-14  前週: 2026-04-01〜2026-04-07
+    //
+    // 前週 (wake_date=2026-04-07): bed 23:00(1380), wake 07:00(420)
+    //   bed_at UTC: "2026-04-06T14:00:00Z", wake_at UTC: "2026-04-06T22:00:00Z"
+    // 当週 (wake_date=2026-04-14): bed 23:30(1410), wake 07:30(450)
+    //   bed_at UTC: "2026-04-13T14:30:00Z", wake_at UTC: "2026-04-13T22:30:00Z"
+    const sessions = [
+      makeSleepSession("2026-04-07", "2026-04-06T14:00:00Z", "2026-04-06T22:00:00Z"),
+      makeSleepSession("2026-04-14", "2026-04-13T14:30:00Z", "2026-04-13T22:30:00Z"),
+    ];
+    const result = calcWeeklyReview(
+      [makeLog("2026-04-07"), makeLog("2026-04-14")],
+      makeMetrics(),
+      makeQualityReport(),
+      { today: "2026-04-14", sleepSessions: sessions }
+    );
+    // bed delta: 1410 - 1380 = 30 分 (30分遅くなった)
+    expect(result.sleep.avgBedTimeDeltaMins).toBe(30);
+    // wake delta: 450 - 420 = 30 分 (30分遅くなった)
+    expect(result.sleep.avgWakeTimeDeltaMins).toBe(30);
+  });
+
+  it("前週データがない場合は delta が null", () => {
+    // 当週のみのセッション (前週は空)
+    const sessions = [
+      makeSleepSession("2026-04-02", "2026-04-01T14:30:00Z", "2026-04-01T22:00:00Z"),
+    ];
+    const result = calcWeeklyReview(
+      [makeLog("2026-04-02")],
+      makeMetrics(),
+      makeQualityReport(),
+      { today: "2026-04-02", sleepSessions: sessions }
+    );
+    expect(result.sleep.avgBedTime).toBe("23:30");
+    expect(result.sleep.avgBedTimeDeltaMins).toBeNull();
+    expect(result.sleep.avgWakeTimeDeltaMins).toBeNull();
   });
 
   it("基準体重や脂質/カロリーが欠けるときは null にフォールバックする", () => {
