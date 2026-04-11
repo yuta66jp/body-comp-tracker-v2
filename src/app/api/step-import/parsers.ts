@@ -121,14 +121,18 @@ export function parseJson(text: string): ParseResult {
 
     const stepRaw = obj["step_count"];
 
-    // 浮動小数点数（例: 1234.9）は無効行としてスキップする。
-    // Math.trunc で暗黙的に整数化しない。
+    // 数値型の浮動小数点（例: 1234.9）は無効行としてスキップする。
     if (typeof stepRaw === "number" && !Number.isInteger(stepRaw)) { invalidRows++; continue; }
 
+    // 文字列の場合は Number() で厳密に変換する。
+    // parseInt() は "123abc" → 123、"10.5" → 10 のように部分パースするため使わない。
+    // 数値型・文字列型以外（null / undefined / object 等）は NaN として後続のガードで弾く。
     const stepCount =
       typeof stepRaw === "number"
         ? stepRaw
-        : parseInt(String(stepRaw ?? ""), 10);
+        : typeof stepRaw === "string"
+        ? Number(stepRaw.trim())
+        : NaN;
 
     if (!Number.isInteger(stepCount) || stepCount < 0 || isNaN(stepCount)) { invalidRows++; continue; }
 
