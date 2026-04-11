@@ -301,6 +301,11 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
 
     setStatus("saving");
 
+    // daily_logs 保存済みフラグ。
+    // sleep_sessions 保存が失敗した場合に partial save（日次ログは保存済み/睡眠は未保存）を
+    // ユーザーへ正確に伝えるために使用する (#544)。
+    let dailyLogSaved = false;
+
     try {
       // ── 睡眠入力の事前妥当性チェック ──
       // saveDailyLog より先に実行する (#528)。
@@ -383,6 +388,8 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
           setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
           return;
         }
+        // saveDailyLog 成功。以降の sleep 保存失敗時に partial save を検知するために記録する (#544)。
+        dailyLogSaved = true;
       }
 
       // ── 睡眠セッション保存（sleep_sessions が source of truth）──
@@ -392,25 +399,47 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       // 既存日はどちらの順序でも動作するが、新規日でも正しく動作するよう
       // daily_logs を先に保存する順序を維持すること。
       if (sleepSessionTouched) {
-        let sleepResult: { ok: boolean; message?: string };
-        if (sleepSessionPendingDelete && hydratedSleepSession) {
-          // セッション削除
-          sleepResult = await deleteSleepSession(date);
-        } else if (sleepBedTime && sleepWakeTime) {
-          // セッション保存（新規 or 上書き）
-          sleepResult = await saveSleepSession({
-            wake_date: date,
-            bed_time:  sleepBedTime,
-            wake_time: sleepWakeTime,
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[MealLogger] sleep save attempt:", {
+            date, sleepBedTime, sleepWakeTime,
+            sleepSessionPendingDelete,
+            hasHydratedSession: hydratedSleepSession !== null,
           });
-        } else {
-          // 両方空 (操作なし) → スキップ
-          // 片側入力は tryブロック冒頭の事前チェックで弾いているため、ここには到達しない。
-          sleepResult = { ok: true };
         }
+
+        let sleepResult: { ok: boolean; message?: string };
+        try {
+          if (sleepSessionPendingDelete && hydratedSleepSession) {
+            // セッション削除
+            sleepResult = await deleteSleepSession(date);
+          } else if (sleepBedTime && sleepWakeTime) {
+            // セッション保存（新規 or 上書き）
+            sleepResult = await saveSleepSession({
+              wake_date: date,
+              bed_time:  sleepBedTime,
+              wake_time: sleepWakeTime,
+            });
+          } else {
+            // 両方空 (操作なし) → スキップ
+            // 片側入力は tryブロック冒頭の事前チェックで弾いているため、ここには到達しない。
+            sleepResult = { ok: true };
+          }
+        } catch (sleepError) {
+          // Server Action 境界の想定外例外（ネットワーク障害など）のフォールバック。
+          // saveSleepSession.ts 側の try/catch で通常は捕捉されるが、
+          // 万一 throw が伝播した場合でも generic catch に落とさずここで止める (#544)。
+          console.error("[MealLogger] sleep session action threw:", sleepError);
+          sleepResult = { ok: false, message: "睡眠記録の保存に失敗しました" };
+        }
+
         if (!sleepResult.ok) {
-          console.error("[MealLogger] sleep save error:", sleepResult.message);
-          setErrorMessage(sleepResult.message ?? "睡眠記録の保存に失敗しました");
+          // partial save（日次ログは保存済み / 睡眠記録は未保存）のとき、
+          // ユーザーに実態を伝えるメッセージを優先する (#544)。
+          const sleepErrorMsg = dailyLogSaved
+            ? "日次ログは保存されましたが、睡眠記録の保存に失敗しました。再度睡眠時刻を入力して保存できます。"
+            : (sleepResult.message ?? "睡眠記録の保存に失敗しました");
+          console.error("[MealLogger] sleep save failed:", { dailyLogSaved, message: sleepResult.message });
+          setErrorMessage(sleepErrorMsg);
           setStatus("error");
           setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
           return;

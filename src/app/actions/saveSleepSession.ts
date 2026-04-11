@@ -55,76 +55,91 @@ export type SaveSleepSessionOptions = {
 /**
  * 睡眠セッションを保存 (upsert) する。
  * wake_date が既存なら上書き、なければ新規作成。
+ *
+ * ## エラーハンドリング方針
+ * Server Action として呼ばれるため、Supabase の fetch 失敗など
+ * 想定外の例外が発生した場合に throw が外部へ伝播すると
+ * 呼び出し元 (MealLogger) の generic catch に落ちる。
+ * 関数全体を try/catch で囲み、想定内外のすべての失敗を
+ * `{ ok: false }` に正規化して返す (#544)。
  */
 export async function saveSleepSession(
   input: SaveSleepSessionInput,
   options?: SaveSleepSessionOptions
 ): Promise<SaveSleepSessionResult> {
-  // ── バリデーション ──
-  if (parseLocalDateStr(input.wake_date) === null) {
-    return { ok: false, message: "wake_date の形式が正しくありません (YYYY-MM-DD)" };
-  }
-
-  const timePattern = /^\d{2}:\d{2}$/;
-  if (!timePattern.test(input.bed_time)) {
-    return { ok: false, message: "bed_time の形式が正しくありません (HH:MM)" };
-  }
-  if (!timePattern.test(input.wake_time)) {
-    return { ok: false, message: "wake_time の形式が正しくありません (HH:MM)" };
-  }
-
-  // HH:MM 値域チェック
-  for (const [label, value] of [["bed_time", input.bed_time], ["wake_time", input.wake_time]] as const) {
-    const [hStr, mStr] = value.split(":");
-    const h = parseInt(hStr ?? "", 10);
-    const m = parseInt(mStr ?? "", 10);
-    if (h < 0 || h > 23 || m < 0 || m > 59) {
-      return { ok: false, message: `${label} の値が不正です (時: 0-23、分: 0-59)` };
+  try {
+    // ── バリデーション ──
+    if (parseLocalDateStr(input.wake_date) === null) {
+      return { ok: false, message: "wake_date の形式が正しくありません (YYYY-MM-DD)" };
     }
-  }
 
-  if (input.note !== undefined && input.note !== null && input.note.length > 500) {
-    return { ok: false, message: "メモは 500 文字以内で入力してください" };
-  }
+    const timePattern = /^\d{2}:\d{2}$/;
+    if (!timePattern.test(input.bed_time)) {
+      return { ok: false, message: "bed_time の形式が正しくありません (HH:MM)" };
+    }
+    if (!timePattern.test(input.wake_time)) {
+      return { ok: false, message: "wake_time の形式が正しくありません (HH:MM)" };
+    }
 
-  // ── TIMESTAMPTZ 組み立て ──
-  const datetimes = buildSleepSessionDatetimes(
-    input.wake_date,
-    input.bed_time,
-    input.wake_time
-  );
-  if (datetimes === null) {
-    return { ok: false, message: "就寝・起床時刻の変換に失敗しました" };
-  }
+    // HH:MM 値域チェック
+    for (const [label, value] of [["bed_time", input.bed_time], ["wake_time", input.wake_time]] as const) {
+      const [hStr, mStr] = value.split(":");
+      const h = parseInt(hStr ?? "", 10);
+      const m = parseInt(mStr ?? "", 10);
+      if (h < 0 || h > 23 || m < 0 || m > 59) {
+        return { ok: false, message: `${label} の値が不正です (時: 0-23、分: 0-59)` };
+      }
+    }
 
-  // ── upsert ──
-  const supabase = createClient();
-  const { error } = await supabase
-    .from("sleep_sessions")
-    .upsert(
-      {
-        wake_date: input.wake_date,
-        bed_at:    datetimes.bedAt,
-        wake_at:   datetimes.wakeAt,
-        source:    "manual",
-        note:      input.note ?? null,
-      },
-      { onConflict: "wake_date" }
+    if (input.note !== undefined && input.note !== null && input.note.length > 500) {
+      return { ok: false, message: "メモは 500 文字以内で入力してください" };
+    }
+
+    // ── TIMESTAMPTZ 組み立て ──
+    const datetimes = buildSleepSessionDatetimes(
+      input.wake_date,
+      input.bed_time,
+      input.wake_time
     );
+    if (datetimes === null) {
+      return { ok: false, message: "就寝・起床時刻の変換に失敗しました" };
+    }
 
-  if (error) {
-    console.error("[saveSleepSession] upsert error:", error.message);
-    return { ok: false, message: "保存に失敗しました: " + error.message };
+    // ── upsert ──
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("sleep_sessions")
+      .upsert(
+        {
+          wake_date: input.wake_date,
+          bed_at:    datetimes.bedAt,
+          wake_at:   datetimes.wakeAt,
+          source:    "manual",
+          note:      input.note ?? null,
+        },
+        { onConflict: "wake_date" }
+      );
+
+    if (error) {
+      console.error("[saveSleepSession] upsert error:", error.message);
+      return { ok: false, message: "保存に失敗しました: " + error.message };
+    }
+
+    // DB トリガーが daily_logs.sleep_hours を自動更新するため
+    // ダッシュボード等が依存するキャッシュを再検証する
+    // skipRevalidate: true の場合は呼び出し元で一括 revalidate するため省略する
+    if (!options?.skipRevalidate) {
+      revalidateAfterDailyLogMutation();
+    }
+
+    return { ok: true };
+  } catch (e) {
+    // Supabase の fetch 失敗など、想定外の例外が発生した場合のフォールバック。
+    // throw をそのまま外部に伝播させると MealLogger の generic catch に落ちて
+    // 「予期しないエラーが発生しました」が表示されるため、ここで { ok: false } に正規化する (#544)。
+    console.error("[saveSleepSession] unexpected error:", e);
+    return { ok: false, message: "睡眠記録の保存に失敗しました" };
   }
-
-  // DB トリガーが daily_logs.sleep_hours を自動更新するため
-  // ダッシュボード等が依存するキャッシュを再検証する
-  // skipRevalidate: true の場合は呼び出し元で一括 revalidate するため省略する
-  if (!options?.skipRevalidate) {
-    revalidateAfterDailyLogMutation();
-  }
-
-  return { ok: true };
 }
 
 /**
