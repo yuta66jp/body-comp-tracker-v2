@@ -227,6 +227,35 @@ describe("parseJson", () => {
     });
   });
 
+  it("step_count が \"123abc\" のとき invalidRows にカウントしてスキップする (#550)", () => {
+    // parseInt では 123 に部分パースされてしまうバグの回帰テスト
+    const result = parseJson('[{"date":"2024-01-15","step_count":"123abc"},{"date":"2024-01-16","step_count":5000}]');
+    expect(result).toEqual({
+      ok: true,
+      records: [{ date: "2024-01-16", stepCount: 5000 }],
+      invalidRows: 1,
+    });
+  });
+
+  it("step_count が文字列の小数点（\"10.5\"）のとき invalidRows にカウントしてスキップする (#550)", () => {
+    // parseInt では 10 に切り捨てられてしまうバグの回帰テスト
+    const result = parseJson('[{"date":"2024-01-15","step_count":"10.5"},{"date":"2024-01-16","step_count":5000}]');
+    expect(result).toEqual({
+      ok: true,
+      records: [{ date: "2024-01-16", stepCount: 5000 }],
+      invalidRows: 1,
+    });
+  });
+
+  it("step_count が null のとき invalidRows にカウントしてスキップする", () => {
+    const result = parseJson('[{"date":"2024-01-15","step_count":null},{"date":"2024-01-16","step_count":5000}]');
+    expect(result).toEqual({
+      ok: true,
+      records: [{ date: "2024-01-16", stepCount: 5000 }],
+      invalidRows: 1,
+    });
+  });
+
   it("重複日付は後勝ちで上書きする", () => {
     const json = '[{"date":"2024-01-15","step_count":8432},{"date":"2024-01-15","step_count":9999}]';
     const result = parseJson(json);
