@@ -53,9 +53,10 @@ jest.mock("./FoodPicker", () => ({
   FoodPicker: () => null,
 }));
 
-// Toast のモック
+// Toast のモック（visible=true のとき message を DOM に出力してテスト可能にする）
 jest.mock("@/components/ui/Toast", () => ({
-  Toast: () => null,
+  Toast: ({ message, visible }: { message: string; visible: boolean }) =>
+    visible ? <div data-testid="toast-message">{message}</div> : null,
 }));
 
 // lucide-react のモック（アイコンを span に差し替えてレンダリングを安定させる）
@@ -265,5 +266,90 @@ describe("MealLogger handleSave — 保存順序 (#528 回帰)", () => {
     expect(mockSaveDailyLog).not.toHaveBeenCalled();
     expect(mockSaveSleepSession).not.toHaveBeenCalled();
     expect(callOrder).toEqual([]);
+  });
+
+  /**
+   * saveDailyLog 成功後に saveSleepSession が throw したとき (#544 回帰)。
+   *
+   * saveSleepSession が Server Action 境界で throw した場合でも、
+   * MealLogger の inner try-catch が捕捉して generic error に落とさず、
+   * 「日次ログは保存されたが睡眠は未保存」の partial save メッセージを表示する。
+   * また保存順序 (saveDailyLog → saveSleepSession) が維持されることを確認する。
+   */
+  it("saveDailyLog 成功後に saveSleepSession が throw したとき、partial save メッセージが表示される", async () => {
+    mockSaveSleepSession.mockImplementationOnce(async () => {
+      callOrder.push("saveSleepSession");
+      throw new Error("Network error");
+    });
+
+    render(<MealLogger />);
+
+    const weightInput = screen.getByLabelText(/体重/);
+    fireEvent.change(weightInput, { target: { value: "70.0" } });
+
+    const bedTimeInput = screen.getByLabelText(/就寝時刻/);
+    fireEvent.change(bedTimeInput, { target: { value: "23:00" } });
+
+    const wakeTimeInput = screen.getByLabelText(/起床時刻/);
+    fireEvent.change(wakeTimeInput, { target: { value: "07:00" } });
+
+    const saveButton = screen.getByRole("button", { name: /保存/ });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(mockSaveDailyLog).toHaveBeenCalledTimes(1);
+      expect(mockSaveSleepSession).toHaveBeenCalledTimes(1);
+    });
+
+    // 保存順序: saveDailyLog → saveSleepSession (#528)
+    expect(callOrder).toEqual(["saveDailyLog", "saveSleepSession"]);
+
+    // inner try-catch が捕捉 → partial save メッセージが表示される
+    await waitFor(() => {
+      const toast = screen.queryByTestId("toast-message");
+      expect(toast).not.toBeNull();
+      expect(toast?.textContent).toContain("日次ログは保存されましたが");
+    });
+  });
+
+  /**
+   * saveDailyLog 成功後に saveSleepSession が { ok: false } を返したとき (#544 回帰)。
+   *
+   * saveSleepSession が { ok: false } で返った場合も、dailyLogSaved=true のとき
+   * partial save メッセージを優先して表示する。
+   */
+  it("saveDailyLog 成功後に saveSleepSession が { ok: false } を返したとき、partial save メッセージが表示される", async () => {
+    mockSaveSleepSession.mockImplementationOnce(async () => {
+      callOrder.push("saveSleepSession");
+      return { ok: false, message: "保存に失敗しました: network timeout" };
+    });
+
+    render(<MealLogger />);
+
+    const weightInput = screen.getByLabelText(/体重/);
+    fireEvent.change(weightInput, { target: { value: "68.5" } });
+
+    const bedTimeInput = screen.getByLabelText(/就寝時刻/);
+    fireEvent.change(bedTimeInput, { target: { value: "22:30" } });
+
+    const wakeTimeInput = screen.getByLabelText(/起床時刻/);
+    fireEvent.change(wakeTimeInput, { target: { value: "06:30" } });
+
+    const saveButton = screen.getByRole("button", { name: /保存/ });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(mockSaveDailyLog).toHaveBeenCalledTimes(1);
+      expect(mockSaveSleepSession).toHaveBeenCalledTimes(1);
+    });
+
+    expect(callOrder).toEqual(["saveDailyLog", "saveSleepSession"]);
+
+    // partial save メッセージが表示される（sleepResult.message ではなく日次ログ保存済み文言）
+    await waitFor(() => {
+      const toast = screen.queryByTestId("toast-message");
+      expect(toast).not.toBeNull();
+      expect(toast?.textContent).toContain("日次ログは保存されましたが");
+    });
   });
 });
