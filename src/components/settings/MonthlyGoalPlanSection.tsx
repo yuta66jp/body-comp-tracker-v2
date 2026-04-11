@@ -217,7 +217,7 @@ function PlanContent({
         monthlyActuals: [],
         overrides,
       }),
-    [currentWeight, today, goalWeight, contestDate, overrides]
+    [currentWeight, today, goalWeight, contestDate, overrides, planStartMonth, planStartWeight]
   );
 
   // plan.entries の month + targetWeight の両方を含む signature を作成する。
