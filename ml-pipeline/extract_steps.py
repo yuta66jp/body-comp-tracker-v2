@@ -113,10 +113,15 @@ def extract_daily_steps(zip_path: str) -> dict[str, int]:
             value_str = elem.get("value", "0")
 
             try:
-                steps = int(float(value_str))
+                steps_float = float(value_str)
             except (ValueError, TypeError):
                 elem.clear()
                 continue
+            # 小数歩数は無効値としてスキップする（API 側 parsers.ts の Number.isInteger チェックと同方針）
+            if not steps_float.is_integer() or steps_float < 0:
+                elem.clear()
+                continue
+            steps = int(steps_float)
 
             date_key = parse_date_local(start_date)
             daily[date_key] += steps
