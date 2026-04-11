@@ -6,6 +6,7 @@
  * 2. モバイル詳細カードが horizon ごとにレンダリングされる (md:hidden)
  * 3. BacktestComparison のモバイル horizon サマリーカードが表示される (md:hidden)
  * 4. ForecastAccuracyRefreshButton が refresh ボタンをレンダリングする
+ * 5. #545 regression: 重複行がある場合に両コンポーネントが最小 MAE で一致する
  */
 
 // @jest-environment jest-environment-jsdom
@@ -217,5 +218,128 @@ describe("BacktestComparison", () => {
       <BacktestComparison dailyMetrics={DAILY_METRICS} sma7Metrics={[]} horizons={[7, 14, 30]} />
     );
     expect(screen.getAllByText("単日評価 ★").length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ─── #545 regression: 重複行での MAE 一致 ──────────────────────────────────────
+//
+// DB の UNIQUE 制約が有効になる前のデータや旧バッチ実行で、同一
+// (run_id, model_name, horizon_days, eval_policy) の行が複数存在するケースがある。
+//
+// 旧挙動:
+//   BacktestComparison.buildMaeMap → "last-wins" → 0.578 (2件目)
+//   BacktestResults.bestModels → min を winner に選出するが find() で最初の行を取得 → 0.626
+//   → 両者の表示値が 0.578 / 0.626 でズレていた
+//
+// 新挙動:
+//   buildMaeMap → "min-wins" → 0.578
+//   bestModels → min を winner として mae ごと返す → 0.578
+//   → 両者とも 0.578 で一致する
+
+/** id suffix 付きで重複行を生成する（id 衝突を避けるためのヘルパー） */
+function makeMetricDup(
+  model: string,
+  horizon: number,
+  mae: number,
+  suffix: string
+): ForecastBacktestMetric {
+  return {
+    id: `dup-${model}-${horizon}-${suffix}`,
+    run_id: "run-dup",
+    model_name: model,
+    horizon_days: horizon,
+    eval_policy: "all_days",
+    mae,
+    rmse: mae * 1.2,
+    mape: mae * 5,
+    bias: 0.01,
+    n_predictions: 30,
+    n_total: 30,
+    n_excluded: 0,
+    computed_at: "2026-04-01T00:00:00Z",
+    extra: {},
+  };
+}
+
+// D+7: Naive が 2 行存在 (0.626 が先、0.578 が後)。最小値 0.578 を採用すべき。
+const DUP_METRICS: ForecastBacktestMetric[] = [
+  makeMetricDup("Naive", 7, 0.626, "a"), // 先行行 (大きい値)
+  makeMetricDup("Naive", 7, 0.578, "b"), // 後続行 (小さい値 = 最小値)
+  makeMetricDup("LinearTrend30d", 7, 0.700, "c"), // 別モデル
+];
+
+const DUP_MOCK_RUN: ForecastBacktestRun = {
+  ...MOCK_RUN,
+  id: "run-dup",
+  horizons: [7],
+};
+
+describe("BacktestResults — duplicate metrics regression (#545)", () => {
+  it("重複行がある場合、ベストカードは最小 MAE (0.578) を表示し 0.626 を表示しない", () => {
+    const { container } = render(
+      <BacktestResults run={DUP_MOCK_RUN} metrics={DUP_METRICS} horizons={[7]} />
+    );
+    // best card の MAE は bestEntry.mae (最小値) から直接取得するため 0.578 になる
+    expect(container.textContent).toContain("0.578");
+    // ベストカードに 0.626 が表示されないこと（detail table の first-occurrence 行は除外）
+    // note: detail table にはまだ 0.626 が表示される場合があるため、ベストカード領域だけ検証する
+    const bestCards = container.querySelector(".grid.grid-cols-1");
+    expect(bestCards).not.toBeNull();
+    expect(bestCards!.textContent).not.toContain("0.626");
+    expect(bestCards!.textContent).toContain("0.578");
+  });
+
+  it("重複行がある場合でも最良モデルの判定が正しい (Naive < LinearTrend30d)", () => {
+    const { container } = render(
+      <BacktestResults run={DUP_MOCK_RUN} metrics={DUP_METRICS} horizons={[7]} />
+    );
+    const bestCards = container.querySelector(".grid.grid-cols-1");
+    // Naive (0.578) が LinearTrend30d (0.700) より小さいため最良モデルは Naive
+    expect(bestCards!.textContent).toContain("Naive");
+  });
+});
+
+describe("BacktestComparison — duplicate metrics regression (#545)", () => {
+  it("重複行がある場合、sma7 比較カードは最小 MAE (0.578) を表示する", () => {
+    const { container } = render(
+      <BacktestComparison
+        dailyMetrics={[makeMetricDup("Naive", 7, 0.900, "d")]}
+        sma7Metrics={DUP_METRICS}
+        horizons={[7]}
+      />
+    );
+    // mobile horizon card の sma7 best は min-wins で 0.578
+    const mobileSection = container.querySelector(".md\\:hidden.p-4");
+    expect(mobileSection).not.toBeNull();
+    expect(mobileSection!.textContent).toContain("0.578");
+    expect(mobileSection!.textContent).not.toContain("0.626");
+  });
+});
+
+describe("BacktestComparison + BacktestResults — MAE consistency (#545)", () => {
+  it("同じ重複 sma7 metrics を渡した場合、両コンポーネントのベストカードが同じ MAE を表示する", () => {
+    const { container: compContainer } = render(
+      <BacktestComparison
+        dailyMetrics={[makeMetricDup("Naive", 7, 0.900, "d")]}
+        sma7Metrics={DUP_METRICS}
+        horizons={[7]}
+      />
+    );
+    const { container: resultsContainer } = render(
+      <BacktestResults run={DUP_MOCK_RUN} metrics={DUP_METRICS} horizons={[7]} />
+    );
+
+    // BacktestComparison の mobile sma7 ★ 欄
+    const compMobile = compContainer.querySelector(".md\\:hidden.p-4");
+    // BacktestResults のベストカード欄
+    const resultsBestCards = resultsContainer.querySelector(".grid.grid-cols-1");
+
+    // 両者が最小値 0.578 を表示する
+    expect(compMobile!.textContent).toContain("0.578");
+    expect(resultsBestCards!.textContent).toContain("0.578");
+
+    // 両者とも 0.626 (first-occurrence の大きい値) をベストカードに表示しない
+    expect(compMobile!.textContent).not.toContain("0.626");
+    expect(resultsBestCards!.textContent).not.toContain("0.626");
   });
 });

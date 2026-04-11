@@ -50,19 +50,25 @@ function fmtDate(iso: string): string {
   return iso.slice(0, 10);
 }
 
-/** horizon ごとに MAE が最小のモデル名を返す */
-function bestModels(metrics: ForecastBacktestMetric[]): Record<number, string> {
-  const best: Record<number, { mae: number; model: string }> = {};
+/**
+ * horizon ごとに MAE が最小のモデルと MAE 値を返す。
+ *
+ * 戻り値に mae を含めることで、呼び出し側が再度 find() でメトリクスを
+ * 引き直す必要をなくす。find() を使うと重複行がある場合に最小 MAE とは
+ * 別の行の値を参照してしまい、BacktestComparison との値不一致が生じる (#545)。
+ */
+function bestModels(
+  metrics: ForecastBacktestMetric[]
+): Record<number, { model: string; mae: number }> {
+  const best: Record<number, { model: string; mae: number }> = {};
   for (const m of metrics) {
     if (m.mae === null) continue; // n_used=0 の policy 行をスキップ
     const prev = best[m.horizon_days];
     if (!prev || m.mae < prev.mae) {
-      best[m.horizon_days] = { mae: m.mae, model: m.model_name };
+      best[m.horizon_days] = { model: m.model_name, mae: m.mae };
     }
   }
-  return Object.fromEntries(
-    Object.entries(best).map(([h, v]) => [h, v.model])
-  );
+  return best;
 }
 
 /** バイアスの方向アイコン */
@@ -120,9 +126,8 @@ export function BacktestResults({ run, metrics, horizons }: Props) {
       {/* Horizon 別 Best モデル */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {horizons.map((h) => {
-          const winner = best[h];
-          const cfg = winner ? MODEL_CONFIG[winner] : null;
-          const metric = allDaysMetrics.find((m) => m.horizon_days === h && m.model_name === winner);
+          const bestEntry = best[h]; // { model, mae } | undefined — MAE は最小値 (#545)
+          const cfg = bestEntry ? MODEL_CONFIG[bestEntry.model] : null;
           return (
             <div
               key={h}
@@ -135,9 +140,9 @@ export function BacktestResults({ run, metrics, horizons }: Props) {
               >
                 {cfg?.label ?? "—"}
               </p>
-              {metric && (
+              {bestEntry && (
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  MAE <span className="font-mono font-semibold">{fmt(metric.mae)}</span> kg
+                  MAE <span className="font-mono font-semibold">{fmt(bestEntry.mae)}</span> kg
                 </p>
               )}
             </div>
@@ -282,7 +287,7 @@ export function BacktestResults({ run, metrics, horizons }: Props) {
                     const m = allDaysMetrics.find(
                       (x) => x.horizon_days === h && x.model_name === model
                     );
-                    const isBest = best[h] === model;
+                    const isBest = best[h]?.model === model;
                     return (
                       <React.Fragment key={h}>
                         <td
