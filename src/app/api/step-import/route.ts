@@ -32,7 +32,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { revalidateAfterDailyLogMutation } from "@/lib/cache/revalidate";
 import { parseStepFile } from "./parsers";
-import type { ParseResult } from "./parsers";
 import type { Database } from "@/lib/supabase/types";
 
 type DailyLogInsert = Database["public"]["Tables"]["daily_logs"]["Insert"];
