@@ -32,9 +32,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { revalidateAfterDailyLogMutation } from "@/lib/cache/revalidate";
 import { parseStepFile } from "./parsers";
-import type { Database } from "@/lib/supabase/types";
-
-type DailyLogInsert = Database["public"]["Tables"]["daily_logs"]["Insert"];
+import type { StepRecord } from "./parsers";
 
 // ── 型定義 ──────────────────────────────────────────────────────────────────
 
@@ -56,6 +54,51 @@ export type StepPreflightResult = {
 export type StepImportResult =
   | { ok: true; savedCount: number; skippedCount: number }
   | { ok: false; message: string };
+
+// ── 分類ロジック（preflight / import で共有） ───────────────────────────────
+
+/**
+ * パース済み歩数レコードを既存ログとの照合結果に基づいて分類する。
+ *
+ * preflight と import が同じロジックで分類することで、
+ * 事前確認の件数と実保存の件数が一致することを保証する。
+ */
+export type ClassifiedRecords = {
+  /** daily_logs に行が存在し、step_count を更新すべきレコード（新規 + 上書き） */
+  toUpdate: StepRecord[];
+  /** daily_logs に行が存在し、既に step_count が入っていないレコード（新規書き込み対象） */
+  newRecords: StepRecord[];
+  /** daily_logs に行が存在し、既に step_count が入っているレコード（上書き対象） */
+  overwriteRecords: StepRecord[];
+  /** daily_logs に対応行がないレコード（スキップ対象） */
+  skippedRecords: StepRecord[];
+};
+
+export function classifyRecords(
+  records: StepRecord[],
+  existingMap: Map<string, number | null>,
+): ClassifiedRecords {
+  const toUpdate: StepRecord[] = [];
+  const newRecords: StepRecord[] = [];
+  const overwriteRecords: StepRecord[] = [];
+  const skippedRecords: StepRecord[] = [];
+
+  for (const record of records) {
+    if (!existingMap.has(record.date)) {
+      skippedRecords.push(record);
+    } else {
+      toUpdate.push(record);
+      const existing = existingMap.get(record.date);
+      if (existing === null || existing === undefined) {
+        newRecords.push(record);
+      } else {
+        overwriteRecords.push(record);
+      }
+    }
+  }
+
+  return { toUpdate, newRecords, overwriteRecords, skippedRecords };
+}
 
 // ── ヘルパー ──────────────────────────────────────────────────────────────
 
@@ -102,7 +145,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 解析結果の日付一覧を取得（昇順ソート��み）
+  // 解析結果の日付一覧を取得（昇順ソート済み）
   const dates = parsed.records.map((r) => r.date).sort();
   const datesSet = new Set(dates);
   const minDate = dates[0]!;
@@ -111,7 +154,7 @@ export async function POST(req: NextRequest) {
   // DB から対象日付範囲の daily_logs を取得
   //
   // `.in("log_date", dates)` は PostgREST により URL クエリパラメータに展開されるため、
-  // 日付件数が多い（数百〜数千件）と URL 長制限を超���て 400 Bad Request になる。
+  // 日付件数が多い（数百〜数千件）と URL 長制限を超えて 400 Bad Request になる。
   // 代わりに minDate〜maxDate の範囲取得を使い、アプリ側で datesSet との突合を行う。
   // 範囲内に import 対象外の日付が含まれる場合があるが、datesSet フィルタで除外する。
   const supabase = createClient();
@@ -132,33 +175,17 @@ export async function POST(req: NextRequest) {
       .map((row) => [row.log_date, row.step_count as number | null]),
   );
 
+  // preflight と import で同じ classifyRecords を使うことで件数の一致を保証する
+  const classified = classifyRecords(parsed.records, existingMap);
+
   // ── preflight ──────────────────────────────────────────────────────────────
   if (action === "preflight") {
-    let matchedDays  = 0;
-    let overwriteDays = 0;
-    let newDays       = 0;
-    let skippedDays   = 0;
-
-    for (const { date } of parsed.records) {
-      if (!existingMap.has(date)) {
-        skippedDays++;
-      } else {
-        matchedDays++;
-        const existing = existingMap.get(date);
-        if (existing !== null && existing !== undefined) {
-          overwriteDays++;
-        } else {
-          newDays++;
-        }
-      }
-    }
-
     const result: StepPreflightResult = {
       totalDays:    parsed.records.length,
-      matchedDays,
-      overwriteDays,
-      newDays,
-      skippedDays,
+      matchedDays:  classified.toUpdate.length,
+      overwriteDays: classified.overwriteRecords.length,
+      newDays:      classified.newRecords.length,
+      skippedDays:  classified.skippedRecords.length,
       invalidRows:  parsed.invalidRows,
     };
     return NextResponse.json(result);
@@ -166,35 +193,41 @@ export async function POST(req: NextRequest) {
 
   // ── import ─────────────────────────────────────────────────────────────────
   let savedCount   = 0;
-  let skippedCount = 0;
+  let skippedCount = classified.skippedRecords.length;
 
-  // 既存 daily_logs がある日付だけ更新対象に絞る（新規行は生成しない）
-  const toUpdate = parsed.records.filter(({ date }) => existingMap.has(date));
-  skippedCount = parsed.records.length - toUpdate.length;
-
-  // チャンク単位で一括 upsert する
+  // step_count を日付ごとに UPDATE する
   //
-  // - toUpdate は existingMap.has() で絞り済みのため、upsert は既存行への UPDATE として動作する
-  // - log_date と step_count のみ指定することで、他カラムへの誤更新を防ぐ
-  //   (PostgREST upsert は ON CONFLICT DO UPDATE SET で指定カラムのみを更新する)
-  // - 逐次 RPC (O(N) round trips) に替えてチャンク単位の upsert (O(N/100) round trips) にすることで
-  //   数百〜千件規模でもタイムアウトに到達しにくくする (#450)
-  // - チャンク単位で失敗した場合はそのチャンクを skippedCount に計上して処理を継続する
-  const IMPORT_CHUNK_SIZE = 100;
+  // upsert（INSERT...ON CONFLICT）を使わない理由:
+  //   upsert は INSERT を試みるため、NOT NULL DEFAULT カラム（is_cheat_day 等）が
+  //   NULL と評価される場合に制約違反で全チャンクが失敗する。
+  //   UPDATE は既存行のみを対象にするため INSERT 側の制約に触れない。
+  //
+  // 並行実行（BATCH_CONCURRENCY 件ずつ Promise.allSettled）でタイムアウトを回避する。
+  // classified.toUpdate は existingMap.has() でフィルタ済みのため全行が既存行。
+  const BATCH_CONCURRENCY = 20;
+  const { toUpdate } = classified;
 
-  for (let i = 0; i < toUpdate.length; i += IMPORT_CHUNK_SIZE) {
-    const chunk = toUpdate.slice(i, i + IMPORT_CHUNK_SIZE);
-    const { error: upsertError } = await supabase
-      .from("daily_logs")
-      .upsert(
-        chunk.map(({ date, stepCount }) => ({ log_date: date, step_count: stepCount })) as unknown as DailyLogInsert[],
-        { onConflict: "log_date" },
-      );
-    if (upsertError) {
-      console.error("[step-import] upsert error:", upsertError.message);
-      skippedCount += chunk.length;
-    } else {
-      savedCount += chunk.length;
+  for (let i = 0; i < toUpdate.length; i += BATCH_CONCURRENCY) {
+    const batch = toUpdate.slice(i, i + BATCH_CONCURRENCY);
+    const results = await Promise.allSettled(
+      batch.map(({ date, stepCount }) =>
+        supabase
+          .from("daily_logs")
+          .update({ step_count: stepCount })
+          .eq("log_date", date)
+      ),
+    );
+    for (const result of results) {
+      if (result.status === "fulfilled" && !result.value.error) {
+        savedCount++;
+      } else {
+        const msg =
+          result.status === "rejected"
+            ? String(result.reason)
+            : (result.value.error?.message ?? "unknown error");
+        console.error("[step-import] update error:", msg);
+        skippedCount++;
+      }
     }
   }
 
