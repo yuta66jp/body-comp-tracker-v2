@@ -569,14 +569,14 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
           ) : (
             <p className="mt-1 text-xs text-slate-400">新規入力</p>
           )}
-          {/* 今日以外の日付を選んだときに「今日に戻す」を表示 */}
-          {date !== todayStr() && (
+          {/* 日付が入力済みのときにクリアボタンを表示 */}
+          {date !== "" && (
             <button
               type="button"
-              onClick={() => handleDateChange(todayStr())}
-              className="mt-1 text-[10px] text-blue-500 underline hover:text-blue-700 transition-colors"
+              onClick={() => handleDateChange("")}
+              className="mt-1 text-[10px] text-slate-400 underline hover:text-rose-400 transition-colors"
             >
-              今日に戻す
+              日付をクリア
             </button>
           )}
         </div>
@@ -925,7 +925,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       <div className="flex items-center justify-end">
         <button
           onClick={handleSave}
-          disabled={status === "saving" || !hasContent}
+          disabled={status === "saving" || !hasContent || !date}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md disabled:opacity-40"
         >
           {status === "saving"

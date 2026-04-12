@@ -77,7 +77,7 @@ export function MobileMealLoggerSheet() {
           aria-label="食事・体重ログ入力"
           className={[
             // 共通
-            "fixed z-50 bg-white shadow-2xl dark:bg-slate-900",
+            "fixed z-50 overflow-hidden bg-white shadow-2xl dark:bg-slate-900",
             // モバイル: bottom sheet
             "bottom-0 left-0 right-0 max-h-[88svh] rounded-t-2xl",
             // PC (lg+): centered modal — bottom/right をリセットして中央配置
