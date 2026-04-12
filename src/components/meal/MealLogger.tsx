@@ -544,7 +544,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     (!!sleepBedTime !== !!sleepWakeTime);
 
   const inputCls =
-    "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800 dark:focus:border-blue-500 dark:focus:ring-blue-900/40";
+    "w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800 dark:focus:border-blue-500 dark:focus:ring-blue-900/40";
   // 明示的クリア状態（null）のときの入力欄スタイル（pr-8 不要 — オーバーレイボタンは外に出す）
   const inputClearedCls =
     "w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-400 placeholder:text-rose-300 outline-none opacity-75 cursor-default dark:border-rose-700/50 dark:bg-rose-900/20 dark:text-rose-400 dark:placeholder:text-rose-700/70";
@@ -560,7 +560,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     <div className={sidebar ? "flex flex-col gap-4" : "border-t border-slate-100 px-5 pb-5 pt-4"}>
       {/* 日付・体重・メモ */}
       <div className={`grid gap-3 ${sidebar ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-3"}`}>
-        <div>
+        <div className="min-w-0">
           <label htmlFor="meal-log-date" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">日付</label>
           <input id="meal-log-date" type="date" value={date} onChange={(e) => handleDateChange(e.target.value)} className={inputCls} />
           {/* 既存ログあり / 新規入力 バッジ */}
@@ -707,7 +707,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">コンディション</p>
         <div className={`grid gap-3 ${sidebar ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
           {/* 睡眠セクション（就寝時刻 + 起床時刻 + 推定時間）*/}
-          <div className="sm:col-span-2 rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-800/40">
+          <div className="sm:col-span-2 min-w-0 rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-800/40">
             <p className="mb-0.5 text-xs font-medium text-slate-500">睡眠</p>
             {sleepSessionPendingDelete ? (
               /* 削除予定状態 */
@@ -742,9 +742,9 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
               /* 通常入力状態 */
               <div className="flex flex-col gap-2">
                 <div className="grid grid-cols-1 gap-2">
-                  <div>
+                  <div className="min-w-0">
                     <label htmlFor="meal-log-sleep-bed-time" className="mb-1 block text-[10px] text-slate-400">就寝時刻（昨夜〜深夜）</label>
-                    <div className="relative">
+                    <div className="relative w-full min-w-0">
                       <input
                         id="meal-log-sleep-bed-time"
                         type="time"
@@ -764,9 +764,9 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
                       )}
                     </div>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <label htmlFor="meal-log-sleep-wake-time" className="mb-1 block text-[10px] text-slate-400">起床時刻（今朝）</label>
-                    <div className="relative">
+                    <div className="relative w-full min-w-0">
                       <input
                         id="meal-log-sleep-wake-time"
                         type="time"
@@ -813,9 +813,9 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
             )}
           </div>
           {/* 最終食事終了時刻 */}
-          <div className="sm:col-span-2">
+          <div className="sm:col-span-2 min-w-0">
             <label htmlFor="meal-log-last-meal-end-time" className="mb-1.5 block text-xs font-medium text-slate-500">最終食事終了</label>
-            <div className="relative">
+            <div className="relative w-full min-w-0">
               <input
                 id="meal-log-last-meal-end-time"
                 type="time"
