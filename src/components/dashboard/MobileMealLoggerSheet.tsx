@@ -107,7 +107,7 @@ export function MobileMealLoggerSheet() {
 
           {/* Panel コンテンツ（スクロール可能） */}
           <div
-            className="overflow-y-auto px-5 py-4"
+            className="overflow-y-auto overflow-x-hidden px-5 py-4"
             style={{ maxHeight: "calc(min(88svh, 85vh) - 56px)" }}
           >
             <MealLogger sidebar showHeader={false} onSaveSuccess={() => setOpen(false)} />
