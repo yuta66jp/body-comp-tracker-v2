@@ -569,6 +569,16 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
           ) : (
             <p className="mt-1 text-xs text-slate-400">新規入力</p>
           )}
+          {/* 日付が入力済みのときにクリアボタンを表示 */}
+          {date !== "" && (
+            <button
+              type="button"
+              onClick={() => handleDateChange("")}
+              className="mt-1 text-[10px] text-slate-400 underline hover:text-rose-400 transition-colors"
+            >
+              日付をクリア
+            </button>
+          )}
         </div>
         <div>
           <label htmlFor="meal-log-weight" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">体重 (kg)</label>
@@ -731,26 +741,50 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
             ) : (
               /* 通常入力状態 */
               <div className="flex flex-col gap-2">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   <div>
                     <label htmlFor="meal-log-sleep-bed-time" className="mb-1 block text-[10px] text-slate-400">就寝時刻（昨夜〜深夜）</label>
-                    <input
-                      id="meal-log-sleep-bed-time"
-                      type="time"
-                      value={sleepBedTime}
-                      onChange={(e) => { setSleepBedTime(e.target.value); setSleepSessionTouched(true); }}
-                      className={inputCls}
-                    />
+                    <div className="relative">
+                      <input
+                        id="meal-log-sleep-bed-time"
+                        type="time"
+                        value={sleepBedTime}
+                        onChange={(e) => { setSleepBedTime(e.target.value); setSleepSessionTouched(true); }}
+                        className={`${inputCls} ${sleepBedTime !== "" ? "pr-8" : ""}`}
+                      />
+                      {sleepBedTime !== "" && (
+                        <button
+                          type="button"
+                          onClick={() => { setSleepBedTime(""); setSleepSessionTouched(true); }}
+                          aria-label="就寝時刻をクリア"
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-rose-400 transition-colors"
+                        >
+                          <X size={15} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <label htmlFor="meal-log-sleep-wake-time" className="mb-1 block text-[10px] text-slate-400">起床時刻（今朝）</label>
-                    <input
-                      id="meal-log-sleep-wake-time"
-                      type="time"
-                      value={sleepWakeTime}
-                      onChange={(e) => { setSleepWakeTime(e.target.value); setSleepSessionTouched(true); }}
-                      className={inputCls}
-                    />
+                    <div className="relative">
+                      <input
+                        id="meal-log-sleep-wake-time"
+                        type="time"
+                        value={sleepWakeTime}
+                        onChange={(e) => { setSleepWakeTime(e.target.value); setSleepSessionTouched(true); }}
+                        className={`${inputCls} ${sleepWakeTime !== "" ? "pr-8" : ""}`}
+                      />
+                      {sleepWakeTime !== "" && (
+                        <button
+                          type="button"
+                          onClick={() => { setSleepWakeTime(""); setSleepSessionTouched(true); }}
+                          aria-label="起床時刻をクリア"
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-rose-400 transition-colors"
+                        >
+                          <X size={15} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 {/* 片方だけ入力時の警告 */}
@@ -781,13 +815,25 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
           {/* 最終食事終了時刻 */}
           <div className="sm:col-span-2">
             <label htmlFor="meal-log-last-meal-end-time" className="mb-1.5 block text-xs font-medium text-slate-500">最終食事終了</label>
-            <input
-              id="meal-log-last-meal-end-time"
-              type="time"
-              value={lastMealEndTime}
-              onChange={(e) => { setLastMealEndTime(e.target.value); setLastMealEndTimeTouched(true); }}
-              className={inputCls}
-            />
+            <div className="relative">
+              <input
+                id="meal-log-last-meal-end-time"
+                type="time"
+                value={lastMealEndTime}
+                onChange={(e) => { setLastMealEndTime(e.target.value); setLastMealEndTimeTouched(true); }}
+                className={`${inputCls} ${lastMealEndTime !== "" ? "pr-8" : ""}`}
+              />
+              {lastMealEndTime !== "" && (
+                <button
+                  type="button"
+                  onClick={() => { setLastMealEndTime(""); setLastMealEndTimeTouched(true); }}
+                  aria-label="最終食事終了時刻をクリア"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-rose-400 transition-colors"
+                >
+                  <X size={15} />
+                </button>
+              )}
+            </div>
           </div>
           {/* 便通 */}
           <div className="sm:col-span-2">
@@ -903,7 +949,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       <div className="flex items-center justify-end">
         <button
           onClick={handleSave}
-          disabled={status === "saving" || !hasContent}
+          disabled={status === "saving" || !hasContent || !date}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md disabled:opacity-40"
         >
           {status === "saving"
