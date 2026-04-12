@@ -569,6 +569,16 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
           ) : (
             <p className="mt-1 text-xs text-slate-400">新規入力</p>
           )}
+          {/* 今日以外の日付を選んだときに「今日に戻す」を表示 */}
+          {date !== todayStr() && (
+            <button
+              type="button"
+              onClick={() => handleDateChange(todayStr())}
+              className="mt-1 text-[10px] text-blue-500 underline hover:text-blue-700 transition-colors"
+            >
+              今日に戻す
+            </button>
+          )}
         </div>
         <div>
           <label htmlFor="meal-log-weight" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">体重 (kg)</label>
@@ -731,7 +741,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
             ) : (
               /* 通常入力状態 */
               <div className="flex flex-col gap-2">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   <div>
                     <label htmlFor="meal-log-sleep-bed-time" className="mb-1 block text-[10px] text-slate-400">就寝時刻（昨夜〜深夜）</label>
                     <input
@@ -781,13 +791,25 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
           {/* 最終食事終了時刻 */}
           <div className="sm:col-span-2">
             <label htmlFor="meal-log-last-meal-end-time" className="mb-1.5 block text-xs font-medium text-slate-500">最終食事終了</label>
-            <input
-              id="meal-log-last-meal-end-time"
-              type="time"
-              value={lastMealEndTime}
-              onChange={(e) => { setLastMealEndTime(e.target.value); setLastMealEndTimeTouched(true); }}
-              className={inputCls}
-            />
+            <div className="relative">
+              <input
+                id="meal-log-last-meal-end-time"
+                type="time"
+                value={lastMealEndTime}
+                onChange={(e) => { setLastMealEndTime(e.target.value); setLastMealEndTimeTouched(true); }}
+                className={`${inputCls} ${lastMealEndTime !== "" ? "pr-8" : ""}`}
+              />
+              {lastMealEndTime !== "" && (
+                <button
+                  type="button"
+                  onClick={() => { setLastMealEndTime(""); setLastMealEndTimeTouched(true); }}
+                  aria-label="最終食事終了時刻をクリア"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-rose-400 transition-colors"
+                >
+                  <X size={15} />
+                </button>
+              )}
+            </div>
           </div>
           {/* 便通 */}
           <div className="sm:col-span-2">
