@@ -560,9 +560,9 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     }`;
 
   const content = (
-    <div className={sidebar ? "flex flex-col gap-4" : "border-t border-slate-100 px-5 pb-5 pt-4"}>
+    <div className={sidebar ? "flex flex-col gap-4 min-w-0 overflow-hidden" : "border-t border-slate-100 px-5 pb-5 pt-4"}>
       {/* 日付・体重・メモ */}
-      <div className={`grid gap-3 ${sidebar ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-3"}`}>
+      <div className={`grid gap-3 min-w-0 ${sidebar ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-3"}`}>
         <div className="min-w-0">
           <label htmlFor="meal-log-date" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">日付</label>
           <input id="meal-log-date" type="date" value={date} onChange={(e) => handleDateChange(e.target.value)} className={dateTimeInputCls} />
@@ -684,7 +684,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       )}
 
       {/* 特殊日タグ (is_cheat_day / is_refeed_day / is_eating_out / is_travel_day) */}
-      <div>
+      <div className="min-w-0">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">特殊日</p>
         <div className="grid grid-cols-3 gap-2">
           {DAY_TAGS.map((tag) => (
@@ -706,9 +706,9 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       </div>
 
       {/* コンディション */}
-      <div>
+      <div className="min-w-0">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">コンディション</p>
-        <div className={`grid gap-3 ${sidebar ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
+        <div className={`grid gap-3 min-w-0 ${sidebar ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
           {/* 睡眠セクション（就寝時刻 + 起床時刻 + 推定時間）*/}
           <div className="sm:col-span-2 min-w-0 overflow-hidden rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-800/40">
             <p className="mb-0.5 text-xs font-medium text-slate-500">睡眠</p>
