@@ -744,23 +744,47 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
                 <div className="grid grid-cols-1 gap-2">
                   <div>
                     <label htmlFor="meal-log-sleep-bed-time" className="mb-1 block text-[10px] text-slate-400">就寝時刻（昨夜〜深夜）</label>
-                    <input
-                      id="meal-log-sleep-bed-time"
-                      type="time"
-                      value={sleepBedTime}
-                      onChange={(e) => { setSleepBedTime(e.target.value); setSleepSessionTouched(true); }}
-                      className={inputCls}
-                    />
+                    <div className="relative">
+                      <input
+                        id="meal-log-sleep-bed-time"
+                        type="time"
+                        value={sleepBedTime}
+                        onChange={(e) => { setSleepBedTime(e.target.value); setSleepSessionTouched(true); }}
+                        className={`${inputCls} ${sleepBedTime !== "" ? "pr-8" : ""}`}
+                      />
+                      {sleepBedTime !== "" && (
+                        <button
+                          type="button"
+                          onClick={() => { setSleepBedTime(""); setSleepSessionTouched(true); }}
+                          aria-label="就寝時刻をクリア"
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-rose-400 transition-colors"
+                        >
+                          <X size={15} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <label htmlFor="meal-log-sleep-wake-time" className="mb-1 block text-[10px] text-slate-400">起床時刻（今朝）</label>
-                    <input
-                      id="meal-log-sleep-wake-time"
-                      type="time"
-                      value={sleepWakeTime}
-                      onChange={(e) => { setSleepWakeTime(e.target.value); setSleepSessionTouched(true); }}
-                      className={inputCls}
-                    />
+                    <div className="relative">
+                      <input
+                        id="meal-log-sleep-wake-time"
+                        type="time"
+                        value={sleepWakeTime}
+                        onChange={(e) => { setSleepWakeTime(e.target.value); setSleepSessionTouched(true); }}
+                        className={`${inputCls} ${sleepWakeTime !== "" ? "pr-8" : ""}`}
+                      />
+                      {sleepWakeTime !== "" && (
+                        <button
+                          type="button"
+                          onClick={() => { setSleepWakeTime(""); setSleepSessionTouched(true); }}
+                          aria-label="起床時刻をクリア"
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-rose-400 transition-colors"
+                        >
+                          <X size={15} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 {/* 片方だけ入力時の警告 */}
