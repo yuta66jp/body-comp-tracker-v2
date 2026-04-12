@@ -545,9 +545,10 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
 
   const inputCls =
     "w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800 dark:focus:border-blue-500 dark:focus:ring-blue-900/40";
-  // date/time input 専用: ネイティブ picker の最小幅強制をブロックするため
-  // block + max-w-full + box-border を追加し、コンテナ幅に収まることを保証する
-  const dateTimeInputCls = `${inputCls} block max-w-full box-border`;
+  // date/time input 専用: iOS Chrome/Safari の type="date"/"time" は native widget の最小幅が
+  // CSS width:100% を上書きする。appearance-none で native スタイルをリセットし
+  // CSS が幅を完全制御できるようにする（ピッカー機能自体は維持される）
+  const dateTimeInputCls = `${inputCls} block max-w-full box-border appearance-none`;
   // 明示的クリア状態（null）のときの入力欄スタイル（pr-8 不要 — オーバーレイボタンは外に出す）
   const inputClearedCls =
     "w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-400 placeholder:text-rose-300 outline-none opacity-75 cursor-default dark:border-rose-700/50 dark:bg-rose-900/20 dark:text-rose-400 dark:placeholder:text-rose-700/70";
@@ -565,7 +566,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       <div className={`grid gap-3 min-w-0 ${sidebar ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-3"}`}>
         <div className="min-w-0">
           <label htmlFor="meal-log-date" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">日付</label>
-          <input id="meal-log-date" type="date" value={date} onChange={(e) => handleDateChange(e.target.value)} className={dateTimeInputCls} />
+          <input id="meal-log-date" type="date" value={date} onChange={(e) => handleDateChange(e.target.value)} className={dateTimeInputCls} style={{ width: "100%", minWidth: "0" }} />
           {/* 既存ログあり / 新規入力 バッジ */}
           {hydratedLog ? (
             <p className="mt-1 text-xs font-medium text-amber-600">既存ログあり — 差分のみ編集できます</p>
@@ -753,6 +754,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
                       value={sleepBedTime}
                       onChange={(e) => { setSleepBedTime(e.target.value); setSleepSessionTouched(true); }}
                       className={dateTimeInputCls}
+                      style={{ width: "100%", minWidth: "0" }}
                     />
                     {sleepBedTime !== "" && (
                       <button
@@ -772,6 +774,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
                       value={sleepWakeTime}
                       onChange={(e) => { setSleepWakeTime(e.target.value); setSleepSessionTouched(true); }}
                       className={dateTimeInputCls}
+                      style={{ width: "100%", minWidth: "0" }}
                     />
                     {sleepWakeTime !== "" && (
                       <button
@@ -818,6 +821,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
               value={lastMealEndTime}
               onChange={(e) => { setLastMealEndTime(e.target.value); setLastMealEndTimeTouched(true); }}
               className={dateTimeInputCls}
+              style={{ width: "100%", minWidth: "0" }}
             />
             {lastMealEndTime !== "" && (
               <button
