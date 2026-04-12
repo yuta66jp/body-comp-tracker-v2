@@ -569,9 +569,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
           ) : (
             <p className="mt-1 text-xs text-slate-400">新規入力</p>
           )}
-          <p className="mt-1 text-[10px] text-slate-400">
-            体重・睡眠はこの日の朝に起きた記録として保存します
-          </p>
         </div>
         <div>
           <label htmlFor="meal-log-weight" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">体重 (kg)</label>
@@ -663,11 +660,13 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       {hydratedLog && (hydratedLog.calories !== null || hydratedLog.protein !== null) && (
         <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-400">
           <span className="font-semibold">記録済みマクロ:</span>{" "}
-          {hydratedLog.calories !== null && <span>{hydratedLog.calories} kcal</span>}
-          {hydratedLog.protein  !== null && <span> / P {hydratedLog.protein}g</span>}
-          {hydratedLog.fat      !== null && <span> / F {hydratedLog.fat}g</span>}
-          {hydratedLog.carbs    !== null && <span> / C {hydratedLog.carbs}g</span>}
-          <span className="ml-1 text-amber-600">（更新する場合はカートから追加）</span>
+          <div>
+            {hydratedLog.calories !== null && <span>{hydratedLog.calories} kcal</span>}
+            {hydratedLog.protein  !== null && <span> / P {hydratedLog.protein}g</span>}
+            {hydratedLog.fat      !== null && <span> / F {hydratedLog.fat}g</span>}
+            {hydratedLog.carbs    !== null && <span> / C {hydratedLog.carbs}g</span>}
+          </div>
+          <div className="mt-0.5 text-amber-600">（更新する場合はカートから追加）</div>
         </div>
       )}
 
@@ -700,7 +699,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
           {/* 睡眠セクション（就寝時刻 + 起床時刻 + 推定時間）*/}
           <div className="sm:col-span-2 rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-800/40">
             <p className="mb-0.5 text-xs font-medium text-slate-500">睡眠</p>
-            <p className="mb-2 text-[10px] text-slate-400 dark:text-slate-500">起床後にこの日の欄へ入力。前日夜の就寝でも今日の画面に記録します。</p>
             {sleepSessionPendingDelete ? (
               /* 削除予定状態 */
               <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 dark:border-rose-700/50 dark:bg-rose-900/20">
@@ -781,7 +779,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
             )}
           </div>
           {/* 最終食事終了時刻 */}
-          <div>
+          <div className="sm:col-span-2">
             <label htmlFor="meal-log-last-meal-end-time" className="mb-1.5 block text-xs font-medium text-slate-500">最終食事終了</label>
             <input
               id="meal-log-last-meal-end-time"
@@ -792,7 +790,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
             />
           </div>
           {/* 便通 */}
-          <div>
+          <div className="sm:col-span-2">
             <label className="mb-1.5 block text-xs font-medium text-slate-500">便通</label>
             <div className="flex gap-2">
               <button
