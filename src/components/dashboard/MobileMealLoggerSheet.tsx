@@ -78,8 +78,8 @@ export function MobileMealLoggerSheet() {
           className={[
             // 共通
             "fixed z-50 overflow-hidden bg-white shadow-2xl dark:bg-slate-900",
-            // モバイル: bottom sheet
-            "bottom-0 left-0 right-0 max-h-[88svh] rounded-t-2xl",
+            // モバイル: bottom sheet（left-3 right-3 で両端に余白を確保）
+            "bottom-0 left-3 right-3 max-h-[88svh] rounded-t-2xl",
             // PC (lg+): centered modal — bottom/right をリセットして中央配置
             "lg:bottom-auto lg:right-auto",
             "lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2",
@@ -105,12 +105,17 @@ export function MobileMealLoggerSheet() {
             </button>
           </div>
 
-          {/* Panel コンテンツ（スクロール可能） */}
+          {/* Panel コンテンツ（スクロール可能）
+              overflow-y: auto + padding の WebKit バグ対策:
+              スクロール層とパディング層を分離することで、子要素の width:100% が
+              padding を無視して計算される iOS Chrome/Safari の既知問題を回避する */}
           <div
-            className="overflow-y-auto px-5 py-4"
+            className="overflow-y-auto"
             style={{ maxHeight: "calc(min(88svh, 85vh) - 56px)" }}
           >
-            <MealLogger sidebar showHeader={false} onSaveSuccess={() => setOpen(false)} />
+            <div className="px-5 py-4 overflow-hidden">
+              <MealLogger sidebar showHeader={false} onSaveSuccess={() => setOpen(false)} />
+            </div>
           </div>
         </div>
       )}

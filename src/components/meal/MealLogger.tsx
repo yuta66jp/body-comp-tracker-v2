@@ -545,6 +545,10 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
 
   const inputCls =
     "w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800 dark:focus:border-blue-500 dark:focus:ring-blue-900/40";
+  // date/time input 専用: iOS Chrome/Safari の type="date"/"time" は native widget の最小幅が
+  // CSS width:100% を上書きする。appearance-none で native スタイルをリセットし
+  // CSS が幅を完全制御できるようにする（ピッカー機能自体は維持される）
+  const dateTimeInputCls = `${inputCls} block max-w-full box-border appearance-none`;
   // 明示的クリア状態（null）のときの入力欄スタイル（pr-8 不要 — オーバーレイボタンは外に出す）
   const inputClearedCls =
     "w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-400 placeholder:text-rose-300 outline-none opacity-75 cursor-default dark:border-rose-700/50 dark:bg-rose-900/20 dark:text-rose-400 dark:placeholder:text-rose-700/70";
@@ -557,12 +561,12 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     }`;
 
   const content = (
-    <div className={sidebar ? "flex flex-col gap-4" : "border-t border-slate-100 px-5 pb-5 pt-4"}>
+    <div className={sidebar ? "flex flex-col gap-4 min-w-0 overflow-hidden" : "border-t border-slate-100 px-5 pb-5 pt-4"}>
       {/* 日付・体重・メモ */}
-      <div className={`grid gap-3 ${sidebar ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-3"}`}>
+      <div className={`grid gap-3 min-w-0 ${sidebar ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-3"}`}>
         <div className="min-w-0">
           <label htmlFor="meal-log-date" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">日付</label>
-          <input id="meal-log-date" type="date" value={date} onChange={(e) => handleDateChange(e.target.value)} className={inputCls} />
+          <input id="meal-log-date" type="date" value={date} onChange={(e) => handleDateChange(e.target.value)} className={dateTimeInputCls} style={{ width: "100%", minWidth: "0" }} />
           {/* 既存ログあり / 新規入力 バッジ */}
           {hydratedLog ? (
             <p className="mt-1 text-xs font-medium text-amber-600">既存ログあり — 差分のみ編集できます</p>
@@ -681,7 +685,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       )}
 
       {/* 特殊日タグ (is_cheat_day / is_refeed_day / is_eating_out / is_travel_day) */}
-      <div>
+      <div className="min-w-0">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">特殊日</p>
         <div className="grid grid-cols-3 gap-2">
           {DAY_TAGS.map((tag) => (
@@ -703,11 +707,11 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       </div>
 
       {/* コンディション */}
-      <div>
+      <div className="min-w-0">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">コンディション</p>
-        <div className={`grid gap-3 ${sidebar ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
+        <div className={`grid gap-3 min-w-0 ${sidebar ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
           {/* 睡眠セクション（就寝時刻 + 起床時刻 + 推定時間）*/}
-          <div className="sm:col-span-2 min-w-0 rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-800/40">
+          <div className="sm:col-span-2 min-w-0 overflow-hidden rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-800/40">
             <p className="mb-0.5 text-xs font-medium text-slate-500">睡眠</p>
             {sleepSessionPendingDelete ? (
               /* 削除予定状態 */
@@ -742,49 +746,45 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
               /* 通常入力状態 */
               <div className="flex flex-col gap-2">
                 <div className="grid grid-cols-1 gap-2">
-                  <div className="min-w-0">
+                  <div className="min-w-0 w-full max-w-full overflow-hidden">
                     <label htmlFor="meal-log-sleep-bed-time" className="mb-1 block text-[10px] text-slate-400">就寝時刻（昨夜〜深夜）</label>
-                    <div className="relative w-full min-w-0">
-                      <input
-                        id="meal-log-sleep-bed-time"
-                        type="time"
-                        value={sleepBedTime}
-                        onChange={(e) => { setSleepBedTime(e.target.value); setSleepSessionTouched(true); }}
-                        className={`${inputCls} ${sleepBedTime !== "" ? "pr-8" : ""}`}
-                      />
-                      {sleepBedTime !== "" && (
-                        <button
-                          type="button"
-                          onClick={() => { setSleepBedTime(""); setSleepSessionTouched(true); }}
-                          aria-label="就寝時刻をクリア"
-                          className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-rose-400 transition-colors"
-                        >
-                          <X size={15} />
-                        </button>
-                      )}
-                    </div>
+                    <input
+                      id="meal-log-sleep-bed-time"
+                      type="time"
+                      value={sleepBedTime}
+                      onChange={(e) => { setSleepBedTime(e.target.value); setSleepSessionTouched(true); }}
+                      className={dateTimeInputCls}
+                      style={{ width: "100%", minWidth: "0" }}
+                    />
+                    {sleepBedTime !== "" && (
+                      <button
+                        type="button"
+                        onClick={() => { setSleepBedTime(""); setSleepSessionTouched(true); }}
+                        className="mt-1 text-[10px] text-slate-400 underline hover:text-rose-400 transition-colors"
+                      >
+                        クリア
+                      </button>
+                    )}
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 w-full max-w-full overflow-hidden">
                     <label htmlFor="meal-log-sleep-wake-time" className="mb-1 block text-[10px] text-slate-400">起床時刻（今朝）</label>
-                    <div className="relative w-full min-w-0">
-                      <input
-                        id="meal-log-sleep-wake-time"
-                        type="time"
-                        value={sleepWakeTime}
-                        onChange={(e) => { setSleepWakeTime(e.target.value); setSleepSessionTouched(true); }}
-                        className={`${inputCls} ${sleepWakeTime !== "" ? "pr-8" : ""}`}
-                      />
-                      {sleepWakeTime !== "" && (
-                        <button
-                          type="button"
-                          onClick={() => { setSleepWakeTime(""); setSleepSessionTouched(true); }}
-                          aria-label="起床時刻をクリア"
-                          className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-rose-400 transition-colors"
-                        >
-                          <X size={15} />
-                        </button>
-                      )}
-                    </div>
+                    <input
+                      id="meal-log-sleep-wake-time"
+                      type="time"
+                      value={sleepWakeTime}
+                      onChange={(e) => { setSleepWakeTime(e.target.value); setSleepSessionTouched(true); }}
+                      className={dateTimeInputCls}
+                      style={{ width: "100%", minWidth: "0" }}
+                    />
+                    {sleepWakeTime !== "" && (
+                      <button
+                        type="button"
+                        onClick={() => { setSleepWakeTime(""); setSleepSessionTouched(true); }}
+                        className="mt-1 text-[10px] text-slate-400 underline hover:text-rose-400 transition-colors"
+                      >
+                        クリア
+                      </button>
+                    )}
                   </div>
                 </div>
                 {/* 片方だけ入力時の警告 */}
@@ -815,25 +815,23 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
           {/* 最終食事終了時刻 */}
           <div className="sm:col-span-2 min-w-0">
             <label htmlFor="meal-log-last-meal-end-time" className="mb-1.5 block text-xs font-medium text-slate-500">最終食事終了</label>
-            <div className="relative w-full min-w-0">
-              <input
-                id="meal-log-last-meal-end-time"
-                type="time"
-                value={lastMealEndTime}
-                onChange={(e) => { setLastMealEndTime(e.target.value); setLastMealEndTimeTouched(true); }}
-                className={`${inputCls} ${lastMealEndTime !== "" ? "pr-8" : ""}`}
-              />
-              {lastMealEndTime !== "" && (
-                <button
-                  type="button"
-                  onClick={() => { setLastMealEndTime(""); setLastMealEndTimeTouched(true); }}
-                  aria-label="最終食事終了時刻をクリア"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-rose-400 transition-colors"
-                >
-                  <X size={15} />
-                </button>
-              )}
-            </div>
+            <input
+              id="meal-log-last-meal-end-time"
+              type="time"
+              value={lastMealEndTime}
+              onChange={(e) => { setLastMealEndTime(e.target.value); setLastMealEndTimeTouched(true); }}
+              className={dateTimeInputCls}
+              style={{ width: "100%", minWidth: "0" }}
+            />
+            {lastMealEndTime !== "" && (
+              <button
+                type="button"
+                onClick={() => { setLastMealEndTime(""); setLastMealEndTimeTouched(true); }}
+                className="mt-1 text-[10px] text-slate-400 underline hover:text-rose-400 transition-colors"
+              >
+                クリア
+              </button>
+            )}
           </div>
           {/* 便通 */}
           <div className="sm:col-span-2">
