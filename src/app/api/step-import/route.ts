@@ -64,13 +64,9 @@ export type StepImportResult =
  * 事前確認の件数と実保存の件数が一致することを保証する。
  */
 export type ClassifiedRecords = {
-  /** daily_logs に行が存在し、step_count を更新すべきレコード（新規 + 上書き） */
   toUpdate: StepRecord[];
-  /** daily_logs に行が存在し、既に step_count が入っていないレコード（新規書き込み対象） */
   newRecords: StepRecord[];
-  /** daily_logs に行が存在し、既に step_count が入っているレコード（上書き対象） */
   overwriteRecords: StepRecord[];
-  /** daily_logs に対応行がないレコード（スキップ対象） */
   skippedRecords: StepRecord[];
 };
 
@@ -89,7 +85,7 @@ export function classifyRecords(
     } else {
       toUpdate.push(record);
       const existing = existingMap.get(record.date);
-      if (existing === null || existing === undefined) {
+      if (existing === null) {
         newRecords.push(record);
       } else {
         overwriteRecords.push(record);
@@ -175,7 +171,6 @@ export async function POST(req: NextRequest) {
       .map((row) => [row.log_date, row.step_count as number | null]),
   );
 
-  // preflight と import で同じ classifyRecords を使うことで件数の一致を保証する
   const classified = classifyRecords(parsed.records, existingMap);
 
   // ── preflight ──────────────────────────────────────────────────────────────
