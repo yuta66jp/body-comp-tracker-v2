@@ -69,7 +69,9 @@ export type Database = {
           id: string
           is_cheat_day: boolean
           is_eating_out: boolean
+          is_posing_day: boolean
           is_refeed_day: boolean
+          is_tanning_day: boolean
           is_travel_day: boolean
           last_meal_end_time: string | null
           leg_flag: boolean | null
@@ -92,7 +94,9 @@ export type Database = {
           id?: string
           is_cheat_day?: boolean
           is_eating_out?: boolean
+          is_posing_day?: boolean
           is_refeed_day?: boolean
+          is_tanning_day?: boolean
           is_travel_day?: boolean
           last_meal_end_time?: string | null
           leg_flag?: boolean | null
@@ -115,7 +119,9 @@ export type Database = {
           id?: string
           is_cheat_day?: boolean
           is_eating_out?: boolean
+          is_posing_day?: boolean
           is_refeed_day?: boolean
+          is_tanning_day?: boolean
           is_travel_day?: boolean
           last_meal_end_time?: string | null
           leg_flag?: boolean | null
@@ -561,7 +567,7 @@ export type DailyLog = Database["public"]["Tables"]["daily_logs"]["Row"];
 
 /**
  * Dashboard 専用の daily_logs projection 型。
- * fetchDashboardDailyLogs() が取得する 19 列に対応する（#436 で step_count 追加）。
+ * fetchDashboardDailyLogs() が取得する 21 列に対応する（#436 で step_count 追加、#577 で is_tanning_day / is_posing_day 追加）。
  *
  * 除外列:
  *   - note     : Dashboard のいずれの関数・コンポーネントでも参照されない

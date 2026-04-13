@@ -200,10 +200,12 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       setTrainingType((existingLog.training_type as TrainingType) ?? null);
       setWorkMode((existingLog.work_mode as WorkMode) ?? null);
       setTags({
-        is_cheat_day:  existingLog.is_cheat_day  ?? false,
-        is_refeed_day: existingLog.is_refeed_day ?? false,
-        is_eating_out: existingLog.is_eating_out ?? false,
-        is_travel_day: existingLog.is_travel_day ?? false,
+        is_cheat_day:   existingLog.is_cheat_day   ?? false,
+        is_refeed_day:  existingLog.is_refeed_day  ?? false,
+        is_eating_out:  existingLog.is_eating_out  ?? false,
+        is_travel_day:  existingLog.is_travel_day  ?? false,
+        is_tanning_day: existingLog.is_tanning_day ?? false,
+        is_posing_day:  existingLog.is_posing_day  ?? false,
       });
       // TIME 型は "HH:MM:SS" で返るため、input[type=time] 用に "HH:MM" に切り出す
       setLastMealEndTime(existingLog.last_meal_end_time?.slice(0, 5) ?? "");

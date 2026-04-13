@@ -26,6 +26,8 @@ export type SaveDailyLogInput = {
   is_refeed_day?: boolean;
   is_eating_out?: boolean;
   is_travel_day?: boolean;
+  is_tanning_day?: boolean;
+  is_posing_day?: boolean;
   // ── Phase 2.5 追加 ──
   /** null = 明示クリア（未記録に戻す） */
   had_bowel_movement?: boolean | null;

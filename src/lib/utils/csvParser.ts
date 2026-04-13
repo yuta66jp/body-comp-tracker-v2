@@ -28,6 +28,8 @@ export interface ParsedRow {
   is_refeed_day: boolean;
   is_eating_out: boolean;
   is_travel_day: boolean;
+  is_tanning_day: boolean;
+  is_posing_day: boolean;
   /**
    * import では使用しない（projection 値）。
    * CSV に列があってもパースするが saveDailyLog に渡さない。
@@ -63,6 +65,8 @@ const ALIASES: Record<string, keyof ParsedRow> = {
   is_refeed_day: "is_refeed_day",
   is_eating_out: "is_eating_out",
   is_travel_day: "is_travel_day",
+  is_tanning_day: "is_tanning_day",
+  is_posing_day: "is_posing_day",
   sleep_hours: "sleep_hours",
   sleep_bed_time: "sleep_bed_time",
   sleep_wake_time: "sleep_wake_time",
@@ -314,10 +318,12 @@ export function parseCSV(text: string): ParseResult {
       fat: parseNum(raw["fat"] ?? ""),
       carbs: parseNum(raw["carbs"] ?? ""),
       note: raw["note"] || null,
-      is_cheat_day: parseBool(raw["is_cheat_day"] ?? ""),
-      is_refeed_day: parseBool(raw["is_refeed_day"] ?? ""),
-      is_eating_out: parseBool(raw["is_eating_out"] ?? ""),
-      is_travel_day: parseBool(raw["is_travel_day"] ?? ""),
+      is_cheat_day:   parseBool(raw["is_cheat_day"]   ?? ""),
+      is_refeed_day:  parseBool(raw["is_refeed_day"]  ?? ""),
+      is_eating_out:  parseBool(raw["is_eating_out"]  ?? ""),
+      is_travel_day:  parseBool(raw["is_travel_day"]  ?? ""),
+      is_tanning_day: parseBool(raw["is_tanning_day"] ?? ""),
+      is_posing_day:  parseBool(raw["is_posing_day"]  ?? ""),
       sleep_hours: parseNum(raw["sleep_hours"] ?? ""),
       sleep_bed_time:  rawBedTime,
       sleep_wake_time: rawWakeTime,
