@@ -24,10 +24,12 @@ export function buildUpdatePayload(
   if (input.fat !== undefined)           payload.fat           = input.fat;
   if (input.carbs !== undefined)         payload.carbs         = input.carbs;
   if (input.note !== undefined)          payload.note          = input.note;
-  if (input.is_cheat_day !== undefined)  payload.is_cheat_day  = input.is_cheat_day;
-  if (input.is_refeed_day !== undefined) payload.is_refeed_day = input.is_refeed_day;
-  if (input.is_eating_out !== undefined) payload.is_eating_out = input.is_eating_out;
-  if (input.is_travel_day !== undefined) payload.is_travel_day = input.is_travel_day;
+  if (input.is_cheat_day !== undefined)   payload.is_cheat_day   = input.is_cheat_day;
+  if (input.is_refeed_day !== undefined)  payload.is_refeed_day  = input.is_refeed_day;
+  if (input.is_eating_out !== undefined)  payload.is_eating_out  = input.is_eating_out;
+  if (input.is_travel_day !== undefined)  payload.is_travel_day  = input.is_travel_day;
+  if (input.is_tanning_day !== undefined) payload.is_tanning_day = input.is_tanning_day;
+  if (input.is_posing_day !== undefined)  payload.is_posing_day  = input.is_posing_day;
 
   // Phase 2.5 新規フィールド
   if (input.had_bowel_movement !== undefined)  payload.had_bowel_movement  = input.had_bowel_movement;

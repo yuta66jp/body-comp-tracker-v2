@@ -116,6 +116,7 @@ export async function GET(req: NextRequest) {
     const columns = [
       "log_date", "weight", "calories", "protein", "fat", "carbs", "note",
       "is_cheat_day", "is_refeed_day", "is_eating_out", "is_travel_day",
+      "is_tanning_day", "is_posing_day",
       "sleep_hours", "sleep_bed_time", "sleep_wake_time",
       "had_bowel_movement", "training_type", "work_mode", "leg_flag",
       "last_meal_end_time", "step_count",

@@ -2,10 +2,12 @@ import { parseCSV, splitCSVLine, deduplicateByLogDate } from "./csvParser";
 
 // ---- 新列のデフォルト値 (旧 CSV に存在しない場合) ----
 const NEW_FIELD_DEFAULTS = {
-  is_cheat_day: false,
-  is_refeed_day: false,
-  is_eating_out: false,
-  is_travel_day: false,
+  is_cheat_day:   false,
+  is_refeed_day:  false,
+  is_eating_out:  false,
+  is_travel_day:  false,
+  is_tanning_day: false,
+  is_posing_day:  false,
   sleep_hours: null,
   sleep_bed_time: null,
   sleep_wake_time: null,
@@ -640,7 +642,8 @@ describe("deduplicateByLogDate", () => {
   const base = {
     weight: null, calories: null, protein: null, fat: null, carbs: null,
     note: null, is_cheat_day: false, is_refeed_day: false, is_eating_out: false,
-    is_travel_day: false, sleep_hours: null, sleep_bed_time: null, sleep_wake_time: null,
+    is_travel_day: false, is_tanning_day: false, is_posing_day: false,
+    sleep_hours: null, sleep_bed_time: null, sleep_wake_time: null,
     had_bowel_movement: null, training_type: null, work_mode: null, leg_flag: null,
   };
 

@@ -17,6 +17,8 @@ function makeLog(log_date: string, overrides: Partial<DailyLog> = {}): DailyLog 
     is_refeed_day:     false,
     is_eating_out:     false,
     is_travel_day:     false,
+    is_tanning_day:    false,
+    is_posing_day:     false,
     sleep_hours:       null,
     had_bowel_movement: false,
     training_type:     null,

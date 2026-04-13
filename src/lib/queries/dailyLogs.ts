@@ -44,6 +44,7 @@ import type { QueryResult } from "./queryResult";
  * 取得列 (17列):
  *   log_date, weight, calories, protein, fat, carbs,
  *   is_cheat_day, is_refeed_day, is_eating_out, is_travel_day,
+ *   is_tanning_day, is_posing_day,
  *   sleep_hours, had_bowel_movement, training_type, work_mode, updated_at,
  *   last_meal_end_time, step_count
  *
@@ -85,6 +86,7 @@ export async function fetchDashboardDailyLogs(): Promise<QueryResult<DashboardDa
     .select(
       "log_date, weight, calories, protein, fat, carbs, " +
       "is_cheat_day, is_refeed_day, is_eating_out, is_travel_day, " +
+      "is_tanning_day, is_posing_day, " +
       "sleep_hours, had_bowel_movement, training_type, work_mode, updated_at, " +
       "last_meal_end_time, step_count"
     )
