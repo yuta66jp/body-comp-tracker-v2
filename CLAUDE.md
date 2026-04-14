@@ -58,7 +58,7 @@ body-comp-tracker-v2/
 │   │   │   └── importDailyLogs.ts
 │   │   └── api/export/route.ts     # CSV エクスポート
 │   ├── components/                 # UIコンポーネント
-│   │   ├── dashboard/              # KpiCards, GoalNavigator, WeeklyReviewCard, LogsAndSummaryTabs, MonthlyCalendar, MobileMealLoggerSheet
+│   │   ├── dashboard/              # KpiCards, GoalNavigator, WeeklyReviewCard, LogsAndSummaryTabs, MonthlyCalendar, MonthlyBehaviorSummary, MobileMealLoggerSheet
 │   │   ├── charts/                 # ForecastChart, FactorAnalysis
 │   │   ├── tdee/                   # TdeeKpiCard, TdeeDetailChart, TdeeDailyTable
 │   │   ├── macro/                  # MacroKpiCards, MacroPfcSummary, MacroStackedChart
@@ -98,6 +98,9 @@ body-comp-tracker-v2/
 │   │       ├── monthlyGoalPlan.ts  # buildMonthlyGoalPlan — 月次目標計画の canonical 計算ロジック
 │   │       ├── calcMonthlyGoalProgress.ts # calcMonthlyGoalProgress — 当月進捗ゲージ用計算
 │   │       ├── monthlyGoalVisualization.ts # 月次計画 vs 実績の表示用 adapter / selector
+│   │       ├── dayTags.ts          # 特殊日フラグ定義 (DayTag union, DAY_TAGS, ラベル・バッジ色・アクティブ色)
+│   │       ├── calcMonthlyBehaviorStats.ts # 月別行動・生活集計 (便通/トレーニング/仕事/フラグ/睡眠リズム)
+│   │       ├── calcMonthlySleepStats.ts    # 月別睡眠リズム集計 (平均睡眠・勤務形態別平均・就寝/起床中央値)
 │   │       └── ...                 # その他計算ヘルパー
 ├── docs/                           # 設計ドキュメント群
 │   ├── daily-logs-read-inventory.md # daily_logs read API 棚卸し (#164–#167)
@@ -143,7 +146,9 @@ body-comp-tracker-v2/
 
 - `daily_logs` — log_date(PK), weight, calories, protein, fat, carbs, note,
   sleep_hours, had_bowel_movement, training_type, work_mode,
-  last_meal_end_time, step_count
+  last_meal_end_time, step_count,
+  is_cheat_day, is_refeed_day, is_eating_out, is_travel_day,
+  is_tanning_day, is_posing_day
   - `had_bowel_movement` は `BOOLEAN DEFAULT NULL`（三状態: null=未記録 / false=便通なし / true=便通あり）
   - leg_flag は派生値（deriveLegFlag のみ定義源）。直接書き込まない
   - `sleep_hours` は `sleep_sessions` の `bed_at` / `wake_at` から DB トリガー（`trg_sync_sleep_hours`）が自動同期する **projection 値**。直接書き込まない（定義源はトリガー、`deriveSleepHours()` ではない）。`is_poor_sleep` カラムは削除済み（#338）
@@ -151,6 +156,9 @@ body-comp-tracker-v2/
   - `weigh_in_time` は **#526 で廃止済み**。起床時刻は `sleep_sessions.wake_at` を直接参照する。`calcFastingHours` は `sleepSessions` prop 経由で `wake_at` を受け取る
   - `bed_time` は **#529 で廃止済み**。就寝時刻は `sleep_sessions.bed_at` を直接参照する
   - `step_count` は INTEGER 型・nullable。Apple Health インポート専用（#436）。手動入力 UI なし
+  - `is_cheat_day` / `is_refeed_day` / `is_eating_out` / `is_travel_day` / `is_tanning_day` / `is_posing_day` は
+    `BOOLEAN NOT NULL DEFAULT FALSE`。特殊日フラグ。`dayTags.ts` の `DAY_TAGS` / `DAY_TAG_LABELS` / `DAY_TAG_BADGE_COLORS` が
+    canonical 定義源。新フラグ追加時はこのファイルと migration・RPC・CSV・型定義・テスト fixture を同時更新する
   - `work_mode` の DB CHECK 制約は `off/office/remote/active/travel/other` の 6 値を許容するが、
     フロントエンド（`src/lib/utils/trainingType.ts`）では `off/office/remote` の 3 値のみ定義している。
     `active/travel/other` はフロント UI・CSV import・表示整形で現状扱われない（将来拡張余地）
@@ -310,13 +318,24 @@ body-comp-tracker-v2/
   - カレンダータブ: `MonthlyCalendar` コンポーネント（react-day-picker v9 ベース）
   - 体重・差分・カロリー・特殊日タグ・コンディションタグを月単位で俯瞰
   - 日曜始まり・土日祝セル色分け・祝日名表示・今日のリング表示
-  - **特殊日タグ表示ルール**: セルに表示するのは優先順位最上位の 1 件のみ（`DAY_TAG_DISPLAY_PRIORITY`: チートデイ > リフィード > 旅行 > 外食）。複数タグがある日も 1 件に絞る
-  - 月別サマリータブ: `MonthlyGoalTable` + `SeasonSummary` で構成
+  - **モバイル / デスクトップ表示の分離**:
+    - モバイル: 体重・カロリー・トレーニング種別のみ表示。特殊日フラグ・睡眠/断食時間は非表示
+    - デスクトップ (`sm:` 以上): 特殊日フラグ（最大2件 + `+n` overflow）・睡眠/断食（1行に統合）を追加表示
+  - **特殊日タグ表示ルール** (デスクトップ): 優先順位上位2件まで表示し、残りは `+n` で省略
+    （`DAY_TAG_DISPLAY_PRIORITY`: チートデイ > リフィード > 外食 > 旅行 > タンニング > ポージング）
+  - **`getMobileTrainingLabel`**: `training_type` の有効値なら表示、null / 無効値は非表示。特殊日の有無で抑制しない
+  - 月別サマリータブ: `MonthlyGoalTable` + `SeasonSummary` + `MonthlyBehaviorSummary` で構成
     - `MonthlyGoalTable`: `buildMonthlyGoalComparisonRows`（`monthlyGoalVisualization.ts`）の出力を受け取り表示
       - 列: 月 / 月初体重 / 月末目標 / 実績月末 / 差分 / 状態 / 累積ズレ / 翌月必要（月初体重・翌月必要は `hidden sm:table-cell`）
       - 状態バッジ: `progressState` (先行 / 計画内 / 遅れ / 未確定) を Cut/Bulk 考慮で表示
       - 累積ズレ: 過去完全実績月の diffKg 累積。データ欠損月はスキップしリセットしない
     - UI 側に計画ロジックを持たない。`page.tsx` が `buildMonthlyGoalComparisonRows` を呼んで props を渡す
+  - **行動・生活サマリータブ内 `MonthlyBehaviorSummary`**: 月別行動・睡眠集計テーブル
+    - 列順: 月 / 便通 / トレーニング / 生活リズム / 仕事 / 特殊日
+    - 生活リズム列: `calcMonthlySleepStats` の結果を2行表示
+      - 行1: `睡眠 6.8h（出6.1 / 在7.0 / 休7.8）`（勤務形態別平均。記録なし形態は省略）
+      - 行2: `就 00:34 / 起 07:18`（就寝/起床の中央値）
+    - `calcMonthlyBehaviorStats` の第3引数に `sleepSessions` を渡す。省略時は `sleepStats: null`
 
 ### UI / 分析表示
 - Macro / TDEE は「記録確認」ではなく「調整判断」画面として扱う
