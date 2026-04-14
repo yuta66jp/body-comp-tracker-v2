@@ -169,9 +169,9 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
   // 固定高 + overflow-hidden: コンテンツ量に関わらず全セルを同一高に保つ
   const innerCls = `${CELL_H} overflow-hidden flex flex-col p-1 sm:p-1.5`;
 
-  // モバイル表示専用: 特殊日優先 / 通常日は training_type 表示
+  // モバイル表示専用: training_type のみ表示（特殊フラグはモバイル非表示のため dayTags チェック不要）
   const mobileTrainingLabel = data
-    ? getMobileTrainingLabel(data.dayTags, data.log.training_type)
+    ? getMobileTrainingLabel(data.log.training_type)
     : null;
 
   // 特殊日タグ: 優先順位順に最大 MAX_DAY_TAG_DISPLAY 件 + 残件数
@@ -265,10 +265,10 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
           </div>
         )}
 
-        {/* ④ 特殊日タグ（優先順位順で最大 2 件・残件数 +n 表示）
-              フラグがない日は行自体を出さない */}
+        {/* ④ 特殊日タグ（デスクトップのみ・優先順位順で最大 2 件・残件数 +n 表示）
+              フラグがない日は行自体を出さない。モバイルでは非表示 */}
         {displayTags.length > 0 && (
-          <div className="mt-0.5 flex flex-wrap gap-0.5 items-center">
+          <div className="mt-0.5 hidden sm:flex flex-wrap gap-0.5 items-center">
             {displayTags.map((tag) => (
               <span
                 key={tag.key}

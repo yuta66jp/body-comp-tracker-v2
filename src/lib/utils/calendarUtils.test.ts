@@ -5,7 +5,6 @@
  */
 
 import { buildCalendarDayMap, buildConditionTags, getMobileTrainingLabel, toDateKey, calcFastingHours } from "./calendarUtils";
-import type { CalendarDayTagInfo } from "./calendarUtils";
 import type { DailyLog } from "@/lib/supabase/types";
 
 // ── テストデータ工場 ─────────────────────────────────────────────────────────
@@ -487,46 +486,36 @@ describe("calcFastingHours", () => {
 });
 
 // ── getMobileTrainingLabel ────────────────────────────────────────────────────
-
-const NO_TAGS: CalendarDayTagInfo[] = [];
-const WITH_TAGS: CalendarDayTagInfo[] = [{ key: "is_cheat_day", label: "チートデイ", colorClass: "bg-rose-100 text-rose-700" }];
+// モバイルでは特殊フラグを非表示にしたため、dayTags パラメータは廃止済み (#579)
 
 describe("getMobileTrainingLabel", () => {
-  it("特殊日なし + 有効 training_type → ラベルを返す", () => {
-    const result = getMobileTrainingLabel(NO_TAGS, "chest");
+  it("有効 training_type → ラベルを返す", () => {
+    const result = getMobileTrainingLabel("chest");
     expect(result).not.toBeNull();
     expect(result!.label).toBe("胸");
     expect(result!.colorClass).toContain("indigo");
   });
 
-  it("特殊日なし + glutes_hamstrings → ハム・ケツ を返す", () => {
-    expect(getMobileTrainingLabel(NO_TAGS, "glutes_hamstrings")!.label).toBe("ハム・ケツ");
-  });
-
-  it("特殊日あり → null を返す（特殊日優先）", () => {
-    expect(getMobileTrainingLabel(WITH_TAGS, "chest")).toBeNull();
-  });
-
-  it("特殊日あり + training_type null → null を返す", () => {
-    expect(getMobileTrainingLabel(WITH_TAGS, null)).toBeNull();
+  it("glutes_hamstrings → ハム・ケツ を返す", () => {
+    expect(getMobileTrainingLabel("glutes_hamstrings")!.label).toBe("ハム・ケツ");
   });
 
   it("training_type = off → オフ ラベルを返す（月全体のトレーニング配分確認のため表示する）", () => {
-    const result = getMobileTrainingLabel(NO_TAGS, "off");
+    const result = getMobileTrainingLabel("off");
     expect(result).not.toBeNull();
     expect(result!.label).toBe("オフ");
   });
 
   it("training_type = null → null を返す", () => {
-    expect(getMobileTrainingLabel(NO_TAGS, null)).toBeNull();
+    expect(getMobileTrainingLabel(null)).toBeNull();
   });
 
   it("training_type = 無効値 → null を返す", () => {
-    expect(getMobileTrainingLabel(NO_TAGS, "unknown_muscle")).toBeNull();
+    expect(getMobileTrainingLabel("unknown_muscle")).toBeNull();
   });
 
-  it("特殊日なし + training_type = quads → 四頭 を返す", () => {
-    expect(getMobileTrainingLabel(NO_TAGS, "quads")!.label).toBe("四頭");
+  it("training_type = quads → 四頭 を返す", () => {
+    expect(getMobileTrainingLabel("quads")!.label).toBe("四頭");
   });
 });
 

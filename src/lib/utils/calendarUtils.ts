@@ -163,11 +163,8 @@ export function buildConditionTags(params: {
  * PC 表示（sm:flex の conditionTags）では引き続き training_type を表示する。
  */
 export function getMobileTrainingLabel(
-  dayTags: CalendarDayTagInfo[],
   trainingType: string | null | undefined,
 ): { label: string; colorClass: string } | null {
-  // 特殊日がある場合は training_type を表示しない
-  if (dayTags.length > 0) return null;
   // null / 無効値は表示しない（off は有効値として表示する）
   if (!trainingType || !isValidTrainingType(trainingType)) return null;
   return {
