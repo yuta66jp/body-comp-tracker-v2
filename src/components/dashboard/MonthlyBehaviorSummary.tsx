@@ -63,9 +63,9 @@ export function MonthlyBehaviorSummary({ stats }: MonthlyBehaviorSummaryProps) {
               <th className="pb-2 pr-3 font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">月</th>
               <th className="pb-2 pr-3 text-right font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">便通</th>
               <th className="pb-2 pr-3 font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">トレーニング</th>
+              <th className="pb-2 pr-3 font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">生活リズム</th>
               <th className="pb-2 pr-3 font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">仕事</th>
-              <th className="pb-2 pr-3 font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">特殊日</th>
-              <th className="pb-2 font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">生活リズム</th>
+              <th className="pb-2 font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">特殊日</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50 dark:divide-slate-700/60">
@@ -110,6 +110,26 @@ export function MonthlyBehaviorSummary({ stats }: MonthlyBehaviorSummaryProps) {
                     )}
                   </td>
 
+                  {/* 生活リズム */}
+                  <td className="py-2.5 pr-3 text-slate-600 dark:text-slate-300">
+                    {s.sleepStats ? (
+                      <span className="flex flex-col gap-0.5">
+                        {formatSleepLine1(s.sleepStats) && (
+                          <span className="whitespace-nowrap tabular-nums text-slate-600 dark:text-slate-300">
+                            {formatSleepLine1(s.sleepStats)}
+                          </span>
+                        )}
+                        {formatSleepLine2(s.sleepStats) && (
+                          <span className="whitespace-nowrap tabular-nums text-slate-400 dark:text-slate-500">
+                            {formatSleepLine2(s.sleepStats)}
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-slate-300 dark:text-slate-600">—</span>
+                    )}
+                  </td>
+
                   {/* 仕事モード */}
                   <td className="py-2.5 pr-3 text-slate-600 dark:text-slate-300">
                     {workEntries.length > 0 ? (
@@ -129,7 +149,7 @@ export function MonthlyBehaviorSummary({ stats }: MonthlyBehaviorSummaryProps) {
                   </td>
 
                   {/* 特殊日 */}
-                  <td className="py-2.5 pr-3 text-slate-600 dark:text-slate-300">
+                  <td className="py-2.5 text-slate-600 dark:text-slate-300">
                     {flagEntries.length > 0 ? (
                       <span className="flex flex-wrap gap-x-2 gap-y-0.5">
                         {flagEntries.map((k) => (
@@ -142,26 +162,6 @@ export function MonthlyBehaviorSummary({ stats }: MonthlyBehaviorSummaryProps) {
                             </span>
                           </span>
                         ))}
-                      </span>
-                    ) : (
-                      <span className="text-slate-300 dark:text-slate-600">—</span>
-                    )}
-                  </td>
-
-                  {/* 生活リズム */}
-                  <td className="py-2.5 text-slate-600 dark:text-slate-300">
-                    {s.sleepStats ? (
-                      <span className="flex flex-col gap-0.5">
-                        {formatSleepLine1(s.sleepStats) && (
-                          <span className="whitespace-nowrap tabular-nums text-slate-600 dark:text-slate-300">
-                            {formatSleepLine1(s.sleepStats)}
-                          </span>
-                        )}
-                        {formatSleepLine2(s.sleepStats) && (
-                          <span className="whitespace-nowrap tabular-nums text-slate-400 dark:text-slate-500">
-                            {formatSleepLine2(s.sleepStats)}
-                          </span>
-                        )}
                       </span>
                     ) : (
                       <span className="text-slate-300 dark:text-slate-600">—</span>
