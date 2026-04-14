@@ -6,12 +6,14 @@
  *   - トレーニング部位別日数 (training_type の有効値ごと)
  *   - 仕事モード別日数 (work_mode の有効値ごと)
  *   - 特殊日フラグ別日数 (is_cheat_day / is_refeed_day / is_eating_out / is_travel_day)
+ *   - 睡眠リズム (sleepStats: calcMonthlySleepStats の結果, #581)
  *
  * null 扱いの方針 (既存仕様に準拠):
  *   - had_bowel_movement: null = 未記録 → 集計対象外。true のみ日数としてカウント。false は「便通なし」だがカウントしない
  *   - training_type: null = 未記録 → 集計対象外。"off" は「オフ日」として有効値かつカウント対象
  *   - work_mode: null = 未記録 → 集計対象外。"off" は「休日」として有効値かつカウント対象
  *   - 特殊日フラグ: true のみ日数としてカウント。false / null は集計対象外
+ *   - 睡眠: sleep_sessions が存在する日のみ集計。勤務形態未記録日は勤務形態別集計から除外
  */
 
 import type { DashboardDailyLog } from "@/lib/supabase/types";
@@ -22,6 +24,16 @@ import {
   WORK_MODES,
 } from "./trainingType";
 import type { TrainingType, WorkMode } from "./trainingType";
+import { calcMonthlySleepStats } from "./calcMonthlySleepStats";
+import type { MonthlySleepStats } from "./calcMonthlySleepStats";
+
+export type { MonthlySleepStats };
+
+type SleepSessionInput = {
+  wake_date: string;
+  bed_at: string;
+  wake_at: string;
+};
 
 export interface MonthlyBehaviorStats {
   month: string; // "YYYY-MM"
@@ -46,18 +58,25 @@ export interface MonthlyBehaviorStats {
     is_eating_out: number;
     is_travel_day: number;
   };
+  /**
+   * 睡眠リズム集計 (#581)。
+   * sleepSessions が渡されなかった場合 / 対象月にセッションがない場合は null。
+   */
+  sleepStats: MonthlySleepStats | null;
 }
 
 /**
  * 月別行動・生活集計を計算する。
  *
- * @param logs - DashboardDailyLog の配列（全期間）
- * @param months - 最新から何ヶ月分を返すか。0 以下なら全月を返す (デフォルト: 0)
+ * @param logs          - DashboardDailyLog の配列（全期間）
+ * @param months        - 最新から何ヶ月分を返すか。0 以下なら全月を返す (デフォルト: 0)
+ * @param sleepSessions - sleep_sessions の配列（省略時は睡眠集計なし）
  * @returns 月ごとの集計結果。新しい月から順（降順）に並ぶ
  */
 export function calcMonthlyBehaviorStats(
   logs: DashboardDailyLog[],
   months = 0,
+  sleepSessions: SleepSessionInput[] = [],
 ): MonthlyBehaviorStats[] {
   // month → ログ配列 に振り分ける
   const map = new Map<string, DashboardDailyLog[]>();
@@ -108,7 +127,19 @@ export function calcMonthlyBehaviorStats(
       is_travel_day: dayLogs.filter((e) => e.is_travel_day === true).length,
     };
 
-    return { month, bowelDays, trainingCounts, workModeCounts, flagCounts };
+    // 睡眠リズム集計
+    const workModeByDate = new Map<string, string | null>(
+      dayLogs.map((l) => [l.log_date, l.work_mode]),
+    );
+    const monthSessions = sleepSessions.filter(
+      (s) => s.wake_date.slice(0, 7) === month,
+    );
+    const sleepStats =
+      monthSessions.length > 0
+        ? calcMonthlySleepStats(monthSessions, workModeByDate)
+        : null;
+
+    return { month, bowelDays, trainingCounts, workModeCounts, flagCounts, sleepStats };
   });
 }
 

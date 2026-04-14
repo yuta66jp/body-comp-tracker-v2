@@ -248,7 +248,7 @@ export default async function DashboardPage() {
       : [];
 
   // 月別行動・生活集計: buildMonthStats と同じ 3 ヶ月分を計算する
-  const monthlyBehaviorStats = calcMonthlyBehaviorStats(logs, 3);
+  const monthlyBehaviorStats = calcMonthlyBehaviorStats(logs, 3, sleepSessions);
 
   return (
     <DashboardLayout

@@ -277,6 +277,63 @@ describe("calcMonthlyBehaviorStats", () => {
   });
 });
 
+describe("calcMonthlyBehaviorStats — sleepStats", () => {
+  /** bed_at / wake_at は同日 JST タイムスタンプ。床就寝補正は deriveSleepHours が担う */
+  function makeSession(wake_date: string, bed_hhmm: string, wake_hhmm: string) {
+    return {
+      wake_date,
+      bed_at:  `${wake_date}T${bed_hhmm}:00+09:00`,
+      wake_at: `${wake_date}T${wake_hhmm}:00+09:00`,
+    };
+  }
+
+  test("sleepSessions を渡さない場合 sleepStats は null", () => {
+    const logs = [makeLog("2026-03-15")];
+    const result = calcMonthlyBehaviorStats(logs);
+    expect(result[0]!.sleepStats).toBeNull();
+  });
+
+  test("空の sleepSessions を渡した場合 sleepStats は null", () => {
+    const logs = [makeLog("2026-03-15")];
+    const result = calcMonthlyBehaviorStats(logs, 0, []);
+    expect(result[0]!.sleepStats).toBeNull();
+  });
+
+  test("該当月にセッションがある場合 sleepStats が計算される", () => {
+    const logs = [
+      makeLog("2026-03-15", { work_mode: "office" }),
+      makeLog("2026-03-16", { work_mode: "remote" }),
+    ];
+    const sessions = [
+      // 23:00 → 07:00 = 8h (日跨ぎ補正あり)
+      makeSession("2026-03-15", "23:00", "07:00"),
+      // 00:00 → 07:30 = 7.5h
+      makeSession("2026-03-16", "00:00", "07:30"),
+    ];
+    const result = calcMonthlyBehaviorStats(logs, 0, sessions);
+    const stats = result[0]!.sleepStats;
+    expect(stats).not.toBeNull();
+    // 8h + 7.5h = 15.5h / 2 = 7.75 → 7.8
+    expect(stats!.avgSleepHours).toBe(7.8);
+  });
+
+  test("別月のセッションは他月の sleepStats に影響しない", () => {
+    const logs = [
+      makeLog("2026-03-15"),
+      makeLog("2026-04-15"),
+    ];
+    const sessions = [
+      makeSession("2026-03-15", "23:00", "07:00"),
+    ];
+    const result = calcMonthlyBehaviorStats(logs, 0, sessions);
+    // 降順: 2026-04 が result[0], 2026-03 が result[1]
+    expect(result[0]!.month).toBe("2026-04");
+    expect(result[0]!.sleepStats).toBeNull(); // 4月にセッションなし
+    expect(result[1]!.month).toBe("2026-03");
+    expect(result[1]!.sleepStats).not.toBeNull();
+  });
+});
+
 describe("sortedTrainingEntries", () => {
   test("TRAINING_TYPES の定義順で返す", () => {
     const counts = { back: 3, chest: 2, off: 1 };
