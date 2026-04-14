@@ -14,7 +14,8 @@
  *     1. 日付（補助・小・左上）
  *     2. 体重 + 前日差分（近接表示: 71.2kg (+0.3)）
  *     3. カロリー + 差分（近接表示: 1984k (+65)）
- *     4. 特殊日タグ
+ *     3b. 睡眠 / 断食（sm 以上・同一行・text-[11px]）
+ *     4. 特殊日タグ（優先順位順で最大 2 件 + "+n"。フラグなし日は非表示）
  *     5. コンディションタグ（sm 以上）
  *
  * 土日祝:
@@ -34,7 +35,7 @@ import { DayPicker } from "react-day-picker";
 import { ja } from "date-fns/locale";
 import * as JapaneseHolidays from "japanese-holidays";
 import type { DashboardDailyLog, SleepSession } from "@/lib/supabase/types";
-import { buildCalendarDayMap, getMobileTrainingLabel, toDateKey, type CalendarDayData } from "@/lib/utils/calendarUtils";
+import { buildCalendarDayMap, getMobileTrainingLabel, toDateKey, type CalendarDayData, type CalendarDayTagInfo } from "@/lib/utils/calendarUtils";
 import type { DayProps } from "react-day-picker";
 import { toJstDateStr } from "@/lib/utils/date";
 
@@ -56,18 +57,53 @@ const CalendarContext = createContext<CalendarCtx>({
 const CELL_H = "h-24 sm:h-28";
 
 // ── 特殊日タグ表示優先順位 ────────────────────────────────────────────────────
-// 複数のタグが true の場合、最も優先度の高い 1 件だけをカレンダーセルに表示する。
-// 優先ルール:
+// カレンダーセルに表示するタグの優先順位。最大 MAX_DAY_TAG_DISPLAY 件を表示し、
+// 残りは "+n" で表す。
+// 優先ルール (#579):
 //   1. is_cheat_day  (チートデイ)  — 最も大きな食事逸脱
 //   2. is_refeed_day (リフィード)  — 意図的な炭水化物補充
-//   3. is_travel_day (旅行)        — 旅行は外食を包含するため外食より上位
-//   4. is_eating_out (外食)        — 最もよくある軽微な逸脱
+//   3. is_eating_out (外食)        — 食事系逸脱
+//   4. is_travel_day (旅行)        — 旅行
+//   5. is_tanning_day (タンニング) — 大会準備コンディション
+//   6. is_posing_day  (ポージング) — 大会準備コンディション
 const DAY_TAG_DISPLAY_PRIORITY = [
   "is_cheat_day",
   "is_refeed_day",
-  "is_travel_day",
   "is_eating_out",
+  "is_travel_day",
+  "is_tanning_day",
+  "is_posing_day",
 ] as const;
+
+/** カレンダーセルに表示する特殊フラグの最大件数 */
+const MAX_DAY_TAG_DISPLAY = 2;
+
+/**
+ * dayTags を優先順位順に並べ替え、最大 MAX_DAY_TAG_DISPLAY 件と残件数を返す。
+ * 優先順位外のタグは末尾に付加される。
+ */
+function buildDayTagDisplay(dayTags: CalendarDayTagInfo[]): {
+  displayTags: CalendarDayTagInfo[];
+  moreCount: number;
+} {
+  // 優先順位定義にあるものを先に、残りを後ろに並べる
+  const prioritized: CalendarDayTagInfo[] = [];
+  const rest: CalendarDayTagInfo[] = [];
+  for (const key of DAY_TAG_DISPLAY_PRIORITY) {
+    const found = dayTags.find((t) => t.key === key);
+    if (found) prioritized.push(found);
+  }
+  for (const t of dayTags) {
+    if (!DAY_TAG_DISPLAY_PRIORITY.includes(t.key as typeof DAY_TAG_DISPLAY_PRIORITY[number])) {
+      rest.push(t);
+    }
+  }
+  const sorted = [...prioritized, ...rest];
+  return {
+    displayTags: sorted.slice(0, MAX_DAY_TAG_DISPLAY),
+    moreCount:   Math.max(0, sorted.length - MAX_DAY_TAG_DISPLAY),
+  };
+}
 
 // ── 曜日タイプ判定 ────────────────────────────────────────────────────────────
 
@@ -138,12 +174,10 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
     ? getMobileTrainingLabel(data.dayTags, data.log.training_type)
     : null;
 
-  // 特殊日タグを優先順位に従って 1 件に絞る
-  const topDayTag = data?.dayTags.length
-    ? (DAY_TAG_DISPLAY_PRIORITY
-        .map((key) => data.dayTags.find((t) => t.key === key))
-        .find((t) => t !== undefined) ?? data.dayTags[0] ?? null)
-    : null;
+  // 特殊日タグ: 優先順位順に最大 MAX_DAY_TAG_DISPLAY 件 + 残件数
+  const { displayTags, moreCount } = data?.dayTags.length
+    ? buildDayTagDisplay(data.dayTags)
+    : { displayTags: [], moreCount: 0 };
 
   return (
     <td className={tdCls}>
@@ -205,36 +239,49 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
           </div>
         )}
 
-        {/* ③-b 睡眠時間（デスクトップのみ: 情報密度制御）
+        {/* ③-b 睡眠 / 断食（デスクトップのみ・同一行表示）
               source of truth: daily_logs.sleep_hours
               (sleep_sessions から DB トリガーが自動同期する projection 値) */}
-        {data?.sleep_hours != null && (
-          <div className="mt-0.5 hidden sm:block leading-none">
-            <span className="text-[10px] text-slate-500 dark:text-slate-400">睡眠</span>
-            <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
-              {data.sleep_hours % 1 === 0 ? data.sleep_hours.toFixed(0) : data.sleep_hours.toFixed(1)}
-            </span>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400">h</span>
+        {(data?.sleep_hours != null || data?.fasting_hours != null) && (
+          <div className="mt-0.5 hidden sm:flex items-baseline gap-1.5 leading-none flex-wrap">
+            {data?.sleep_hours != null && (
+              <span className="inline-flex items-baseline gap-0.5">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">睡眠</span>
+                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                  {data.sleep_hours % 1 === 0 ? data.sleep_hours.toFixed(0) : data.sleep_hours.toFixed(1)}
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">h</span>
+              </span>
+            )}
+            {data?.fasting_hours != null && (
+              <span className="inline-flex items-baseline gap-0.5">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">断食</span>
+                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                  {data.fasting_hours % 1 === 0 ? data.fasting_hours.toFixed(0) : data.fasting_hours.toFixed(1)}
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">h</span>
+              </span>
+            )}
           </div>
         )}
 
-        {/* ③-c 空腹時間（デスクトップのみ: 情報密度制御） */}
-        {data?.fasting_hours != null && (
-          <div className="mt-0.5 hidden sm:block leading-none">
-            <span className="text-[10px] text-slate-500 dark:text-slate-400">断食</span>
-            <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
-              {data.fasting_hours % 1 === 0 ? data.fasting_hours.toFixed(0) : data.fasting_hours.toFixed(1)}
-            </span>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400">h</span>
-          </div>
-        )}
-
-        {/* ④ 特殊日タグ（優先順位最上位の 1 件のみ表示） */}
-        {topDayTag && (
-          <div className="mt-0.5">
-            <span className={`rounded-full px-1.5 py-0.5 text-[9px] sm:text-xs font-semibold leading-none ${topDayTag.colorClass}`}>
-              {topDayTag.label}
-            </span>
+        {/* ④ 特殊日タグ（優先順位順で最大 2 件・残件数 +n 表示）
+              フラグがない日は行自体を出さない */}
+        {displayTags.length > 0 && (
+          <div className="mt-0.5 flex flex-wrap gap-0.5 items-center">
+            {displayTags.map((tag) => (
+              <span
+                key={tag.key}
+                className={`rounded-full px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold leading-none ${tag.colorClass}`}
+              >
+                {tag.label}
+              </span>
+            ))}
+            {moreCount > 0 && (
+              <span className="text-[9px] font-medium text-slate-400 dark:text-slate-500">
+                +{moreCount}
+              </span>
+            )}
           </div>
         )}
 
