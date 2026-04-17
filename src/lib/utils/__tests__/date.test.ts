@@ -11,6 +11,7 @@
 import {
   daysBetween,
   calcDaysLeft,
+  calcMonthsLeft,
   toJstDateStr,
   parseLocalDateStr,
   addDaysStr,
@@ -361,6 +362,93 @@ describe("addDaysStr — 日数加算", () => {
   test("不正な base → null", () => {
     expect(addDaysStr("abc", 1)).toBeNull();
     expect(addDaysStr("", 5)).toBeNull();
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// calcMonthsLeft — 実月差ベース（小数）
+// ════════════════════════════════════════════════════════════════════════════
+
+describe("calcMonthsLeft — 正常系", () => {
+  test("同日: 0", () => {
+    expect(calcMonthsLeft("2026-04-17", "2026-04-17")).toBe(0);
+  });
+
+  test("1ヶ月ちょうど（同日付）: 1", () => {
+    expect(calcMonthsLeft("2026-04-17", "2026-05-17")).toBe(1);
+  });
+
+  test("3ヶ月ちょうど: 3", () => {
+    expect(calcMonthsLeft("2026-04-17", "2026-07-17")).toBe(3);
+  });
+
+  test("4/17 → 8/9 は 7/17 を踏んで 23/31 ヶ月分: 3 + 23/31", () => {
+    const result = calcMonthsLeft("2026-04-17", "2026-08-09")!;
+    expect(result).toBeCloseTo(3 + 23 / 31, 5);
+    expect(result.toFixed(1)).toBe("3.7");
+  });
+
+  test("端数が当該月区間の日数に対する割合: 4/17 → 5/3 は 16/30 = 0.533", () => {
+    // 4/17 → 5/17 が区間 30 日、経過 16 日（4/17 → 5/3）→ 0 + 16/30
+    const result = calcMonthsLeft("2026-04-17", "2026-05-03")!;
+    expect(result).toBeCloseTo(16 / 30, 5);
+  });
+
+  test("月末クランプ: 1/31 → 2/28（平年）は 1.0", () => {
+    // 2/31 は存在しないため 2 月末に丸める → ちょうど 1 ヶ月扱い
+    expect(calcMonthsLeft("2025-01-31", "2025-02-28")).toBe(1);
+  });
+
+  test("月末クランプ: 1/31 → 3/1 は 1 + 1/31", () => {
+    // whole=2 だと anchor=3/31 > 3/1。戻して whole=1, anchor=2/28(平年)
+    // next=3/31、seg=31、used=(3/1 - 2/28)=1 → 1 + 1/31
+    const result = calcMonthsLeft("2025-01-31", "2025-03-01")!;
+    expect(result).toBeCloseTo(1 + 1 / 31, 5);
+  });
+
+  test("年跨ぎ: 12/15 → 翌年 3/15 は 3", () => {
+    expect(calcMonthsLeft("2025-12-15", "2026-03-15")).toBe(3);
+  });
+
+  test("年跨ぎ端数: 2025-12-15 → 2026-01-01 は 0 + 17/31", () => {
+    // whole=1 だと anchor=1/15 > 1/1。戻して whole=0, anchor=12/15
+    // next=1/15、seg=31、used=17 → 17/31
+    const result = calcMonthsLeft("2025-12-15", "2026-01-01")!;
+    expect(result).toBeCloseTo(17 / 31, 5);
+  });
+
+  test("逆方向（過去）は負の値", () => {
+    const result = calcMonthsLeft("2026-08-09", "2026-04-17")!;
+    expect(result).toBeCloseTo(-(3 + 23 / 31), 5);
+  });
+
+  test("翌日: 0 + 1/30 程度", () => {
+    // 4/17 → 4/18 → whole=0, anchor=4/17, next=5/17, seg=30, used=1
+    const result = calcMonthsLeft("2026-04-17", "2026-04-18")!;
+    expect(result).toBeCloseTo(1 / 30, 5);
+  });
+
+  test("小数1桁に丸めた表示例: 3.7 月", () => {
+    const result = calcMonthsLeft("2026-04-17", "2026-08-09")!;
+    expect(result.toFixed(1)).toBe("3.7");
+  });
+});
+
+describe("calcMonthsLeft — 例外・null ケース", () => {
+  test("today 不正 → null", () => {
+    expect(calcMonthsLeft("abc", "2026-08-09")).toBeNull();
+  });
+
+  test("target 不正 → null", () => {
+    expect(calcMonthsLeft("2026-04-17", "xyz")).toBeNull();
+  });
+
+  test("存在しない日付 → null", () => {
+    expect(calcMonthsLeft("2026-02-30", "2026-08-09")).toBeNull();
+  });
+
+  test("空文字 → null", () => {
+    expect(calcMonthsLeft("", "")).toBeNull();
   });
 });
 

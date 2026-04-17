@@ -133,6 +133,62 @@ export function calcDaysLeft(today: string, target: string): number | null {
 }
 
 /**
+ * 2つの YYYY-MM-DD 文字列間のカレンダー月数差を小数で返す。
+ *
+ * 「実月差ベース」の定義:
+ *   - 整数部は「同じ日付」で数えた完全な月数
+ *     （例: 4/17 → 7/17 で 3 ヶ月。月末日がはみ出す場合は月末に丸める）
+ *   - 端数は次のアンカー（1ヶ月先）までの区間日数に対する「経過日数 / 区間日数」
+ *     （例: 4/17 → 8/9 = 7/17 を踏んで残り 23 日、7/17〜8/17 は 31 日なので
+ *        3 + 23/31 ≈ 3.74）
+ *
+ * 30日換算や4週換算は使わず、常にカレンダー上の実月差ベースで算出する。
+ * KpiCards の残り日数 KPI 補助表示用。
+ *
+ * @param today  基準日 (YYYY-MM-DD)
+ * @param target 目標日 (YYYY-MM-DD)
+ * @returns 月数の小数 (整数部 + 端数)。同日は 0、過去は負。どちらか不正なら null。
+ */
+export function calcMonthsLeft(today: string, target: string): number | null {
+  const from = parseLocalDateStr(today);
+  const to = parseLocalDateStr(target);
+  if (from === null || to === null) return null;
+  if (from.getTime() === to.getTime()) return 0;
+
+  const sign = to.getTime() < from.getTime() ? -1 : 1;
+  const a = sign > 0 ? from : to;
+  const b = sign > 0 ? to : from;
+
+  // 初期推定: 年×12 + 月 の差分
+  let whole = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+  let anchor = addMonthsClamped(a, whole);
+  // anchor が b を超える場合（例: 4/17→7/14 で whole=3 だと anchor=7/17 > 7/14）は 1 ヶ月戻す
+  if (anchor.getTime() > b.getTime()) {
+    whole -= 1;
+    anchor = addMonthsClamped(a, whole);
+  }
+
+  const nextAnchor = addMonthsClamped(a, whole + 1);
+  const segDays = Math.round((nextAnchor.getTime() - anchor.getTime()) / 86_400_000);
+  const usedDays = Math.round((b.getTime() - anchor.getTime()) / 86_400_000);
+  const fraction = segDays <= 0 ? 0 : usedDays / segDays;
+
+  return sign * (whole + fraction);
+}
+
+/**
+ * 内部ヘルパー: 指定月数を加算した Date を返す。
+ * 加算先の月に日が存在しない場合（1/31 + 1ヶ月 など）は加算先の月末に丸める。
+ */
+function addMonthsClamped(d: Date, months: number): Date {
+  const targetMonthIdx = d.getFullYear() * 12 + d.getMonth() + months;
+  const newYear = Math.floor(targetMonthIdx / 12);
+  const newMonth = ((targetMonthIdx % 12) + 12) % 12;
+  const lastDay = new Date(newYear, newMonth + 1, 0).getDate();
+  return new Date(newYear, newMonth, Math.min(d.getDate(), lastDay));
+}
+
+/**
  * ある日付に指定日数を加算した日付を YYYY-MM-DD で返す（JST 基準）。
  *
  * @param base - 基準日 (YYYY-MM-DD)
