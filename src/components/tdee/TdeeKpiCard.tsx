@@ -29,7 +29,7 @@ interface TdeeKpiCardProps {
   avgTdee14d:              number | null;
   theoreticalTdee:         number | null;
   avgCalories:             number | null;
-  balance:                 number | null;  // 収支差分 = 摂取 - TDEE (kcal/日)
+  balance:                 number | null;  // 収支差分 = 摂取 - 14日平均 TDEE (kcal/日)
   theoreticalWeightChange: number | null;  // kg/週 (収支ベース)
   measuredWeightChange:    number | null;  // kg/週 (実体重推移)
   confidence:              TdeeConfidence;
@@ -217,7 +217,7 @@ export function TdeeKpiCard({
           )}
         </div>
 
-        {/* 収支差分 */}
+        {/* 収支差分 — 消費は 14日平均 TDEE（基準線）を参照 */}
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
           <p className="text-sm font-medium text-gray-500 dark:text-slate-400">収支差分（摂取 − 消費）</p>
           <p className="mt-2 text-3xl font-bold">
@@ -228,6 +228,7 @@ export function TdeeKpiCard({
              balance < -50 ? "マイナス = 減量方向" :
              balance >  50 ? "プラス = 増量方向" :
                              "概ね均衡"}
+            <span className="ml-1 text-gray-400 dark:text-slate-500">— 消費は 14日平均 TDEE 基準</span>
           </p>
         </div>
       </div>

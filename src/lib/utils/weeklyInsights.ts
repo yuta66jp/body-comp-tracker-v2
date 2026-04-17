@@ -154,7 +154,7 @@ export function deriveWeeklyInsightItems(
 
       const detail =
         tdee.avgEstimated !== null
-          ? `摂取 ${fmt0(nutrition.avgCalories)} kcal / 推定TDEE ${fmt0(tdee.avgEstimated)} kcal`
+          ? `摂取 ${fmt0(nutrition.avgCalories)} kcal / 推定TDEE ${fmt0(tdee.avgEstimated)} kcal（14日平均）`
           : undefined;
 
       items.push({ status, title, detail });

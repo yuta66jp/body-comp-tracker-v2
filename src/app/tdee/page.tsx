@@ -189,12 +189,14 @@ export default async function TdeePage() {
       : undefined;
 
   // 収支・理論変化・解釈
-  const balance = calcEnergyBalance(avgCalories7, avgTdee);
+  // 参照 TDEE は 14日平均（基準線）に揃える。7日平均は短期変化確認の補助指標であり、
+  // 判断用 KPI（収支差分・理論変化・収支の解釈）は日次ノイズに強い 14日平均を基準にする。
+  const balance = calcEnergyBalance(avgCalories7, avgTdee14d);
   const theoreticalWeightChange = calcTheoreticalWeightChangePerWeek(balance);
   const confidence = calcTdeeConfidence({
     calDays,
     weightDays,
-    hasTdeeEstimate: avgTdee !== null,
+    hasTdeeEstimate: avgTdee14d !== null,
     weightStdDev,
     tdeeStdDev,
   });

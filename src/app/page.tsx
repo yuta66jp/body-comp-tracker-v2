@@ -179,16 +179,19 @@ export default async function DashboardPage() {
       ? readinessMetrics.days_to_contest - daysNeeded
       : null;
 
-  // enriched_logs から log_date → tdee_estimated の Map を構築
-  const enrichedTdeeMap = new Map<string, number>();
-  for (const row of enrichedRows) {
-    if (row.tdee_estimated !== null) {
-      enrichedTdeeMap.set(row.log_date, row.tdee_estimated);
-    }
-  }
+  // 判断用 KPI の基準 TDEE は canonical な avg_tdee_14d を参照する。
+  // canonical は enrich.py の avg_tdee_14d 最終値。旧バッチ互換のため
+  // tdee_estimated 末尾 14 件の平均にフォールバックする（/tdee ページと同じ閾値）。
+  const batchAvgTdee14d: number | null = enrichedRows.at(-1)?.avg_tdee_14d ?? null;
+  const avgTdee14d: number | null = batchAvgTdee14d ?? (() => {
+    const vals = enrichedRows.slice(-14)
+      .map((r) => r.tdee_estimated)
+      .filter((v): v is number => v !== null);
+    return vals.length >= 7 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  })();
 
   const weeklyReview = calcWeeklyReview(logs, readinessMetrics, qualityReport, {
-    enrichedTdeeMap,
+    avgTdee14d,
     phase,
     sleepSessions,
   });
