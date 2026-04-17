@@ -4,7 +4,8 @@
 //
 // 平滑化仕様: enrich.py の tdee_estimated は weight_sma7.diff() + rolling median (window=7, min_periods=3)
 // 係数: KCAL_PER_KG_FAT = 7200 kcal/kg (Hall et al., 2012)
-// 7日平均 TDEE: enrichedRows の avg_tdee_7d (enrich.py で事前計算済み)
+// 14日平均 TDEE: enrichedRows の avg_tdee_14d (enrich.py で事前計算済み、傾向判断用の基準線)
+// 7日平均 TDEE:  enrichedRows の avg_tdee_7d  (enrich.py で事前計算済み、短期変化確認用)
 // 7日平均カロリー: enrichedRows の avg_calories_7d (enrich.py で事前計算済み)
 import { StatusNotice } from "@/components/ui/StatusNotice";
 import { TdeeKpiCard } from "@/components/tdee/TdeeKpiCard";
@@ -81,10 +82,11 @@ export default async function TdeePage() {
 
   // ── canonical batch 参照値 ────────────────────────────────────────────────
   // enrich.py が analytics_cache に書き込む canonical 値。フロントで再計算しない。
-  // avg_tdee_7d / avg_calories_7d は新規フィールド。古いバッチ結果では undefined になる。
-  // per-row 値（tdee_estimated / avg_tdee_7d / avg_calories_7d）は chartData / tableData で直接参照する。
+  // avg_tdee_7d / avg_tdee_14d / avg_calories_7d は新規フィールド。古いバッチ結果では undefined になる。
+  // per-row 値は chartData / tableData で直接参照する。
   const lastEnrichedRow = enrichedRows.at(-1);
   const batchAvgTdee7d: number | null = lastEnrichedRow?.avg_tdee_7d ?? null;
+  const batchAvgTdee14d: number | null = lastEnrichedRow?.avg_tdee_14d ?? null;
   const batchAvgCalories7d: number | null = lastEnrichedRow?.avg_calories_7d ?? null;
 
   // グラフ用データ: per-row canonical 値を直接参照する。
@@ -98,6 +100,7 @@ export default async function TdeePage() {
         date: row.log_date.slice(5),
         tdee: row.tdee_estimated,              // per-row canonical (常に存在)
         tdee7d: row.avg_tdee_7d ?? null,       // per-row canonical (旧バッチは null)
+        tdee14d: row.avg_tdee_14d ?? null,     // per-row canonical (旧バッチは null)
         intake: row.avg_calories_7d            // per-row canonical (旧バッチは null)
           ?? rawCaloriesMap.get(row.log_date)  //   旧バッチ互換 fallback: raw calories
           ?? null,
@@ -107,14 +110,26 @@ export default async function TdeePage() {
         date: row.log_date.slice(5),
         tdee: null,
         tdee7d: null,
+        tdee14d: null,
         intake: row.calories,
         theoretical: theoreticalTdee,
       }));
 
   // KPI: 直近7日平均 TDEE — canonical は batchAvgTdee7d (enrich.py の avg_tdee_7d 最終値)。
   // 旧バッチ互換 fallback: enrichedRows 末尾 7 件の tdee_estimated 平均（batch canonical ではない）。
+  // 用途: 収支計算・解釈・信頼度の 短期指標 (short-term)。
   const avgTdee: number | null = batchAvgTdee7d ?? (() => {
     const vals = enrichedRows.slice(-7)
+      .map((r) => r.tdee_estimated)
+      .filter((v): v is number => v !== null);
+    return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  })();
+
+  // KPI: 直近14日平均 TDEE — canonical は batchAvgTdee14d (enrich.py の avg_tdee_14d 最終値)。
+  // 旧バッチ互換 fallback: enrichedRows 末尾 14 件の tdee_estimated 平均。
+  // 用途: 傾向判断の基準線 (trend reference)。KPI 主表示・チャート ReferenceLine に使う。
+  const avgTdee14d: number | null = batchAvgTdee14d ?? (() => {
+    const vals = enrichedRows.slice(-14)
       .map((r) => r.tdee_estimated)
       .filter((v): v is number => v !== null);
     return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
@@ -234,6 +249,7 @@ export default async function TdeePage() {
       <div className="space-y-6">
         <TdeeKpiCard
           avgTdee={avgTdee}
+          avgTdee14d={avgTdee14d}
           theoreticalTdee={theoreticalTdee}
           avgCalories={avgCalories7}
           balance={balance}
@@ -243,7 +259,7 @@ export default async function TdeePage() {
           interpretation={interpretation}
           enrichedAvailability={enrichedAvailability}
         />
-        <TdeeDetailChart data={chartData} avgTdee={avgTdee} />
+        <TdeeDetailChart data={chartData} avgTdee14d={avgTdee14d} />
         <TableScroll>
           <TdeeDailyTable data={tableData} phase={currentPhase} />
         </TableScroll>

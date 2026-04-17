@@ -23,7 +23,10 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 
 interface TdeeKpiCardProps {
+  /** 直近7日平均 TDEE — 短期変化確認用 (収支計算・解釈の基礎にも使用) */
   avgTdee:                 number | null;
+  /** 直近14日平均 TDEE — 傾向判断用の基準線。KPI カードの主表示 */
+  avgTdee14d:              number | null;
   theoreticalTdee:         number | null;
   avgCalories:             number | null;
   balance:                 number | null;  // 収支差分 = 摂取 - TDEE (kcal/日)
@@ -150,6 +153,7 @@ function buildInterpretationInsightItem(
 
 export function TdeeKpiCard({
   avgTdee,
+  avgTdee14d,
   theoreticalTdee,
   avgCalories,
   balance,
@@ -181,15 +185,23 @@ export function TdeeKpiCard({
           </p>
         </div>
 
-        {/* 実測 TDEE */}
+        {/* 実測 TDEE — 主表示: 14日平均 (基準線) / 補助表示: 7日平均 (短期変化) */}
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
-          <p className="text-sm font-medium text-gray-500 dark:text-slate-400">実測 TDEE（7日平均）</p>
+          <p className="text-sm font-medium text-gray-500 dark:text-slate-400">実測 TDEE（14日平均）</p>
           <p className="mt-2 text-3xl font-bold text-orange-500">
-            {avgTdee !== null ? Math.round(avgTdee).toLocaleString() : "—"}
+            {avgTdee14d !== null ? Math.round(avgTdee14d).toLocaleString() : "—"}
             <span className="ml-1 text-base font-normal text-gray-400 dark:text-slate-500">kcal</span>
           </p>
+          {/* 補助表示: 7日平均 — 短期変化確認用 */}
+          <p className="mt-1.5 text-xs text-gray-500 dark:text-slate-400">
+            <span className="text-gray-400 dark:text-slate-500">7日平均</span>{" "}
+            <span className="font-medium text-gray-700 dark:text-slate-300 tabular-nums">
+              {avgTdee !== null ? Math.round(avgTdee).toLocaleString() : "—"}
+            </span>
+            <span className="ml-1 text-gray-400 dark:text-slate-500">kcal（短期変化）</span>
+          </p>
           <p className="mt-1 text-xs text-gray-400 dark:text-slate-500">
-            体重平滑化から逆算した推定値の直近7日平均（バッチ計算値）
+            14日平均は傾向判断、7日平均は短期変化確認に使う（バッチ計算値）
             {theoreticalTdee !== null && (
               <> — 理論値 {Math.round(theoreticalTdee).toLocaleString()} kcal</>
             )}

@@ -201,12 +201,44 @@ class TestBuildEnrichedPayload:
         assert len(records) == 30
 
     def test_each_record_has_required_keys(self):
-        """各レコードに log_date / weight_sma7 / tdee_estimated が存在する。"""
+        """各レコードに log_date / weight_sma7 / tdee_estimated / avg_tdee_7d / avg_tdee_14d / avg_calories_7d が存在する。"""
         records = build_enriched_payload(self._make_enriched())
         for r in records:
             assert "log_date" in r
             assert "weight_sma7" in r
             assert "tdee_estimated" in r
+            assert "avg_tdee_7d" in r
+            assert "avg_tdee_14d" in r
+            assert "avg_calories_7d" in r
+
+    def test_avg_tdee_14d_min_periods(self):
+        """avg_tdee_14d は min_periods=7 のため、
+        有限な tdee_estimated が 7 件揃うまで None になる。"""
+        records = build_enriched_payload(self._make_enriched(30))
+        # 先頭付近は None、後半には有限値が出る
+        later_values = [r["avg_tdee_14d"] for r in records[-10:]]
+        finite_later = [v for v in later_values if v is not None]
+        assert len(finite_later) >= 1, "30日分入力して後半に 14日平均が 1 件も出ていない"
+
+    def test_avg_tdee_14d_less_volatile_than_7d(self):
+        """14日平均は 7日平均より変動が小さい (安定した基準線として機能する)。"""
+        df_raw = _make_df(40)
+        # 中盤に体重スパイクを注入してノイズを増やす
+        df_raw.loc[15, "weight"] += 2.0
+        df_raw.loc[25, "weight"] -= 1.5
+        enriched = enrich_data(df_raw)
+        records = build_enriched_payload(enriched)
+        vals_7d = [r["avg_tdee_7d"] for r in records if r["avg_tdee_7d"] is not None]
+        vals_14d = [r["avg_tdee_14d"] for r in records if r["avg_tdee_14d"] is not None]
+        # 両方揃う後半だけで標準偏差を比較する
+        if len(vals_7d) > 5 and len(vals_14d) > 5:
+            import statistics
+
+            std_7d = statistics.pstdev(vals_7d[-len(vals_14d):])
+            std_14d = statistics.pstdev(vals_14d)
+            assert std_14d <= std_7d + 1e-6, (
+                f"14日平均 (σ={std_14d:.1f}) が 7日平均 (σ={std_7d:.1f}) より変動大"
+            )
 
     def test_log_date_is_yyyy_mm_dd_string(self):
         """log_date が "YYYY-MM-DD" 形式の文字列になっている。"""

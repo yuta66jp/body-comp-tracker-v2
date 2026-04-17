@@ -101,9 +101,12 @@ def build_enriched_payload(df: pd.DataFrame) -> list[dict]:
       - log_date        : YYYY-MM-DD 文字列
       - weight_sma7     : 7日単純移動平均体重 (kg)
       - tdee_estimated  : 推定 TDEE (kcal/日)。canonical source はこのバッチ。
-      - avg_tdee_7d     : 後方 SMA_WINDOW 日の推定 TDEE 平均 (kcal/日)
-                          front 側で再平均しなくてよいように事前計算する。
-      - avg_calories_7d : 後方 SMA_WINDOW 日の摂取カロリー平均 (kcal/日)
+      - avg_tdee_7d     : 後方 SMA_WINDOW (7) 日の推定 TDEE 平均 (kcal/日)
+                          短期変化確認の補助指標。front 側で再平均しない。
+      - avg_tdee_14d    : 後方 14 日の推定 TDEE 平均 (kcal/日)
+                          傾向判断用の基準線。7日平均より日次ノイズに強く、安定した水準を読む用途。
+                          front 側で再平均しない。
+      - avg_calories_7d : 後方 SMA_WINDOW (7) 日の摂取カロリー平均 (kcal/日)
                           front 側の週平均カロリー表示に使う場合はこの値を利用すること。
     """
     work = df.copy()
@@ -114,6 +117,13 @@ def build_enriched_payload(df: pd.DataFrame) -> list[dict]:
         window=SMA_WINDOW, min_periods=3
     ).mean()
 
+    # 後方 14 日の TDEE 平均 (基準線用)
+    # min_periods=7: 7日平均と 14日平均が両方出るタイミングを 7日目以降に揃え、
+    # サンプル不足の初期区間に極端な値を出さない (14日分揃わなくても半分あれば提供)。
+    work["avg_tdee_14d"] = work["tdee_estimated"].rolling(
+        window=14, min_periods=7
+    ).mean()
+
     # 後方 SMA_WINDOW 日のカロリー平均 (calories 列がある場合のみ)
     if "calories" in work.columns:
         work["avg_calories_7d"] = work["calories"].rolling(
@@ -122,7 +132,14 @@ def build_enriched_payload(df: pd.DataFrame) -> list[dict]:
     else:
         work["avg_calories_7d"] = np.nan
 
-    payload = work[["log_date", "weight_sma7", "tdee_estimated", "avg_tdee_7d", "avg_calories_7d"]].copy()
+    payload = work[[
+        "log_date",
+        "weight_sma7",
+        "tdee_estimated",
+        "avg_tdee_7d",
+        "avg_tdee_14d",
+        "avg_calories_7d",
+    ]].copy()
     # inf → NaN → None の順で正規化
     payload = payload.replace([np.inf, -np.inf], np.nan)
     payload = payload.where(pd.notna(payload), None)
