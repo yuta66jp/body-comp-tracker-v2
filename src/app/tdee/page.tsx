@@ -11,6 +11,7 @@ import { StatusNotice } from "@/components/ui/StatusNotice";
 import { TdeeKpiCard } from "@/components/tdee/TdeeKpiCard";
 import { TdeeDetailChart } from "@/components/tdee/TdeeDetailChart";
 import { TdeeDailyTable } from "@/components/tdee/TdeeDailyTable";
+import { TdeeRefreshButton } from "@/components/tdee/TdeeRefreshButton";
 import {
   calcTheoreticalTdee,
   calcEnergyBalance,
@@ -211,7 +212,14 @@ export default async function TdeePage() {
   }));
 
   return (
-    <PageShell title="TDEE">
+    <PageShell
+      titleSlot={
+        <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1.5 md:mb-6">
+          <h1 className="text-xl font-bold text-slate-800 dark:text-slate-300">TDEE</h1>
+          <TdeeRefreshButton />
+        </div>
+      }
+    >
 
       {/* Read error banners — graceful degradation: コンテンツはブロックしない */}
       {rawLogsResult.kind === "error" && (

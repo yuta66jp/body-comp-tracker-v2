@@ -30,6 +30,12 @@
  *
  * forecast backtest 更新:
  *   /forecast-accuracy  fetchLatestRuns / fetchMetrics
+ *
+ * analytics_cache (enriched_logs) 更新:
+ *   /tdee         fetchEnrichedLogs
+ *   ※ GitHub Actions の ml-daily バッチは Supabase を直接更新するため、
+ *     Next.js 側の ISR キャッシュは自動で無効化されない。
+ *     /tdee の手動 refresh ボタンがこの関数を呼び、バッチ後の即時反映を可能にする。
  */
 
 import { revalidatePath } from "next/cache";
@@ -64,4 +70,16 @@ export function revalidateAfterSettingsMutation(): void {
  */
 export function revalidateAfterForecastMutation(): void {
   revalidatePath("/forecast-accuracy");
+}
+
+/**
+ * analytics_cache の enriched_logs 更新後に呼ぶ（手動 refresh ボタン経由）。
+ *
+ * ml-daily バッチは GitHub Actions から Supabase を直接更新するため、
+ * Next.js の ISR キャッシュ（/tdee は revalidate=3600）は自動で無効化されない。
+ * 定期バッチ・手動バッチのどちらでも、ユーザーが "表示を更新" ボタンを
+ * 押した時点でこの関数が呼ばれ、/tdee の ISR キャッシュを再検証する。
+ */
+export function revalidateAfterEnrichedLogsMutation(): void {
+  revalidatePath("/tdee");
 }
