@@ -5,7 +5,7 @@ import type { DashboardDailyLog } from "@/lib/supabase/types";
 import type { AppSettings } from "@/lib/domain/settings";
 import type { GoalReachResult } from "@/lib/utils/calcReadiness";
 import { calcWeightTrend } from "@/lib/utils/calcTrend";
-import { toJstDateStr, calcDaysLeft, addDaysStr, dateRangeStr } from "@/lib/utils/date";
+import { toJstDateStr, calcDaysLeft, calcMonthsLeft, addDaysStr, dateRangeStr } from "@/lib/utils/date";
 
 interface KpiCardsProps {
   logs: DashboardDailyLog[];
@@ -74,12 +74,18 @@ export function KpiCards({ logs, settings, currentWeight, currentSeason, goalRea
   // 以降の全暦日計算で共通して使う。JST 固定で UTC サーバー上でもズレない。
   const todayStr = toJstDateStr();
 
-  // --- 残り日数 + 残り週数 ---
+  // --- 残り日数 + 残り週数 + 残り月数 ---
   // calcDaysLeft を使い GoalNavigator / calcReadiness と定義を統一する。
+  // 月数は「カレンダー上の実月差ベース」（calcMonthsLeft）。30日換算/4週換算は使わない。
   const contestDate = settings.contestDate;
   const daysLeft = contestDate ? calcDaysLeft(todayStr, contestDate) : null;
   const weeksLeft =
     daysLeft !== null && daysLeft > 0 ? (daysLeft / 7).toFixed(1) : null;
+  const monthsLeftNum =
+    contestDate && daysLeft !== null && daysLeft > 0
+      ? calcMonthsLeft(todayStr, contestDate)
+      : null;
+  const monthsLeft = monthsLeftNum !== null ? monthsLeftNum.toFixed(1) : null;
 
   // --- 現在体重カードの週次トレンド表示 (14暦日回帰) ---
   // 目標到達予定日の計算 (7日平均 + 30日回帰) は page.tsx で一元計算した goalReachResult を使う
@@ -133,6 +139,7 @@ export function KpiCards({ logs, settings, currentWeight, currentSeason, goalRea
           daysLeft === null ? `${deadlineLabel}未設定`
           : daysLeft < 0 ? `${contestDate} 終了`
           : daysLeft === 0 ? `本日が${deadlineLabel}`
+          : monthsLeft !== null && weeksLeft !== null ? `${monthsLeft} 月 / ${weeksLeft} 週 / ${contestDate}`
           : weeksLeft !== null ? `${weeksLeft} 週 / ${contestDate}`
           : contestDate
         }
