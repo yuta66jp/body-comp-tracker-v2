@@ -127,12 +127,14 @@ export default async function TdeePage() {
 
   // KPI: 直近14日平均 TDEE — canonical は batchAvgTdee14d (enrich.py の avg_tdee_14d 最終値)。
   // 旧バッチ互換 fallback: enrichedRows 末尾 14 件の tdee_estimated 平均。
+  // ただし canonical の min_periods=7 に合わせて 7 件未満のときは null を返し、
+  // サンプル不足区間で「14日平均」ラベルを露出しない。
   // 用途: 傾向判断の基準線 (trend reference)。KPI 主表示・チャート ReferenceLine に使う。
   const avgTdee14d: number | null = batchAvgTdee14d ?? (() => {
     const vals = enrichedRows.slice(-14)
       .map((r) => r.tdee_estimated)
       .filter((v): v is number => v !== null);
-    return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    return vals.length >= 7 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
   })();
 
   // KPI: 直近7日平均カロリー — canonical は batchAvgCalories7d (enrich.py の avg_calories_7d 最終値)。
