@@ -6,6 +6,7 @@ import { mutate } from "swr";
 import type { FoodMaster, TablesInsert } from "@/lib/supabase/types";
 import { parseStrictNumber } from "@/lib/utils/parseNumber";
 import { insertFood, deleteFood } from "@/app/actions/foods";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 interface FoodTableProps {
   initialFoods: FoodMaster[];
@@ -54,6 +55,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
   const [newCategoryMode, setNewCategoryMode] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [visibleCount, setVisibleCount] = useState(15);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const categories = useMemo(() => {
     const cats = Array.from(
@@ -159,6 +161,10 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
     });
   }
 
+  function confirmAndDelete(name: string) {
+    setConfirmDelete(name);
+  }
+
   // th 側: padding / font のみ。整列もクリック領域も button 側で担う
   const thSortCls = () =>
     "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500";
@@ -174,6 +180,13 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
 
   return (
     <div className="flex flex-col gap-4">
+      {confirmDelete !== null && (
+        <ConfirmDialog
+          message={`食品『${confirmDelete}』を削除しますか？`}
+          onConfirm={() => { handleDelete(confirmDelete); setConfirmDelete(null); }}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
       {/* ── 検索（mobile: 最上位 / desktop: 2番目）── */}
       <div className="relative order-1 md:order-2">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={15} />
@@ -357,7 +370,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
                   </div>
                 </div>
                 <button
-                  onClick={() => handleDelete(food.name)}
+                  onClick={() => confirmAndDelete(food.name)}
                   disabled={isPending}
                   className="flex-shrink-0 p-2 -mr-1 text-slate-300 dark:text-slate-600 hover:text-rose-500 disabled:opacity-40"
                   aria-label={`${food.name}を削除`}
@@ -438,7 +451,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
                     <td className="px-4 py-2.5 text-slate-400 dark:text-slate-500 text-xs">{food.category ?? "—"}</td>
                     <td className="px-4 py-2.5 text-right">
                       <button
-                        onClick={() => handleDelete(food.name)}
+                        onClick={() => confirmAndDelete(food.name)}
                         disabled={isPending}
                         className="text-slate-300 dark:text-slate-600 hover:text-rose-500 disabled:opacity-40"
                         aria-label={`${food.name}を削除`}
