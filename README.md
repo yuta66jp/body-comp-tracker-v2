@@ -102,10 +102,13 @@ ForecastChart（`src/components/charts/ForecastChart.tsx`）は 3 タブ（7日 
 
 - 平均摂取カロリー
 - 実測 TDEE（ML バッチが算出した推定値を表示。フロントで再計算しない）
-- 収支差分
+  - 主表示: **14日平均**（`avg_tdee_14d`）— 傾向判断の基準線
+  - 補助表示: **7日平均**（`avg_tdee_7d`）— 短期変化確認
+- 収支差分（消費側は 14日平均 TDEE を基準に算出）
 - 理論変化 / 実測変化
 - 信頼度表示
 - batch 側で算出・平滑化した canonical な TDEE 値を表示する前提
+- **手動更新ボタン**: ml-daily バッチ実行後の即時反映用。保存済み `analytics_cache` の再表示であり、再計算ではない
 
 ### AI 因子分析
 

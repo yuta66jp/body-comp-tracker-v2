@@ -311,6 +311,8 @@ body-comp-tracker-v2/
   - ペース分析の primary 単位は **kg/2週**。週次と2週次を混在させない
   - 残り日数 / 残り週数 / 大会日付は KpiCards に集約し GoalNavigator に再掲しない
 - **WeeklyReview**: 直近7暦日の実績振り返り（体重・栄養・エネルギーバランス・停滞検知）
+  - 「摂取 − 推定TDEE」の消費参照値は canonical な **14日平均 TDEE（`avg_tdee_14d`）** を使う。
+    フロントで 7日平均を再集計しない（#589）
 - 3 パネルで同じ意味の数値が重複しないように設計する
 - **食事ログ入口**: `MobileMealLoggerSheet` のトリガーはエントリーカード形式（白背景 + border-slate + shadow-sm + hover:shadow-md）。青背景ボタンではない。幅は `lg:max-w-xs`、左寄せ
 - **食品追加 (MealLogger)**: "食品を追加" セクションは初期非表示のコラプシブルアコーディオン。カート内アイテムがある場合はトリガーボタンにバッジ数を表示する
@@ -342,6 +344,10 @@ body-comp-tracker-v2/
 - 実績値だけでなく、差分・前週比・信頼度・解釈導線を重視する
 - KPI には期間定義（7暦日 / 7記録日）・推定値区別（推定値 / 理論値）・fallback 説明を明示する
   - 注記の文言は実装の集計ロジックと一致させる
+- **TDEE 参照値の役割分担**（#585 / #589）:
+  - **14日平均（`avg_tdee_14d`）= 基準線**。日次ノイズに強く、判断用 KPI（収支差分・理論変化・収支の解釈・Dashboard の「摂取 − 推定TDEE」）はこれを参照する
+  - **7日平均（`avg_tdee_7d`）= 短期変化確認**。`/tdee` KPI カードの補助表示でのみ使う
+  - どちらも canonical は `enrich.py` 出力。フロントで再集計しない
 - AI 因子分析は因果ではなく振り返り補助として扱う
   - サンプル不足・欠損時は警告や代替表示を優先する
   - stability は importance の補助指標であり、同義ではない
@@ -350,7 +356,10 @@ body-comp-tracker-v2/
 
 ### ml-pipeline
 - `enrich.py`: TDEE 推定は `weight_sma7.diff()` + rolling median の平滑化ロジックを前提とする
-- `enrich.py` の出力 (tdee_estimated / avg_tdee_7d 等) が canonical source。フロントで再計算しない
+- `enrich.py` の出力 (tdee_estimated / avg_tdee_7d / avg_tdee_14d / avg_calories_7d 等) が canonical source。フロントで再計算しない
+- **手動 refresh ボタン**（#587）: ml-daily バッチは GitHub Actions から Supabase を直接更新するため Next.js の ISR キャッシュは自動無効化されない。
+  `/tdee` / `/forecast-accuracy` に配置した refresh ボタン（`revalidatePath()` + `router.refresh()`）で定期・手動バッチを問わずユーザー起点で即時反映する。
+  revalidate 集約は `src/lib/cache/revalidate.ts`
 - `analyze.py` / `enrich.py` / `predict.py`: supabase は `main()` 内で遅延 import — トップレベルに戻さない
 - キャッシュ: stale / unavailable の状態定義（`analytics_cache` の `status` 区分）を崩さない
   - `AnalyticsAvailability` 型 (`src/lib/analytics/status.ts`) が状態の単一定義源
