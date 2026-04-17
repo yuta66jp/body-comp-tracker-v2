@@ -60,6 +60,16 @@ export interface CalendarDayData {
    * null = 睡眠記録なし。
    */
   sleep_hours: number | null;
+  /**
+   * 就寝時刻 ISO 8601 文字列（sleep_sessions.bed_at）。セッションなし時は null。
+   * 表示時は UI 層で extractJstHHMM() を呼んでフォーマットする。
+   */
+  bed_at: string | null;
+  /**
+   * 起床時刻 ISO 8601 文字列（sleep_sessions.wake_at）。セッションなし時は null。
+   * 表示時は UI 層で extractJstHHMM() を呼んでフォーマットする。
+   */
+  wake_at: string | null;
 }
 
 /**
@@ -183,7 +193,7 @@ export function getMobileTrainingLabel(
  */
 export function buildCalendarDayMap(
   logs: DashboardDailyLog[],
-  sleepSessions: Pick<SleepSession, "wake_date" | "wake_at">[] = [],
+  sleepSessions: Pick<SleepSession, "wake_date" | "wake_at" | "bed_at">[] = [],
 ): Map<string, CalendarDayData> {
   const sorted = [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date));
 
@@ -194,11 +204,9 @@ export function buildCalendarDayMap(
   // 断食時間算出用: 日付 → ログ の高速参照テーブル
   const logByDate = new Map(sorted.map((l) => [l.log_date, l]));
 
-  // 断食時間算出用: wake_date → wake_at (JST HH:MM) の高速参照テーブル
-  const wakeTimeByDate = new Map(
-    sleepSessions
-      .map((s) => [s.wake_date, extractJstHHMM(s.wake_at)] as [string, string | null])
-      .filter((entry): entry is [string, string] => entry[1] !== null)
+  // wake_date → wake_at (ISO 8601) の高速参照テーブル（断食時間算出・UI 表示共用）
+  const sessionByDate = new Map(
+    sleepSessions.map((s) => [s.wake_date, s])
   );
 
   const map = new Map<string, CalendarDayData>();
@@ -249,12 +257,15 @@ export function buildCalendarDayMap(
     // 前日ログなし・前日 last_meal_end_time なし・当日 sleep_sessions なし → null
     const prevDateKey = addDaysStr(log.log_date, -1);
     const prevDayLog  = prevDateKey ? (logByDate.get(prevDateKey) ?? null) : null;
-    const wakeUpTime  = wakeTimeByDate.get(log.log_date) ?? null;
+    const session     = sessionByDate.get(log.log_date) ?? null;
+    const wakeUpTime  = session ? extractJstHHMM(session.wake_at) : null;
     const fasting_hours = calcFastingHours(prevDayLog?.last_meal_end_time, wakeUpTime);
 
     map.set(log.log_date, {
       log, weightDelta, calDelta, dayTags, conditionSummary, conditionTags, fasting_hours,
       sleep_hours: log.sleep_hours,
+      bed_at:  session?.bed_at  ?? null,
+      wake_at: session?.wake_at ?? null,
     });
   }
 

@@ -302,7 +302,7 @@ describe("buildCalendarDayMap — fasting_hours", () => {
       makeLog({ log_date: "2026-03-09", weight: 70, last_meal_end_time: "22:30:00" }),
       makeLog({ log_date: "2026-03-10", weight: 70 }),
     ];
-    const sleepSessions = [{ wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00" }];
+    const sleepSessions = [{ wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00", bed_at: "2026-03-09T23:00:00+09:00" }];
     const map = buildCalendarDayMap(logs, sleepSessions);
     expect(map.get("2026-03-10")!.fasting_hours).toBe(8.5);
   });
@@ -313,7 +313,7 @@ describe("buildCalendarDayMap — fasting_hours", () => {
       makeLog({ log_date: "2026-03-09", weight: 70, last_meal_end_time: "22:30:00" }),
       makeLog({ log_date: "2026-03-11", weight: 70 }),
     ];
-    const sleepSessions = [{ wake_date: "2026-03-11", wake_at: "2026-03-11T07:00:00+09:00" }];
+    const sleepSessions = [{ wake_date: "2026-03-11", wake_at: "2026-03-11T07:00:00+09:00", bed_at: "2026-03-09T23:00:00+09:00" }];
     const map = buildCalendarDayMap(logs, sleepSessions);
     // 2026-03-10 のログが存在しないので 2026-03-11 は null
     expect(map.get("2026-03-11")!.fasting_hours).toBeNull();
@@ -324,7 +324,7 @@ describe("buildCalendarDayMap — fasting_hours", () => {
       makeLog({ log_date: "2026-03-09", weight: 70, last_meal_end_time: null }),
       makeLog({ log_date: "2026-03-10", weight: 70 }),
     ];
-    const sleepSessions = [{ wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00" }];
+    const sleepSessions = [{ wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00", bed_at: "2026-03-09T23:00:00+09:00" }];
     const map = buildCalendarDayMap(logs, sleepSessions);
     expect(map.get("2026-03-10")!.fasting_hours).toBeNull();
   });
@@ -344,7 +344,7 @@ describe("buildCalendarDayMap — fasting_hours", () => {
     const logs = [
       makeLog({ log_date: "2026-03-10", weight: 70, last_meal_end_time: "22:30:00" }),
     ];
-    const sleepSessions = [{ wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00" }];
+    const sleepSessions = [{ wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00", bed_at: "2026-03-09T23:00:00+09:00" }];
     const map = buildCalendarDayMap(logs, sleepSessions);
     // 前日ログがないので null（旧仕様では 8.5h だった）
     expect(map.get("2026-03-10")!.fasting_hours).toBeNull();
@@ -354,7 +354,7 @@ describe("buildCalendarDayMap — fasting_hours", () => {
     const logs = [
       makeLog({ log_date: "2026-03-10", weight: 70, last_meal_end_time: "22:30:00" }),
     ];
-    const sleepSessions = [{ wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00" }];
+    const sleepSessions = [{ wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00", bed_at: "2026-03-09T23:00:00+09:00" }];
     const map = buildCalendarDayMap(logs, sleepSessions);
     expect(map.get("2026-03-10")!.fasting_hours).toBeNull();
   });
@@ -366,8 +366,8 @@ describe("buildCalendarDayMap — fasting_hours", () => {
       makeLog({ log_date: "2026-03-10", weight: 70 }),
     ];
     const sleepSessions = [
-      { wake_date: "2026-03-09", wake_at: "2026-03-09T06:00:00+09:00" },
-      { wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00" },
+      { wake_date: "2026-03-09", wake_at: "2026-03-09T06:00:00+09:00", bed_at: "2026-03-09T23:00:00+09:00" },
+      { wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00", bed_at: "2026-03-09T23:00:00+09:00" },
     ];
     const map = buildCalendarDayMap(logs, sleepSessions);
     // 2026-03-09: 前日(08) 21:00 → 当日(09) 06:00 = 9h

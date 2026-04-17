@@ -38,6 +38,7 @@ import type { DashboardDailyLog, SleepSession } from "@/lib/supabase/types";
 import { buildCalendarDayMap, getMobileTrainingLabel, toDateKey, type CalendarDayData, type CalendarDayTagInfo } from "@/lib/utils/calendarUtils";
 import type { DayProps } from "react-day-picker";
 import { toJstDateStr } from "@/lib/utils/date";
+import { extractJstHHMM } from "@/lib/utils/sleepSession";
 
 // ── コンテキスト ──────────────────────────────────────────────────────────────
 
@@ -52,9 +53,9 @@ const CalendarContext = createContext<CalendarCtx>({
 });
 
 // ── セル高さ定数 ─────────────────────────────────────────────────────────────
-// h-24 = 96px 固定 (モバイル)、sm:h-28 = 112px 固定 (PC)
-// 内側 div に固定高 + overflow-hidden を設定し、コンテンツ量に関わらず全セルを同一高にする
-const CELL_H = "h-24 sm:h-28";
+// h-24 = 96px 固定 (モバイル)、sm:h-32 = 128px 固定 (PC)
+// 就寝/起床時刻行追加に伴い PC 側を h-28→h-32 に拡張 (#593)
+const CELL_H = "h-24 sm:h-32";
 
 // ── 特殊日タグ表示優先順位 ────────────────────────────────────────────────────
 // カレンダーセルに表示するタグの優先順位。最大 MAX_DAY_TAG_DISPLAY 件を表示し、
@@ -239,7 +240,36 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
           </div>
         )}
 
-        {/* ③-b 睡眠 / 断食（デスクトップのみ・同一行表示）
+        {/* ③-b 就寝 / 起床時刻（デスクトップのみ）
+              source of truth: sleep_sessions.bed_at / wake_at
+              extractJstHHMM で UI 層にてフォーマット */}
+        {(data?.bed_at != null || data?.wake_at != null) && (() => {
+          const bedHHMM  = data?.bed_at  ? extractJstHHMM(data.bed_at)  : null;
+          const wakeHHMM = data?.wake_at ? extractJstHHMM(data.wake_at) : null;
+          if (!bedHHMM && !wakeHHMM) return null;
+          return (
+            <div className="mt-0.5 hidden sm:flex items-baseline gap-1.5 leading-none flex-wrap">
+              {bedHHMM && (
+                <span className="inline-flex items-baseline gap-0.5">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">就寝</span>
+                  <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                    {bedHHMM}
+                  </span>
+                </span>
+              )}
+              {wakeHHMM && (
+                <span className="inline-flex items-baseline gap-0.5">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">起床</span>
+                  <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                    {wakeHHMM}
+                  </span>
+                </span>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ③-c 睡眠 / 断食（デスクトップのみ・同一行表示）
               source of truth: daily_logs.sleep_hours
               (sleep_sessions から DB トリガーが自動同期する projection 値) */}
         {(data?.sleep_hours != null || data?.fasting_hours != null) && (
@@ -317,7 +347,7 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
 
 interface MonthlyCalendarProps {
   logs: DashboardDailyLog[];
-  sleepSessions?: Pick<SleepSession, "wake_date" | "wake_at">[];
+  sleepSessions?: Pick<SleepSession, "wake_date" | "wake_at" | "bed_at">[];
 }
 
 export function MonthlyCalendar({ logs, sleepSessions = [] }: MonthlyCalendarProps) {
