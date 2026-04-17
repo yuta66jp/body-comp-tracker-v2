@@ -190,7 +190,51 @@ describe("MenuTable — 保存成功（更新）", () => {
   });
 });
 
-// ─── シナリオ 6: 削除 ─────────────────────────────────────────────────────
+// ─── シナリオ 6: セット内食品削除 ─────────────────────────────────────────
+
+describe("MenuTable — セット内食品削除", () => {
+  it("食品削除ボタンで確認ダイアログが表示され、確認後にレシピから食品が消える", async () => {
+    render(<MenuTable initialMenus={INITIAL_MENUS} foods={FOODS} />);
+
+    // 編集フォームを開く
+    const editButtons = screen.getAllByText("編集");
+    fireEvent.click(editButtons[0]!);
+
+    // レシピ内の食品削除ボタンをクリック
+    const itemDeleteButton = screen.getByLabelText("鶏むね肉を削除");
+    fireEvent.click(itemDeleteButton);
+
+    // 確認ダイアログが表示される
+    expect(screen.getByText("セットメニュー内の食品『鶏むね肉』を削除しますか？")).toBeInTheDocument();
+
+    // 「削除」ボタンをクリックして確認
+    fireEvent.click(screen.getByRole("button", { name: "削除" }));
+
+    // ダイアログが閉じ、レシピ内の削除ボタンが消える
+    expect(screen.queryByText("セットメニュー内の食品『鶏むね肉』を削除しますか？")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("鶏むね肉を削除")).not.toBeInTheDocument();
+  });
+
+  it("食品削除ボタンで確認ダイアログが表示され、キャンセル時は食品がレシピに残る", () => {
+    render(<MenuTable initialMenus={INITIAL_MENUS} foods={FOODS} />);
+
+    const editButtons = screen.getAllByText("編集");
+    fireEvent.click(editButtons[0]!);
+
+    const itemDeleteButton = screen.getByLabelText("鶏むね肉を削除");
+    fireEvent.click(itemDeleteButton);
+
+    expect(screen.getByText("セットメニュー内の食品『鶏むね肉』を削除しますか？")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    // ダイアログが閉じ、食品はレシピに残る
+    expect(screen.queryByText("セットメニュー内の食品『鶏むね肉』を削除しますか？")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("鶏むね肉を削除")).toBeInTheDocument();
+  });
+});
+
+// ─── シナリオ 7: 削除 ─────────────────────────────────────────────────────
 
 describe("MenuTable — 削除", () => {
   beforeEach(() => {
