@@ -201,17 +201,39 @@ describe("MenuTable — 削除", () => {
     jest.clearAllMocks();
   });
 
-  it("削除ボタンで deleteMenu が呼ばれセットがリストから消える", async () => {
+  it("削除ボタンで確認ダイアログが表示され、確認後に deleteMenu が呼ばれセットがリストから消える", async () => {
     render(<MenuTable initialMenus={INITIAL_MENUS} foods={FOODS} />);
 
     const deleteButtons = screen.getAllByLabelText("鶏飯セットを削除");
+    fireEvent.click(deleteButtons[0]!);
+
+    // 確認ダイアログが表示される
+    expect(screen.getByText("セットメニュー『鶏飯セット』を削除しますか？")).toBeInTheDocument();
+
+    // 「削除」ボタンをクリックして確認
     await act(async () => {
-      fireEvent.click(deleteButtons[0]!);
+      fireEvent.click(screen.getByRole("button", { name: "削除" }));
     });
 
     await waitFor(() => {
       expect(mockDeleteMenu).toHaveBeenCalledWith("鶏飯セット");
     });
     expect(screen.queryByText("鶏飯セット")).not.toBeInTheDocument();
+  });
+
+  it("削除ボタンで確認ダイアログが表示され、キャンセル時は deleteMenu が呼ばれない", async () => {
+    render(<MenuTable initialMenus={INITIAL_MENUS} foods={FOODS} />);
+
+    const deleteButtons = screen.getAllByLabelText("鶏飯セットを削除");
+    fireEvent.click(deleteButtons[0]!);
+
+    expect(screen.getByText("セットメニュー『鶏飯セット』を削除しますか？")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(mockDeleteMenu).not.toHaveBeenCalled();
+    expect(screen.queryByText("セットメニュー『鶏飯セット』を削除しますか？")).not.toBeInTheDocument();
+    // セットはリストに残る
+    expect(screen.getAllByText("鶏飯セット").length).toBeGreaterThanOrEqual(1);
   });
 });

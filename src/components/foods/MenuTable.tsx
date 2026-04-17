@@ -6,6 +6,7 @@ import { mutate } from "swr";
 import type { FoodMaster, RecipeItem } from "@/lib/supabase/types";
 import type { MenuEntry } from "@/lib/hooks/useMenuList";
 import { insertMenu, updateMenu, deleteMenu } from "@/app/actions/foods";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 interface MenuTableProps {
   initialMenus: MenuEntry[];
@@ -36,6 +37,8 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [confirmDeleteMenu, setConfirmDeleteMenu] = useState<string | null>(null);
+  const [confirmRemoveItem, setConfirmRemoveItem] = useState<{ idx: number; name: string } | null>(null);
 
   const foodMap = useMemo(() => new Map(foods.map((f) => [f.name, f])), [foods]);
 
@@ -133,6 +136,20 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
 
   return (
     <div className="space-y-4">
+      {confirmDeleteMenu !== null && (
+        <ConfirmDialog
+          message={`セットメニュー『${confirmDeleteMenu}』を削除しますか？`}
+          onConfirm={() => { handleDelete(confirmDeleteMenu); setConfirmDeleteMenu(null); }}
+          onCancel={() => setConfirmDeleteMenu(null)}
+        />
+      )}
+      {confirmRemoveItem !== null && (
+        <ConfirmDialog
+          message={`セットメニュー内の食品『${confirmRemoveItem.name}』を削除しますか？`}
+          onConfirm={() => { removeItemFromEditing(confirmRemoveItem.idx); setConfirmRemoveItem(null); }}
+          onCancel={() => setConfirmRemoveItem(null)}
+        />
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">セットメニュー</h2>
@@ -235,7 +252,11 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
                       <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-slate-500">
                         <span>{ri.amount}g</span>
                         <span className="text-gray-600 font-medium dark:text-slate-300">{kcal} kcal</span>
-                        <button onClick={() => removeItemFromEditing(originalIdx)} className="text-gray-300 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400">
+                        <button
+                          onClick={() => setConfirmRemoveItem({ idx: originalIdx, name: ri.name })}
+                          className="text-gray-300 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400"
+                          aria-label={`${ri.name}を削除`}
+                        >
                           <Trash2 size={15} />
                         </button>
                       </div>
@@ -305,7 +326,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
                         編集
                       </button>
                       <button
-                        onClick={() => handleDelete(menu.name)}
+                        onClick={() => setConfirmDeleteMenu(menu.name)}
                         disabled={isPending}
                         className="p-2 -mr-1 text-slate-300 hover:text-rose-500 disabled:opacity-40 dark:text-slate-600 dark:hover:text-rose-400"
                         aria-label={`${menu.name}を削除`}
@@ -358,9 +379,10 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
                         編集
                       </button>
                       <button
-                        onClick={() => handleDelete(menu.name)}
+                        onClick={() => setConfirmDeleteMenu(menu.name)}
                         disabled={isPending}
                         className="text-gray-300 hover:text-rose-500 disabled:opacity-40 dark:text-slate-600 dark:hover:text-rose-400"
+                        aria-label={`${menu.name}を削除`}
                       >
                         <Trash2 size={15} />
                       </button>

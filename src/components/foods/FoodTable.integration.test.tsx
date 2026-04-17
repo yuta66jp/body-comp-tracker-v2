@@ -196,19 +196,41 @@ describe("FoodTable — 削除", () => {
     jest.clearAllMocks();
   });
 
-  it("削除ボタンで deleteFood が呼ばれ食品がリストから消える", async () => {
+  it("削除ボタンで確認ダイアログが表示され、確認後に deleteFood が呼ばれ食品がリストから消える", async () => {
     render(<FoodTable initialFoods={[makeFoodMaster({ name: "削除対象" })]} />);
 
     // mobile/desktop 両方にボタンがあるので最初のものを使用
     const deleteButton = screen.getAllByLabelText("削除対象を削除")[0]!;
+    fireEvent.click(deleteButton);
+
+    // 確認ダイアログが表示される
+    expect(screen.getByText("食品『削除対象』を削除しますか？")).toBeInTheDocument();
+
+    // 「削除」ボタンをクリックして確認
     await act(async () => {
-      fireEvent.click(deleteButton);
+      fireEvent.click(screen.getByRole("button", { name: "削除" }));
     });
 
     await waitFor(() => {
       expect(mockDeleteFood).toHaveBeenCalledWith("削除対象");
     });
     expect(screen.queryByText("削除対象")).not.toBeInTheDocument();
+  });
+
+  it("削除ボタンで確認ダイアログが表示され、キャンセル時は deleteFood が呼ばれない", async () => {
+    render(<FoodTable initialFoods={[makeFoodMaster({ name: "削除対象" })]} />);
+
+    const deleteButton = screen.getAllByLabelText("削除対象を削除")[0]!;
+    fireEvent.click(deleteButton);
+
+    expect(screen.getByText("食品『削除対象』を削除しますか？")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(mockDeleteFood).not.toHaveBeenCalled();
+    expect(screen.queryByText("食品『削除対象』を削除しますか？")).not.toBeInTheDocument();
+    // 食品はリストに残る
+    expect(screen.getAllByText("削除対象").length).toBeGreaterThanOrEqual(1);
   });
 });
 
