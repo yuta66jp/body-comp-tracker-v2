@@ -145,12 +145,12 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
   const holidayName = JapaneseHolidays.isHoliday(day.date) || null;
 
   const tdCls =
-    "border border-slate-100 dark:border-slate-700 relative cursor-pointer " +
+    "border border-slate-100 dark:border-slate-700 relative max-sm:cursor-pointer " +
     CELL_BG[weekdayType] +
     (isToday
       ? " ring-2 ring-inset ring-blue-400"
       : isSelected
-      ? " ring-2 ring-inset ring-violet-400"
+      ? " max-sm:ring-2 max-sm:ring-inset max-sm:ring-violet-400"
       : "");
 
   const dateNumCls = isToday
@@ -480,9 +480,11 @@ export function MonthlyCalendar({ logs, sleepSessions = [] }: MonthlyCalendarPro
 
   const dayMap = useMemo(() => buildCalendarDayMap(logs, sleepSessions), [logs, sleepSessions]);
 
-  // 再タップで解除するトグル
+  // 再タップで解除するトグル。sm 以上（デスクトップ）では詳細パネルが非表示のため state 変更しない
   const handleSelectDay = useCallback((key: string) => {
-    setSelectedKey((prev) => prev === key ? null : key);
+    if (window.matchMedia("(max-width: 639px)").matches) {
+      setSelectedKey((prev) => prev === key ? null : key);
+    }
   }, []);
 
   // 月切替時に選択状態をリセット
