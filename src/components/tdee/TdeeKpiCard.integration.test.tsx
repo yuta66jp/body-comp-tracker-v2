@@ -36,6 +36,12 @@ const baseProps = {
   interpretation: "データが不足しています。",
 };
 
+// avgTdee14d が未指定のシナリオでは null を渡す
+const nullTdeeProps = {
+  avgTdee: null,
+  avgTdee14d: null,
+};
+
 // ─── シナリオ 1: enriched unavailable — TDEE 数値が「—」で表示される ────────
 
 describe("TdeeKpiCard — enriched unavailable", () => {
@@ -45,18 +51,18 @@ describe("TdeeKpiCard — enriched unavailable", () => {
     staleDays: null,
   };
 
-  it("avgTdee が null のとき「—」が表示され、NaN/空文字を露出しない", () => {
+  it("avgTdee / avgTdee14d が null のとき「—」が表示され、NaN/空文字を露出しない", () => {
     render(
       <TdeeKpiCard
         {...baseProps}
-        avgTdee={null}
+        {...nullTdeeProps}
         theoreticalTdee={null}
         enrichedAvailability={unavailableAvailability}
       />
     );
 
-    // 実測 TDEE カードに「—」が表示される
-    const tdeeCard = screen.getByText("実測 TDEE（7日平均）").closest("div")!;
+    // 実測 TDEE カードに「—」が表示される (14日平均を主表示に変更済み)
+    const tdeeCard = screen.getByText("実測 TDEE（14日平均）").closest("div")!;
     expect(tdeeCard).toBeInTheDocument();
 
     // NaN が露出していないことを確認する（DOM 全体をテキストで検索）
@@ -69,7 +75,7 @@ describe("TdeeKpiCard — enriched unavailable", () => {
     render(
       <TdeeKpiCard
         {...baseProps}
-        avgTdee={null}
+        {...nullTdeeProps}
         theoreticalTdee={null}
         enrichedAvailability={unavailableAvailability}
       />
@@ -89,11 +95,11 @@ describe("TdeeKpiCard — enriched error", () => {
     staleDays: null,
   };
 
-  it("avgTdee が null のとき「—」が表示される（error 状態でも NaN を露出しない）", () => {
+  it("avgTdee / avgTdee14d が null のとき「—」が表示される（error 状態でも NaN を露出しない）", () => {
     render(
       <TdeeKpiCard
         {...baseProps}
-        avgTdee={null}
+        {...nullTdeeProps}
         theoreticalTdee={null}
         enrichedAvailability={errorAvailability}
       />
@@ -119,6 +125,7 @@ describe("TdeeKpiCard — enriched stale", () => {
       <TdeeKpiCard
         {...baseProps}
         avgTdee={2200}
+        avgTdee14d={2210}
         theoreticalTdee={null}
         enrichedAvailability={staleAvailability}
       />
@@ -128,17 +135,19 @@ describe("TdeeKpiCard — enriched stale", () => {
     expect(screen.getByText(/再計算前データ/)).toBeInTheDocument();
   });
 
-  it("stale でも avgTdee の数値が正常に表示される", () => {
+  it("stale でも 14日平均(主) / 7日平均(補助) の数値が正常に表示される", () => {
     render(
       <TdeeKpiCard
         {...baseProps}
         avgTdee={2200}
+        avgTdee14d={2210}
         theoreticalTdee={null}
         enrichedAvailability={staleAvailability}
       />
     );
 
-    // 2,200 が表示される（toLocaleString で "2,200" になる）
+    // 2,210 が主表示 (14日平均)、2,200 が補助表示 (7日平均) として表示される
+    expect(screen.getByText(/2,210/)).toBeInTheDocument();
     expect(screen.getByText(/2,200/)).toBeInTheDocument();
   });
 });
@@ -157,6 +166,7 @@ describe("TdeeKpiCard — enriched fresh", () => {
       <TdeeKpiCard
         {...baseProps}
         avgTdee={2100}
+        avgTdee14d={2120}
         theoreticalTdee={2150}
         enrichedAvailability={freshAvailability}
       />
@@ -170,6 +180,7 @@ describe("TdeeKpiCard — enriched fresh", () => {
       <TdeeKpiCard
         {...baseProps}
         avgTdee={2100}
+        avgTdee14d={2120}
         theoreticalTdee={2150}
         enrichedAvailability={freshAvailability}
       />
@@ -188,7 +199,7 @@ describe("TdeeKpiCard — enrichedAvailability 未指定", () => {
       render(
         <TdeeKpiCard
           {...baseProps}
-          avgTdee={null}
+          {...nullTdeeProps}
           theoreticalTdee={null}
           // enrichedAvailability を渡さない
         />
