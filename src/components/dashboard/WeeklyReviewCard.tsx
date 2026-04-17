@@ -377,7 +377,7 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
             </SectionLabel>
             <div className="space-y-0.5">
               <StatRow
-                label="摂取 − 推定TDEE"
+                label="摂取 − 推定TDEE（14日平均）"
                 value={`${fmtSignedKcal(tdee.balancePerDay)} kcal/日`}
                 valueColor={balanceColor}
               />

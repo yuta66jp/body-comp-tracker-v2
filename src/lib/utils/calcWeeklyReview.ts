@@ -89,9 +89,13 @@ export interface WeeklyWeight {
 }
 
 export interface WeeklyTdee {
-  /** 直近 7 日の推定 TDEE 平均 (kcal) */
+  /**
+   * 推定 TDEE の基準値 (kcal)。
+   * canonical は enrich.py の avg_tdee_14d（14日ローリング平均）最終値。
+   * 日次ノイズに強い基準線を判断 KPI に使う。
+   */
   avgEstimated: number | null;
-  /** 摂取 - TDEE = エネルギーバランス (kcal/日). 負 = 赤字 */
+  /** 摂取 - 基準 TDEE = エネルギーバランス (kcal/日). 負 = 赤字 */
   balancePerDay: number | null;
 }
 
@@ -311,7 +315,7 @@ function generateFindings(
           ? `余剰 +${fmt0(bal)} kcal / 日（摂取量の見直しを検討）`
           : `余剰 +${fmt0(bal)} kcal / 日`;
       }
-      findings.push(`摂取 ${calStr} kcal / 推定 TDEE ${tdeeStr} kcal → ${balNote}`);
+      findings.push(`摂取 ${calStr} kcal / 推定 TDEE ${tdeeStr} kcal（14日平均）→ ${balNote}`);
     } else {
       findings.push(
         `平均摂取 ${calStr} kcal（TDEE 未推定のためバランス算出不可）`
@@ -507,7 +511,8 @@ function computeAvgWakeTime(
  * @param logs           daily_logs 全件
  * @param metrics        calcReadiness の結果を再利用 (weight_7d_avg など)
  * @param qualityReport  calcDataQuality の結果を再利用 (period7 スコアなど)
- * @param options.enrichedTdeeMap  log_date → tdee_estimated の Map
+ * @param options.avgTdee14d  enrich.py の avg_tdee_14d 最終値（kcal）。判断用 KPI の基準 TDEE。
+ *                            未指定のときは WeeklyTdee.avgEstimated / balancePerDay が null になる。
  * @param options.phase  "Cut" | "Bulk" (デフォルト "Cut")
  * @param options.today  基準日 YYYY-MM-DD (省略時 JST 今日)
  * @param options.sleepSessions  sleep_sessions テーブルの行。就寝・起床平均時刻の算出に使う。
@@ -518,13 +523,13 @@ export function calcWeeklyReview(
   metrics: ReadinessMetrics,
   qualityReport: DataQualityReport,
   options: {
-    enrichedTdeeMap?: Map<string, number>;
+    avgTdee14d?: number | null;
     phase?: string;
     today?: string;
     sleepSessions?: SleepSession[];
   } = {}
 ): WeeklyReviewData {
-  const { enrichedTdeeMap, phase = "Cut", today, sleepSessions } = options;
+  const { avgTdee14d, phase = "Cut", today, sleepSessions } = options;
   const todayStr = today ?? toJstDateStr(new Date());
 
   // ── 7 暦日リスト ──
@@ -656,19 +661,15 @@ export function calcWeeklyReview(
     timeDaysLogged,
   };
 
-  // ── TDEE (直近 7 日の推定 TDEE 平均) ──
-  const tdee7vals = last7Dates
-    .map((d) => enrichedTdeeMap?.get(d) ?? null)
-    .filter((v): v is number => v !== null);
-  const avgTdee7 =
-    tdee7vals.length > 0
-      ? tdee7vals.reduce((a, b) => a + b, 0) / tdee7vals.length
-      : null;
+  // ── TDEE (14日平均 TDEE を基準線として参照) ──
+  // canonical は enrich.py の avg_tdee_14d 最終値。日次ノイズに強く、判断用 KPI に適する。
+  // フロントで 7日平均を再集計すると短期ノイズに引きずられるため、ここでは再計算しない。
+  const avgTdeeRef: number | null = avgTdee14d ?? null;
   const balancePerDay =
-    avgCalories !== null && avgTdee7 !== null ? avgCalories - avgTdee7 : null;
+    avgCalories !== null && avgTdeeRef !== null ? avgCalories - avgTdeeRef : null;
 
   const tdee: WeeklyTdee = {
-    avgEstimated: avgTdee7,
+    avgEstimated: avgTdeeRef,
     balancePerDay,
   };
 

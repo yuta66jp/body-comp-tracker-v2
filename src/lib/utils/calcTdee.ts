@@ -187,7 +187,8 @@ export function calcTheoreticalTdee(params: {
  *   マイナス = 消費が上回る = 減量方向
  *   プラス   = 摂取が上回る = 増量方向
  *
- * 入力に canonical 値 (avg_tdee_7d, avg_calories_7d) を渡すこと。
+ * 入力に canonical 値 (avg_tdee_14d, avg_calories_7d) を渡すこと。
+ * 消費側は基準線（14日平均）を参照し、日次ノイズに振られにくい判断 KPI にする。
  * TDEE ページの TdeeKpiCard に渡す収支表示に使用する。
  */
 export function calcEnergyBalance(
