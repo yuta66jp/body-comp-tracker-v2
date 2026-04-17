@@ -252,7 +252,7 @@ export default async function TdeePage() {
         <StatusNotice status="caution" className="mb-5">
           実測 TDEE は再計算前のデータを表示しています（最終更新: {enrichedAvailability.lastUpdatedDate}、
           {enrichedAvailability.staleDays}日前の計算）。
-          直近入力が反映されるのは次回バッチ実行後（毎日 AM 3:00 JST）です。
+          直近入力が反映されるのは次回バッチ実行後です。手動バッチ実行後は「表示を更新」で最新表示にできます。
         </StatusNotice>
       )}
 
