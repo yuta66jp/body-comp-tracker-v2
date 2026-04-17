@@ -38,6 +38,7 @@ import type { DashboardDailyLog, SleepSession } from "@/lib/supabase/types";
 import { buildCalendarDayMap, getMobileTrainingLabel, toDateKey, type CalendarDayData, type CalendarDayTagInfo } from "@/lib/utils/calendarUtils";
 import type { DayProps } from "react-day-picker";
 import { toJstDateStr } from "@/lib/utils/date";
+import { extractJstHHMM } from "@/lib/utils/sleepSession";
 
 // ── コンテキスト ──────────────────────────────────────────────────────────────
 
@@ -240,27 +241,33 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
         )}
 
         {/* ③-b 就寝 / 起床時刻（デスクトップのみ）
-              source of truth: sleep_sessions.bed_at / wake_at (JST 変換済み HH:MM) */}
-        {(data?.bed_hhmm != null || data?.wake_hhmm != null) && (
-          <div className="mt-0.5 hidden sm:flex items-baseline gap-1.5 leading-none flex-wrap">
-            {data?.bed_hhmm != null && (
-              <span className="inline-flex items-baseline gap-0.5">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">就寝</span>
-                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
-                  {data.bed_hhmm}
+              source of truth: sleep_sessions.bed_at / wake_at
+              extractJstHHMM で UI 層にてフォーマット */}
+        {(data?.bed_at != null || data?.wake_at != null) && (() => {
+          const bedHHMM  = data?.bed_at  ? extractJstHHMM(data.bed_at)  : null;
+          const wakeHHMM = data?.wake_at ? extractJstHHMM(data.wake_at) : null;
+          if (!bedHHMM && !wakeHHMM) return null;
+          return (
+            <div className="mt-0.5 hidden sm:flex items-baseline gap-1.5 leading-none flex-wrap">
+              {bedHHMM && (
+                <span className="inline-flex items-baseline gap-0.5">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">就寝</span>
+                  <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                    {bedHHMM}
+                  </span>
                 </span>
-              </span>
-            )}
-            {data?.wake_hhmm != null && (
-              <span className="inline-flex items-baseline gap-0.5">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">起床</span>
-                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
-                  {data.wake_hhmm}
+              )}
+              {wakeHHMM && (
+                <span className="inline-flex items-baseline gap-0.5">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">起床</span>
+                  <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                    {wakeHHMM}
+                  </span>
                 </span>
-              </span>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          );
+        })()}
 
         {/* ③-c 睡眠 / 断食（デスクトップのみ・同一行表示）
               source of truth: daily_logs.sleep_hours
