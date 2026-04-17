@@ -60,6 +60,14 @@ export interface CalendarDayData {
    * null = 睡眠記録なし。
    */
   sleep_hours: number | null;
+  /**
+   * 就寝時刻 JST "HH:MM"。sleep_sessions.bed_at から変換。セッションなし時は null。
+   */
+  bed_hhmm: string | null;
+  /**
+   * 起床時刻 JST "HH:MM"。sleep_sessions.wake_at から変換。セッションなし時は null。
+   */
+  wake_hhmm: string | null;
 }
 
 /**
@@ -183,7 +191,7 @@ export function getMobileTrainingLabel(
  */
 export function buildCalendarDayMap(
   logs: DashboardDailyLog[],
-  sleepSessions: Pick<SleepSession, "wake_date" | "wake_at">[] = [],
+  sleepSessions: Pick<SleepSession, "wake_date" | "wake_at" | "bed_at">[] = [],
 ): Map<string, CalendarDayData> {
   const sorted = [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date));
 
@@ -194,10 +202,17 @@ export function buildCalendarDayMap(
   // 断食時間算出用: 日付 → ログ の高速参照テーブル
   const logByDate = new Map(sorted.map((l) => [l.log_date, l]));
 
-  // 断食時間算出用: wake_date → wake_at (JST HH:MM) の高速参照テーブル
+  // wake_date → wake_at (JST HH:MM) の高速参照テーブル
   const wakeTimeByDate = new Map(
     sleepSessions
       .map((s) => [s.wake_date, extractJstHHMM(s.wake_at)] as [string, string | null])
+      .filter((entry): entry is [string, string] => entry[1] !== null)
+  );
+
+  // wake_date → bed_at (JST HH:MM) の高速参照テーブル
+  const bedTimeByDate = new Map(
+    sleepSessions
+      .map((s) => [s.wake_date, extractJstHHMM(s.bed_at)] as [string, string | null])
       .filter((entry): entry is [string, string] => entry[1] !== null)
   );
 
@@ -255,6 +270,8 @@ export function buildCalendarDayMap(
     map.set(log.log_date, {
       log, weightDelta, calDelta, dayTags, conditionSummary, conditionTags, fasting_hours,
       sleep_hours: log.sleep_hours,
+      bed_hhmm:   bedTimeByDate.get(log.log_date) ?? null,
+      wake_hhmm:  wakeTimeByDate.get(log.log_date) ?? null,
     });
   }
 

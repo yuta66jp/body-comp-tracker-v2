@@ -14,7 +14,7 @@ import type { MonthlyBehaviorStats } from "@/lib/utils/calcMonthlyBehaviorStats"
 
 interface LogsAndSummaryTabsProps {
   logs: DashboardDailyLog[];
-  sleepSessions?: Pick<SleepSession, "wake_date" | "wake_at">[];
+  sleepSessions?: Pick<SleepSession, "wake_date" | "wake_at" | "bed_at">[];
   monthStats: MonthStats[];
   seasonMap?: Map<string, string>;
   currentSeason?: string | null;
