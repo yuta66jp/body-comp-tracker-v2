@@ -92,6 +92,22 @@ export function computeHasDailyLogChanges(input: HasContentInput): boolean {
   );
 }
 
+/**
+ * MealLogger の note 入力状態を saveDailyLog の 3 状態へ変換する。
+ *
+ * undefined — 未操作なので既存値を保持
+ * null      — ユーザーが空にした、または削除予定にしたので明示クリア
+ * string    — 入力値で上書き
+ */
+export function buildNoteSaveValue(
+  note: string | null,
+  noteTouched: boolean
+): string | null | undefined {
+  if (!noteTouched) return undefined;
+  if (note === null || note === "") return null;
+  return note;
+}
+
 interface MealLoggerProps {
   sidebar?: boolean; // サイドバーモード: 常時展開・縦レイアウト
   /** サイドバーモード時のみ有効。false にすると内部ヘッダー行を非表示にする */
@@ -401,9 +417,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
           protein:  cartItems.length > 0 ? totals.protein  : (cartEverHadItems ? null : undefined),
           fat:      cartItems.length > 0 ? totals.fat      : (cartEverHadItems ? null : undefined),
           carbs:    cartItems.length > 0 ? totals.carbs    : (cartEverHadItems ? null : undefined),
-          note:     noteTouched
-            ? (note === null     ? null   : (note     !== "" ? note                 : undefined))
-            : undefined,
+          note:     buildNoteSaveValue(note, noteTouched),
           ...tagPayload,
           // ルール: touched=true → hadBowelMovement の値をそのまま送信
           //           null  = 明示クリア（未記録に戻す）

@@ -1,4 +1,8 @@
-import { computeHasContent, computeHasDailyLogChanges } from "./MealLogger";
+import {
+  buildNoteSaveValue,
+  computeHasContent,
+  computeHasDailyLogChanges,
+} from "./MealLogger";
 
 const base = {
   weight: "" as string | null,
@@ -224,5 +228,24 @@ describe("computeHasDailyLogChanges", () => {
       note: "メモ",
       noteTouched: true,
     })).toBe(true);
+  });
+});
+
+describe("buildNoteSaveValue", () => {
+  it("未操作の場合は undefined を返して既存値を保持する", () => {
+    expect(buildNoteSaveValue("既存メモ", false)).toBeUndefined();
+    expect(buildNoteSaveValue("", false)).toBeUndefined();
+  });
+
+  it("入力値がある場合はその文字列を返す", () => {
+    expect(buildNoteSaveValue("調子良い", true)).toBe("調子良い");
+  });
+
+  it("空文字にして保存する場合は null を返して既存メモを削除する", () => {
+    expect(buildNoteSaveValue("", true)).toBeNull();
+  });
+
+  it("削除予定状態の場合は null を返す", () => {
+    expect(buildNoteSaveValue(null, true)).toBeNull();
   });
 });
