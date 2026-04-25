@@ -51,20 +51,33 @@ function makeMetrics(overrides: Partial<ReadinessMetrics> = {}): ReadinessMetric
   } as ReadinessMetrics;
 }
 
+const EMPTY_MISSING_FIELDS = {
+  lastMealEndTimeDays: 0,
+  bowelMovementDays: 0,
+  workModeDays: 0,
+  trainingTypeDays: 0,
+  sleepUnloggedDays: 0,
+};
+
 function makeQualityReport(overrides: Partial<DataQualityReport> = {}): DataQualityReport {
   return {
     period7: {
+      totalDays: 7,
       score: 90,
       weightMissingDays: 0,
       caloriesMissingDays: 0,
       anomalies: [],
+      missingFields: { ...EMPTY_MISSING_FIELDS },
     },
     period14: {
+      totalDays: 14,
       score: 90,
       weightMissingDays: 0,
       caloriesMissingDays: 0,
       anomalies: [],
+      missingFields: { ...EMPTY_MISSING_FIELDS },
     },
+    duplicateDates: [],
     ...overrides,
   } as DataQualityReport;
 }

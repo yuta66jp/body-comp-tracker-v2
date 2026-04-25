@@ -5,7 +5,7 @@
  *
  * 表示構造:
  *   - 常時表示: 総合スコアバッジ（7日 / 14日）
- *   - <details>: 詳細ウィンドウ・異常値リスト（折りたたみ可能、JS 不要）
+ *   - <details>: 詳細ウィンドウ・異常値リスト・必須項目未記録（折りたたみ可能、JS 不要）
  */
 
 import type { DataQualityReport, QualityWindow } from "@/lib/utils/calcDataQuality";
@@ -38,7 +38,26 @@ function scoreLabel(score: number): string {
   return "要確認";
 }
 
+/** 必須項目の未記録日数行。0 日の場合はグレーアウト表示。 */
+function MissingFieldRow({ label, days }: { label: string; days: number }) {
+  return (
+    <div className="flex justify-between text-sm">
+      <span className="text-gray-500 dark:text-slate-400">{label}</span>
+      <span className={days > 0 ? "font-medium text-amber-700 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}>
+        {days > 0 ? `${days} 日` : "なし"}
+      </span>
+    </div>
+  );
+}
+
 function WindowSection({ title, w }: { title: string; w: QualityWindow }) {
+  const hasMissingFields =
+    w.missingFields.lastMealEndTimeDays > 0 ||
+    w.missingFields.bowelMovementDays > 0 ||
+    w.missingFields.workModeDays > 0 ||
+    w.missingFields.trainingTypeDays > 0 ||
+    w.missingFields.sleepUnloggedDays > 0;
+
   return (
     <div className={`rounded-xl border p-4 ${scoreBg(w.score)} ${scoreBorder(w.score)}`}>
       <div className="mb-3 flex items-center justify-between">
@@ -48,6 +67,7 @@ function WindowSection({ title, w }: { title: string; w: QualityWindow }) {
         </span>
       </div>
 
+      {/* スコアに反映される項目 */}
       <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
         <div>
           <dt className="text-xs text-gray-500 dark:text-slate-400">ウィンドウ日数</dt>
@@ -98,6 +118,28 @@ function WindowSection({ title, w }: { title: string; w: QualityWindow }) {
           </ul>
         </div>
       )}
+
+      {/* 必須項目の未記録（各 -2/日でスコアに反映） */}
+      <div className="mt-4 border-t border-gray-200/60 pt-3 dark:border-slate-700/60">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-slate-500">
+          必須項目の未記録
+          {!hasMissingFields && (
+            <span className="ml-2 font-normal normal-case text-emerald-600 dark:text-emerald-400">すべて記録済み</span>
+          )}
+        </p>
+        {hasMissingFields && (
+          <div className="space-y-1.5">
+            <MissingFieldRow label="最終食事時刻" days={w.missingFields.lastMealEndTimeDays} />
+            <MissingFieldRow label="排便の有無" days={w.missingFields.bowelMovementDays} />
+            <MissingFieldRow label="勤務情報" days={w.missingFields.workModeDays} />
+            <MissingFieldRow label="トレーニング" days={w.missingFields.trainingTypeDays} />
+            <MissingFieldRow label="睡眠（就寝・起床時刻）" days={w.missingFields.sleepUnloggedDays} />
+          </div>
+        )}
+        <p className="mt-2 text-xs text-gray-400 dark:text-slate-500">
+          各必須項目 −2/日。特殊日・メモは任意項目のため除外。
+        </p>
+      </div>
     </div>
   );
 }
@@ -182,7 +224,7 @@ export function DataQualityPanel({ report }: Props) {
             <span>
               <span className="font-semibold text-rose-600 dark:text-rose-400">0〜69</span>: 要確認
             </span>
-            <span className="ml-auto">体重欠損 −10 / カロリー欠損 −5 / 異常値 −15</span>
+            <span className="ml-auto">体重欠損 −10 / カロリー欠損 −5 / 異常値 −15 / 各必須項目 −2</span>
           </div>
         </div>
       </details>
