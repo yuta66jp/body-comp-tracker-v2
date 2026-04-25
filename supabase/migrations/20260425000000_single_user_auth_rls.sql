@@ -132,6 +132,20 @@ CREATE POLICY "authenticated owner can update menu_master"
 CREATE POLICY "authenticated owner can delete menu_master"
   ON menu_master FOR DELETE TO authenticated USING (user_id = auth.uid());
 
+-- Backtest result tables are read-only application data. Once the app passes an
+-- Auth access token to Supabase, reads happen as the authenticated role, so keep
+-- the existing anon read behavior and explicitly allow authenticated reads too.
+DROP POLICY IF EXISTS "authenticated can read forecast_backtest_runs" ON forecast_backtest_runs;
+DROP POLICY IF EXISTS "authenticated can read forecast_backtest_metrics" ON forecast_backtest_metrics;
+DROP POLICY IF EXISTS "authenticated can read forecast_backtest_predictions" ON forecast_backtest_predictions;
+
+CREATE POLICY "authenticated can read forecast_backtest_runs"
+  ON forecast_backtest_runs FOR SELECT TO authenticated USING (true);
+CREATE POLICY "authenticated can read forecast_backtest_metrics"
+  ON forecast_backtest_metrics FOR SELECT TO authenticated USING (true);
+CREATE POLICY "authenticated can read forecast_backtest_predictions"
+  ON forecast_backtest_predictions FOR SELECT TO authenticated USING (true);
+
 -- ── Owner-aware sleep projection ────────────────────────────────────────────
 
 CREATE OR REPLACE FUNCTION sync_sleep_hours_to_daily_logs()

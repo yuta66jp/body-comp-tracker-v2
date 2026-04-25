@@ -15,6 +15,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 // next/navigation のモック
 jest.mock("next/navigation", () => ({
   usePathname: jest.fn(),
+  useRouter: () => ({ refresh: jest.fn() }),
 }));
 
 // next/link のモック: <a> に変換して href を保持
@@ -37,6 +38,7 @@ jest.mock("lucide-react", () => ({
   BarChart2:       () => <span data-testid="icon-forecast" />,
   Database:        () => <span data-testid="icon-foods" />,
   Settings2:       () => <span data-testid="icon-settings" />,
+  LogOut:          () => <span data-testid="icon-logout" />,
 }));
 
 import { usePathname } from "next/navigation";
