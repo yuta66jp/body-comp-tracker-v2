@@ -15,22 +15,75 @@
  * - z-50 で MobileBottomNav (z-30) より上に重なる
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { PenLine, X, ChevronRight } from "lucide-react";
 import { MealLogger } from "@/components/meal/MealLogger";
 
 export function MobileMealLoggerSheet() {
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  // Escape キーで閉じる
+  const closeSheet = useCallback(() => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    closeButtonRef.current?.focus();
+  }, [open]);
+
+  // Escape キーで閉じる / Tab フォーカスをダイアログ内に閉じ込める
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        closeSheet();
+        return;
+      }
+
+      if (e.key !== "Tab") return;
+
+      const panel = panelRef.current;
+      if (!panel) return;
+
+      const focusable = Array.from(
+        panel.querySelectorAll<HTMLElement>(
+          [
+            "a[href]",
+            "button:not([disabled])",
+            "textarea:not([disabled])",
+            "input:not([disabled])",
+            "select:not([disabled])",
+            "[tabindex]:not([tabindex='-1'])",
+          ].join(",")
+        )
+      ).filter((element) => element.tabIndex !== -1);
+
+      if (focusable.length === 0) return;
+
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+
+      if (!panel.contains(document.activeElement)) {
+        e.preventDefault();
+        first.focus();
+        return;
+      }
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, closeSheet]);
 
   // sheet / modal open 中は body スクロールを抑制
   useEffect(() => {
@@ -44,6 +97,7 @@ export function MobileMealLoggerSheet() {
     <div>
       {/* ── Trigger ── */}
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
         className="flex w-full items-center gap-2.5 rounded-xl border border-slate-100 bg-white px-3.5 py-2.5 shadow-sm transition-all hover:bg-slate-50 hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:shadow-none dark:hover:bg-slate-800/60 lg:max-w-xs"
@@ -62,7 +116,7 @@ export function MobileMealLoggerSheet() {
         <div
           className="fixed inset-0 z-50 bg-black/40"
           aria-hidden="true"
-          onClick={() => setOpen(false)}
+          onClick={closeSheet}
         />
       )}
 
@@ -72,6 +126,7 @@ export function MobileMealLoggerSheet() {
       */}
       {open && (
         <div
+          ref={panelRef}
           role="dialog"
           aria-modal="true"
           aria-label="食事・体重ログ入力"
@@ -96,8 +151,9 @@ export function MobileMealLoggerSheet() {
               <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">食事ログ</span>
             </div>
             <button
+              ref={closeButtonRef}
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={closeSheet}
               aria-label="食事ログを閉じる"
               className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
             >
@@ -114,7 +170,7 @@ export function MobileMealLoggerSheet() {
             style={{ maxHeight: "calc(min(88svh, 85vh) - 56px)" }}
           >
             <div className="px-5 py-4 overflow-hidden">
-              <MealLogger sidebar showHeader={false} onSaveSuccess={() => setOpen(false)} />
+              <MealLogger sidebar showHeader={false} onSaveSuccess={closeSheet} />
             </div>
           </div>
         </div>
