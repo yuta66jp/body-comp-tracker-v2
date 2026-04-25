@@ -327,6 +327,35 @@ describe("parseCSV", () => {
     expect(result.rows[1]!.had_bowel_movement).toBe(false);
   });
 
+  it("新カラム: had_bowel_movement は 1/0 を正しくパースする", () => {
+    const csv = [
+      "log_date,had_bowel_movement",
+      "2026-03-15,1",
+      "2026-03-16,0",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.errors).toHaveLength(0);
+    expect(result.rows[0]!.had_bowel_movement).toBe(true);
+    expect(result.rows[1]!.had_bowel_movement).toBe(false);
+  });
+
+  it("新カラム: had_bowel_movement の不正値は false にせず行をスキップする", () => {
+    const csv = [
+      "log_date,had_bowel_movement",
+      "2026-03-15,maybe",
+      "2026-03-16,true",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("had_bowel_movement");
+    expect(result.errors[0]).toContain("maybe");
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]!.log_date).toBe("2026-03-16");
+    expect(result.rows[0]!.had_bowel_movement).toBe(true);
+  });
+
   it("新カラム: leg_flag は空文字で null になる", () => {
     const csv = [
       "log_date,leg_flag",
@@ -347,6 +376,35 @@ describe("parseCSV", () => {
     const result = parseCSV(csv);
     expect(result.rows[0]!.leg_flag).toBe(true);
     expect(result.rows[1]!.leg_flag).toBe(false);
+  });
+
+  it("新カラム: leg_flag は 1/0 を正しくパースする", () => {
+    const csv = [
+      "log_date,leg_flag",
+      "2026-03-12,1",
+      "2026-03-13,0",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.errors).toHaveLength(0);
+    expect(result.rows[0]!.leg_flag).toBe(true);
+    expect(result.rows[1]!.leg_flag).toBe(false);
+  });
+
+  it("新カラム: leg_flag の不正値は false にせず行をスキップする", () => {
+    const csv = [
+      "log_date,leg_flag",
+      "2026-03-12,maybe",
+      "2026-03-13,false",
+    ].join("\n");
+
+    const result = parseCSV(csv);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("leg_flag");
+    expect(result.errors[0]).toContain("maybe");
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]!.log_date).toBe("2026-03-13");
+    expect(result.rows[0]!.leg_flag).toBe(false);
   });
 
   it("新カラム: training_type / work_mode / sleep_hours を正しくパースする", () => {
