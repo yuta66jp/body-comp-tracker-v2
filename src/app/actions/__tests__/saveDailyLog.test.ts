@@ -262,7 +262,7 @@ describe("buildUpdatePayload — 部分更新シナリオ", () => {
   });
 
   // ※ buildUpdatePayload 自体は空文字を通す。呼び出し側 (MealLogger) が
-  //   note !== "" ? note : undefined で変換する責務を持つ。
+  //   未操作なら undefined、空文字による明示クリアなら null へ変換する責務を持つ。
   test("空文字を渡した場合はそのまま含まれる（呼び出し側での変換が必要）", () => {
     const payload = buildUpdatePayload({ note: "" });
     expect(payload.note).toBe("");
