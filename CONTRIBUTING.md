@@ -13,7 +13,7 @@ All of the following must pass before merging:
 
 - `npm run lint` — ESLint
 - `npx tsc --noEmit` — TypeScript type check
-- `node_modules/.bin/jest --no-coverage` — Jest tests (unit tests + UI integration tests)
+- `npm test -- --runInBand` — Jest tests (unit tests + UI integration tests)
 - `npm run build` — Next.js production build
 
 Jest は `node` 環境（unit tests）と `jsdom` 環境（UI integration tests）の 2 プロジェクト構成。
@@ -27,12 +27,29 @@ CI runs these automatically on every push and pull request (`lint-typecheck-buil
 npm ci
 npm run lint
 npx tsc --noEmit
-node_modules/.bin/jest --no-coverage
+npm test -- --runInBand
 npm run build
 ```
 
 `npm run build` requires the Supabase public env vars to be present.
 Ensure `.env.local` contains `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` before running the build locally.
+
+### Codex / sandbox notes
+
+Codex 作業では、まず以下を標準の切り分けコマンドとして使う。
+
+```bash
+npm run lint
+npx tsc --noEmit
+npm test -- --runInBand
+npm run build
+npm run e2e:smoke
+```
+
+- `lint` / `tsc` / `jest` は sandbox 内でも通ることを期待する。
+- `npm run build` は Turbopack が worker process や port bind を使うため、sandbox 制約により失敗する場合がある。sandbox 起因が疑わしい場合は、同じ commit で sandbox 外または CI 上の再実行結果を確認して切り分ける。
+- `npm run e2e:smoke` は Playwright が開発サーバーを起動し、ブラウザを起動する。sandbox 内で server bind や browser 起動に失敗した場合は、アプリの不具合と判断する前に sandbox 外または CI の手動 workflow で再確認する。
+- Codex が PR を作成する場合、PR 本文に実行できたコマンドと、sandbox 制約で未実行または再実行が必要だったコマンドを明記する。
 
 ### Node.js version
 
@@ -59,7 +76,7 @@ E2E テストは Playwright (Chromium) で実装している。
    npx playwright install chromium
    ```
 
-2. 開発サーバーが起動していることを確認 (未起動ならコマンドが自動起動する)
+2. 開発サーバーが起動していることを確認 (未起動なら Playwright config が自動起動する)
 
 3. Smoke tests を実行
 
@@ -92,6 +109,8 @@ npm run e2e:write
 ### CI での実行
 
 Smoke tests は `.github/workflows/e2e.yml` (`workflow_dispatch`) で手動実行できる。PR ゲートには含めない (ブラウザ起動コストのため)。
+
+Smoke tests は主要ページの表示と最低限のナビゲーションを確認する読み取り専用テスト。保存や削除など DB 書き込みを伴うフローは `e2e/write-flows.spec.ts` に分離し、テスト専用 Supabase プロジェクトを指す環境変数がある場合だけ実行する。
 
 ---
 

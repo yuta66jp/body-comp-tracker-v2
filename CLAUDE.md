@@ -452,7 +452,8 @@ body-comp-tracker-v2/
 - `npm run build` — 本番ビルド
 - `npm run lint` — ESLint 実行
 - `npx tsc --noEmit` — 型チェック
-- `npx jest --no-coverage` — テスト実行（unit + UI integration）
+- `npm test -- --runInBand` — テスト実行（unit + UI integration）
+- `npm run e2e:smoke` — Playwright smoke tests（主要ページ表示確認）
 - `supabase db push` — migration を本番 DB に適用
 - `supabase gen types typescript --project-id <id> > src/lib/supabase/types.ts` — 型生成
 
