@@ -15,6 +15,7 @@ import {
   Settings2,
 } from "lucide-react";
 import { isActiveNav } from "@/lib/utils/nav";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 
 const PRIMARY_TABS = [
   { href: "/",        label: "ホーム",  icon: LayoutDashboard },
@@ -147,6 +148,14 @@ export function MobileBottomNav() {
                   </Link>
                 );
               })}
+              <div className="mt-2 border-t border-slate-100 pt-2 dark:border-slate-700">
+                <div className="flex items-center justify-between rounded-xl px-3 py-2">
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                    ログアウト
+                  </span>
+                  <SignOutButton />
+                </div>
+              </div>
             </div>
           </div>
         </>

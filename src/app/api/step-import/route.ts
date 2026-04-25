@@ -25,11 +25,11 @@
  *   [{"date":"2024-01-15","step_count":8432}]
  *
  * ## セキュリティ前提
- * 個人利用専用（認証チェックなし）。CSV エクスポートと同じ前提。
+ * Supabase Auth の access token を server client に渡し、RLS でユーザー単位に絞る。
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { revalidateAfterDailyLogMutation } from "@/lib/cache/revalidate";
 import { parseStepFile } from "./parsers";
 import type { StepRecord } from "./parsers";
@@ -114,6 +114,11 @@ async function extractFileText(req: NextRequest): Promise<{ text: string; name: 
 // ── POST ────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const action = req.nextUrl.searchParams.get("action");
   if (action !== "preflight" && action !== "import") {
     return NextResponse.json(
@@ -153,7 +158,7 @@ export async function POST(req: NextRequest) {
   // 日付件数が多い（数百〜数千件）と URL 長制限を超えて 400 Bad Request になる。
   // 代わりに minDate〜maxDate の範囲取得を使い、アプリ側で datesSet との突合を行う。
   // 範囲内に import 対象外の日付が含まれる場合があるが、datesSet フィルタで除外する。
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: existingLogs, error: fetchError } = await supabase
     .from("daily_logs")
     .select("log_date, step_count")

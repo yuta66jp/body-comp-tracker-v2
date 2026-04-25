@@ -23,7 +23,7 @@ import type { QueryResult } from "./queryResult";
  * 「食品が登録されていません」と誤表示されるため QueryResult を使用する。
  */
 export async function fetchFoods(): Promise<QueryResult<FoodMaster[]>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("food_master")
     .select("*")
@@ -45,7 +45,7 @@ export async function fetchFoods(): Promise<QueryResult<FoodMaster[]>> {
  * foods/page.tsx の主データ。fetchFoods と同一ページで使うため同水準のエラー処理を持つ。
  */
 export async function fetchMenus(): Promise<QueryResult<MenuEntry[]>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("menu_master")
     .select("name, recipe")

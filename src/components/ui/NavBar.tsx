@@ -12,6 +12,7 @@ import {
   Zap,
   BarChart2,
 } from "lucide-react";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 
 const NAV_ITEMS = [
   { href: "/",                   label: "ダッシュボード", icon: LayoutDashboard },
@@ -60,6 +61,7 @@ export function NavBar() {
             </Link>
           );
         })}
+        <SignOutButton />
       </div>
     </nav>
   );
