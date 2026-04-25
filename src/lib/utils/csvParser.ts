@@ -102,11 +102,17 @@ function parseBool(v: string): boolean {
   return s === "true" || s === "1";
 }
 
-/** "true"/"1" → true, "false"/"0" → false, "" → null */
-function parseBoolNullable(v: string): boolean | null {
+type NullableBoolParseResult =
+  | { ok: true; value: boolean | null }
+  | { ok: false; raw: string };
+
+/** "true"/"1" → true, "false"/"0" → false, "" → null, その他 → invalid */
+function parseBoolNullable(v: string): NullableBoolParseResult {
   const s = v.trim().toLowerCase();
-  if (s === "") return null;
-  return s === "true" || s === "1";
+  if (s === "") return { ok: true, value: null };
+  if (s === "true" || s === "1") return { ok: true, value: true };
+  if (s === "false" || s === "0") return { ok: true, value: false };
+  return { ok: false, raw: v };
 }
 
 /**
@@ -310,6 +316,18 @@ export function parseCSV(text: string): ParseResult {
       continue;
     }
 
+    const hadBowelMovement = parseBoolNullable(raw["had_bowel_movement"] ?? "");
+    if (!hadBowelMovement.ok) {
+      errors.push(`行 ${i + 1}: had_bowel_movement の値が不正（${hadBowelMovement.raw}）— true/false/1/0/空欄 のいずれかを指定してください — スキップ`);
+      continue;
+    }
+
+    const legFlag = parseBoolNullable(raw["leg_flag"] ?? "");
+    if (!legFlag.ok) {
+      errors.push(`行 ${i + 1}: leg_flag の値が不正（${legFlag.raw}）— true/false/1/0/空欄 のいずれかを指定してください — スキップ`);
+      continue;
+    }
+
     rows.push({
       log_date: normalized,
       weight: parseNum(raw["weight"] ?? ""),
@@ -327,10 +345,10 @@ export function parseCSV(text: string): ParseResult {
       sleep_hours: parseNum(raw["sleep_hours"] ?? ""),
       sleep_bed_time:  rawBedTime,
       sleep_wake_time: rawWakeTime,
-      had_bowel_movement: parseBoolNullable(raw["had_bowel_movement"] ?? ""),
+      had_bowel_movement: hadBowelMovement.value,
       training_type,
       work_mode,
-      leg_flag: parseBoolNullable(raw["leg_flag"] ?? ""),
+      leg_flag: legFlag.value,
     });
   }
 
