@@ -222,13 +222,14 @@ export async function fetchWeightLogs(): Promise<Pick<DailyLog, "log_date" | "we
 }
 
 /**
- * daily_logs から log_date / weight / calories のみを取得する。
+ * daily_logs から DataQuality 計算に必要な列を取得する。
  *
  * 利用画面: Settings ページ専用（DataQuality 計算 + currentWeight 取得）。
  * 他画面への流用禁止（用途が混在するとクエリ責務が不明確になる）。
  *
- * 戻り値型は DataQualityLog[] (= Pick<DailyLog, "log_date" | "weight" | "calories">[])
- * で実取得列に一致させてある。未取得列を呼び出し側が参照すると型エラーになる。
+ * 取得列: log_date, weight, calories,
+ *         last_meal_end_time, had_bowel_movement, work_mode, training_type
+ * 必須項目の未入力検知に必要な列を含む。
  *
  * 戻り値:
  *   kind: "ok"    — 取得成功。data が空配列 = ログ未入力（正常な空状態）。
@@ -238,13 +239,18 @@ export async function fetchDailyLogsForSettings(): Promise<QueryResult<DataQuali
   const supabase = createClient();
   const { data, error } = await supabase
     .from("daily_logs")
-    .select("log_date, weight, calories")
+    .select(
+      "log_date, weight, calories, " +
+      "last_meal_end_time, had_bowel_movement, work_mode, training_type"
+    )
     .order("log_date", { ascending: true });
   if (error) {
     console.error("[fetchDailyLogsForSettings] daily_logs fetch error:", error.message, { code: error.code });
     return { kind: "error", message: error.message };
   }
-  return { kind: "ok", data: (data as DataQualityLog[]) ?? [] };
+  // 複数列を明示指定すると supabase-js が戻り値型を絞り込むため unknown 経由でキャストする。
+  // DataQualityLog は取得列と 1:1 対応しており、未取得列は含まない。
+  return { kind: "ok", data: (data as unknown as DataQualityLog[]) ?? [] };
 }
 
 /**

@@ -1,3 +1,7 @@
+// 毎リクエストで DB フェッチを実行し、当日の未入力をデータ品質判定に反映する。
+// 設定ページ (settings/page.tsx) と同じ revalidate = 0 とすることで判定一致を保証する。
+export const revalidate = 0;
+
 import { StatusNotice } from "@/components/ui/StatusNotice";
 import { KpiCards } from "@/components/dashboard/KpiCards";
 import { ForecastChart } from "@/components/charts/ForecastChart";
@@ -143,7 +147,7 @@ export default async function DashboardPage() {
     season: getSeasonForMonth(s.month, seasonRanges, currentSeason),
   }));
 
-  const qualityReport = calcDataQuality(logs);
+  const qualityReport = calcDataQuality(logs, undefined, sleepSessions);
 
   const phase = settings.currentPhase ?? "Cut";
 

@@ -5,7 +5,7 @@
  * props は page.tsx で事前計算した DataQualityReport を受け取る。
  */
 
-import type { DataQualityReport } from "@/lib/utils/calcDataQuality";
+import type { DataQualityReport, MissingFields } from "@/lib/utils/calcDataQuality";
 
 interface Props {
   report: DataQualityReport;
@@ -29,13 +29,26 @@ function scoreLabel(score: number): string {
   return "要確認";
 }
 
+/** 必須項目のうち 1日以上未記録のものを数える */
+function countMissingFieldTypes(mf: MissingFields): number {
+  return [
+    mf.lastMealEndTimeDays,
+    mf.bowelMovementDays,
+    mf.workModeDays,
+    mf.trainingTypeDays,
+    mf.sleepUnloggedDays,
+  ].filter((v) => v > 0).length;
+}
+
 export function DataQualityBadge({ report }: Props) {
   const { period7 } = report;
+  const missingFieldCount = countMissingFieldTypes(period7.missingFields);
   const hasIssues =
     period7.weightMissingDays > 0 ||
     period7.caloriesMissingDays > 0 ||
     period7.anomalies.length > 0 ||
-    report.duplicateDates.length > 0;
+    report.duplicateDates.length > 0 ||
+    missingFieldCount > 0;
 
   return (
     <div
@@ -71,6 +84,9 @@ export function DataQualityBadge({ report }: Props) {
           )}
           {report.duplicateDates.length > 0 && (
             <span>⚠ 重複日付 <b>{report.duplicateDates.length}</b> 件</span>
+          )}
+          {missingFieldCount > 0 && (
+            <span>⚠ 必須項目 <b>{missingFieldCount}</b> 項目に未記録あり</span>
           )}
         </span>
       ) : (
