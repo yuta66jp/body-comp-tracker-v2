@@ -112,6 +112,14 @@ export interface MonthlyGoalComparisonRow extends MonthlyGoalSummaryRow {
    * - 当月 partial / 未来月: null
    */
   cumulativeGapKg: number | null;
+  /**
+   * 翌月の必要変化量 (累積ズレ補正済み)。
+   * - 確定過去月かつ cumulativeGapKg が non-null の場合:
+   *   planNextRequired - cumulativeGapKg (0.01 kg 丸め)
+   *   例: 計画 -2.5 kg、累積ズレ +0.9 kg → 調整後 -3.4 kg
+   * - それ以外 (当月 / 未来月 / データなし月): MonthlyGoalSummaryRow の値 (プラン値) を引き継ぐ
+   */
+  nextRequiredDeltaKg: number | null;
 }
 
 // ─── プライベートヘルパー ─────────────────────────────────────────────────────
@@ -316,6 +324,13 @@ export function buildMonthlyGoalComparisonRows(
     }
     // 当月 partial / 未来月: null のまま
 
-    return { ...row, progressState, cumulativeGapKg };
+    // 翌月必要変化量: 確定過去月のみ累積ズレで補正する
+    const planNextRequired = row.nextRequiredDeltaKg;
+    const nextRequiredDeltaKg =
+      cumulativeGapKg !== null && planNextRequired !== null
+        ? Math.round((planNextRequired - cumulativeGapKg) * 100) / 100
+        : planNextRequired;
+
+    return { ...row, nextRequiredDeltaKg, progressState, cumulativeGapKg };
   });
 }
