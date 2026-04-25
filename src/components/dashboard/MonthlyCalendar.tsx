@@ -363,8 +363,9 @@ function MobileDayDetailPanel({
 
   const trainingTag = data?.conditionTags.find((t) => t.key === "training");
   const bowelTag    = data?.conditionTags.find((t) => t.key === "bowel");
+  const workTag     = data?.conditionTags.find((t) => t.key === "work");
   const hasConditionData = !!(
-    (data?.dayTags.length ?? 0) > 0 || trainingTag || bowelTag
+    (data?.dayTags.length ?? 0) > 0 || trainingTag || bowelTag || workTag
   );
 
   return (
@@ -446,6 +447,16 @@ function MobileDayDetailPanel({
                   <span className="shrink-0 text-[11px] text-slate-400 dark:text-slate-500">排便</span>
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none ${bowelTag.colorClass}`}>
                     {bowelTag.label}
+                  </span>
+                </div>
+              )}
+
+              {/* 勤務 */}
+              {workTag && (
+                <div className="flex items-center gap-1.5">
+                  <span className="shrink-0 text-[11px] text-slate-400 dark:text-slate-500">勤務</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none ${workTag.colorClass}`}>
+                    {workTag.label}
                   </span>
                 </div>
               )}
