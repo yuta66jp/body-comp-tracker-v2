@@ -64,6 +64,9 @@ export const CALORIES_HIGH_THRESHOLD = 8000;
 const PENALTY_WEIGHT_MISSING = 10;
 const PENALTY_CALORIES_MISSING = 5;
 const PENALTY_ANOMALY = 15;
+// 必須項目の未記録 (各 -2/日)
+// 体重・カロリーより軽微だが、分析・予測の精度に影響するため減点対象とする
+const PENALTY_REQUIRED_FIELD_MISSING = 2;
 
 export interface AnomalyEntry {
   date: string;
@@ -73,7 +76,7 @@ export interface AnomalyEntry {
 }
 
 /**
- * 必須項目の未記録日数 (スコアには反映しない — 表示専用)。
+ * 必須項目の未記録日数。スコアにも反映される (PENALTY_REQUIRED_FIELD_MISSING = -2/日)。
  *
  * false / 0 / "" は「記録済み」として欠損扱いしない。
  * null のみを「未記録」と判定する。
@@ -118,11 +121,16 @@ export interface DataQualityReport {
 }
 
 /** ウィンドウ内のスコアを計算 */
-function calcScore(window: Pick<QualityWindow, "weightMissingDays" | "caloriesMissingDays" | "anomalies">): number {
+function calcScore(
+  window: Pick<QualityWindow, "weightMissingDays" | "caloriesMissingDays" | "anomalies" | "missingFields">
+): number {
+  const { missingFields: mf } = window;
   const deductions =
     window.weightMissingDays * PENALTY_WEIGHT_MISSING +
     window.caloriesMissingDays * PENALTY_CALORIES_MISSING +
-    window.anomalies.length * PENALTY_ANOMALY;
+    window.anomalies.length * PENALTY_ANOMALY +
+    (mf.lastMealEndTimeDays + mf.bowelMovementDays + mf.workModeDays + mf.trainingTypeDays + mf.sleepUnloggedDays) *
+      PENALTY_REQUIRED_FIELD_MISSING;
   return Math.max(0, 100 - deductions);
 }
 
@@ -226,8 +234,8 @@ function buildWindow(
     sleepUnloggedDays,
   };
 
-  const partial = { weightMissingDays, caloriesMissingDays, anomalies: uniqueAnomalies };
-  return { totalDays, ...partial, score: calcScore(partial), missingFields };
+  const scoreInput = { weightMissingDays, caloriesMissingDays, anomalies: uniqueAnomalies, missingFields };
+  return { totalDays, ...scoreInput, score: calcScore(scoreInput) };
 }
 
 /**

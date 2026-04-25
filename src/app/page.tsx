@@ -91,6 +91,11 @@ function buildMonthStats(logs: DashboardDailyLog[], months = 3): MonthStats[] {
 }
 
 export default async function DashboardPage() {
+  // 基準日を最初に確定し、以降の全計算・クエリ範囲で共有する。
+  // revalidate = 0 によりキャッシュなしでレンダリングされるため、
+  // toJstDateStr() は常に JST 当日を返す。
+  const today = toJstDateStr();
+
   const [logsResult, predictions, settingsResult, careerLogs] = await Promise.all([
     fetchDashboardDailyLogs(),
     fetchPredictions(),
@@ -102,11 +107,12 @@ export default async function DashboardPage() {
   const logs = logsResult.kind === "ok" ? logsResult.data : [];
   const settings = settingsResult.kind === "ok" ? settingsResult.data : mapToAppSettings([]);
 
-  // 断食時間算出用: sleep_sessions を logs の日付範囲で取得する
+  // 睡眠セッションを取得する。
+  // 終端を today にすることで、当日の daily_log がまだない状態でも
+  // 当日の sleep_session を取得できる（データ品質チェックの sleepUnloggedDays に正しく反映される）。
   const firstLogDate = logs.at(0)?.log_date ?? null;
-  const lastLogDate  = logs.at(-1)?.log_date ?? null;
-  const sleepSessions = firstLogDate && lastLogDate
-    ? await fetchSleepSessionsForRange(firstLogDate, lastLogDate)
+  const sleepSessions = firstLogDate
+    ? await fetchSleepSessionsForRange(firstLogDate, today)
     : [];
 
   // MAX(updated_at) を使って stale 判定する。
@@ -147,12 +153,9 @@ export default async function DashboardPage() {
     season: getSeasonForMonth(s.month, seasonRanges, currentSeason),
   }));
 
-  const qualityReport = calcDataQuality(logs, undefined, sleepSessions);
+  const qualityReport = calcDataQuality(logs, today, sleepSessions);
 
   const phase = settings.currentPhase ?? "Cut";
-
-  // 基準日を一度だけ取得し、以降の全計算で共有する
-  const today = toJstDateStr();
 
   const readinessMetrics = calcReadiness(logs, {
     contest_date: contestDate ?? null,

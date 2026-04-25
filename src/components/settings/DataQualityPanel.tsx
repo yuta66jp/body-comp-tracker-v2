@@ -133,11 +133,11 @@ function WindowSection({ title, w }: { title: string; w: QualityWindow }) {
             <MissingFieldRow label="排便の有無" days={w.missingFields.bowelMovementDays} />
             <MissingFieldRow label="勤務情報" days={w.missingFields.workModeDays} />
             <MissingFieldRow label="トレーニング" days={w.missingFields.trainingTypeDays} />
-            <MissingFieldRow label="睡眠セッション" days={w.missingFields.sleepUnloggedDays} />
+            <MissingFieldRow label="睡眠（就寝・起床時刻）" days={w.missingFields.sleepUnloggedDays} />
           </div>
         )}
         <p className="mt-2 text-xs text-gray-400 dark:text-slate-500">
-          ※ スコアに影響しません。特殊日・メモは任意項目のため除外。
+          各必須項目 −2/日。特殊日・メモは任意項目のため除外。
         </p>
       </div>
     </div>
@@ -224,7 +224,7 @@ export function DataQualityPanel({ report }: Props) {
             <span>
               <span className="font-semibold text-rose-600 dark:text-rose-400">0〜69</span>: 要確認
             </span>
-            <span className="ml-auto">体重欠損 −10 / カロリー欠損 −5 / 異常値 −15</span>
+            <span className="ml-auto">体重欠損 −10 / カロリー欠損 −5 / 異常値 −15 / 各必須項目 −2</span>
           </div>
         </div>
       </details>

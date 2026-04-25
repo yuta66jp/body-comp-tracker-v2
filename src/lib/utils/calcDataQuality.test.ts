@@ -103,11 +103,14 @@ describe("calcDataQuality", () => {
       expect(report.period7.score).toBe(100);
     });
 
-    it("体重欠損 1 日につき -10", () => {
+    it("当日ログなし: 体重・カロリー・必須4項目の欠損がスコアに反映される", () => {
       const today = "2026-04-25";
+      // 今日だけログなし (6日分はすべての項目が揃ったログ)
       const logs = Array.from({ length: 6 }, (_, i) => makeLog(daysBack(today, i + 1)));
+      // sleepSessions 未指定 → sleepUnloggedDays = 0
       const report = calcDataQuality(logs, today);
-      expect(report.period7.score).toBe(100 - 10 - 5); // weight + calories 各 1 日欠損
+      // ログなし 1日: weight(-10) + calories(-5) + 4項目各(-2) = -23
+      expect(report.period7.score).toBe(Math.max(0, 100 - 10 - 5 - 4 * 2));
     });
 
     it("スコアは 0 を下回らない", () => {
@@ -172,7 +175,7 @@ describe("calcDataQuality", () => {
       expect(report.period7.missingFields.trainingTypeDays).toBe(7);
     });
 
-    it("必須項目の未記録はスコアに影響しない", () => {
+    it("必須項目の未記録はスコアに反映される (-2/日/項目)", () => {
       const today = "2026-04-25";
       const logs = Array.from({ length: 7 }, (_, i) =>
         makeLog(daysBack(today, i), {
@@ -182,9 +185,10 @@ describe("calcDataQuality", () => {
           training_type: null,
         })
       );
+      // sleepSessions 未指定 → sleepUnloggedDays = 0 (チェックスキップ)
       const report = calcDataQuality(logs, today);
-      // weight・calories はすべて記録済みなので score === 100 のまま
-      expect(report.period7.score).toBe(100);
+      // 4項目 × 7日 × (-2) = -56
+      expect(report.period7.score).toBe(Math.max(0, 100 - 4 * 7 * 2));
       expect(report.period7.missingFields.lastMealEndTimeDays).toBe(7);
       expect(report.period7.missingFields.bowelMovementDays).toBe(7);
       expect(report.period7.missingFields.workModeDays).toBe(7);
