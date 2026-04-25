@@ -119,7 +119,7 @@ function WindowSection({ title, w }: { title: string; w: QualityWindow }) {
         </div>
       )}
 
-      {/* 必須項目の未記録 (スコアに反映しない表示専用) */}
+      {/* 必須項目の未記録（各 -2/日でスコアに反映） */}
       <div className="mt-4 border-t border-gray-200/60 pt-3 dark:border-slate-700/60">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-slate-500">
           必須項目の未記録
