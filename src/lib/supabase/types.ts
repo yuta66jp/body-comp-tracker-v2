@@ -82,6 +82,7 @@ export type Database = {
           step_count: number | null
           training_type: string | null
           updated_at: string
+          user_id?: string | null
           weight: number
           work_mode: string | null
         }
@@ -107,6 +108,7 @@ export type Database = {
           step_count?: number | null
           training_type?: string | null
           updated_at?: string
+          user_id?: string | null
           weight: number
           work_mode?: string | null
         }
@@ -132,6 +134,7 @@ export type Database = {
           step_count?: number | null
           training_type?: string | null
           updated_at?: string
+          user_id?: string | null
           weight?: number
           work_mode?: string | null
         }
@@ -147,6 +150,7 @@ export type Database = {
           id: string
           name: string
           protein: number | null
+          user_id?: string | null
         }
         Insert: {
           calories?: number | null
@@ -157,6 +161,7 @@ export type Database = {
           id?: string
           name: string
           protein?: number | null
+          user_id?: string | null
         }
         Update: {
           calories?: number | null
@@ -167,6 +172,7 @@ export type Database = {
           id?: string
           name?: string
           protein?: number | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -327,18 +333,21 @@ export type Database = {
           id: string
           name: string
           recipe: Json
+          user_id?: string | null
         }
         Insert: {
           created_at?: string | null
           id?: string
           name: string
           recipe: Json
+          user_id?: string | null
         }
         Update: {
           created_at?: string | null
           id?: string
           name?: string
           recipe?: Json
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -370,18 +379,21 @@ export type Database = {
         Row: {
           key: string
           updated_at: string | null
+          user_id?: string | null
           value_num: number | null
           value_str: string | null
         }
         Insert: {
           key: string
           updated_at?: string | null
+          user_id?: string | null
           value_num?: number | null
           value_str?: string | null
         }
         Update: {
           key?: string
           updated_at?: string | null
+          user_id?: string | null
           value_num?: number | null
           value_str?: string | null
         }
@@ -397,6 +409,7 @@ export type Database = {
           note: string | null
           created_at: string
           updated_at: string
+          user_id?: string | null
         }
         Insert: {
           id?: string
@@ -407,6 +420,7 @@ export type Database = {
           note?: string | null
           created_at?: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           id?: string
@@ -417,6 +431,7 @@ export type Database = {
           note?: string | null
           created_at?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }

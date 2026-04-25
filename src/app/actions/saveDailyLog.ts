@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, requireCurrentUser } from "@/lib/supabase/server";
 import { revalidateAfterDailyLogMutation } from "@/lib/cache/revalidate";
 import { isValidTrainingType, isValidWorkMode } from "@/lib/utils/trainingType";
 import { buildUpdatePayload } from "./buildUpdatePayload";
@@ -135,7 +135,8 @@ export async function saveDailyLog(
     }
   }
 
-  const supabase = createClient();
+  await requireCurrentUser();
+  const supabase = await createClient();
 
   const payload = buildUpdatePayload(input);
   const hasBasePayload = Object.keys(payload).length > 0;
@@ -169,4 +170,3 @@ export async function saveDailyLog(
 
   return { ok: true };
 }
-

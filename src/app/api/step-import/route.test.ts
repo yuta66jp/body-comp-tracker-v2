@@ -23,7 +23,10 @@
  *   - update: from().update().eq()        → { error: null | {...} }
  */
 
-jest.mock("@/lib/supabase/server", () => ({ createClient: jest.fn() }));
+jest.mock("@/lib/supabase/server", () => ({
+  createClient: jest.fn(),
+  getCurrentUser: jest.fn(async () => ({ id: "test-user-id", email: "owner@example.com" })),
+}));
 jest.mock("@/lib/cache/revalidate", () => ({ revalidateAfterDailyLogMutation: jest.fn() }));
 
 import { NextRequest } from "next/server";

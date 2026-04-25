@@ -2,18 +2,12 @@
  * /api/export — CSV エクスポートエンドポイント
  *
  * セキュリティ前提:
- *   - このエンドポイントは認証チェックを行わない個人利用専用の実装。
- *   - 保護手段は「Supabase URL 非公開 + anon key 非共有」の組み合わせに依存している。
- *   - NEXT_PUBLIC_SUPABASE_ANON_KEY はクライアントバンドルに含まれるため、
- *     URL と anon key が揃えば外部からアクセスできる点に留意すること。
- *   - RLS ポリシーは `anon USING (true)`（全件読み取り許可）であり、
- *     将来テーブルを追加する場合はポリシーを明示的に設定すること。
- *   - 将来マルチユーザー化する場合は auth.getUser() による session チェックを追加し、
- *     RLS ポリシーを `user_id = auth.uid()` 条件に移行すること。
+ *   - Supabase Auth の access token を server client に渡し、RLS でユーザー単位に絞る。
+ *   - 未ログイン時は 401 を返す。
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { extractJstHHMM } from "@/lib/utils/sleepSession";
 
 // ── バリデーション ────────────────────────────────────────────────────────────
@@ -55,6 +49,11 @@ function toCSV(rows: Record<string, unknown>[], columns: string[]): string {
 }
 
 export async function GET(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { searchParams } = req.nextUrl;
   const start = searchParams.get("start") ?? "";
   const end = searchParams.get("end") ?? "";
@@ -71,7 +70,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid end date" }, { status: 400 });
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
 
   if (table === "daily_logs") {
     // CSV エクスポートのため全列 select("*") が必要。

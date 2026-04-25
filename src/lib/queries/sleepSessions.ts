@@ -24,7 +24,7 @@ import type { SleepSession } from "@/lib/supabase/types";
 export async function fetchSleepSession(
   wakeDate: string
 ): Promise<SleepSession | null> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("sleep_sessions")
     .select("*")
@@ -52,7 +52,7 @@ export async function fetchSleepSessionsForRange(
   from: string,
   to: string
 ): Promise<SleepSession[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("sleep_sessions")
     .select("*")

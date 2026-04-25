@@ -96,7 +96,7 @@ export async function fetchLatestRuns(): Promise<QueryResult<{
   /** true = 前回 sma7 run と実行条件が一致し、前回比として比較可能。false = 条件が異なり比較不可。 */
   prevSma7RunComparable: boolean;
 }>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("forecast_backtest_runs")
     .select("*")
@@ -143,7 +143,7 @@ export async function fetchLatestRuns(): Promise<QueryResult<{
  * エラー時に空配列を返すと「指標データが見つかりませんでした」と誤表示されるおそれがある。
  */
 export async function fetchMetrics(runId: string): Promise<QueryResult<ForecastBacktestMetric[]>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("forecast_backtest_metrics")
     .select("*")
@@ -172,7 +172,7 @@ export async function fetchFlaggedLogsForRun(
   minDate: string,
   maxDate: string,
 ): Promise<Array<{ log_date: string; is_cheat_day: boolean | null; is_travel_day: boolean | null }>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("daily_logs")
     .select("log_date, is_cheat_day, is_travel_day")

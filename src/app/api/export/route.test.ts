@@ -11,7 +11,10 @@
  */
 
 // モジュールモック（import より前にホイスト）
-jest.mock("@/lib/supabase/server", () => ({ createClient: jest.fn() }));
+jest.mock("@/lib/supabase/server", () => ({
+  createClient: jest.fn(),
+  getCurrentUser: jest.fn(async () => ({ id: "test-user-id", email: "owner@example.com" })),
+}));
 
 import { NextRequest } from "next/server";
 import { GET, isValidDateParam } from "./route";

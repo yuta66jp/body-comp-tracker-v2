@@ -7,6 +7,9 @@ import "./globals.css";
 import { NavBar } from "@/components/ui/NavBar";
 import { MobileBottomNav } from "@/components/ui/MobileBottomNav";
 import { BottomSpacer } from "@/components/ui/BottomSpacer";
+import { AuthSessionSync } from "@/components/auth/AuthSessionSync";
+import { LoginForm } from "@/components/auth/LoginForm";
+import { getCurrentUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Body Composition Tracker",
@@ -14,11 +17,13 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getCurrentUser();
+
   return (
     <html lang="ja">
       {/* テーマ初期化スクリプト: レンダリング前に .dark クラスを適用し FOUC を防ぐ */}
@@ -32,13 +37,20 @@ export default function RootLayout({
       <body
         className={`${GeistSans.variable} ${GeistMono.variable} antialiased dark:bg-slate-950`}
       >
-        <NavBar />
-        <div className="mx-auto max-w-screen-xl px-4">
-          {children}
-          {/* モバイル向け下余白スペーサー (BottomSpacer) */}
-          <BottomSpacer />
-        </div>
-        <MobileBottomNav />
+        <AuthSessionSync />
+        {user ? (
+          <>
+            <NavBar />
+            <div className="mx-auto max-w-screen-xl px-4">
+              {children}
+              {/* モバイル向け下余白スペーサー (BottomSpacer) */}
+              <BottomSpacer />
+            </div>
+            <MobileBottomNav />
+          </>
+        ) : (
+          <LoginForm />
+        )}
       </body>
     </html>
   );

@@ -104,7 +104,7 @@ function isValidFactorEntryShape(val: unknown): boolean {
 export async function fetchEnrichedLogs(
   latestRawLogUpdatedAt: string | null | undefined
 ): Promise<EnrichedLogsResult> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("analytics_cache")
     .select("payload, updated_at")
@@ -179,7 +179,7 @@ export async function fetchEnrichedLogs(
 export async function fetchFactorAnalysis(
   latestRawLogUpdatedAt: string | null | undefined
 ): Promise<FactorAnalysisResult> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("analytics_cache")
     .select("payload, updated_at")

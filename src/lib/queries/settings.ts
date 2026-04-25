@@ -24,7 +24,7 @@ import type { QueryResult } from "./queryResult";
  *   kind: "error" — DB フェッチ失敗。呼び出し側で error banner を表示すること。
  */
 export async function fetchSettings(): Promise<QueryResult<AppSettings>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase.from("settings").select("key, value_num, value_str");
   if (error) {
     console.error("[fetchSettings] settings fetch error:", error.message, { code: error.code });
@@ -43,7 +43,7 @@ export async function fetchSettings(): Promise<QueryResult<AppSettings>> {
  *   kind: "error" — DB フェッチ失敗。呼び出し側で error banner を表示すること。
  */
 export async function fetchSettingsRows(): Promise<QueryResult<Setting[]>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase.from("settings").select("*");
   if (error) {
     console.error("[fetchSettingsRows] settings fetch error:", error.message, { code: error.code });
@@ -61,7 +61,7 @@ export async function fetchSettingsRows(): Promise<QueryResult<Setting[]>> {
  * 目標値が null のときは "目標未設定" として扱い、ページはブロックしない。
  */
 export async function fetchMacroTargets(): Promise<MacroTargets & { calTarget: number | null }> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const keys = ["target_calories_kcal", "target_protein_g", "target_fat_g", "target_carbs_g", "goal_calories"];
   const { data, error } = await supabase
     .from("settings")

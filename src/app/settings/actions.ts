@@ -7,7 +7,7 @@
  * バリデーションは src/lib/schemas/settingsSchema.ts の parseSettings に委譲する。
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, requireCurrentUser } from "@/lib/supabase/server";
 import { revalidateAfterSettingsMutation } from "@/lib/cache/revalidate";
 import { parseSettings } from "@/lib/schemas/settingsSchema";
 import type { SettingsInput } from "@/lib/schemas/settingsSchema";
@@ -38,10 +38,12 @@ export async function saveSettings(
   }
 
   // 2. DB 保存
-  const supabase = createClient();
+  const user = await requireCurrentUser();
+  const supabase = await createClient();
+  const records = parsed.records.map((record) => ({ ...record, user_id: user.id }));
   const { error } = await supabase
     .from("settings")
-    .upsert(parsed.records as never);
+    .upsert(records as never);
 
   if (error) {
     console.error("settings upsert error:", error.message);

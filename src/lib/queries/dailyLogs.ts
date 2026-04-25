@@ -80,7 +80,7 @@ import type { QueryResult } from "./queryResult";
  *   kind: "error" — DB フェッチ失敗。呼び出し側で error banner を表示すること。
  */
 export async function fetchDashboardDailyLogs(): Promise<QueryResult<DashboardDailyLog[]>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("daily_logs")
     .select(
@@ -113,7 +113,7 @@ export async function fetchDashboardDailyLogs(): Promise<QueryResult<DashboardDa
  *   kind: "error" — DB フェッチ失敗。呼び出し側で error banner を表示すること。
  */
 export async function fetchMacroDailyLogs(days = 60): Promise<QueryResult<MacroDailyLog[]>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("daily_logs")
     .select("log_date, weight, calories, protein, fat, carbs")
@@ -155,7 +155,7 @@ export async function fetchMacroDailyLogs(days = 60): Promise<QueryResult<MacroD
  *   kind: "error" — DB フェッチ失敗。呼び出し側で graceful degradation すること。
  */
 export async function fetchTdeeDailyLogs(limit = 180): Promise<QueryResult<TdeeDailyLog[]>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("daily_logs")
     .select("log_date, weight, calories")
@@ -183,7 +183,7 @@ export async function fetchTdeeDailyLogs(limit = 180): Promise<QueryResult<TdeeD
  * キャッシュを常に fresh とみなすため、最悪ケースでも表示は崩れない。
  */
 export async function fetchLatestUpdatedAt(): Promise<string | null> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("daily_logs")
     .select("updated_at")
@@ -208,7 +208,7 @@ export async function fetchLatestUpdatedAt(): Promise<string | null> {
  * 補助的データのため空配列でも history ページの主要機能は維持される。
  */
 export async function fetchWeightLogs(): Promise<Pick<DailyLog, "log_date" | "weight">[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("daily_logs")
     .select("log_date, weight")
@@ -236,7 +236,7 @@ export async function fetchWeightLogs(): Promise<Pick<DailyLog, "log_date" | "we
  *   kind: "error" — DB フェッチ失敗。呼び出し側で error banner を表示すること。
  */
 export async function fetchDailyLogsForSettings(): Promise<QueryResult<DataQualityLog[]>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("daily_logs")
     .select(
@@ -262,7 +262,7 @@ export async function fetchDailyLogsForSettings(): Promise<QueryResult<DataQuali
  *   kind: "error" — DB フェッチ失敗。呼び出し側で error banner を表示すること。
  */
 export async function fetchCareerLogs(): Promise<QueryResult<CareerLog[]>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("career_logs")
     .select("*")
@@ -282,7 +282,7 @@ export async function fetchCareerLogs(): Promise<QueryResult<CareerLog[]>> {
  * シーズンバッジは補助表示のため、取得失敗時は非表示になるだけで主要機能は維持される。
  */
 export async function fetchCareerLogsForDashboard(): Promise<Pick<CareerLog, "log_date" | "season" | "target_date">[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("career_logs")
     .select("log_date, season, target_date")
@@ -300,7 +300,7 @@ export async function fetchCareerLogsForDashboard(): Promise<Pick<CareerLog, "lo
  * ML バッチが未実行の場合も空配列が正常な空状態として扱われるため QueryResult 化は不要。
  */
 export async function fetchPredictions(): Promise<Prediction[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("predictions")
     .select("*")

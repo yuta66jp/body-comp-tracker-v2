@@ -23,7 +23,7 @@
  *      → daily_logs.sleep_hours が更新されるためダッシュボード等も再取得が必要
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, requireCurrentUser } from "@/lib/supabase/server";
 import { revalidateAfterDailyLogMutation } from "@/lib/cache/revalidate";
 import { parseLocalDateStr } from "@/lib/utils/date";
 import { buildSleepSessionDatetimes } from "@/lib/utils/sleepSession";
@@ -106,11 +106,13 @@ export async function saveSleepSession(
     }
 
     // ── upsert ──
-    const supabase = createClient();
+    const user = await requireCurrentUser();
+    const supabase = await createClient();
     const { error } = await supabase
       .from("sleep_sessions")
       .upsert(
         {
+          user_id:   user.id,
           wake_date: input.wake_date,
           bed_at:    datetimes.bedAt,
           wake_at:   datetimes.wakeAt,
@@ -153,10 +155,12 @@ export async function deleteSleepSession(
     return { ok: false, message: "wake_date の形式が正しくありません (YYYY-MM-DD)" };
   }
 
-  const supabase = createClient();
+  const user = await requireCurrentUser();
+  const supabase = await createClient();
   const { error } = await supabase
     .from("sleep_sessions")
     .delete()
+    .eq("user_id", user.id)
     .eq("wake_date", wakeDate);
 
   if (error) {

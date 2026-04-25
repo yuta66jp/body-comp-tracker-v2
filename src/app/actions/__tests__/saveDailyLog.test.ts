@@ -13,7 +13,10 @@
 
 // ── モジュールモック (Jest により import より前にホイスト) ──────────────────
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
-jest.mock("@/lib/supabase/server", () => ({ createClient: jest.fn() }));
+jest.mock("@/lib/supabase/server", () => ({
+  createClient: jest.fn(),
+  requireCurrentUser: jest.fn(async () => ({ id: "test-user-id", email: "owner@example.com" })),
+}));
 
 import { buildUpdatePayload } from "../buildUpdatePayload";
 import { saveDailyLog } from "../saveDailyLog";
