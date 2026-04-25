@@ -29,22 +29,24 @@ for (const { path, navLabel } of MAIN_PAGES) {
   test(`${navLabel} ページが表示できる (${path})`, async ({ page }) => {
     await page.goto(path);
 
-    // NavBar が常に表示されること (layout.tsx で全ページ共通)
-    await expect(page.locator("nav")).toBeVisible();
+    // layout.tsx には desktop NavBar と mobile bottom nav の 2 つの nav がある。
+    // Desktop Chrome project では先頭の desktop NavBar が表示されることを確認する。
+    await expect(page.locator("nav").first()).toBeVisible();
 
     // Next.js の Application error ページが出ていないこと
     await expect(page.getByText("Application error")).not.toBeVisible();
   });
 }
 
-test("設定ページ: 「基本設定」セクションが表示できる", async ({ page }) => {
+test("設定ページ: 設定セクションが表示できる", async ({ page }) => {
   await page.goto("/settings");
 
   // h1 "設定" が表示される
   await expect(page.getByRole("heading", { name: "設定", exact: true })).toBeVisible();
 
-  // 「基本設定」セクション見出しが表示される
-  await expect(page.getByText("基本設定")).toBeVisible();
+  // 現在の SettingsForm セクション見出しが表示される
+  await expect(page.getByRole("heading", { name: "シーズン・コンテスト", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "目標・身体情報", exact: true })).toBeVisible();
 });
 
 test("NavBar リンクからダッシュボード → 設定ページへ遷移できる", async ({ page }) => {
