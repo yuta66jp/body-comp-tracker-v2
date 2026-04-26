@@ -31,7 +31,14 @@
     "swr": "^2.4.1"
   },
   "overrides": {
-    "flatted": "3.4.2"
+    "flatted": "3.4.2",
+    "minimatch@3.1.5": {
+      "brace-expansion": "1.1.13"
+    },
+    "minimatch@9.0.9": {
+      "brace-expansion": "2.0.3"
+    },
+    "postcss": "8.5.10"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
