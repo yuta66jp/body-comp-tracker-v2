@@ -2,6 +2,7 @@
 
 import { createClient, requireCurrentUser } from "@/lib/supabase/server";
 import { AUTH_REQUIRED_MESSAGE, isAuthRequiredError } from "@/lib/auth/actionErrors";
+import { revalidateAfterFoodMutation } from "@/lib/cache/revalidate";
 import type { Database, Json } from "@/lib/supabase/types";
 import type { RecipeItem } from "@/lib/supabase/types";
 
@@ -31,6 +32,7 @@ export async function insertFood(payload: FoodMasterInsert): Promise<FoodActionR
 
   const supabase = await createClient();
   const { error } = await supabase.from("food_master").insert({ ...payload, user_id: auth.userId });
+  if (!error) revalidateAfterFoodMutation();
   return { error: error?.message ?? null };
 }
 
@@ -41,6 +43,7 @@ export async function deleteFood(name: string): Promise<FoodActionResult> {
 
   const supabase = await createClient();
   const { error } = await supabase.from("food_master").delete().eq("user_id", auth.userId).eq("name", name);
+  if (!error) revalidateAfterFoodMutation();
   return { error: error?.message ?? null };
 }
 
@@ -58,6 +61,7 @@ export async function insertMenu(payload: {
     name: payload.name,
     recipe: payload.recipe as unknown as Json,
   });
+  if (!error) revalidateAfterFoodMutation();
   return { error: error?.message ?? null };
 }
 
@@ -75,6 +79,7 @@ export async function updateMenu(
     .update({ name: payload.name, recipe: payload.recipe as unknown as Json })
     .eq("user_id", auth.userId)
     .eq("name", originalName);
+  if (!error) revalidateAfterFoodMutation();
   return { error: error?.message ?? null };
 }
 
@@ -85,5 +90,6 @@ export async function deleteMenu(name: string): Promise<FoodActionResult> {
 
   const supabase = await createClient();
   const { error } = await supabase.from("menu_master").delete().eq("user_id", auth.userId).eq("name", name);
+  if (!error) revalidateAfterFoodMutation();
   return { error: error?.message ?? null };
 }

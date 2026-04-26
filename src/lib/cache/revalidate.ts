@@ -31,6 +31,9 @@
  * forecast backtest 更新:
  *   /forecast-accuracy  fetchLatestRuns / fetchMetrics
  *
+ * food_master / menu_master 更新:
+ *   /foods       fetchFoods / fetchMenus
+ *
  * analytics_cache (enriched_logs) 更新:
  *   /tdee         fetchEnrichedLogs
  *   ※ GitHub Actions の ml-daily バッチは Supabase を直接更新するため、
@@ -70,6 +73,14 @@ export function revalidateAfterSettingsMutation(): void {
  */
 export function revalidateAfterForecastMutation(): void {
   revalidatePath("/forecast-accuracy");
+}
+
+/**
+ * food_master / menu_master への書き込み後に呼ぶ。
+ * 食品データベースページの Server Component 初期値を再検証する。
+ */
+export function revalidateAfterFoodMutation(): void {
+  revalidatePath("/foods");
 }
 
 /**
