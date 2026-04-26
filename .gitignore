@@ -29,6 +29,9 @@ Thumbs.db
 *.swp
 *.swo
 
+# Local agent instructions
+AGENTS.md
+
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
