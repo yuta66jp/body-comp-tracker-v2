@@ -6,10 +6,10 @@
  *
  * ## 確認内容
  * - 未認証時はログイン画面が表示される
- * - E2E_AUTH_EMAIL / E2E_AUTH_PASSWORD がある場合はログイン後に主要ページを確認する
+ * - ローカルでは E2E_AUTH_EMAIL / E2E_AUTH_PASSWORD がある場合だけ認証済み主要ページを確認する
+ * - CI では E2E_REQUIRE_AUTH=true のとき E2E_AUTH_EMAIL / E2E_AUTH_PASSWORD を必須とする
  * - 主要ページが HTTP 500 / "Application error" なしにロードできる
  * - NavBar (ナビゲーション) が表示される
- * - ページ固有の見出しが表示される
  * - NavBar リンクから設定ページへの遷移が動作する
  *
  * ## データ依存
@@ -22,39 +22,59 @@ import type { Page } from "@playwright/test";
 const E2E_AUTH_EMAIL = process.env.E2E_AUTH_EMAIL;
 const E2E_AUTH_PASSWORD = process.env.E2E_AUTH_PASSWORD;
 const HAS_AUTH = Boolean(E2E_AUTH_EMAIL && E2E_AUTH_PASSWORD);
+const REQUIRE_AUTH = process.env.E2E_REQUIRE_AUTH === "true";
+const AUTH_ENV_MESSAGE = "認証済み画面の smoke には E2E_AUTH_EMAIL / E2E_AUTH_PASSWORD が必要";
 
 // ナビゲーションリンク名と URL の対応 (NavBar.tsx の NAV_ITEMS に準拠)
 const MAIN_PAGES = [
   { path: "/",        navLabel: "ダッシュボード" },
-  { path: "/history", navLabel: "履歴" },
-  { path: "/settings",navLabel: "設定" },
-  { path: "/tdee",    navLabel: "TDEE" },
   { path: "/macro",   navLabel: "栄養" },
+  { path: "/tdee",    navLabel: "TDEE" },
+  { path: "/history", navLabel: "履歴" },
+  { path: "/forecast-accuracy", navLabel: "予測精度" },
+  { path: "/foods",   navLabel: "食品DB" },
+  { path: "/settings",navLabel: "設定" },
 ] as const;
 
-async function loginIfConfigured(page: Page): Promise<boolean> {
-  await page.goto("/");
-
-  if (!HAS_AUTH) {
-    await expect(page.getByRole("heading", { name: "ログイン", exact: true })).toBeVisible();
-    await expect(page.getByLabel("メールアドレス")).toBeVisible();
-    await expect(page.getByLabel("パスワード")).toBeVisible();
-    return false;
+function requireAuthEnvForSmoke() {
+  if (HAS_AUTH) return;
+  if (REQUIRE_AUTH) {
+    throw new Error(
+      `${AUTH_ENV_MESSAGE}。E2E_REQUIRE_AUTH=true の実行では GitHub Actions secrets に E2E_AUTH_EMAIL / E2E_AUTH_PASSWORD を設定してください。`
+    );
   }
+  test.skip(true, AUTH_ENV_MESSAGE);
+}
+
+async function expectLoginScreen(page: Page) {
+  await expect(page.getByRole("heading", { name: "ログイン", exact: true })).toBeVisible();
+  await expect(page.getByLabel("メールアドレス")).toBeVisible();
+  await expect(page.getByLabel("パスワード")).toBeVisible();
+}
+
+async function login(page: Page): Promise<void> {
+  requireAuthEnvForSmoke();
+
+  await page.goto("/");
+  await expectLoginScreen(page);
 
   await page.getByLabel("メールアドレス").fill(E2E_AUTH_EMAIL!);
   await page.getByLabel("パスワード").fill(E2E_AUTH_PASSWORD!);
   await page.getByRole("button", { name: "ログイン" }).click();
   await expect(page.locator("nav").first()).toBeVisible();
-  return true;
 }
+
+test("未認証時はログイン画面が表示される", async ({ page }) => {
+  await page.goto("/");
+  await expectLoginScreen(page);
+});
 
 for (const { path, navLabel } of MAIN_PAGES) {
   test(`${navLabel} ページが表示できる (${path})`, async ({ page }) => {
-    const authenticated = await loginIfConfigured(page);
-    if (!authenticated) return;
+    await login(page);
 
-    await page.goto(path);
+    const response = await page.goto(path);
+    expect(response?.status(), `${path} should not return HTTP 500`).toBeLessThan(500);
 
     // layout.tsx には desktop NavBar と mobile bottom nav の 2 つの nav がある。
     // Desktop Chrome project では先頭の desktop NavBar が表示されることを確認する。
@@ -66,9 +86,7 @@ for (const { path, navLabel } of MAIN_PAGES) {
 }
 
 test("設定ページ: 設定セクションが表示できる", async ({ page }) => {
-  test.skip(!HAS_AUTH, "認証済み画面の smoke には E2E_AUTH_EMAIL / E2E_AUTH_PASSWORD が必要");
-
-  await loginIfConfigured(page);
+  await login(page);
   await page.goto("/settings");
 
   // h1 "設定" が表示される
@@ -80,9 +98,7 @@ test("設定ページ: 設定セクションが表示できる", async ({ page }
 });
 
 test("NavBar リンクからダッシュボード → 設定ページへ遷移できる", async ({ page }) => {
-  test.skip(!HAS_AUTH, "認証済み画面の smoke には E2E_AUTH_EMAIL / E2E_AUTH_PASSWORD が必要");
-
-  await loginIfConfigured(page);
+  await login(page);
 
   // NavBar の「設定」リンクをクリック
   await page.getByRole("link", { name: "設定" }).click();
