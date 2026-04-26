@@ -19,7 +19,13 @@ const mockRevalidateAfterFoodMutation =
 function mockSupabaseAction(error: { message: string } | null = null) {
   const terminal = Promise.resolve({ error });
   let eqCount = 0;
-  const builder = {
+  type MockSupabaseBuilder = {
+    eq: jest.Mock<MockSupabaseBuilder | typeof terminal, []>;
+    insert: jest.Mock<typeof terminal, []>;
+    update: jest.Mock<MockSupabaseBuilder, []>;
+    delete: jest.Mock<MockSupabaseBuilder, []>;
+  };
+  const builder: MockSupabaseBuilder = {
     eq: jest.fn(() => {
       eqCount += 1;
       return eqCount >= 2 ? terminal : builder;
