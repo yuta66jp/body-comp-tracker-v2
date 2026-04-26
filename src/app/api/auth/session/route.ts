@@ -115,7 +115,10 @@ export async function PATCH(request: NextRequest) {
 
   const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
   if (error || !data.session || !isAllowedUser(data.user)) {
-    return clearAuthCookie(NextResponse.json({ error: "auth_required" }, { status: 401 }));
+    // Do not clear cookies on refresh failure. Multiple tabs can race with the
+    // same rotating refresh token; a losing tab must not delete a newer cookie
+    // already set by another tab.
+    return NextResponse.json({ error: "auth_required" }, { status: 401 });
   }
 
   return setAuthCookie(

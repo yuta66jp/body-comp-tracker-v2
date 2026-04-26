@@ -131,6 +131,22 @@ describe("PATCH /api/auth/session", () => {
     expect(setCookie(response)).toContain(`${AUTH_REFRESH_TOKEN_COOKIE}=new-refresh-token`);
     expect(setCookie(response)).toContain("HttpOnly");
   });
+
+  it("does not clear cookies when refresh fails", async () => {
+    mockRefreshSession.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { message: "Invalid Refresh Token" },
+    });
+    const request = new NextRequest("http://localhost/api/auth/session", {
+      method: "PATCH",
+      headers: { cookie: `${AUTH_REFRESH_TOKEN_COOKIE}=old-refresh-token` },
+    });
+
+    const response = await PATCH(request);
+
+    expect(response.status).toBe(401);
+    expect(setCookie(response)).toBe("");
+  });
 });
 
 describe("DELETE /api/auth/session", () => {
