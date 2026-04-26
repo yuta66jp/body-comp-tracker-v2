@@ -10,19 +10,11 @@
 "use client";
 
 import useSWR from "swr";
-import { createClient } from "@/lib/supabase/client";
+import { fetchClientData } from "@/lib/clientData/fetchJson";
 import type { SleepSession } from "@/lib/supabase/types";
 
 async function fetchRecentSleepSessions(): Promise<SleepSession[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("sleep_sessions")
-    .select("*")
-    .order("wake_date", { ascending: false })
-    .limit(200);
-
-  if (error) throw error;
-  return (data as SleepSession[]) ?? [];
+  return fetchClientData<SleepSession[]>("/api/client-data?resource=sleep_sessions");
 }
 
 export function useSleepSessions() {

@@ -2,28 +2,26 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { syncAuthCookie } from "@/lib/auth/browserSession";
+import { refreshAuthCookie } from "@/lib/auth/browserSession";
 
 export function AuthSessionSync() {
   const router = useRouter();
 
   useEffect(() => {
-    const supabase = createClient();
+    let cancelled = false;
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      await syncAuthCookie(session);
+    void refreshAuthCookie().then((synced) => {
+      if (synced && !cancelled) router.refresh();
     });
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      void syncAuthCookie(session).then(() => {
-        router.refresh();
-      });
-    });
+    const intervalId = window.setInterval(() => {
+      void refreshAuthCookie();
+    }, 10 * 60 * 1000);
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
   }, [router]);
 
   return null;

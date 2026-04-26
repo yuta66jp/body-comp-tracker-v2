@@ -1,18 +1,11 @@
 "use client";
 
 import useSWR from "swr";
-import { createClient } from "@/lib/supabase/client";
+import { fetchClientData } from "@/lib/clientData/fetchJson";
 import type { FoodMaster } from "@/lib/supabase/types";
 
 async function fetchFoodList(): Promise<FoodMaster[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("food_master")
-    .select("*")
-    .order("name", { ascending: true });
-
-  if (error) throw error;
-  return (data as FoodMaster[]) ?? [];
+  return fetchClientData<FoodMaster[]>("/api/client-data?resource=food_master");
 }
 
 export function useFoodList() {

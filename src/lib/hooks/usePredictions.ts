@@ -1,18 +1,11 @@
 "use client";
 
 import useSWR from "swr";
-import { createClient } from "@/lib/supabase/client";
+import { fetchClientData } from "@/lib/clientData/fetchJson";
 import type { Prediction } from "@/lib/supabase/types";
 
 async function fetchPredictions(): Promise<Prediction[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("predictions")
-    .select("*")
-    .order("ds", { ascending: true });
-
-  if (error) throw error;
-  return (data as Prediction[]) ?? [];
+  return fetchClientData<Prediction[]>("/api/client-data?resource=predictions");
 }
 
 export function usePredictions() {

@@ -4,11 +4,12 @@ jest.mock("@supabase/supabase-js", () => ({
 
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
-import { AUTH_ACCESS_TOKEN_COOKIE } from "@/lib/auth/session";
-import { DELETE, POST } from "./route";
+import { AUTH_ACCESS_TOKEN_COOKIE, AUTH_REFRESH_TOKEN_COOKIE } from "@/lib/auth/session";
+import { DELETE, PATCH, POST } from "./route";
 
 const mockCreateClient = createClient as jest.Mock;
 const mockGetUser = jest.fn();
+const mockRefreshSession = jest.fn();
 
 function makePostRequest(body: unknown): NextRequest {
   return new NextRequest("http://localhost/api/auth/session", {
@@ -31,8 +32,10 @@ describe("POST /api/auth/session", () => {
     mockCreateClient.mockReturnValue({
       auth: {
         getUser: mockGetUser,
+        refreshSession: mockRefreshSession,
       },
     });
+    mockRefreshSession.mockReset();
   });
 
   afterEach(() => {
@@ -52,6 +55,7 @@ describe("POST /api/auth/session", () => {
     const response = await POST(makePostRequest({
       accessToken: "access-token",
       expiresAt: Math.floor(Date.now() / 1000) + 3600,
+      refreshToken: "refresh-token",
     }));
 
     expect(response.status).toBe(200);
@@ -62,6 +66,7 @@ describe("POST /api/auth/session", () => {
     expect(cookie).toContain("HttpOnly");
     expect(cookie.toLowerCase()).toContain("samesite=lax");
     expect(cookie).toContain("Path=/");
+    expect(cookie).toContain(`${AUTH_REFRESH_TOKEN_COOKIE}=refresh-token`);
   });
 
   it("clears the cookie when the payload is invalid", async () => {
@@ -81,10 +86,66 @@ describe("POST /api/auth/session", () => {
     const response = await POST(makePostRequest({
       accessToken: "access-token",
       expiresAt: Math.floor(Date.now() / 1000) + 3600,
+      refreshToken: "refresh-token",
     }));
 
     expect(response.status).toBe(401);
     expect(setCookie(response)).toContain("Max-Age=0");
+  });
+});
+
+describe("PATCH /api/auth/session", () => {
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_ALLOWED_AUTH_EMAIL = "owner@example.com";
+    mockCreateClient.mockReturnValue({
+      auth: {
+        getUser: mockGetUser,
+        refreshSession: mockRefreshSession,
+      },
+    });
+    mockRefreshSession.mockReset();
+  });
+
+  it("refreshes httpOnly auth cookies from the refresh token cookie", async () => {
+    mockRefreshSession.mockResolvedValue({
+      data: {
+        user: { id: "user-id", email: "owner@example.com" },
+        session: {
+          access_token: "new-access-token",
+          refresh_token: "new-refresh-token",
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+        },
+      },
+      error: null,
+    });
+    const request = new NextRequest("http://localhost/api/auth/session", {
+      method: "PATCH",
+      headers: { cookie: `${AUTH_REFRESH_TOKEN_COOKIE}=old-refresh-token` },
+    });
+
+    const response = await PATCH(request);
+
+    expect(response.status).toBe(200);
+    expect(mockRefreshSession).toHaveBeenCalledWith({ refresh_token: "old-refresh-token" });
+    expect(setCookie(response)).toContain(`${AUTH_ACCESS_TOKEN_COOKIE}=new-access-token`);
+    expect(setCookie(response)).toContain(`${AUTH_REFRESH_TOKEN_COOKIE}=new-refresh-token`);
+    expect(setCookie(response)).toContain("HttpOnly");
+  });
+
+  it("does not clear cookies when refresh fails", async () => {
+    mockRefreshSession.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { message: "Invalid Refresh Token" },
+    });
+    const request = new NextRequest("http://localhost/api/auth/session", {
+      method: "PATCH",
+      headers: { cookie: `${AUTH_REFRESH_TOKEN_COOKIE}=old-refresh-token` },
+    });
+
+    const response = await PATCH(request);
+
+    expect(response.status).toBe(401);
+    expect(setCookie(response)).toBe("");
   });
 });
 
