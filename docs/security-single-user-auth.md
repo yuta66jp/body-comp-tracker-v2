@@ -40,8 +40,8 @@ NEXT_PUBLIC_ALLOWED_AUTH_EMAIL=you@example.com
 クライアントコードはこの cookie を `document.cookie` で直接書き込まない。
 
 この cookie は Server Components / Route Handlers / Server Actions が RLS 適用済み Supabase client を作るための server-side access 用である。
-Client Components で使う Supabase browser client の session persistence は Supabase JS の管理に残しているため、access token を JavaScript から完全に読めない構成ではない。
-完全な server-managed session 化や browser localStorage からの Supabase session 排除は、別 Issue で扱う。
+Client Components のデータ取得は `/api/client-data` 経由で server-side Supabase client に寄せ、browser Supabase client は `persistSession: false` で session を永続化しない。
+既存ブラウザに残っている Supabase Auth storage key は auth cookie 同期時に削除する。
 
 ## 既存データ backfill
 

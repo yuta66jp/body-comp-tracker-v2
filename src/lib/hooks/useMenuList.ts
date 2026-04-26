@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { createClient } from "@/lib/supabase/client";
+import { fetchClientData } from "@/lib/clientData/fetchJson";
 import type { RecipeItem } from "@/lib/supabase/types";
 
 export interface MenuEntry {
@@ -10,13 +10,9 @@ export interface MenuEntry {
 }
 
 async function fetchMenuList(): Promise<MenuEntry[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("menu_master")
-    .select("name, recipe")
-    .order("name", { ascending: true });
-
-  if (error) throw error;
+  const data = await fetchClientData<Array<{ name: string; recipe: unknown }>>(
+    "/api/client-data?resource=menu_master",
+  );
   return ((data as Array<{ name: string; recipe: unknown }>) ?? []).map((row) => ({
     name: row.name,
     recipe: Array.isArray(row.recipe) ? (row.recipe as RecipeItem[]) : [],

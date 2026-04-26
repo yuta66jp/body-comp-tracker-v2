@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, X, AlertTriangle } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { fetchClientData } from "@/lib/clientData/fetchJson";
 import { parseCSV, deduplicateByLogDate } from "@/lib/utils/csvParser";
 import type { ParseResult } from "@/lib/utils/csvParser";
 import { computeImportPreflight } from "@/lib/utils/importPreflight";
@@ -71,24 +71,25 @@ export function ImportSection() {
   ): Promise<void> {
     setPreflightLoading(true);
     try {
-      const supabase = createClient();
       const dates = rows.map((r) => r.log_date).sort();
       const minDate = dates[0]!;
       const maxDate = dates[dates.length - 1]!;
-      const { data, error } = await supabase
-        .from("daily_logs")
-        .select("log_date")
-        .gte("log_date", minDate)
-        .lte("log_date", maxDate);
-      if (error) {
-        setErrorMsg("既存データの取得に失敗しました: " + error.message);
-        setResult("error");
-        return;
-      }
+      const params = new URLSearchParams({
+        resource: "daily_log_dates",
+        start: minDate,
+        end: maxDate,
+      });
+      const data = await fetchClientData<Array<{ log_date: string }>>(`/api/client-data?${params}`);
       const existingDates = new Set(
         (data as { log_date: string }[]).map((r) => r.log_date)
       );
       setPreflight(computeImportPreflight(rows, errorCount, existingDates));
+    } catch (error) {
+      setErrorMsg(
+        "既存データの取得に失敗しました: " +
+        (error instanceof Error ? error.message : "unknown error")
+      );
+      setResult("error");
     } finally {
       setPreflightLoading(false);
     }
