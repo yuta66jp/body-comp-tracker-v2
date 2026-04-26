@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { isValidDateParam } from "@/lib/utils/date";
 
 const RESOURCES = [
   "daily_logs",
@@ -14,17 +15,6 @@ type ClientDataResource = (typeof RESOURCES)[number];
 
 function isResource(value: string): value is ClientDataResource {
   return (RESOURCES as readonly string[]).includes(value);
-}
-
-function isValidDateParam(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const [year, month, day] = value.split("-").map(Number) as [number, number, number];
-  const date = new Date(year, month - 1, day);
-  return (
-    date.getFullYear() === year &&
-    date.getMonth() + 1 === month &&
-    date.getDate() === day
-  );
 }
 
 export async function GET(request: NextRequest) {

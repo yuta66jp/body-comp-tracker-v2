@@ -8,28 +8,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { isValidDateParam } from "@/lib/utils/date";
 import { extractJstHHMM } from "@/lib/utils/sleepSession";
 
 // ── バリデーション ────────────────────────────────────────────────────────────
 
 const ALLOWED_TABLES = ["daily_logs", "food_master", "predictions"] as const;
-
-/**
- * 日付パラメータのフォーマット検証。
- *
- * - `YYYY-MM-DD` 形式かつ実在する日付のみ true を返す。
- * - 空文字は呼び出し側で除外してから渡すこと（空文字は false になる）。
- */
-export function isValidDateParam(s: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
-  const [y, m, d] = s.split("-").map(Number) as [number, number, number];
-  const date = new Date(y, m - 1, d);
-  return (
-    date.getFullYear() === y &&
-    date.getMonth() + 1 === m &&
-    date.getDate() === d
-  );
-}
 
 function toCSV(rows: Record<string, unknown>[], columns: string[]): string {
   const header = columns.join(",");

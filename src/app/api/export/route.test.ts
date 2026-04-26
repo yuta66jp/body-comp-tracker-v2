@@ -17,7 +17,8 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 import { NextRequest } from "next/server";
-import { GET, isValidDateParam } from "./route";
+import { isValidDateParam } from "@/lib/utils/date";
+import { GET } from "./route";
 import { createClient } from "@/lib/supabase/server";
 
 const mockCreateClient = createClient as jest.Mock;
