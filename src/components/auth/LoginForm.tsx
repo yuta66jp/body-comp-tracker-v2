@@ -3,11 +3,6 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import {
-  isAllowedUserEmail,
-  isAuthAllowlistConfigured,
-  isProductionAuthAllowlistRequired,
-} from "@/lib/auth/session";
 import { syncAuthCookie } from "@/lib/auth/browserSession";
 
 export function LoginForm() {
@@ -23,18 +18,6 @@ export function LoginForm() {
     setError(null);
 
     const normalizedEmail = email.trim().toLowerCase();
-    if (isProductionAuthAllowlistRequired() && !isAuthAllowlistConfigured()) {
-      setError("ログイン許可メールが設定されていません。管理者に確認してください。");
-      setSubmitting(false);
-      return;
-    }
-
-    if (!isAllowedUserEmail(normalizedEmail)) {
-      setError("このメールアドレスは許可されていません。");
-      setSubmitting(false);
-      return;
-    }
-
     const supabase = createClient();
     const { data, error: signInError } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
@@ -49,7 +32,7 @@ export function LoginForm() {
 
     const synced = await syncAuthCookie(data.session);
     if (!synced) {
-      setError("ログインセッションの保存に失敗しました。もう一度ログインしてください。");
+      setError("ログインが許可されていないか、セッションの保存に失敗しました。");
       setSubmitting(false);
       return;
     }

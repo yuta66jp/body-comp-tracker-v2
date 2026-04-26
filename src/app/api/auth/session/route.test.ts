@@ -24,10 +24,10 @@ function setCookie(response: Response): string {
 }
 
 describe("POST /api/auth/session", () => {
-  const originalAllowedEmail = process.env.NEXT_PUBLIC_ALLOWED_AUTH_EMAIL;
+  const originalAllowedEmail = process.env.ALLOWED_AUTH_EMAIL;
 
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_ALLOWED_AUTH_EMAIL = "owner@example.com";
+    process.env.ALLOWED_AUTH_EMAIL = "owner@example.com";
     mockGetUser.mockReset();
     mockCreateClient.mockReturnValue({
       auth: {
@@ -40,9 +40,9 @@ describe("POST /api/auth/session", () => {
 
   afterEach(() => {
     if (originalAllowedEmail === undefined) {
-      delete process.env.NEXT_PUBLIC_ALLOWED_AUTH_EMAIL;
+      delete process.env.ALLOWED_AUTH_EMAIL;
     } else {
-      process.env.NEXT_PUBLIC_ALLOWED_AUTH_EMAIL = originalAllowedEmail;
+      process.env.ALLOWED_AUTH_EMAIL = originalAllowedEmail;
     }
   });
 
@@ -96,7 +96,7 @@ describe("POST /api/auth/session", () => {
 
 describe("PATCH /api/auth/session", () => {
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_ALLOWED_AUTH_EMAIL = "owner@example.com";
+    process.env.ALLOWED_AUTH_EMAIL = "owner@example.com";
     mockCreateClient.mockReturnValue({
       auth: {
         getUser: mockGetUser,

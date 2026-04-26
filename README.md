@@ -229,7 +229,7 @@ ForecastChart（`src/components/charts/ForecastChart.tsx`）は 3 タブ（7日 
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | E2E 対象 Supabase project |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | E2E 対象 Supabase anon key |
-| `E2E_AUTH_EMAIL` | Supabase Auth の読み取り専用 smoke 用ユーザー。workflow 内で `NEXT_PUBLIC_ALLOWED_AUTH_EMAIL` にも使う |
+| `E2E_AUTH_EMAIL` | Supabase Auth の読み取り専用 smoke 用ユーザー。workflow 内で server-only `ALLOWED_AUTH_EMAIL` にも使う |
 | `E2E_AUTH_PASSWORD` | 上記ユーザーのパスワード |
 
 E2E smoke は書き込み操作を行わない。`E2E_AUTH_EMAIL` は、Supabase Auth に存在し、RLS 適用後の主要画面を読み取れるユーザーにする。
@@ -310,12 +310,12 @@ Client Components のデータ取得も `/api/client-data` 経由で server-side
 
 - Supabase Auth で自分用ユーザーを作成している
 - 公開 signup を無効化するか、invite / 手動作成のみにしている
-- 本番 / preview では `NEXT_PUBLIC_ALLOWED_AUTH_EMAIL` に許可メールを設定している
+- 本番 / preview では server-only `ALLOWED_AUTH_EMAIL` に許可メールを設定している
 - 既存データの `user_id` backfill を完了している
 - `SUPABASE_SERVICE_ROLE_KEY` はサーバー専用（GitHub Secrets / `.env.local`）に限定し、クライアントバンドルに含めない
 
-本番 / preview で `NEXT_PUBLIC_ALLOWED_AUTH_EMAIL` が未設定の場合、Auth gate は fail-closed になり、Supabase Auth ユーザーが存在してもログインを許可しない。
-ローカル開発では未設定でもログイン UI の allowlist 判定を通すが、デプロイ環境では必ず設定する。
+本番 / preview で `ALLOWED_AUTH_EMAIL` が未設定の場合、Auth gate は fail-closed になり、Supabase Auth ユーザーが存在してもログインを許可しない。
+ローカル開発では未設定でも server-side allowlist 判定を通すが、デプロイ環境では必ず設定する。
 
 ### /api/export エンドポイントについて
 
@@ -415,7 +415,7 @@ Vercel などにデプロイする場合は、個人利用でも Supabase Auth +
 主要なユーザー入力テーブルは `user_id = auth.uid()` で owner scoped にし、派生データ系テーブルも authenticated read に限定する。
 そのため anon key だけでは、ユーザー入力データもバッチ生成・分析データも読めない。
 
-初回移行時は Supabase Auth の自分用ユーザーを作成し、`NEXT_PUBLIC_ALLOWED_AUTH_EMAIL` を設定した上で、
+初回移行時は Supabase Auth の自分用ユーザーを作成し、server-only `ALLOWED_AUTH_EMAIL` を設定した上で、
 既存行の `user_id` を owner user id で backfill する。手順は [docs/security-single-user-auth.md](docs/security-single-user-auth.md) を参照。
 
 ### 5. テスト実行（unit tests + UI integration tests）

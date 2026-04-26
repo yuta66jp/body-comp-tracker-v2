@@ -4,7 +4,7 @@ export const AUTH_ACCESS_TOKEN_COOKIE = "bc_auth_access_token";
 export const AUTH_REFRESH_TOKEN_COOKIE = "bc_auth_refresh_token";
 
 export function getAllowedAuthEmail(): string | null {
-  const value = process.env.NEXT_PUBLIC_ALLOWED_AUTH_EMAIL ?? process.env.ALLOWED_AUTH_EMAIL ?? "";
+  const value = process.env.ALLOWED_AUTH_EMAIL ?? "";
   const email = value.trim().toLowerCase();
   return email.length > 0 ? email : null;
 }
