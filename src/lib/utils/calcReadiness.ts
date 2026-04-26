@@ -23,7 +23,7 @@ export interface ReadinessMetrics {
   weight_14d_avg: number | null;
   /**
    * 週平均体重の変化 (kg)
-   * = 直近7日平均 − 前7日 (8〜14日前) 平均
+   * = 直近7日平均 − 前7日 (7〜13日前) 平均
    * null: どちらかの期間にデータがない場合
    */
   weight_change_7d: number | null;
