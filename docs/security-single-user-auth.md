@@ -27,12 +27,12 @@
 3. アプリの環境変数に許可メールを設定する。
 
 ```bash
-NEXT_PUBLIC_ALLOWED_AUTH_EMAIL=you@example.com
+ALLOWED_AUTH_EMAIL=you@example.com
 ```
 
-この値はクライアント側のログイン UI と server layout の両方で使う。秘密情報ではない。
+この値は `/api/auth/session` の server-side 検証だけで使う。所有者メールを browser bundle に含めないため、`NEXT_PUBLIC_` では定義しない。
 本番 / preview ではこの値が未設定の場合、Auth gate は fail-closed になり、ログイン済み Supabase Auth ユーザーも許可しない。
-ローカル開発では未設定でも allowlist 判定を通すが、デプロイ環境では必ず設定する。
+ローカル開発では未設定でも server-side allowlist 判定を通すが、デプロイ環境では必ず設定する。
 
 ## Auth cookie
 

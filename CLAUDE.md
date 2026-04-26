@@ -182,7 +182,7 @@ body-comp-tracker-v2/
 
 ### 前提: Supabase Auth + RLS による single-user hardening
 - このアプリは個人利用前提だが、外部到達可能なデプロイに備えて Supabase Auth と RLS を導入済み
-- アプリ画面はログイン必須。許可メールは `NEXT_PUBLIC_ALLOWED_AUTH_EMAIL` で制限する
+- アプリ画面はログイン必須。許可メールは server-only `ALLOWED_AUTH_EMAIL` で制限する
 - 主要なユーザー入力データは `user_id = auth.uid()` の owner scoped RLS で保護する
 - anon key は公開可能な Supabase client key として使うが、anon role 単体ではユーザー入力データも派生データも読めない
 - ML / analytics バッチだけが `SUPABASE_SERVICE_ROLE_KEY` を GitHub Secrets 経由で使い、RLS を bypass する
