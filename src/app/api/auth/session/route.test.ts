@@ -132,6 +132,59 @@ describe("PATCH /api/auth/session", () => {
     expect(setCookie(response)).toContain("HttpOnly");
   });
 
+  it("uses expires_in as the access token cookie fallback when expires_at is missing", async () => {
+    const nowSpy = jest.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    mockRefreshSession.mockResolvedValue({
+      data: {
+        user: { id: "user-id", email: "owner@example.com" },
+        session: {
+          access_token: "new-access-token",
+          refresh_token: "new-refresh-token",
+          expires_in: 1800,
+        },
+      },
+      error: null,
+    });
+    const request = new NextRequest("http://localhost/api/auth/session", {
+      method: "PATCH",
+      headers: { cookie: `${AUTH_REFRESH_TOKEN_COOKIE}=old-refresh-token` },
+    });
+
+    const response = await PATCH(request);
+
+    expect(response.status).toBe(200);
+    expect(setCookie(response)).toContain(`${AUTH_ACCESS_TOKEN_COOKIE}=new-access-token`);
+    expect(setCookie(response)).toContain("Max-Age=1800");
+
+    nowSpy.mockRestore();
+  });
+
+  it("uses a safe default access token cookie fallback when expires_at and expires_in are missing", async () => {
+    const nowSpy = jest.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    mockRefreshSession.mockResolvedValue({
+      data: {
+        user: { id: "user-id", email: "owner@example.com" },
+        session: {
+          access_token: "new-access-token",
+          refresh_token: "new-refresh-token",
+        },
+      },
+      error: null,
+    });
+    const request = new NextRequest("http://localhost/api/auth/session", {
+      method: "PATCH",
+      headers: { cookie: `${AUTH_REFRESH_TOKEN_COOKIE}=old-refresh-token` },
+    });
+
+    const response = await PATCH(request);
+
+    expect(response.status).toBe(200);
+    expect(setCookie(response)).toContain(`${AUTH_ACCESS_TOKEN_COOKIE}=new-access-token`);
+    expect(setCookie(response)).toContain("Max-Age=3600");
+
+    nowSpy.mockRestore();
+  });
+
   it("does not clear cookies when refresh fails", async () => {
     mockRefreshSession.mockResolvedValue({
       data: { user: null, session: null },

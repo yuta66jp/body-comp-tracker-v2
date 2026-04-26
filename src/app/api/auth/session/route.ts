@@ -13,6 +13,8 @@ interface SessionCookiePayload {
   refreshToken?: unknown;
 }
 
+const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
+
 function clearAuthCookie(response: NextResponse): NextResponse {
   const cookieOptions = {
     httpOnly: true,
@@ -124,7 +126,8 @@ export async function PATCH(request: NextRequest) {
   return setAuthCookie(
     NextResponse.json({ ok: true }),
     data.session.access_token,
-    data.session.expires_at ?? Math.floor(Date.now() / 1000),
+    data.session.expires_at
+      ?? Math.floor(Date.now() / 1000) + (data.session.expires_in ?? DEFAULT_ACCESS_TOKEN_TTL_SECONDS),
     data.session.refresh_token,
   );
 }
