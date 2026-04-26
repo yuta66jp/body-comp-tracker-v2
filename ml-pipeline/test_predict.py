@@ -282,6 +282,69 @@ class TestBuildCleanSeries:
         assert _LONG_EVENT_RECOVERY_DAYS == 5
 
 
+# ── torch.load patch のテスト ────────────────────────────────────────────────
+
+class TestTorchLoadPatch:
+    def test_does_not_patch_torch_before_2_6(self):
+        """torch 2.5 以下では monkey patch しない。"""
+        from predict import patch_torch_load_for_neuralprophet
+
+        def load(*_, **__):
+            return "loaded"
+
+        class _Torch:
+            __version__ = "2.5.1"
+
+        torch_module = _Torch()
+        torch_module.load = load
+
+        patched = patch_torch_load_for_neuralprophet(torch_module)
+
+        assert patched is False
+        assert torch_module.load is load
+
+    def test_patch_forwards_pickle_module_and_mmap(self):
+        """torch 2.6+ patch は pickle_module / mmap を元の torch.load に転送する。"""
+        from predict import patch_torch_load_for_neuralprophet
+
+        calls = []
+
+        def load(*args, **kwargs):
+            calls.append((args, kwargs))
+            return "loaded"
+
+        class _Torch:
+            __version__ = "2.6.0"
+
+        torch_module = _Torch()
+        torch_module.load = load
+
+        patched = patch_torch_load_for_neuralprophet(torch_module)
+        result = torch_module.load(
+            "checkpoint.ckpt",
+            map_location="cpu",
+            pickle_module="pickle-module",
+            weights_only=True,
+            mmap=True,
+            extra_arg="extra",
+        )
+
+        assert patched is True
+        assert result == "loaded"
+        assert calls == [
+            (
+                ("checkpoint.ckpt",),
+                {
+                    "map_location": "cpu",
+                    "pickle_module": "pickle-module",
+                    "weights_only": False,
+                    "mmap": True,
+                    "extra_arg": "extra",
+                },
+            )
+        ]
+
+
 # ── record 組み立てロジックのテスト ─────────────────────────────────────────
 
 

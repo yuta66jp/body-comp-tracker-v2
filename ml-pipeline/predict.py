@@ -133,6 +133,38 @@ def build_clean_series(
     return df.loc[mask, ["ds", "y"]].copy()
 
 
+def patch_torch_load_for_neuralprophet(torch_module) -> bool:
+    """torch 2.6+ の weights_only default 変更を NeuralProphet 用に補正する。
+
+    Returns:
+        patch を適用した場合 true。torch 2.5 以下では false。
+    """
+    if tuple(int(x) for x in torch_module.__version__.split(".")[:2]) < (2, 6):
+        return False
+
+    original_torch_load = torch_module.load
+
+    def trusted_load(
+        f,
+        map_location=None,
+        pickle_module=None,
+        weights_only=None,
+        mmap=None,
+        **kw,
+    ):
+        return original_torch_load(
+            f,
+            map_location=map_location,
+            pickle_module=pickle_module,
+            weights_only=False,
+            mmap=mmap,
+            **kw,
+        )
+
+    torch_module.load = trusted_load
+    return True
+
+
 def run_model(df: pd.DataFrame) -> pd.DataFrame:
     """NeuralProphet で予測を実行して予測 DataFrame を返す。
 
@@ -164,13 +196,7 @@ def run_model(df: pd.DataFrame) -> pd.DataFrame:
     # LR-finder checkpoint restore when loading NeuralProphet objects.
     # This pipeline only ever loads checkpoints it wrote itself in the same run (trusted),
     # so overriding weights_only=False is safe here.
-    if tuple(int(x) for x in _torch.__version__.split(".")[:2]) >= (2, 6):
-        _orig_torch_load = _torch.load
-
-        def _trusted_load(f, map_location=None, pickle_module=None, weights_only=None, mmap=None, **kw):
-            return _orig_torch_load(f, map_location=map_location, weights_only=False, **kw)
-
-        _torch.load = _trusted_load
+    patch_torch_load_for_neuralprophet(_torch)
 
     model = NeuralProphet(
         n_lags=0,
