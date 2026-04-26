@@ -72,6 +72,7 @@ FEATURE_COLS = active_feature_cols()
 #     (importance は表示するが stability は提供しない)
 N_BOOTSTRAP = 20  # bootstrap 反復数。少なすぎると CV が不安定、多すぎると重い
 MIN_ROWS = 14
+MIN_FEATURE_COVERAGE = 0.3  # 30% 以上の非 null 行を要求
 
 
 # ── 純粋ロジック層 ─────────────────────────────────────────────────────────────
@@ -143,8 +144,9 @@ def run_importance(df: pd.DataFrame) -> dict[str, dict[str, float | str]]:
         ) from e
 
     before_rows = len(df)
-    df = apply_feature_engineering(df)
-    df = df.dropna(subset=FEATURE_COLS + ["target"])
+    df_engineered = apply_feature_engineering(df)
+    warn_low_engineered_feature_coverage(df_engineered)
+    df = df_engineered.dropna(subset=FEATURE_COLS + ["target"])
     after_rows = len(df)
     dropped_rows = before_rows - after_rows
     drop_rate = dropped_rows / before_rows if before_rows > 0 else 0.0
@@ -155,17 +157,6 @@ def run_importance(df: pd.DataFrame) -> dict[str, dict[str, float | str]]:
 
     if len(df) < MIN_ROWS:
         raise ValueError(f"有効行数が不足 ({len(df)} < {MIN_ROWS})")
-
-    # 特徴量ごとのカバレッジを確認（dropna 前の元データと比較）
-    # coverage が著しく低い特徴量は重要度スコアが歪む可能性があるため警告する
-    MIN_FEATURE_COVERAGE = 0.3  # 30% 以上の非 null 行を要求
-    for col in FEATURE_COLS:
-        coverage = df[col].notna().mean() if len(df) > 0 else 0.0
-        if coverage < MIN_FEATURE_COVERAGE:
-            logging.warning(
-                "Feature '%s' has low coverage: %.1f%% (threshold: %.0f%%)",
-                col, coverage * 100, MIN_FEATURE_COVERAGE * 100,
-            )
 
     X = df[FEATURE_COLS].values
     y = df["target"].values
@@ -265,6 +256,39 @@ def compute_stability(
         result[col] = {"stability": label, "cv": cv_rounded}
 
     return result
+
+
+def compute_engineered_feature_coverage(df: pd.DataFrame) -> dict[str, float]:
+    """特徴量エンジニアリング後・学習用 dropna 前の非欠損率を返す。
+
+    run_importance() の低 coverage warning は、FEATURE_COLS + target の
+    dropna 前に計算する必要がある。dropna 後に計算すると残存行は全て
+    non-null になり、低 coverage を検知できない。
+    """
+    n = len(df)
+    if n == 0:
+        return {col: 0.0 for col in FEATURE_COLS}
+
+    result: dict[str, float] = {}
+    for col in FEATURE_COLS:
+        coverage = float(df[col].notna().sum()) / n if col in df.columns else 0.0
+        result[col] = round(coverage, 4)
+    return result
+
+
+def warn_low_engineered_feature_coverage(
+    df: pd.DataFrame,
+    min_coverage: float = MIN_FEATURE_COVERAGE,
+) -> dict[str, float]:
+    """低 coverage の engineered feature を warning し、coverage 辞書を返す。"""
+    coverage_by_feature = compute_engineered_feature_coverage(df)
+    for col, coverage in coverage_by_feature.items():
+        if coverage < min_coverage:
+            logger.warning(
+                "Feature '%s' has low coverage: %.1f%% (threshold: %.0f%%)",
+                col, coverage * 100, min_coverage * 100,
+            )
+    return coverage_by_feature
 
 
 def compute_feature_coverage(df: pd.DataFrame) -> dict[str, float]:

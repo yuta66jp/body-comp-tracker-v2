@@ -15,9 +15,11 @@ import pytest
 from analyze import (
     run_importance,
     apply_feature_engineering,
+    compute_engineered_feature_coverage,
     compute_feature_coverage,
     compute_meta,
     compute_stability,
+    warn_low_engineered_feature_coverage,
     build_payload,
     FEATURE_COLS,
     MIN_ROWS,
@@ -423,6 +425,42 @@ class TestComputeFeatureCoverage:
         result = compute_feature_coverage(df)
         for col in FEATURE_COLS:
             assert result[col] == 0.0
+
+
+# ── engineered feature coverage warning のテスト ─────────────────────────────
+
+class TestEngineeredFeatureCoverage:
+    def test_computes_coverage_before_training_dropna(self):
+        """学習用 dropna 前なら FEATURE_COLS の欠損率を検出できる。"""
+        df = _make_df(n=20)
+        engineered = apply_feature_engineering(df)
+        engineered.loc[:17, "cal_lag1"] = None
+
+        result = compute_engineered_feature_coverage(engineered)
+
+        assert result["cal_lag1"] == 0.1
+
+    def test_warns_when_engineered_feature_coverage_is_low(self, caplog):
+        """低 coverage の特徴量で warning が出る。"""
+        df = _make_df(n=20)
+        engineered = apply_feature_engineering(df)
+        engineered.loc[:17, "cal_lag1"] = None
+
+        with caplog.at_level("WARNING"):
+            result = warn_low_engineered_feature_coverage(engineered)
+
+        assert result["cal_lag1"] == 0.1
+        assert "Feature 'cal_lag1' has low coverage" in caplog.text
+
+    def test_no_low_coverage_warning_for_complete_engineered_features(self, caplog):
+        """欠損なしなら warning は出ない。"""
+        engineered = apply_feature_engineering(_make_df(n=20))
+
+        with caplog.at_level("WARNING"):
+            result = warn_low_engineered_feature_coverage(engineered)
+
+        assert all(result[col] == 1.0 for col in FEATURE_COLS)
+        assert "has low coverage" not in caplog.text
 
 
 # ── build_payload のテスト ───────────────────────────────────────────────────
