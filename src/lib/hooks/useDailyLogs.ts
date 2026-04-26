@@ -4,7 +4,7 @@
  * ## スコープと制約
  *
  * - このフックは **client component (MealLogger) 専用** であり、Server Components からは使わないこと
- * - `daily_logs` の **全列 full read** を行う（`select("*")`）
+ * - `daily_logs` の **全列 full read** を行う（server-side `/api/client-data` 経由）
  *   - 理由: MealLogger はフォーム hydration に既存ログの全フィールドが必要
  *   - front 側の Server Component ページは `src/lib/queries/dailyLogs.ts` の projection query を使うこと
  * - 保存後は `mutate()` でキャッシュを更新する（revalidatePath ではなく SWR 側で即時反映）
@@ -12,8 +12,10 @@
  *   年単位でデータが蓄積された場合のメモリ・転送量増加を防ぐ。
  *
  * ## full read が許容される理由
- * Client Component がブラウザから直接フォームを操作するため、
- * どの列が編集されるか事前に絞れない。Server Component SSR 側の read 最適化とは別物として扱う。
+ * Client Component がブラウザからフォームを操作するため、
+ * どの列が編集されるか事前に絞れない。DB への read は `/api/client-data` の
+ * server-side Supabase client に寄せ、httpOnly Auth cookie + RLS で owner scoped にする。
+ * Server Component SSR 側の read 最適化とは別物として扱う。
  */
 "use client";
 

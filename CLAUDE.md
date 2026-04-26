@@ -180,32 +180,36 @@ body-comp-tracker-v2/
 
 ## Supabase クライアント / 権限設計
 
-### 前提: 認証なし・個人運用
-- このアプリは Supabase Auth（ユーザー認証）を **導入していない**
-- **anon key のみ**を使用する（service_role key はフロントエンド・Server Components・Server Actions いずれにも渡さない）
-- 権限制御の唯一の層は **RLS ポリシー**（`supabase/migrations/` で定義）
-- 非公開 URL + anon key の組み合わせが現在の運用上の保護手段
+### 前提: Supabase Auth + RLS による single-user hardening
+- このアプリは個人利用前提だが、外部到達可能なデプロイに備えて Supabase Auth と RLS を導入済み
+- アプリ画面はログイン必須。許可メールは `NEXT_PUBLIC_ALLOWED_AUTH_EMAIL` で制限する
+- 主要なユーザー入力データは `user_id = auth.uid()` の owner scoped RLS で保護する
+- anon key は公開可能な Supabase client key として使うが、anon role 単体ではユーザー入力データも派生データも読めない
+- ML / analytics バッチだけが `SUPABASE_SERVICE_ROLE_KEY` を GitHub Secrets 経由で使い、RLS を bypass する
 
 ### クライアント生成の使い分け
 
 | ファイル | 使用箇所 | 備考 |
 |---|---|---|
-| `src/lib/supabase/client.ts` | Browser client / SWR hooks / Client Components | anon key ベース、RLS 適用 |
-| `src/lib/supabase/server.ts` | Server Components / Server Actions / Route Handlers | anon key ベース、RLS 適用 |
+| `src/lib/supabase/client.ts` | LoginForm など browser-side Supabase Auth 操作 | anon key。`persistSession: false` で browser storage に session を永続化しない |
+| `src/lib/supabase/server.ts` | Server Components / Server Actions / Route Handlers | anon key + httpOnly cookie の access token。authenticated role として RLS 適用 |
+| `/api/client-data` | Client Components の読み取り API | server-side Supabase client 経由で owner scoped read |
 
 - Server Components で使うからといって service_role key を使わない
-- anon key で実現できない操作が必要になった場合は、RLS ポリシーを拡張するか、設計を見直す
-- `@supabase/ssr` はインストールしていない（シンプルさ優先）
+- browser code から DB を直接 read する導線は増やさず、Client Components は `/api/client-data` を経由する
+- access / refresh token は `/api/auth/session` が httpOnly cookie として管理する
 
 ### RLS ポリシーの方針
 - 全テーブルに `ENABLE ROW LEVEL SECURITY` を適用する
-- anon ロールに対して必要最低限の操作（`SELECT` / `INSERT` / `UPDATE` / `DELETE`）を許可する
+- anon ロールにはアプリデータの SELECT / INSERT / UPDATE / DELETE を許可しない
+- `daily_logs` / `sleep_sessions` / `settings` / `food_master` / `menu_master` は authenticated user の `user_id = auth.uid()` 行だけを許可する
+- `predictions` / `analytics_cache` / `career_logs` / `forecast_backtest_*` は authenticated SELECT のみ。書き込みは service_role の ML / analytics バッチが担当する
 - ポリシーはすべて `supabase/migrations/` で管理し、手動 Console 操作で追加しない
 
 ### 将来のマルチユーザー化について
-- Auth 導入時は `auth.uid()` を使う RLS ポリシーへの差し替えが必要
-- `daily_logs` 等に `user_id` カラムを追加し、RLS で `user_id = auth.uid()` を条件にする
-- フロントのクライアント生成コードは `@supabase/ssr` の `createBrowserClient` / `createServerClient` への移行が推奨される
+- Auth / owner scoped RLS は導入済みだが、現在は single-user 運用が前提
+- `daily_logs.log_date` や `settings.key` などのグローバル UNIQUE / PRIMARY KEY は multi-user 対応時に `user_id` 複合キーへ移行する
+- ユーザー招待・削除・権限管理 UI は未実装
 - 詳細は `README.md`「アクセス制御の前提」を参照
 
 ## 実装原則

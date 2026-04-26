@@ -118,8 +118,8 @@ Dashboard は 18列中 16列を使用しており全列に近い。ただし:
 
 | 経路 | ファイル | 用途 | クライアント種別 |
 |---|---|---|---|
-| Client SWR hook | `src/lib/hooks/useDailyLogs.ts` | MealLogger フォーム hydration | Browser (anon key) |
-| CSV export route | `src/app/api/export/route.ts` | CSV ダウンロード（全列必要） | Server Route Handler (anon key) |
+| Client SWR hook | `src/lib/hooks/useDailyLogs.ts` | MealLogger フォーム hydration | Browser → `/api/client-data` → Server Route Handler（httpOnly Auth cookie + RLS） |
+| CSV export route | `src/app/api/export/route.ts` | CSV ダウンロード（全列必要） | Server Route Handler（httpOnly Auth cookie + RLS） |
 | ML batch enrich | `ml-pipeline/enrich.py` | TDEE 推定バッチ（全列必要） | Python supabase-py (service_role key) |
 | ML batch analyze | `ml-pipeline/analyze.py` | XGBoost 因子分析バッチ（全列必要） | Python supabase-py (service_role key) |
 | ML batch predict | `ml-pipeline/predict.py` | 体重予測バッチ（log_date, weight のみ） | Python supabase-py (service_role key) |
@@ -127,10 +127,12 @@ Dashboard は 18列中 16列を使用しており全列に近い。ただし:
 ### 各 full read が許容される理由
 
 **`useDailyLogs.ts`**: MealLogger は編集フォームのため、どの列が操作されるか事前に絞れない。
-Browser から直接取得する client-side SWR であり、Server Component SSR の projection 最適化とは別レイヤー。
+Client Component の SWR だが、DB へ直接アクセスせず `/api/client-data?resource=daily_logs` を経由する。
+Route Handler 側の server-side Supabase client が httpOnly cookie の access token を渡し、RLS で owner scoped に絞る。
+Server Component SSR の projection 最適化とは別レイヤー。
 
 **`api/export/route.ts`**: CSV エクスポートはユーザーがバックアップ目的で全データを取得するもの。
-表示最適化の対象外であり、全列取得が機能要件。
+表示最適化の対象外であり、全列取得が機能要件。未ログイン時は 401 を返し、ログイン済み session の RLS 権限で自分の行だけを返す。
 
 **`ml-pipeline/*.py`**: GitHub Actions cron で実行される Python バッチ。
 anon key ではなく service_role key を使用し、JS の query layer と完全に独立した経路。
@@ -300,7 +302,7 @@ Macro ページの stale 判定を廃止・簡略化する必要がある。
 ```
 【front 用 read（現行の fetchDailyLogs 系）】
   - 目的: UI 表示・フロント計算のためのデータ取得
-  - 認証: anon key + RLS
+  - 認証: Supabase Auth session + RLS（Server Components / Route Handlers は httpOnly cookie の access token を server client に渡す）
   - 量: 画面に必要な行数に限定すべき（最適化余地あり）
   - 現行の重さ: fetchDailyLogs() は全件・全列 = 個人利用規模では許容範囲
 
@@ -312,6 +314,7 @@ Macro ページの stale 判定を廃止・簡略化する必要がある。
 ```
 
 **責務境界の原則:**
+- フロント向けの DB read は authenticated session + RLS を前提にする。anon key だけでは `daily_logs` は読めない
 - フロントが全件 full read をするのは Dashboard のみ正当（月次計画・全期間グラフが必要）
 - Macro・TDEE は表示期間に合わせた軽量 read に移行できる設計余地がある
 - ML バッチの full read はフロントとは完全に分離されており変更不要

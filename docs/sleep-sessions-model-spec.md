@@ -311,7 +311,7 @@ sleep_sessions モデルでは:
 
 - 睡眠計測・睡眠トラッキング（このアプリは「推定値としての睡眠記録」のみ扱う）
 - リアルタイム同期・自動取得（外部デバイスとのライブ連携）
-- 複数ユーザー対応（Auth 設計は既存制約と同様）
+- 複数ユーザー対応（現行は single-user hardening。Supabase Auth + RLS は導入済みだが、チーム共有 UI や複合 UNIQUE への移行は対象外）
 - 睡眠スコアリング・評価機能
 
 ### 保留事項（#515〜#518 で決定する）
@@ -321,7 +321,7 @@ sleep_sessions モデルでは:
 | `weigh_in_time` と `wake_at` の UI 共有 | 2 フィールドを 1 入力欄にするかどうか UX 要確認 | #516 |
 | DB トリガー vs enrich.py での `sleep_hours` 更新 | バッチ設計依存 | #515 |
 | `daily_logs.bed_time` の廃止タイミング | ~~migration 互換性・移行期の長さ~~ | **#529 で廃止済み** |
-| `sleep_sessions` の RLS ポリシー | 既存パターンと同じ（anon 全許可）のはずだが確認が必要 | #515 |
+| `sleep_sessions` の RLS ポリシー | **#606 で確定済み**。anon は不可、authenticated は `user_id = auth.uid()` の owner scoped SELECT / INSERT / UPDATE / DELETE | #606 |
 | sleep_sessions の wake_date UNIQUE 制約の将来外し判断 | nap 対応のタイミングで決定 | 将来 Issue |
 
 ---
@@ -331,7 +331,7 @@ sleep_sessions モデルでは:
 ### #515: DB / 保存基盤
 
 - `sleep_sessions` テーブルを上記スキーマで作成する
-- RLS ポリシー: `anon` に SELECT / INSERT / UPDATE / DELETE を許可（既存パターン通り）
+- RLS ポリシー: anon には許可しない。authenticated session で `user_id = auth.uid()` の自分の行だけ SELECT / INSERT / UPDATE / DELETE を許可する
 - `save_sleep_session` RPC または supabase-js 直接 upsert を実装する
   - upsert key: `wake_date`（主睡眠 1件制約を維持）
 - `daily_logs.sleep_hours` を更新する手段を決定する（トリガー推奨）
