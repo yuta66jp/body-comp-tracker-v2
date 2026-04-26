@@ -3,7 +3,11 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { isAllowedUserEmail } from "@/lib/auth/session";
+import {
+  isAllowedUserEmail,
+  isAuthAllowlistConfigured,
+  isProductionAuthAllowlistRequired,
+} from "@/lib/auth/session";
 import { syncAuthCookie } from "@/lib/auth/browserSession";
 
 export function LoginForm() {
@@ -19,6 +23,12 @@ export function LoginForm() {
     setError(null);
 
     const normalizedEmail = email.trim().toLowerCase();
+    if (isProductionAuthAllowlistRequired() && !isAuthAllowlistConfigured()) {
+      setError("ログイン許可メールが設定されていません。管理者に確認してください。");
+      setSubmitting(false);
+      return;
+    }
+
     if (!isAllowedUserEmail(normalizedEmail)) {
       setError("このメールアドレスは許可されていません。");
       setSubmitting(false);
