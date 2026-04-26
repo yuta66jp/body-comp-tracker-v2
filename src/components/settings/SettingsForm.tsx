@@ -178,6 +178,7 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
 
   const [values, setValues] = useState<Record<string, string>>(initMap);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [statusMessage, setStatusMessage] = useState<string>("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // アコーディオン開閉状態: デフォルトは "season" セクションのみ開く
@@ -260,6 +261,7 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
    */
   async function handleSave() {
     setStatus("saving");
+    setStatusMessage("");
     setFieldErrors({});
 
     const result = await saveSettings({
@@ -285,6 +287,17 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
     });
 
     if (!result.ok) {
+      if (result.reason === "auth_required") {
+        setFieldErrors({});
+        setStatusMessage(result.error);
+        setStatus("error");
+        setTimeout(() => {
+          setStatus("idle");
+          setStatusMessage("");
+        }, 3000);
+        return;
+      }
+
       // server action からのエラーを fieldErrors に展開する
       // フォーマット: "field: message, field: message"
       const newErrors: Record<string, string> = {};
@@ -302,8 +315,12 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
       if (Object.keys(newErrors).length > 0) {
         setFieldErrors(newErrors);
       }
+      setStatusMessage("保存に失敗しました");
       setStatus("error");
-      setTimeout(() => setStatus("idle"), 3000);
+      setTimeout(() => {
+        setStatus("idle");
+        setStatusMessage("");
+      }, 3000);
     } else {
       setStatus("saved");
       setTimeout(() => setStatus("idle"), 2000);
@@ -486,7 +503,7 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
         <div className="flex items-center gap-1.5 text-xs font-medium sm:mr-3">
           {status === "error" && (
             <span className="flex items-center gap-1.5 text-rose-500">
-              <AlertCircle size={13} /> 保存に失敗しました
+              <AlertCircle size={13} /> {statusMessage || "保存に失敗しました"}
             </span>
           )}
           {status === "saved" && (

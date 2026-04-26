@@ -49,6 +49,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<NewFood>(EMPTY_FOOD);
   const [error, setError] = useState<string | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   /** true のとき新規カテゴリ名をテキスト入力、false のとき既存から選択 */
@@ -98,6 +99,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
   }
 
   async function handleAdd() {
+    setListError(null);
     if (!form.name.trim()) return setError("食品名は必須です");
 
     // calories / protein / fat / carbs は必須。空文字や NaN はエラー
@@ -154,10 +156,13 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
   function handleDelete(name: string) {
     startTransition(async () => {
       const { error: err } = await deleteFood(name);
-      if (!err) {
-        setFoods((prev) => prev.filter((f) => f.name !== name));
-        void mutate("food_master"); // FoodPicker (useFoodList) の SWR キャッシュを無効化
+      if (err) {
+        setListError(err);
+        return;
       }
+      setListError(null);
+      setFoods((prev) => prev.filter((f) => f.name !== name));
+      void mutate("food_master"); // FoodPicker (useFoodList) の SWR キャッシュを無効化
     });
   }
 
@@ -207,7 +212,7 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
         </div>
         <button
           onClick={() => {
-            if (showForm) { closeForm(); } else { setShowForm(true); setError(null); }
+            if (showForm) { closeForm(); } else { setShowForm(true); setError(null); setListError(null); }
           }}
           className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 dark:bg-blue-800 dark:hover:bg-blue-700"
         >
@@ -233,6 +238,12 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
             </button>
           ))}
         </div>
+      )}
+
+      {listError && (
+        <p role="alert" className="order-4 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-600 dark:border-rose-800/50 dark:bg-rose-900/20 dark:text-rose-300">
+          {listError}
+        </p>
       )}
 
       {/* ── 追加フォーム ── */}

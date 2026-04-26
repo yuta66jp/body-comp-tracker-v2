@@ -232,6 +232,21 @@ describe("FoodTable — 削除", () => {
     // 食品はリストに残る
     expect(screen.getAllByText("削除対象").length).toBeGreaterThanOrEqual(1);
   });
+
+  it("削除失敗時は追加フォームを開いていなくても一覧上部にエラーを表示する", async () => {
+    mockDeleteFood.mockResolvedValueOnce({ error: "ログインし直してください", reason: "auth_required" });
+    render(<FoodTable initialFoods={[makeFoodMaster({ name: "削除対象" })]} />);
+
+    fireEvent.click(screen.getAllByLabelText("削除対象を削除")[0]!);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "削除" }));
+    });
+
+    expect(screen.queryByText("新規食品を追加 (100g あたり)")).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("ログインし直してください");
+    expect(screen.getAllByText("削除対象").length).toBeGreaterThanOrEqual(1);
+  });
 });
 
 // ─── シナリオ 7: ソートヘッダー (button / aria-sort) ─────────────────────

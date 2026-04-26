@@ -89,10 +89,16 @@ export async function importDailyLogs(
           { skipRevalidate: true }
         );
         if (!sleepResult.ok) {
+          if (sleepResult.reason === "auth_required") {
+            return { ok: false, message: sleepResult.message };
+          }
           sleepSkipped++;
         }
       }
     } else {
+      if (result.reason === "auth_required") {
+        return { ok: false, message: result.message };
+      }
       skipped++;
     }
   }

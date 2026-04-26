@@ -163,6 +163,19 @@ describe("importDailyLogs — saveSleepSession 失敗", () => {
 
     expect(result).toEqual({ ok: true, count: 2, skipped: 0, sleepSkipped: 1 });
   });
+
+  it("saveSleepSession の認証切れはインポート全体のエラーとして返す", async () => {
+    mockSaveSleepSession.mockResolvedValueOnce({
+      ok: false,
+      message: "ログインし直してください",
+      reason: "auth_required",
+    });
+
+    const row = makeRow({ sleep_bed_time: "23:30", sleep_wake_time: "07:00" });
+    const result = await importDailyLogs([row]);
+
+    expect(result).toEqual({ ok: false, message: "ログインし直してください" });
+  });
 });
 
 describe("importDailyLogs — saveDailyLog 失敗", () => {
@@ -176,6 +189,20 @@ describe("importDailyLogs — saveDailyLog 失敗", () => {
     const result = await importDailyLogs([row]);
 
     expect(result).toEqual({ ok: true, count: 0, skipped: 1, sleepSkipped: 0 });
+    expect(mockSaveSleepSession).not.toHaveBeenCalled();
+  });
+
+  it("saveDailyLog の認証切れは skipped にせずインポート全体のエラーとして返す", async () => {
+    mockSaveDailyLog.mockResolvedValueOnce({
+      ok: false,
+      message: "ログインし直してください",
+      reason: "auth_required",
+    });
+
+    const row = makeRow({ sleep_bed_time: "23:30", sleep_wake_time: "07:00" });
+    const result = await importDailyLogs([row]);
+
+    expect(result).toEqual({ ok: false, message: "ログインし直してください" });
     expect(mockSaveSleepSession).not.toHaveBeenCalled();
   });
 });
