@@ -72,7 +72,7 @@ export interface WeeklyNutrition {
 export interface WeeklyWeight {
   /** 直近 7 暦日の体重平均 (kg) */
   avg: number | null;
-  /** 前 7 日 (8〜14 日前) の体重平均 (kg) */
+  /** 前 7 日 (7〜13 日前) の体重平均 (kg) */
   prevAvg: number | null;
   /** 週平均体重の変化: avg − prevAvg (kg) */
   change: number | null;
@@ -617,11 +617,11 @@ export function calcWeeklyReview(
     .map((l) => l.sleep_hours as number);
 
   // 就寝・起床平均時刻: sleep_sessions.bed_at / wake_at から算出
-  // 前週比のため、前の 7 暦日 (8〜14 日前) も集計する
+  // 前週比のため、前の 7 暦日 (today-13 〜 today-7) も集計する
   const d7DateSet = new Set(last7Dates);
   const prevD14Start = addDaysStr(todayStr, -13) ?? todayStr;
-  const prevD8       = addDaysStr(todayStr, -7)  ?? todayStr;
-  const prev7DateSet = new Set(dateRangeStr(prevD14Start, prevD8));
+  const prevD7End    = addDaysStr(todayStr, -7)  ?? todayStr;
+  const prev7DateSet = new Set(dateRangeStr(prevD14Start, prevD7End));
 
   let avgBedTime: string | null = null;
   let avgWakeTime: string | null = null;
