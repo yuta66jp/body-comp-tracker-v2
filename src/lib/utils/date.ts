@@ -80,6 +80,16 @@ export function parseLocalDateStr(s: string): Date | null {
 }
 
 /**
+ * API query parameter の日付検証。
+ *
+ * `YYYY-MM-DD` 形式かつ実在する日付のみ true を返す。
+ * 空文字は false。任意パラメータとして扱う場合は呼び出し側でスキップする。
+ */
+export function isValidDateParam(s: string): boolean {
+  return parseLocalDateStr(s) !== null;
+}
+
+/**
  * 2つの YYYY-MM-DD 文字列間のカレンダー日数差を返す（低レベル基盤関数）。
  *
  * 戻り値: (to - from) の日数。
