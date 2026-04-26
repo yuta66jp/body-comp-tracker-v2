@@ -10,12 +10,15 @@ export function AuthSessionSync() {
   useEffect(() => {
     let cancelled = false;
 
-    void refreshAuthCookie().then((synced) => {
-      if (synced && !cancelled) router.refresh();
-    });
+    const refreshAndResync = async () => {
+      await refreshAuthCookie();
+      if (!cancelled) router.refresh();
+    };
+
+    void refreshAndResync();
 
     const intervalId = window.setInterval(() => {
-      void refreshAuthCookie();
+      void refreshAndResync();
     }, 10 * 60 * 1000);
 
     return () => {
