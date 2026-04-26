@@ -11,15 +11,16 @@ export function AuthSessionSync() {
   useEffect(() => {
     const supabase = createClient();
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      syncAuthCookie(session);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      await syncAuthCookie(session);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      syncAuthCookie(session);
-      router.refresh();
+      void syncAuthCookie(session).then(() => {
+        router.refresh();
+      });
     });
 
     return () => subscription.unsubscribe();

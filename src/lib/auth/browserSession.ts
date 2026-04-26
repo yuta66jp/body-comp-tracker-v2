@@ -1,19 +1,24 @@
 import type { Session } from "@supabase/supabase-js";
-import { AUTH_ACCESS_TOKEN_COOKIE } from "./session";
 
-function cookieAttributes(maxAge: number): string {
-  const secure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; Secure" : "";
-  return `path=/; max-age=${maxAge}; SameSite=Lax${secure}`;
-}
+export async function syncAuthCookie(session: Session | null): Promise<boolean> {
+  if (typeof window === "undefined") return true;
 
-export function syncAuthCookie(session: Session | null): void {
-  if (typeof document === "undefined") return;
+  try {
+    if (!session?.access_token) {
+      const response = await fetch("/api/auth/session", { method: "DELETE" });
+      return response.ok;
+    }
 
-  if (!session?.access_token) {
-    document.cookie = `${AUTH_ACCESS_TOKEN_COOKIE}=; ${cookieAttributes(0)}`;
-    return;
+    const response = await fetch("/api/auth/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        accessToken: session.access_token,
+        expiresAt: session.expires_at,
+      }),
+    });
+    return response.ok;
+  } catch {
+    return false;
   }
-
-  const maxAge = Math.max(0, Math.floor((session.expires_at ?? 0) - Date.now() / 1000));
-  document.cookie = `${AUTH_ACCESS_TOKEN_COOKIE}=${encodeURIComponent(session.access_token)}; ${cookieAttributes(maxAge)}`;
 }

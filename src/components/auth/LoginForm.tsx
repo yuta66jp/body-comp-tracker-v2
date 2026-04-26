@@ -47,7 +47,13 @@ export function LoginForm() {
       return;
     }
 
-    syncAuthCookie(data.session);
+    const synced = await syncAuthCookie(data.session);
+    if (!synced) {
+      setError("ログインセッションの保存に失敗しました。もう一度ログインしてください。");
+      setSubmitting(false);
+      return;
+    }
+
     router.refresh();
   }
 

@@ -14,7 +14,7 @@ export function SignOutButton() {
     setSigningOut(true);
     const supabase = createClient();
     await supabase.auth.signOut();
-    syncAuthCookie(null);
+    await syncAuthCookie(null);
     router.refresh();
   }
 

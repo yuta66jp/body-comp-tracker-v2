@@ -34,6 +34,11 @@ NEXT_PUBLIC_ALLOWED_AUTH_EMAIL=you@example.com
 本番 / preview ではこの値が未設定の場合、Auth gate は fail-closed になり、ログイン済み Supabase Auth ユーザーも許可しない。
 ローカル開発では未設定でも allowlist 判定を通すが、デプロイ環境では必ず設定する。
 
+## Auth cookie
+
+ブラウザで Supabase Auth にログインした後、`/api/auth/session` が access token を検証し、server-side access 用の `bc_auth_access_token` を httpOnly cookie として保存する。
+クライアントコードはこの cookie を `document.cookie` で直接書き込まない。
+
 ## 既存データ backfill
 
 `20260425000000_single_user_auth_rls.sql` 適用後、既存行の `user_id` は `NULL` のまま残る。
