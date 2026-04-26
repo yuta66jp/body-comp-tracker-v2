@@ -280,4 +280,19 @@ describe("MenuTable — 削除", () => {
     // セットはリストに残る
     expect(screen.getAllByText("鶏飯セット").length).toBeGreaterThanOrEqual(1);
   });
+
+  it("削除失敗時は編集フォームを開いていなくても一覧上部にエラーを表示する", async () => {
+    mockDeleteMenu.mockResolvedValueOnce({ error: "ログインし直してください", reason: "auth_required" });
+    render(<MenuTable initialMenus={INITIAL_MENUS} foods={FOODS} />);
+
+    fireEvent.click(screen.getAllByLabelText("鶏飯セットを削除")[0]!);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "削除" }));
+    });
+
+    expect(screen.queryByPlaceholderText("セット名（例: 鶏飯セット）")).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("ログインし直してください");
+    expect(screen.getAllByText("鶏飯セット").length).toBeGreaterThanOrEqual(1);
+  });
 });

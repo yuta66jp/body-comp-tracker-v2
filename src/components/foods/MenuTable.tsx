@@ -34,6 +34,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
   const [addAmount, setAddAmount] = useState("100");
   const [addCategory, setAddCategory] = useState("すべて");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -57,12 +58,14 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
   function startNew() {
     setEditing({ originalName: null, name: "", items: [] });
     setSaveError(null);
+    setListError(null);
     setSaveSuccess(false);
   }
 
   function startEdit(menu: MenuEntry) {
     setEditing({ originalName: menu.name, name: menu.name, items: [...menu.recipe] });
     setSaveError(null);
+    setListError(null);
     setSaveSuccess(false);
   }
 
@@ -92,6 +95,7 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
 
   async function handleSave() {
     if (!editing) return;
+    setListError(null);
     if (!editing.name.trim()) return setSaveError("セット名は必須です");
     if (editing.items.length === 0) return setSaveError("1品以上追加してください");
 
@@ -128,10 +132,10 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
     startTransition(async () => {
       const { error } = await deleteMenu(name);
       if (error) {
-        setSaveError(error);
+        setListError(error);
         return;
       }
-      setSaveError(null);
+      setListError(null);
       setMenus((prev) => prev.filter((m) => m.name !== name));
       void mutate("menu_master"); // MenuPicker (useMenuList) の SWR キャッシュを無効化
     });
@@ -166,6 +170,12 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
           新規セット
         </button>
       </div>
+
+      {listError && (
+        <p role="alert" className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-600 dark:border-rose-800/50 dark:bg-rose-900/20 dark:text-rose-300">
+          {listError}
+        </p>
+      )}
 
       {/* 編集フォーム */}
       {editing && (
