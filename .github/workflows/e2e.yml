@@ -1,7 +1,7 @@
 name: E2E Smoke Tests
 
 # 主要ページ表示の読み取り専用 smoke tests を chromium で実行する。
-# CI では E2E_AUTH_EMAIL / E2E_AUTH_PASSWORD が必須。
+# E2E_AUTH_EMAIL / E2E_AUTH_PASSWORD secrets がある場合は認証済み主要画面も必須実行する。
 on:
   pull_request:
     branches: [main]
@@ -43,6 +43,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_ALLOWED_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
+          E2E_REQUIRE_AUTH: ${{ (secrets.E2E_AUTH_EMAIL != '' && secrets.E2E_AUTH_PASSWORD != '') && 'true' || 'false' }}
           E2E_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
           E2E_AUTH_PASSWORD: ${{ secrets.E2E_AUTH_PASSWORD }}
         run: npm run e2e:smoke

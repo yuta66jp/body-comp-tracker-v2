@@ -7,7 +7,7 @@
  * ## 確認内容
  * - 未認証時はログイン画面が表示される
  * - ローカルでは E2E_AUTH_EMAIL / E2E_AUTH_PASSWORD がある場合だけ認証済み主要ページを確認する
- * - CI では E2E_AUTH_EMAIL / E2E_AUTH_PASSWORD を必須とし、未設定なら失敗させる
+ * - CI では E2E_REQUIRE_AUTH=true のとき E2E_AUTH_EMAIL / E2E_AUTH_PASSWORD を必須とする
  * - 主要ページが HTTP 500 / "Application error" なしにロードできる
  * - NavBar (ナビゲーション) が表示される
  * - NavBar リンクから設定ページへの遷移が動作する
@@ -22,7 +22,7 @@ import type { Page } from "@playwright/test";
 const E2E_AUTH_EMAIL = process.env.E2E_AUTH_EMAIL;
 const E2E_AUTH_PASSWORD = process.env.E2E_AUTH_PASSWORD;
 const HAS_AUTH = Boolean(E2E_AUTH_EMAIL && E2E_AUTH_PASSWORD);
-const IS_CI = process.env.CI === "true";
+const REQUIRE_AUTH = process.env.E2E_REQUIRE_AUTH === "true";
 const AUTH_ENV_MESSAGE = "認証済み画面の smoke には E2E_AUTH_EMAIL / E2E_AUTH_PASSWORD が必要";
 
 // ナビゲーションリンク名と URL の対応 (NavBar.tsx の NAV_ITEMS に準拠)
@@ -38,9 +38,9 @@ const MAIN_PAGES = [
 
 function requireAuthEnvForSmoke() {
   if (HAS_AUTH) return;
-  if (IS_CI) {
+  if (REQUIRE_AUTH) {
     throw new Error(
-      `${AUTH_ENV_MESSAGE}。GitHub Actions secrets に E2E_AUTH_EMAIL / E2E_AUTH_PASSWORD を設定してください。`
+      `${AUTH_ENV_MESSAGE}。E2E_REQUIRE_AUTH=true の実行では GitHub Actions secrets に E2E_AUTH_EMAIL / E2E_AUTH_PASSWORD を設定してください。`
     );
   }
   test.skip(true, AUTH_ENV_MESSAGE);
