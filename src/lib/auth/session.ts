@@ -8,9 +8,17 @@ export function getAllowedAuthEmail(): string | null {
   return email.length > 0 ? email : null;
 }
 
+export function isProductionAuthAllowlistRequired(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+export function isAuthAllowlistConfigured(): boolean {
+  return getAllowedAuthEmail() !== null;
+}
+
 export function isAllowedUserEmail(email: string | null | undefined): boolean {
   const allowedEmail = getAllowedAuthEmail();
-  if (!allowedEmail) return true;
+  if (!allowedEmail) return !isProductionAuthAllowlistRequired();
   return email?.trim().toLowerCase() === allowedEmail;
 }
 
