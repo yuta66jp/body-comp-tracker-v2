@@ -217,6 +217,26 @@ ForecastChart（`src/components/charts/ForecastChart.tsx`）は 3 タブ（7日 
 |---|---|
 | TypeScript | lint / tsc / jest / build を CI で自動検証 |
 | Python | pytest で `test_analyze.py` / `test_enrich.py` / `test_feature_registry.py` / `test_backtest.py` を CI 監視 |
+| E2E smoke | Playwright でログイン画面と認証済み主要画面を読み取り専用で検証 |
+
+#### E2E smoke の CI secrets
+
+`.github/workflows/e2e.yml` は PR / main push / 手動実行で `npm run e2e:smoke` を実行する。
+CI では以下の GitHub Actions secrets が必須。未設定の場合、認証済み画面の smoke test は失敗する。
+
+| Secret | 用途 |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | E2E 対象 Supabase project |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | E2E 対象 Supabase anon key |
+| `E2E_AUTH_EMAIL` | Supabase Auth の読み取り専用 smoke 用ユーザー。workflow 内で `NEXT_PUBLIC_ALLOWED_AUTH_EMAIL` にも使う |
+| `E2E_AUTH_PASSWORD` | 上記ユーザーのパスワード |
+
+E2E smoke は書き込み操作を行わない。`E2E_AUTH_EMAIL` は、Supabase Auth に存在し、RLS 適用後の主要画面を読み取れるユーザーにする。
+ローカルで `E2E_AUTH_EMAIL` / `E2E_AUTH_PASSWORD` が未設定の場合、未認証ログイン画面の確認だけ実行し、認証済み画面は skipped になる。
+
+```bash
+E2E_AUTH_EMAIL=you@example.com E2E_AUTH_PASSWORD='password' npm run e2e:smoke
+```
 
 ---
 

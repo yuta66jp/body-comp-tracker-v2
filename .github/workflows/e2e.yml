@@ -1,8 +1,12 @@
 name: E2E Smoke Tests
 
-# 手動トリガーのみ。PR ゲートには含めない（ブラウザ起動コストのため）。
-# 主要ページ表示の smoke tests を chromium で実行する。
+# 主要ページ表示の読み取り専用 smoke tests を chromium で実行する。
+# CI では E2E_AUTH_EMAIL / E2E_AUTH_PASSWORD が必須。
 on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -30,6 +34,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_ALLOWED_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
         run: npm run build
 
       - name: Run smoke tests
@@ -37,6 +42,9 @@ jobs:
           CI: true
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_ALLOWED_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
+          E2E_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
+          E2E_AUTH_PASSWORD: ${{ secrets.E2E_AUTH_PASSWORD }}
         run: npm run e2e:smoke
 
       - name: Upload Playwright report on failure
