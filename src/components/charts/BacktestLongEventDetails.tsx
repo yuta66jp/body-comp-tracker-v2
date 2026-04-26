@@ -16,6 +16,7 @@
  *   - exclude_long_event_blocks policy が metrics に存在しない場合は null を返す
  */
 
+import { Fragment } from "react";
 import { TrendingDown } from "lucide-react";
 import type { ForecastBacktestMetric } from "@/lib/supabase/types";
 import type { LongEventBlock } from "@/lib/utils/backtestExclusion";
@@ -266,12 +267,12 @@ export function BacktestLongEventDetails({
                   <th className="px-4 py-1"></th>
                   {horizons.map((h) => (
                     visiblePolicies.map((p) => (
-                      <>
-                        <th key={`${h}-${p}-mae`}  className="border-l border-slate-100 px-2 py-1 text-center dark:border-slate-700">MAE</th>
-                        <th key={`${h}-${p}-rmse`} className="px-2 py-1 text-center">RMSE</th>
-                        <th key={`${h}-${p}-bias`} className="px-2 py-1 text-center">Bias</th>
-                        <th key={`${h}-${p}-n`}    className="px-2 py-1 text-center">n</th>
-                      </>
+                      <Fragment key={`${h}-${p}`}>
+                        <th className="border-l border-slate-100 px-2 py-1 text-center dark:border-slate-700">MAE</th>
+                        <th className="px-2 py-1 text-center">RMSE</th>
+                        <th className="px-2 py-1 text-center">Bias</th>
+                        <th className="px-2 py-1 text-center">n</th>
+                      </Fragment>
                     ))
                   ))}
                 </tr>
@@ -297,22 +298,22 @@ export function BacktestLongEventDetails({
                             : p === POLICY_EXCLUDE  ? "text-violet-700 dark:text-violet-400"
                             : "text-slate-600 dark:text-slate-300";
                           return (
-                            <>
-                              <td key={`${h}-${p}-mae`}  className={`border-l border-slate-100 px-2 py-2 text-center font-mono tabular-nums dark:border-slate-700 ${colorClass}`}>
+                            <Fragment key={`${h}-${p}`}>
+                              <td className={`border-l border-slate-100 px-2 py-2 text-center font-mono tabular-nums dark:border-slate-700 ${colorClass}`}>
                                 {m?.n_predictions === 0 ? (
                                   <span className="text-[10px] text-slate-400">全除外</span>
                                 ) : fmt3(m?.mae)}
                               </td>
-                              <td key={`${h}-${p}-rmse`} className={`px-2 py-2 text-center font-mono tabular-nums ${colorClass}`}>
+                              <td className={`px-2 py-2 text-center font-mono tabular-nums ${colorClass}`}>
                                 {m?.n_predictions === 0 ? "—" : fmt3(m?.rmse)}
                               </td>
-                              <td key={`${h}-${p}-bias`} className={`px-2 py-2 text-center font-mono tabular-nums ${colorClass}`}>
+                              <td className={`px-2 py-2 text-center font-mono tabular-nums ${colorClass}`}>
                                 {m?.n_predictions === 0 ? "—" : fmtBias(m?.bias)}
                               </td>
-                              <td key={`${h}-${p}-n`}    className="px-2 py-2 text-center text-[10px] tabular-nums text-slate-400 dark:text-slate-500">
+                              <td className="px-2 py-2 text-center text-[10px] tabular-nums text-slate-400 dark:text-slate-500">
                                 {m != null ? m.n_predictions : "—"}
                               </td>
-                            </>
+                            </Fragment>
                           );
                         })
                       ))}
