@@ -20,10 +20,11 @@ jest.mock("@/lib/supabase/server", () => ({
 
 import { buildUpdatePayload } from "../buildUpdatePayload";
 import { saveDailyLog } from "../saveDailyLog";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, requireCurrentUser } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 const mockCreateClient = createClient as jest.MockedFunction<typeof createClient>;
+const mockRequireCurrentUser = requireCurrentUser as jest.MockedFunction<typeof requireCurrentUser>;
 
 // ── Supabase クライアントモックヘルパー ─────────────────────────────────────
 
@@ -303,6 +304,20 @@ describe("buildUpdatePayload — null による明示的クリア", () => {
 // ════════════════════════════════════════════════════════════════════════════
 
 describe("saveDailyLog — atomic upsert (RPC 呼び出し検証)", () => {
+  test("認証切れはログインし直しメッセージとして返す", async () => {
+    mockCreateClient.mockClear();
+    mockRequireCurrentUser.mockRejectedValueOnce(new Error("auth_required"));
+
+    const result = await saveDailyLog({ log_date: "2026-03-13", weight: 70.5 });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "ログインし直してください",
+      reason: "auth_required",
+    });
+    expect(mockCreateClient).not.toHaveBeenCalled();
+  });
+
   test("weight のみ → RPC が save_daily_log_partial で呼ばれ p_fields に weight が含まれる", async () => {
     const capture = makeRpcMock();
     const result = await saveDailyLog({ log_date: "2026-03-13", weight: 70.5 });

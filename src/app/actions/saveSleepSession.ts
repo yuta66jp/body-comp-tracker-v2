@@ -24,6 +24,7 @@
  */
 
 import { createClient, requireCurrentUser } from "@/lib/supabase/server";
+import { authRequiredMessage } from "@/lib/auth/actionErrors";
 import { revalidateAfterDailyLogMutation } from "@/lib/cache/revalidate";
 import { parseLocalDateStr } from "@/lib/utils/date";
 import { buildSleepSessionDatetimes } from "@/lib/utils/sleepSession";
@@ -41,7 +42,7 @@ export type SaveSleepSessionInput = {
 
 export type SaveSleepSessionResult =
   | { ok: true }
-  | { ok: false; message: string };
+  | { ok: false; message: string; reason?: "auth_required" };
 
 export type SaveSleepSessionOptions = {
   /**
@@ -136,6 +137,9 @@ export async function saveSleepSession(
 
     return { ok: true };
   } catch (e) {
+    const message = authRequiredMessage(e);
+    if (message) return { ok: false, message, reason: "auth_required" };
+
     // Supabase の fetch 失敗など、想定外の例外が発生した場合のフォールバック。
     // throw をそのまま外部に伝播させると MealLogger の generic catch に落ちて
     // 「予期しないエラーが発生しました」が表示されるため、ここで { ok: false } に正規化する (#544)。
@@ -155,12 +159,21 @@ export async function deleteSleepSession(
     return { ok: false, message: "wake_date の形式が正しくありません (YYYY-MM-DD)" };
   }
 
-  const user = await requireCurrentUser();
+  let userId: string;
+  try {
+    const user = await requireCurrentUser();
+    userId = user.id;
+  } catch (error) {
+    const message = authRequiredMessage(error);
+    if (message) return { ok: false, message, reason: "auth_required" };
+    throw error;
+  }
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("sleep_sessions")
     .delete()
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("wake_date", wakeDate);
 
   if (error) {

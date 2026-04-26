@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient, requireCurrentUser } from "@/lib/supabase/server";
+import { authRequiredMessage } from "@/lib/auth/actionErrors";
 import { revalidateAfterDailyLogMutation } from "@/lib/cache/revalidate";
 import { isValidTrainingType, isValidWorkMode } from "@/lib/utils/trainingType";
 import { buildUpdatePayload } from "./buildUpdatePayload";
@@ -52,7 +53,7 @@ export type DailyLogPayload = Omit<SaveDailyLogInput, "log_date"> & {
 
 export type SaveDailyLogResult =
   | { ok: true }
-  | { ok: false; message: string };
+  | { ok: false; message: string; reason?: "auth_required" };
 
 /**
  * saveDailyLog のオプション。
@@ -135,7 +136,14 @@ export async function saveDailyLog(
     }
   }
 
-  await requireCurrentUser();
+  try {
+    await requireCurrentUser();
+  } catch (error) {
+    const message = authRequiredMessage(error);
+    if (message) return { ok: false, message, reason: "auth_required" };
+    throw error;
+  }
+
   const supabase = await createClient();
 
   const payload = buildUpdatePayload(input);

@@ -127,10 +127,13 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
   function handleDelete(name: string) {
     startTransition(async () => {
       const { error } = await deleteMenu(name);
-      if (!error) {
-        setMenus((prev) => prev.filter((m) => m.name !== name));
-        void mutate("menu_master"); // MenuPicker (useMenuList) の SWR キャッシュを無効化
+      if (error) {
+        setSaveError(error);
+        return;
       }
+      setSaveError(null);
+      setMenus((prev) => prev.filter((m) => m.name !== name));
+      void mutate("menu_master"); // MenuPicker (useMenuList) の SWR キャッシュを無効化
     });
   }
 

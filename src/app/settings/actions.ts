@@ -8,6 +8,7 @@
  */
 
 import { createClient, requireCurrentUser } from "@/lib/supabase/server";
+import { authRequiredMessage } from "@/lib/auth/actionErrors";
 import { revalidateAfterSettingsMutation } from "@/lib/cache/revalidate";
 import { parseSettings } from "@/lib/schemas/settingsSchema";
 import type { SettingsInput } from "@/lib/schemas/settingsSchema";
@@ -17,7 +18,7 @@ import { normalizeMonthlyPlanOverridesBeforeSave } from "@/lib/utils/normalizeMo
 /** saveSettings の戻り値 */
 export type SaveSettingsResult =
   | { ok: true }
-  | { ok: false; error: string };
+  | { ok: false; error: string; reason?: "auth_required" };
 
 /**
  * 設定値を検証して Supabase の settings テーブルに upsert する。
@@ -38,9 +39,18 @@ export async function saveSettings(
   }
 
   // 2. DB 保存
-  const user = await requireCurrentUser();
+  let userId: string;
+  try {
+    const user = await requireCurrentUser();
+    userId = user.id;
+  } catch (error) {
+    const message = authRequiredMessage(error);
+    if (message) return { ok: false, error: message, reason: "auth_required" };
+    throw error;
+  }
+
   const supabase = await createClient();
-  const records = parsed.records.map((record) => ({ ...record, user_id: user.id }));
+  const records = parsed.records.map((record) => ({ ...record, user_id: userId }));
   const { error } = await supabase
     .from("settings")
     .upsert(records as never);

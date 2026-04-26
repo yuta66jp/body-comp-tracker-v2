@@ -154,10 +154,13 @@ export function FoodTable({ initialFoods }: FoodTableProps) {
   function handleDelete(name: string) {
     startTransition(async () => {
       const { error: err } = await deleteFood(name);
-      if (!err) {
-        setFoods((prev) => prev.filter((f) => f.name !== name));
-        void mutate("food_master"); // FoodPicker (useFoodList) の SWR キャッシュを無効化
+      if (err) {
+        setError(err);
+        return;
       }
+      setError(null);
+      setFoods((prev) => prev.filter((f) => f.name !== name));
+      void mutate("food_master"); // FoodPicker (useFoodList) の SWR キャッシュを無効化
     });
   }
 
