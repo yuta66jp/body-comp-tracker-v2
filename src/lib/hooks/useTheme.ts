@@ -21,6 +21,28 @@ export type Theme = "light" | "dark" | "system";
 
 export const THEME_STORAGE_KEY = "theme";
 
+export function isTheme(value: unknown): value is Theme {
+  return value === "light" || value === "dark" || value === "system";
+}
+
+function readStoredTheme(): Theme {
+  if (typeof window === "undefined") return "system";
+  try {
+    const stored = localStorage.getItem(THEME_STORAGE_KEY);
+    return isTheme(stored) ? stored : "system";
+  } catch {
+    return "system";
+  }
+}
+
+function writeStoredTheme(theme: Theme): void {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    // localStorage が使えない環境でも state と DOM 反映は継続する。
+  }
+}
+
 function applyTheme(theme: Theme): void {
   const isDark =
     theme === "dark" ||
@@ -32,10 +54,7 @@ function applyTheme(theme: Theme): void {
 }
 
 export function useTheme(): { theme: Theme; setTheme: (t: Theme) => void } {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "system";
-    return (localStorage.getItem(THEME_STORAGE_KEY) as Theme) ?? "system";
-  });
+  const [theme, setThemeState] = useState<Theme>(() => readStoredTheme());
 
   // system モード時: prefers-color-scheme の変化を監視して html.dark を更新する
   useEffect(() => {
@@ -49,7 +68,7 @@ export function useTheme(): { theme: Theme; setTheme: (t: Theme) => void } {
   }, [theme]);
 
   function setTheme(t: Theme): void {
-    localStorage.setItem(THEME_STORAGE_KEY, t);
+    writeStoredTheme(t);
     setThemeState(t);
     applyTheme(t);
   }

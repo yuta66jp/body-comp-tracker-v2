@@ -253,18 +253,26 @@ describe("buildNoteSaveValue", () => {
 
 describe("hasDailyLogForDate", () => {
   it("hydratedLog が対象日付なら true", () => {
-    expect(hasDailyLogForDate(undefined, { log_date: "2026-04-10" }, "2026-04-10")).toBe(true);
+    expect(hasDailyLogForDate(undefined, { log_date: "2026-04-10" }, undefined, false, "2026-04-10")).toBe(true);
   });
 
   it("logs が未ロードで hydratedLog もなければ null", () => {
-    expect(hasDailyLogForDate(undefined, null, "2026-04-10")).toBeNull();
+    expect(hasDailyLogForDate(undefined, null, undefined, false, "2026-04-10")).toBeNull();
   });
 
   it("logs に対象日付があれば true", () => {
-    expect(hasDailyLogForDate([{ log_date: "2026-04-10" }], null, "2026-04-10")).toBe(true);
+    expect(hasDailyLogForDate([{ log_date: "2026-04-10" }], null, undefined, false, "2026-04-10")).toBe(true);
+  });
+
+  it("日付指定 fetch の結果に対象日付があれば true", () => {
+    expect(hasDailyLogForDate([], null, { log_date: "2026-04-10" }, false, "2026-04-10")).toBe(true);
+  });
+
+  it("日付指定 fetch 中なら null", () => {
+    expect(hasDailyLogForDate([], null, undefined, true, "2026-04-10")).toBeNull();
   });
 
   it("logs がロード済みで対象日付がなければ false", () => {
-    expect(hasDailyLogForDate([{ log_date: "2026-04-09" }], null, "2026-04-10")).toBe(false);
+    expect(hasDailyLogForDate([{ log_date: "2026-04-09" }], null, null, false, "2026-04-10")).toBe(false);
   });
 });
