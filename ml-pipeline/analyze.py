@@ -87,7 +87,7 @@ def apply_feature_engineering(
     run_importance() と compute_meta() の両方がこの関数を経由することで、
     特徴量エンジニアリングのロジックをここに一元化する。
 
-    返す DataFrame の末尾 1 行は target が NaN（shift(-1) によるもの）。
+    翌カレンダー日の weight が存在しない行は target が NaN になる。
     呼び出し側で dropna(subset=FEATURE_COLS + ["target"]) を行うこと。
 
     入力 df を変更しない（内部で copy する）。
@@ -335,11 +335,11 @@ def compute_meta(
 
     Returns:
         _meta キー向けの辞書:
-        - sample_count (int): 有効サンプル数（欠損除外 + shift(-1) 末尾除外後）
+        - sample_count (int): 有効サンプル数（特徴量欠損 + 翌日 weight 欠損の除外後）
         - date_from (str | None): 有効サンプルの最古日付。サンプルなしなら None
         - date_to (str | None): 有効サンプルの最新日付。サンプルなしなら None
         - total_rows (int): 入力 df の行数（フィルタ前）
-        - dropped_count (int): 欠損除外 + shift(-1) 末尾除外の合計
+        - dropped_count (int): 特徴量欠損 + 翌日 weight 欠損による除外数
         - feature_names (list[str]): アクティブ特徴量名リスト。featureLabels.ts との同期確認用。
         - feature_labels (dict[str, str]): {feature_name: label}。フロントの fallback 用。
         - feature_coverage (dict[str, float]): {feature_name: 非欠損率 0.0〜1.0}

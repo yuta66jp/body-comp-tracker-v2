@@ -34,8 +34,8 @@ jest.mock("@/app/actions/saveSleepSession", () => ({
   deleteSleepSession: jest.fn(async () => ({ ok: true })),
 }));
 
-let mockDailyLogs: DailyLog[] = [];
-let mockSleepSessions: SleepSession[] = [];
+let mockDailyLogs: DailyLog[] | undefined = [];
+let mockSleepSessions: SleepSession[] | undefined = [];
 
 // SWR フックをモック: テストごとに既存ログ有無を切り替える
 jest.mock("@/lib/hooks/useDailyLogs", () => ({
@@ -173,6 +173,35 @@ describe("MealLogger handleSave — 保存順序 (#528 回帰)", () => {
       const toast = screen.queryByTestId("toast-message");
       expect(toast).not.toBeNull();
       expect(toast?.textContent).toContain("体重も入力してください");
+    });
+
+    expect(mockSaveDailyLog).not.toHaveBeenCalled();
+    expect(mockSaveSleepSession).not.toHaveBeenCalled();
+    expect(callOrder).toEqual([]);
+  });
+
+  /**
+   * daily_logs が未ロードの状態で睡眠のみ変更:
+   * 既存日付か新規日付か判定できないため、sleep_sessions だけを先に保存しない。
+   */
+  it("daily_logs 未ロード: 睡眠のみ変更のとき確認中メッセージを表示し保存しない", async () => {
+    mockDailyLogs = undefined;
+
+    render(<MealLogger />);
+
+    const bedTimeInput = screen.getByLabelText(/就寝時刻/);
+    fireEvent.change(bedTimeInput, { target: { value: "22:30" } });
+
+    const wakeTimeInput = screen.getByLabelText(/起床時刻/);
+    fireEvent.change(wakeTimeInput, { target: { value: "06:30" } });
+
+    const saveButton = screen.getByRole("button", { name: /保存/ });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      const toast = screen.queryByTestId("toast-message");
+      expect(toast).not.toBeNull();
+      expect(toast?.textContent).toContain("既存ログを確認中です");
     });
 
     expect(mockSaveDailyLog).not.toHaveBeenCalled();

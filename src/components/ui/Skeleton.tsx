@@ -32,7 +32,7 @@ export function SkeletonCardRow({
   return (
     <div className={`grid gap-3 ${cols}`}>
       {Array.from({ length: count }).map((_, i) => (
-        <SkeletonBlock key={i} className={height} />
+        <SkeletonBlock key={`${height}-${i}`} className={height} />
       ))}
     </div>
   );

@@ -220,8 +220,8 @@ export function ImportSection() {
                 スキップされた行（{parsed.errors.length} 件）
               </p>
               <ul className="space-y-0.5 max-h-24 overflow-y-auto">
-                {parsed.errors.map((e, i) => (
-                  <li key={i} className="text-xs text-amber-600 dark:text-amber-400">{e}</li>
+                {parsed.errors.map((e) => (
+                  <li key={e} className="text-xs text-amber-600 dark:text-amber-400">{e}</li>
                 ))}
               </ul>
             </div>

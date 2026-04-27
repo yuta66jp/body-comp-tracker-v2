@@ -123,7 +123,7 @@ export function BacktestExcludedDates({
             <>
               手動イベント期間{" "}
               {manualEventPeriods.map((ep, i) => (
-                <span key={i} className="font-mono">
+                <span key={`${ep.start}-${ep.end}-${ep.reason ?? ""}`} className="font-mono">
                   {i > 0 && " / "}
                   {ep.start}〜{ep.end}
                   {ep.reason && (

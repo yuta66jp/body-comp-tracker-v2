@@ -92,6 +92,16 @@ export function computeHasDailyLogChanges(input: HasContentInput): boolean {
   );
 }
 
+export function hasDailyLogForDate(
+  logs: Pick<DailyLog, "log_date">[] | undefined,
+  hydratedLog: Pick<DailyLog, "log_date"> | null,
+  date: string
+): boolean | null {
+  if (hydratedLog?.log_date === date) return true;
+  if (logs === undefined) return null;
+  return logs.some((log) => log.log_date === date);
+}
+
 /**
  * MealLogger の note 入力状態を saveDailyLog の 3 状態へ変換する。
  *
@@ -386,8 +396,8 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       // daily_logs を先に作成してから saveSleepSession を呼ぶことで、
       // トリガーが正しく sleep_hours を書き込める。
       //
-      // sleepSessionTouched のみが true の場合（睡眠だけ変更）は daily_logs 更新は不要。
-      // computeHasDailyLogChanges で判定して saveDailyLog を呼ぶか決める。
+      // 既存 daily_logs 行がある日付の睡眠だけ変更では daily_logs 更新は不要。
+      // 新規日付では sleep_sessions トリガーの更新先がないため、睡眠だけ保存は後続で弾く。
       const hasDailyLogChanges = computeHasDailyLogChanges({
         weight, weightTouched, cartItems, cartEverHadItems,
         note, noteTouched, touchedTags,
@@ -396,11 +406,26 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
         lastMealEndTimeTouched,
       });
 
+      const existingDailyLog = hasDailyLogForDate(logs, hydratedLog, date);
       if (
         sleepSessionTouched &&
         !sleepSessionPendingDelete &&
         !hasDailyLogChanges &&
-        hydratedLog === null &&
+        existingDailyLog === null &&
+        sleepBedTime &&
+        sleepWakeTime
+      ) {
+        setErrorMessage("既存ログを確認中です。少し待ってからもう一度保存してください。");
+        setStatus("error");
+        setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
+        return;
+      }
+
+      if (
+        sleepSessionTouched &&
+        !sleepSessionPendingDelete &&
+        !hasDailyLogChanges &&
+        existingDailyLog === false &&
         sleepBedTime &&
         sleepWakeTime
       ) {

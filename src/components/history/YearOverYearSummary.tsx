@@ -192,7 +192,7 @@ export function YearOverYearSummary({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {displayRows.map((row, i) => {
+            {displayRows.map((row) => {
               const isFinisher = row.daysOut === Infinity;
               const label = isFinisher ? "仕上がり" : daysOutLabel(row.daysOut);
               const curVal = row.bySeasons[currentSeason] ?? null;
@@ -201,7 +201,7 @@ export function YearOverYearSummary({
 
               return (
                 <tr
-                  key={i}
+                  key={isFinisher ? "finisher" : `days-out-${row.daysOut}`}
                   className={`transition-colors hover:bg-slate-50 ${
                     isFinisher ? "border-t border-slate-200 font-semibold" : ""
                   }`}

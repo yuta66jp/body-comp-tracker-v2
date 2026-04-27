@@ -2,6 +2,7 @@ import {
   buildNoteSaveValue,
   computeHasContent,
   computeHasDailyLogChanges,
+  hasDailyLogForDate,
 } from "./MealLogger";
 
 const base = {
@@ -247,5 +248,23 @@ describe("buildNoteSaveValue", () => {
 
   it("削除予定状態の場合は null を返す", () => {
     expect(buildNoteSaveValue(null, true)).toBeNull();
+  });
+});
+
+describe("hasDailyLogForDate", () => {
+  it("hydratedLog が対象日付なら true", () => {
+    expect(hasDailyLogForDate(undefined, { log_date: "2026-04-10" }, "2026-04-10")).toBe(true);
+  });
+
+  it("logs が未ロードで hydratedLog もなければ null", () => {
+    expect(hasDailyLogForDate(undefined, null, "2026-04-10")).toBeNull();
+  });
+
+  it("logs に対象日付があれば true", () => {
+    expect(hasDailyLogForDate([{ log_date: "2026-04-10" }], null, "2026-04-10")).toBe(true);
+  });
+
+  it("logs がロード済みで対象日付がなければ false", () => {
+    expect(hasDailyLogForDate([{ log_date: "2026-04-09" }], null, "2026-04-10")).toBe(false);
   });
 });

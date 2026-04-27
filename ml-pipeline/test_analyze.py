@@ -83,7 +83,7 @@ class TestTargetDefinition:
             "carbs":    [200.0] * n,
         })
         df_sorted = df.sort_values("log_date").reset_index(drop=True)
-        df_sorted["target"] = df_sorted["weight"].shift(-1) - df_sorted["weight"]
+        df_sorted["target"] = df_sorted["weight"].iloc[1:].reset_index(drop=True) - df_sorted["weight"]
         valid = df_sorted.dropna(subset=["target"])
         # 単調増加なので全行 target > 0
         assert (valid["target"] > 0).all()
@@ -101,16 +101,16 @@ class TestTargetDefinition:
             "carbs":    [200.0] * n,
         })
         df_sorted = df.sort_values("log_date").reset_index(drop=True)
-        df_sorted["target"] = df_sorted["weight"].shift(-1) - df_sorted["weight"]
+        df_sorted["target"] = df_sorted["weight"].iloc[1:].reset_index(drop=True) - df_sorted["weight"]
         valid = df_sorted.dropna(subset=["target"])
         assert (valid["target"] < 0).all()
 
-    def test_target_last_row_dropped_due_to_shift(self):
-        """shift(-1) による末尾行は target が NaN になり除外される。"""
+    def test_target_last_row_dropped_when_next_day_weight_is_missing(self):
+        """翌カレンダー日の weight がない末尾行は target が NaN になり除外される。"""
         n = 20
         df = _make_df(n=n)
         df_sorted = df.sort_values("log_date").reset_index(drop=True)
-        df_sorted["target"] = df_sorted["weight"].shift(-1) - df_sorted["weight"]
+        df_sorted["target"] = df_sorted["weight"].iloc[1:].reset_index(drop=True) - df_sorted["weight"]
         valid = df_sorted.dropna(subset=["target"])
         # 末尾 1 行が除外されて n-1 行になる
         assert len(valid) == n - 1
@@ -137,16 +137,14 @@ class TestMissingValueHandling:
 
     def test_target_null_when_next_day_weight_missing(self):
         """翌日の weight が欠損している場合 target は NaN になり除外される。"""
-        n = 20
-        df = _make_df(n=n)
+        df = _make_df(n=20)
         # t+1 の weight を NaN にすると t の target も NaN になる
         df.loc[10, "weight"] = None
-        df_sorted = df.dropna(subset=["weight", "calories", "protein", "fat", "carbs"])
-        df_sorted = df_sorted.sort_values("log_date").reset_index(drop=True)
-        df_sorted["target"] = df_sorted["weight"].shift(-1) - df_sorted["weight"]
-        valid = df_sorted.dropna(subset=["target"])
-        # 欠損のある行（インデックス9がt, 10がt+1だがNaNで除外されたため9の次は11）が除外されている
-        assert len(valid) < n - 1
+
+        result = apply_feature_engineering(df)
+        row_before_missing = result.loc[result["log_date"] == "2025-01-10"].iloc[0]
+
+        assert pd.isna(row_before_missing["target"])
 
     def test_target_does_not_skip_missing_next_day_to_following_complete_row(self):
         """翌日が欠損している場合、次の完全入力行との差分を target にしない。"""
@@ -184,7 +182,7 @@ class TestMinRows:
 
     def test_succeeds_at_exactly_min_rows(self):
         """有効行数がちょうど MIN_ROWS のとき正常に動作する。"""
-        # shift(-1) で末尾1行が落ちるため MIN_ROWS + 1 行用意する
+        # 末尾行は翌日 weight がなく target が NaN になるため MIN_ROWS + 1 行用意する
         df = _make_df(n=MIN_ROWS + 1)
         result = run_importance(df)
         assert isinstance(result, dict)
@@ -273,7 +271,7 @@ class TestApplyFeatureEngineering:
         )
 
     def test_last_row_target_is_nan(self):
-        """shift(-1) により末尾行の target は NaN になる。"""
+        """翌カレンダー日の weight がない末尾行の target は NaN になる。"""
         df = _make_df(n=20)
         result = apply_feature_engineering(df)
         assert math.isnan(result["target"].iloc[-1])
@@ -319,8 +317,8 @@ class TestComputeMeta:
         meta = compute_meta(df)
         assert meta["total_rows"] == 20
 
-    def test_sample_count_less_than_total_due_to_shift(self):
-        """shift(-1) により末尾行が落ちるため sample_count < total_rows になる。"""
+    def test_sample_count_less_than_total_when_next_day_weight_is_missing(self):
+        """翌カレンダー日の weight がない末尾行が落ちるため sample_count < total_rows になる。"""
         df = _make_df(n=20)
         meta = compute_meta(df)
         assert meta["sample_count"] < meta["total_rows"]
