@@ -122,16 +122,15 @@ class TestFeatureRegistry:
         assert len(names) == len(set(names))
 
     def test_active_features_include_current_xgboost_cols(self):
-        """現在の XGBoost 特徴量 5 つが active=True で登録されている。"""
+        """現在の XGBoost 特徴量が active=True で登録されている。"""
         active_names = {f.name for f in FEATURE_REGISTRY if f.active}
-        expected = {"cal_lag1", "rolling_cal_7", "p_lag1", "f_lag1", "c_lag1"}
+        expected = {"cal_lag1", "rolling_cal_7", "p_lag1", "f_lag1", "c_lag1", "sleep_hours"}
         assert expected.issubset(active_names)
 
     def test_inactive_features_have_future_candidates(self):
         """将来候補が active=False で登録されている。"""
         inactive_names = {f.name for f in FEATURE_REGISTRY if not f.active}
-        # 睡眠・便通・トレーニング種別は将来候補として登録済み
-        assert "sleep_hours" in inactive_names
+        # 便通・トレーニング種別は将来候補として登録済み
         assert "had_bowel_movement" in inactive_names
         assert "training_type" in inactive_names
 
@@ -176,7 +175,7 @@ class TestActiveFeatureCols:
 
     def test_contains_current_xgboost_cols(self):
         cols = active_feature_cols()
-        for col in ["cal_lag1", "rolling_cal_7", "p_lag1", "f_lag1", "c_lag1"]:
+        for col in ["cal_lag1", "rolling_cal_7", "p_lag1", "f_lag1", "c_lag1", "sleep_hours"]:
             assert col in cols
 
     def test_no_inactive_cols(self):
@@ -248,7 +247,7 @@ class TestActiveFeatureNames:
 
     def test_contains_current_xgboost_features(self):
         names = active_feature_names()
-        for expected in ["cal_lag1", "rolling_cal_7", "p_lag1", "f_lag1", "c_lag1"]:
+        for expected in ["cal_lag1", "rolling_cal_7", "p_lag1", "f_lag1", "c_lag1", "sleep_hours"]:
             assert expected in names
 
     def test_no_inactive_features_included(self):

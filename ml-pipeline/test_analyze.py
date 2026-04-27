@@ -41,6 +41,7 @@ def _make_df(n: int = 30, base_weight: float = 65.0) -> pd.DataFrame:
     protein  = [150 + _math.sin(i * 0.7) * 10 for i in range(n)]
     fat      = [60  + _math.cos(i * 0.4) * 5  for i in range(n)]
     carbs    = [200 + _math.sin(i * 0.6) * 20  for i in range(n)]
+    sleep    = [6.5 + _math.sin(i * 0.2) * 0.8 for i in range(n)]
     return pd.DataFrame({
         "log_date": dates,
         "weight":   weights,
@@ -48,6 +49,7 @@ def _make_df(n: int = 30, base_weight: float = 65.0) -> pd.DataFrame:
         "protein":  protein,
         "fat":      fat,
         "carbs":    carbs,
+        "sleep_hours": sleep,
     })
 
 
@@ -81,6 +83,7 @@ class TestTargetDefinition:
             "protein":  [150.0] * n,
             "fat":      [60.0] * n,
             "carbs":    [200.0] * n,
+            "sleep_hours": [7.0] * n,
         })
         df_sorted = df.sort_values("log_date").reset_index(drop=True)
         # 連続日付データなので shift(-1) と等価。テスト内では現行実装に合わせて明示的に次行を参照する。
@@ -100,6 +103,7 @@ class TestTargetDefinition:
             "protein":  [150.0] * n,
             "fat":      [60.0] * n,
             "carbs":    [200.0] * n,
+            "sleep_hours": [7.0] * n,
         })
         df_sorted = df.sort_values("log_date").reset_index(drop=True)
         # 連続日付データなので shift(-1) と等価。テスト内では現行実装に合わせて明示的に次行を参照する。
@@ -289,6 +293,7 @@ class TestApplyFeatureEngineering:
             "protein":  [150.0] * n,
             "fat":      [60.0] * n,
             "carbs":    [200.0] * n,
+            "sleep_hours": [7.0] * n,
         })
         result = apply_feature_engineering(df)
         valid = result.dropna(subset=["target"])
@@ -340,7 +345,7 @@ class TestComputeMeta:
 
     def test_empty_input_returns_null_dates_and_zero_counts(self):
         """空 DataFrame を渡すと date_from/to は None、各カウントは 0 になる。"""
-        df = pd.DataFrame(columns=["log_date", "weight", "calories", "protein", "fat", "carbs"])
+        df = pd.DataFrame(columns=["log_date", "weight", "calories", "protein", "fat", "carbs", "sleep_hours"])
         meta = compute_meta(df)
         assert meta["date_from"] is None
         assert meta["date_to"] is None
@@ -445,7 +450,7 @@ class TestComputeFeatureCoverage:
 
     def test_empty_dataframe_returns_zeros(self):
         """空 DataFrame では全特徴量が 0.0 になる。"""
-        df = pd.DataFrame(columns=["log_date", "weight", "calories", "protein", "fat", "carbs"])
+        df = pd.DataFrame(columns=["log_date", "weight", "calories", "protein", "fat", "carbs", "sleep_hours"])
         result = compute_feature_coverage(df)
         for col in FEATURE_COLS:
             assert result[col] == 0.0
