@@ -249,19 +249,20 @@ E2E_REQUIRE_AUTH=true E2E_AUTH_EMAIL=you@example.com E2E_AUTH_PASSWORD='password
 
 運用期間の目的、想定期間、condition 系特徴量の段階投入、SHAP ベース説明への移行、read projection / window 最適化の扱いについては `docs/project-status.md` を参照してください。
 
-### condition 系特徴量の段階投入（データ蓄積後）
+### condition 系特徴量の段階投入
 
-`sleep_hours` / `had_bowel_movement` / `training_type` / `work_mode` / `leg_flag` は
-`feature_registry.py` に `active=False` で登録済み。
+condition 系特徴量は、欠損率・分布・有効行数への影響を確認しながら少数ずつ投入する。
 
-現時点での保留理由:
-- サンプル数不足
-- カテゴリ偏り（特定 training_type が少ない等）
-- 欠損率が高い項目あり（sleep_hours など）
+2026-04-27 時点では、2026-03-11 以降データの確認結果に基づき、
+`sleep_hours` を最初の condition 系特徴量として `active=True` に変更済み。
 
-これらが解消されたタイミングで `active=True` に変更し、
-`featureLabels.ts` の `ACTIVE_FEATURE_NAMES` と `ACTIVE_FEATURE_EXPLANATIONS` に追記することで
-フロント表示まで自動で整合する。
+その他の候補は `feature_registry.py` に将来候補として残している。
+
+- `had_bowel_movement` / `leg_flag`: 次の候補
+- `is_cheat_day` / `is_refeed_day` / `is_eating_out`: 対象期間では全件 `false` のため継続観測
+- `training_type` / `work_mode`: 対象期間では全欠損のため投入保留
+
+詳細は `docs/project-status.md` を参照。
 
 ### SHAP ベース説明への移行（将来課題）
 
