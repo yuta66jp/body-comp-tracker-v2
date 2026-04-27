@@ -158,6 +158,20 @@ class TestMissingValueHandling:
 
         assert pd.isna(row_before_missing["target"])
 
+    def test_target_uses_next_calendar_day_when_next_day_features_missing(self):
+        """翌日に weight はあるが特徴量が欠損していても、翌々日ではなく翌日体重との差分を target にする。"""
+        df = _make_df(n=5)
+        df.loc[1, "calories"] = None
+
+        result = apply_feature_engineering(df)
+        row0 = result.loc[result["log_date"] == "2025-01-01"].iloc[0]
+        expected_target = (
+            df.loc[df["log_date"] == "2025-01-02", "weight"].values[0]
+            - df.loc[df["log_date"] == "2025-01-01", "weight"].values[0]
+        )
+
+        assert row0["target"] == pytest.approx(expected_target)
+
 
 # ── 最小行数チェックのテスト ─────────────────────────────────────────────────
 
