@@ -100,23 +100,33 @@ def apply_feature_engineering(
                      ここに分岐を追加すること。
     """
     df = df.copy()
-    df = df.dropna(subset=["weight", "calories", "protein", "fat", "carbs"])
-    df = df.sort_values("log_date").reset_index(drop=True)
+    df["_log_date_dt"] = pd.to_datetime(df["log_date"])
+    df = df.sort_values("_log_date_dt").reset_index(drop=True)
 
-    df["cal_lag1"]      = df["calories"]
-    df["rolling_cal_7"] = df["calories"].rolling(window=7, min_periods=1).mean()
-    df["p_lag1"]        = df["protein"]
-    df["f_lag1"]        = df["fat"]
-    df["c_lag1"]        = df["carbs"]
+    # target は「次の完全入力行」ではなく、カレンダー上の翌日体重との差分に固定する。
+    # 先に欠損行を drop すると欠損日を飛ばして数日後との差分になるため、
+    # raw weight の日付マップから log_date + 1 日の weight を参照する。
+    weight_by_date = df.set_index("_log_date_dt")["weight"]
+    next_dates = df["_log_date_dt"] + pd.Timedelta(days=1)
 
     # ── 目的変数 ─────────────────────────────────────────────────────────────
     if target_type == TargetType.NEXT_DAY_CHANGE:
         # 翌日体重変化量 = weight(t+1) - weight(t)
         # 「翌日体重の絶対値」ではなく「翌日の変化量（増加=正、減少=負）」を予測する。
         # current_weight は説明変数から除外済み（リーケージ回避）。
-        df["target"] = df["weight"].shift(-1) - df["weight"]
+        df["target"] = next_dates.map(weight_by_date) - df["weight"]
     else:
         raise ValueError(f"未実装の target_type: {target_type!r}")
+
+    df = df.dropna(subset=["weight", "calories", "protein", "fat", "carbs"])
+    df = df.drop(columns=["_log_date_dt"])
+    df = df.reset_index(drop=True)
+
+    df["cal_lag1"]      = df["calories"]
+    df["rolling_cal_7"] = df["calories"].rolling(window=7, min_periods=1).mean()
+    df["p_lag1"]        = df["protein"]
+    df["f_lag1"]        = df["fat"]
+    df["c_lag1"]        = df["carbs"]
 
     return df
 

@@ -86,8 +86,8 @@ export function InsightCardList({
   }
   return (
     <div className="space-y-2">
-      {items.map((item, i) => (
-        <InsightCard key={i} item={item} />
+      {items.map((item) => (
+        <InsightCard key={`${item.status}:${item.title}:${item.detail ?? ""}`} item={item} />
       ))}
     </div>
   );

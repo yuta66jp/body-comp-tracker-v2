@@ -150,13 +150,14 @@ function calcMonthlyProgressState(
  * 今月目標に対する進捗を計算する。
  *
  * - #101 の buildMonthlyGoalPlan を使って月次プランを構築し、今月エントリーを取得する
- * - comparisonWeight には GoalNavigator の refWeight (7日平均優先) と同じ値を渡すこと
+ * - comparisonWeight には呼び出し側で選んだ比較体重を渡す
+ *   （Dashboard では最新体重優先で、単日ノイズ込みの実測進捗を見る）
  * - 計画が構築できない場合は hasData: false の fallback を返す (クラッシュしない)
  *
  * @param input.contestDate        - 大会・目標期限 (settings.contestDate)
  * @param input.targetWeight       - 最終目標体重 (settings.targetWeight)
  * @param input.monthlyPlanOverrides - 月次 override リスト (settings.monthlyPlanOverrides)
- * @param input.comparisonWeight   - 比較値 (weight_7d_avg ?? current_weight)
+ * @param input.comparisonWeight   - 今月目標との比較値
  * @param input.today              - 今日の JST 日付 (toJstDateStr() の値)
  * @param input.phase              - "Cut" | "Bulk"
  */

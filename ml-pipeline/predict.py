@@ -226,6 +226,8 @@ def fetch_daily_logs(client) -> pd.DataFrame:
         .execute()
     )
     df = pd.DataFrame(response.data)
+    if df.empty:
+        return pd.DataFrame(columns=["ds", "y", "is_cheat_day", "is_travel_day"])
     df = df.dropna(subset=["weight"])
     df["ds"] = pd.to_datetime(df["log_date"])
     df["y"] = df["weight"].astype(float)

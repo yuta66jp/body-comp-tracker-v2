@@ -396,6 +396,20 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
         lastMealEndTimeTouched,
       });
 
+      if (
+        sleepSessionTouched &&
+        !sleepSessionPendingDelete &&
+        !hasDailyLogChanges &&
+        hydratedLog === null &&
+        sleepBedTime &&
+        sleepWakeTime
+      ) {
+        setErrorMessage("新しい日付で睡眠記録を保存するには、体重も入力してください。");
+        setStatus("error");
+        setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
+        return;
+      }
+
       if (hasDailyLogChanges) {
         const totals = calcCartTotals(cartItems);
 

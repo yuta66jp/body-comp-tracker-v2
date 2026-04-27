@@ -18,6 +18,7 @@
 
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import type { DailyLog, SleepSession } from "@/lib/supabase/types";
 
 // ── モック定義 ────────────────────────────────────────────────────────────────
 // jest.mock は jest の babel transform でファイル先頭にホイストされるため、
@@ -33,13 +34,16 @@ jest.mock("@/app/actions/saveSleepSession", () => ({
   deleteSleepSession: jest.fn(async () => ({ ok: true })),
 }));
 
-// SWR フックをモック: 空データ（新規日付 = 既存ログなし）
+let mockDailyLogs: DailyLog[] = [];
+let mockSleepSessions: SleepSession[] = [];
+
+// SWR フックをモック: テストごとに既存ログ有無を切り替える
 jest.mock("@/lib/hooks/useDailyLogs", () => ({
-  useDailyLogs: () => ({ data: [], mutate: jest.fn() }),
+  useDailyLogs: () => ({ data: mockDailyLogs, mutate: jest.fn() }),
 }));
 
 jest.mock("@/lib/hooks/useSleepSessions", () => ({
-  useSleepSessions: () => ({ data: [], mutate: jest.fn() }),
+  useSleepSessions: () => ({ data: mockSleepSessions, mutate: jest.fn() }),
 }));
 
 // Cart と calcCartTotals のモック
@@ -89,6 +93,8 @@ let callOrder: string[] = [];
 
 beforeEach(() => {
   callOrder = [];
+  mockDailyLogs = [];
+  mockSleepSessions = [];
 
   mockSaveDailyLog.mockImplementation(async () => {
     callOrder.push("saveDailyLog");
@@ -146,11 +152,11 @@ describe("MealLogger handleSave — 保存順序 (#528 回帰)", () => {
   });
 
   /**
-   * 睡眠のみ変更（体重などの daily_logs 変更なし）:
-   * saveDailyLog は呼ばれず、saveSleepSession のみ呼ばれることを検証する。
-   * 既存日の場合、sleep_sessions 保存 → DB トリガーで既存行の sleep_hours が更新される。
+   * 新規日付で睡眠のみ変更（体重などの daily_logs 変更なし）:
+   * daily_logs 行がない状態で sleep_sessions だけを作ると sleep_hours 同期が 0 行更新になる。
+   * そのため saveDailyLog / saveSleepSession ともに呼ばず、体重入力を促す。
    */
-  it("睡眠のみ変更のとき saveDailyLog は呼ばれず saveSleepSession のみ呼ばれる", async () => {
+  it("新規日付: 睡眠のみ変更のとき saveDailyLog / saveSleepSession ともに呼ばれない", async () => {
     render(<MealLogger />);
 
     // 就寝時刻のみ入力（daily_logs 変更なし）
@@ -164,10 +170,63 @@ describe("MealLogger handleSave — 保存順序 (#528 回帰)", () => {
     fireEvent.click(saveButton);
 
     await waitFor(() => {
+      const toast = screen.queryByTestId("toast-message");
+      expect(toast).not.toBeNull();
+      expect(toast?.textContent).toContain("体重も入力してください");
+    });
+
+    expect(mockSaveDailyLog).not.toHaveBeenCalled();
+    expect(mockSaveSleepSession).not.toHaveBeenCalled();
+    expect(callOrder).toEqual([]);
+  });
+
+  /**
+   * 既存日付で睡眠のみ変更:
+   * 既に daily_logs 行があるため、saveDailyLog は呼ばず saveSleepSession のみ呼ぶ。
+   */
+  it("既存日付: 睡眠のみ変更のとき saveDailyLog は呼ばれず saveSleepSession のみ呼ばれる", async () => {
+    mockDailyLogs = [{
+      id: "daily-log-2026-04-10",
+      log_date: "2026-04-10",
+      weight: 70,
+      calories: null,
+      protein: null,
+      fat: null,
+      carbs: null,
+      note: null,
+      is_cheat_day: false,
+      is_refeed_day: false,
+      is_eating_out: false,
+      is_travel_day: false,
+      is_tanning_day: false,
+      is_posing_day: false,
+      sleep_hours: null,
+      had_bowel_movement: null,
+      training_type: null,
+      work_mode: null,
+      leg_flag: null,
+      last_meal_end_time: null,
+      step_count: null,
+      created_at: null,
+      updated_at: "2026-04-10T00:00:00.000Z",
+      user_id: null,
+    }];
+
+    render(<MealLogger />);
+
+    const bedTimeInput = screen.getByLabelText(/就寝時刻/);
+    fireEvent.change(bedTimeInput, { target: { value: "22:30" } });
+
+    const wakeTimeInput = screen.getByLabelText(/起床時刻/);
+    fireEvent.change(wakeTimeInput, { target: { value: "06:30" } });
+
+    const saveButton = screen.getByRole("button", { name: /保存/ });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
       expect(mockSaveSleepSession).toHaveBeenCalledTimes(1);
     });
 
-    // daily_logs 変更なし → saveDailyLog は呼ばれない
     expect(mockSaveDailyLog).not.toHaveBeenCalled();
     expect(callOrder).toEqual(["saveSleepSession"]);
   });
