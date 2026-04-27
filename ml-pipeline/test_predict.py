@@ -166,6 +166,15 @@ class TestFetchDailyLogsTransform:
         assert isinstance(df, pd.DataFrame)
         assert len(df) == 0
 
+    def test_empty_response_returns_empty_dataframe_with_expected_columns(self):
+        """daily_logs が完全に空でも KeyError にならず空 DataFrame を返す。"""
+        from predict import fetch_daily_logs
+        client = self._make_mock_client([])
+        df = fetch_daily_logs(client)
+        assert isinstance(df, pd.DataFrame)
+        assert list(df.columns) == ["ds", "y", "is_cheat_day", "is_travel_day"]
+        assert len(df) == 0
+
 
 # ── build_clean_series のテスト ──────────────────────────────────────────────
 

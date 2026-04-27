@@ -64,6 +64,24 @@ END $$;
 
 backfill 前は、RLS により既存行がアプリから見えない。これは意図した移行状態。
 
+backfill 後は、以下の確認用 SQL で owner scoped 対象テーブルに `user_id IS NULL` の既存行が残っていないことを確認する。
+この SQL は確認専用で、データは変更しない。
+
+```sql
+SELECT 'daily_logs' AS table_name, COUNT(*) AS null_user_id_count FROM daily_logs WHERE user_id IS NULL
+UNION ALL
+SELECT 'sleep_sessions', COUNT(*) FROM sleep_sessions WHERE user_id IS NULL
+UNION ALL
+SELECT 'settings', COUNT(*) FROM settings WHERE user_id IS NULL
+UNION ALL
+SELECT 'food_master', COUNT(*) FROM food_master WHERE user_id IS NULL
+UNION ALL
+SELECT 'menu_master', COUNT(*) FROM menu_master WHERE user_id IS NULL;
+```
+
+全行の `null_user_id_count` が `0` であれば、既存データの owner backfill は完了している。
+いずれかが `0` 以外の場合、そのテーブルの既存行は RLS によりアプリから見えない可能性がある。
+
 ## 動作確認
 
 - 未ログイン状態でアプリを開くとログイン画面だけが表示される。

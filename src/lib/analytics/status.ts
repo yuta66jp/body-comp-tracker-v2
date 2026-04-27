@@ -19,7 +19,7 @@ export type AnalyticsStatus = "fresh" | "stale" | "unavailable" | "error";
 
 export interface AnalyticsAvailability {
   status: AnalyticsStatus;
-  /** ML バッチ最終実行日 (YYYY-MM-DD)。unavailable / error の場合は null */
+  /** ML バッチ最終実行日 (YYYY-MM-DD、表示用)。unavailable / error の場合は null */
   lastUpdatedDate: string | null;
   /** stale の場合、最新依存データ日からの経過日数 */
   staleDays: number | null;
@@ -41,7 +41,7 @@ export function errorAvailability(): AnalyticsAvailability {
  * analytics_cache エントリの新鮮さを判定する汎用関数。
  *
  * @param cacheUpdatedAt             analytics_cache.updated_at (ISO 8601)。null = バッチ未実行
- * @param latestDependencyUpdatedAt  依存データの最新日 (YYYY-MM-DD)。
+ * @param latestDependencyUpdatedAt  依存データの最新更新日時 (ISO 8601)。
  *                                   null      = 依存データが存在しない（ログ0件の初期状態）→ fresh
  *                                   undefined = 依存データの取得自体が失敗 → unavailable
  *
@@ -49,7 +49,7 @@ export function errorAvailability(): AnalyticsAvailability {
  *   - cacheUpdatedAt が null → unavailable
  *   - latestDependencyUpdatedAt が undefined（取得失敗）→ unavailable
  *   - latestDependencyUpdatedAt が null（依存データなし）→ fresh
- *   - cacheUpdatedAt の日付部分 < latestDependencyUpdatedAt → stale
+ *   - cacheUpdatedAt < latestDependencyUpdatedAt → stale
  *   - それ以外 → fresh
  */
 export function getAnalyticsAvailability(
@@ -90,7 +90,7 @@ export function getAnalyticsAvailability(
 
 /**
  * enriched_logs キャッシュの新鮮さを判定する。
- * 依存: rawLogs の MAX(updated_at) の日付部分 (YYYY-MM-DD)
+ * 依存: rawLogs の MAX(updated_at) (ISO 8601)
  *
  * latestRawLogDate ではなく MAX(updated_at) を使うことで、
  * 過去日の行を編集した場合でも stale を正しく検知できる。
@@ -104,7 +104,7 @@ export function getEnrichedLogsAvailability(
 
 /**
  * xgboost_importance キャッシュの新鮮さを判定する。
- * 依存: rawLogs の MAX(updated_at) の日付部分 (YYYY-MM-DD)
+ * 依存: rawLogs の MAX(updated_at) (ISO 8601)
  *
  * latestRawLogDate ではなく MAX(updated_at) を使うことで、
  * 過去日の行を編集した場合でも stale を正しく検知できる。

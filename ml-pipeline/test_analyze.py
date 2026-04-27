@@ -148,6 +148,30 @@ class TestMissingValueHandling:
         # 欠損のある行（インデックス9がt, 10がt+1だがNaNで除外されたため9の次は11）が除外されている
         assert len(valid) < n - 1
 
+    def test_target_does_not_skip_missing_next_day_to_following_complete_row(self):
+        """翌日が欠損している場合、次の完全入力行との差分を target にしない。"""
+        df = _make_df(n=20)
+        df.loc[10, "weight"] = None
+
+        result = apply_feature_engineering(df)
+        row_before_missing = result.loc[result["log_date"] == "2025-01-10"].iloc[0]
+
+        assert pd.isna(row_before_missing["target"])
+
+    def test_target_uses_next_calendar_day_when_next_day_features_missing(self):
+        """翌日に weight はあるが特徴量が欠損していても、翌々日ではなく翌日体重との差分を target にする。"""
+        df = _make_df(n=5)
+        df.loc[1, "calories"] = None
+
+        result = apply_feature_engineering(df)
+        row0 = result.loc[result["log_date"] == "2025-01-01"].iloc[0]
+        expected_target = (
+            df.loc[df["log_date"] == "2025-01-02", "weight"].values[0]
+            - df.loc[df["log_date"] == "2025-01-01", "weight"].values[0]
+        )
+
+        assert row0["target"] == pytest.approx(expected_target)
+
 
 # ── 最小行数チェックのテスト ─────────────────────────────────────────────────
 
