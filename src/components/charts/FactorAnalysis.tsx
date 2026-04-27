@@ -376,8 +376,8 @@ export function FactorAnalysis({ data, updatedAt, meta, analyticsAvailability }:
           <Tooltip {...tooltipStyle} formatter={makeTooltipFormatter((v) => `${v}%`, () => "重要度（相対値）")} />
           <Bar dataKey="pct" radius={[0, 4, 4, 0]}>
             <LabelList dataKey="pct" position="right" formatter={(v: RenderableText) => `${v ?? ""}%`} style={{ fontSize: 11, fill: "#6b7280" }} />
-            {chartData.map((_, i) => (
-              <Cell key={i} fill={IMPORTANCE_COLORS[i % IMPORTANCE_COLORS.length]} />
+            {chartData.map((item, i) => (
+              <Cell key={item.name} fill={IMPORTANCE_COLORS[i % IMPORTANCE_COLORS.length]} />
             ))}
           </Bar>
         </BarChart>

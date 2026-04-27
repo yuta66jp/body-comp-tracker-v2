@@ -438,9 +438,9 @@ function PlanContent({
       {/* 警告 */}
       {plan.warnings.length > 0 && (
         <div className="mt-3 space-y-1.5">
-          {plan.warnings.map((w, i) => (
+          {plan.warnings.map((w) => (
             <div
-              key={i}
+              key={`${w.code}-${w.month ?? ""}-${w.value ?? ""}-${w.threshold ?? ""}`}
               className="flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 px-4 py-2.5 text-xs text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/30 dark:text-amber-400"
             >
               <AlertTriangle size={13} className="mt-0.5 shrink-0" />

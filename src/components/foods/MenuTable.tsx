@@ -351,11 +351,11 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
                   {/* 展開: 食材リスト */}
                   {isOpen && (
                     <div className="border-t border-slate-50 bg-slate-50 px-4 py-3 space-y-1.5 dark:border-slate-700/60 dark:bg-slate-800/60">
-                      {menu.recipe.map((ri, i) => {
+                      {menu.recipe.map((ri) => {
                         const food = foodMap.get(ri.name);
                         const itemKcal = food ? Math.round(((food.calories ?? 0) * ri.amount) / 100) : 0;
                         return (
-                          <div key={i} className="flex justify-between text-xs text-slate-600 dark:text-slate-300">
+                          <div key={`${ri.name}-${ri.amount}`} className="flex justify-between text-xs text-slate-600 dark:text-slate-300">
                             <span>{ri.name}</span>
                             <span className="tabular-nums text-slate-400 dark:text-slate-500">{ri.amount}g · {itemKcal} kcal</span>
                           </div>
@@ -403,11 +403,11 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
                   </div>
                   {isOpen && (
                     <ul className="border-t border-gray-50 bg-gray-50 px-6 py-2 space-y-1 dark:border-slate-700/60 dark:bg-slate-800/60">
-                      {menu.recipe.map((ri, i) => {
+                      {menu.recipe.map((ri) => {
                         const food = foodMap.get(ri.name);
                         const itemKcal = food ? Math.round(((food.calories ?? 0) * ri.amount) / 100) : 0;
                         return (
-                          <li key={i} className="flex justify-between text-xs text-gray-600 dark:text-slate-300">
+                          <li key={`${ri.name}-${ri.amount}`} className="flex justify-between text-xs text-gray-600 dark:text-slate-300">
                             <span>{ri.name}</span>
                             <span className="dark:text-slate-500">{ri.amount}g — {itemKcal} kcal</span>
                           </li>

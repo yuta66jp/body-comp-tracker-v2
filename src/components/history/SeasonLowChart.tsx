@@ -88,7 +88,7 @@ export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) 
             }}
           />
           <Bar dataKey="weight" radius={[6, 6, 0, 0]}>
-            {data.map((entry, i) => {
+            {data.map((entry) => {
               let color: string;
               if (entry.isCurrent) {
                 color = CURRENT_COLOR;
@@ -96,7 +96,7 @@ export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) 
                 color = PAST_COLORS[pastIdx % PAST_COLORS.length]!;
                 pastIdx++;
               }
-              return <Cell key={i} fill={color} />;
+              return <Cell key={entry.season} fill={color} />;
             })}
             <LabelList
               dataKey="weight"
