@@ -103,7 +103,6 @@ export function hasDailyLogForDate(
   if (logs?.some((log) => log.log_date === date)) return true;
   if (fetchedLog?.log_date === date) return true;
   if (logs === undefined || isFetchingByDate) return null;
-  if (fetchedLog === null) return false;
   return false;
 }
 
@@ -350,6 +349,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       cachedSleepSession ?? fetchedSleepSession ?? null
     );
     // 日付指定 fetch が後から返ったときだけ、未操作フォームへ反映する。
+    // SWR 再検証で再実行されても、未操作フォームなら最新の補完値へ同期してよい。
     // touched 系を deps に含めるとユーザー操作ごとに再評価されるため、スナップショットとして読む。
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
