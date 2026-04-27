@@ -411,25 +411,14 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
         sleepSessionTouched &&
         !sleepSessionPendingDelete &&
         !hasDailyLogChanges &&
-        existingDailyLog === null &&
+        existingDailyLog !== true &&
         sleepBedTime &&
         sleepWakeTime
       ) {
-        setErrorMessage("既存ログを確認中です。少し待ってからもう一度保存してください。");
-        setStatus("error");
-        setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
-        return;
-      }
-
-      if (
-        sleepSessionTouched &&
-        !sleepSessionPendingDelete &&
-        !hasDailyLogChanges &&
-        existingDailyLog === false &&
-        sleepBedTime &&
-        sleepWakeTime
-      ) {
-        setErrorMessage("新しい日付で睡眠記録を保存するには、体重も入力してください。");
+        const message = existingDailyLog === null
+          ? "既存ログを確認中です。少し待ってからもう一度保存してください。"
+          : "新しい日付で睡眠記録を保存するには、体重も入力してください。";
+        setErrorMessage(message);
         setStatus("error");
         setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
         return;

@@ -83,6 +83,7 @@ class TestTargetDefinition:
             "carbs":    [200.0] * n,
         })
         df_sorted = df.sort_values("log_date").reset_index(drop=True)
+        # 連続日付データなので shift(-1) と等価。テスト内では現行実装に合わせて明示的に次行を参照する。
         df_sorted["target"] = df_sorted["weight"].iloc[1:].reset_index(drop=True) - df_sorted["weight"]
         valid = df_sorted.dropna(subset=["target"])
         # 単調増加なので全行 target > 0
@@ -101,6 +102,7 @@ class TestTargetDefinition:
             "carbs":    [200.0] * n,
         })
         df_sorted = df.sort_values("log_date").reset_index(drop=True)
+        # 連続日付データなので shift(-1) と等価。テスト内では現行実装に合わせて明示的に次行を参照する。
         df_sorted["target"] = df_sorted["weight"].iloc[1:].reset_index(drop=True) - df_sorted["weight"]
         valid = df_sorted.dropna(subset=["target"])
         assert (valid["target"] < 0).all()
