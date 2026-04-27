@@ -31,6 +31,20 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient();
 
   if (resource === "daily_logs") {
+    const date = request.nextUrl.searchParams.get("date") ?? "";
+    if (date) {
+      if (!isValidDateParam(date)) {
+        return NextResponse.json({ error: "Invalid date" }, { status: 400 });
+      }
+      const { data, error } = await supabase
+        .from("daily_logs")
+        .select("*")
+        .eq("log_date", date)
+        .limit(1);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ data: data?.[0] ?? null });
+    }
+
     const { data, error } = await supabase
       .from("daily_logs")
       .select("*")
@@ -41,6 +55,20 @@ export async function GET(request: NextRequest) {
   }
 
   if (resource === "sleep_sessions") {
+    const date = request.nextUrl.searchParams.get("date") ?? "";
+    if (date) {
+      if (!isValidDateParam(date)) {
+        return NextResponse.json({ error: "Invalid date" }, { status: 400 });
+      }
+      const { data, error } = await supabase
+        .from("sleep_sessions")
+        .select("*")
+        .eq("wake_date", date)
+        .limit(1);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ data: data?.[0] ?? null });
+    }
+
     const { data, error } = await supabase
       .from("sleep_sessions")
       .select("*")

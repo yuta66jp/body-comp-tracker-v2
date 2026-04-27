@@ -36,14 +36,20 @@ jest.mock("@/app/actions/saveSleepSession", () => ({
 
 let mockDailyLogs: DailyLog[] | undefined = [];
 let mockSleepSessions: SleepSession[] | undefined = [];
+let mockDailyLogByDate: DailyLog | null | undefined = null;
+let mockDailyLogByDateLoading = false;
+let mockSleepSessionByDate: SleepSession | null | undefined = null;
+let mockSleepSessionByDateLoading = false;
 
 // SWR フックをモック: テストごとに既存ログ有無を切り替える
 jest.mock("@/lib/hooks/useDailyLogs", () => ({
   useDailyLogs: () => ({ data: mockDailyLogs, mutate: jest.fn() }),
+  useDailyLogByDate: () => ({ data: mockDailyLogByDate, isLoading: mockDailyLogByDateLoading }),
 }));
 
 jest.mock("@/lib/hooks/useSleepSessions", () => ({
   useSleepSessions: () => ({ data: mockSleepSessions, mutate: jest.fn() }),
+  useSleepSessionByDate: () => ({ data: mockSleepSessionByDate, isLoading: mockSleepSessionByDateLoading }),
 }));
 
 // Cart と calcCartTotals のモック
@@ -95,6 +101,10 @@ beforeEach(() => {
   callOrder = [];
   mockDailyLogs = [];
   mockSleepSessions = [];
+  mockDailyLogByDate = null;
+  mockDailyLogByDateLoading = false;
+  mockSleepSessionByDate = null;
+  mockSleepSessionByDateLoading = false;
 
   mockSaveDailyLog.mockImplementation(async () => {
     callOrder.push("saveDailyLog");
@@ -242,6 +252,63 @@ describe("MealLogger handleSave — 保存順序 (#528 回帰)", () => {
     }];
 
     render(<MealLogger />);
+
+    const bedTimeInput = screen.getByLabelText(/就寝時刻/);
+    fireEvent.change(bedTimeInput, { target: { value: "22:30" } });
+
+    const wakeTimeInput = screen.getByLabelText(/起床時刻/);
+    fireEvent.change(wakeTimeInput, { target: { value: "06:30" } });
+
+    const saveButton = screen.getByRole("button", { name: /保存/ });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(mockSaveSleepSession).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mockSaveDailyLog).not.toHaveBeenCalled();
+    expect(callOrder).toEqual(["saveSleepSession"]);
+  });
+
+  /**
+   * 直近 200 件キャッシュ外の日付:
+   * useDailyLogs の一覧に対象日付がなくても、日付指定 fetch で daily_logs 行が見つかれば
+   * 既存日付として扱い、睡眠のみ保存を許可する。
+   */
+  it("直近キャッシュ外の既存日付: 日付指定 daily log があれば睡眠のみ保存できる", async () => {
+    mockDailyLogs = [];
+    mockDailyLogByDate = {
+      id: "old-daily-log-2026-04-10",
+      log_date: "2026-04-10",
+      weight: 70,
+      calories: null,
+      protein: null,
+      fat: null,
+      carbs: null,
+      note: null,
+      is_cheat_day: false,
+      is_refeed_day: false,
+      is_eating_out: false,
+      is_travel_day: false,
+      is_tanning_day: false,
+      is_posing_day: false,
+      sleep_hours: null,
+      had_bowel_movement: null,
+      training_type: null,
+      work_mode: null,
+      leg_flag: null,
+      last_meal_end_time: null,
+      step_count: null,
+      created_at: null,
+      updated_at: "2026-04-10T00:00:00.000Z",
+      user_id: null,
+    };
+
+    render(<MealLogger />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("spinbutton", { name: /体重/ })).toHaveValue(70);
+    });
 
     const bedTimeInput = screen.getByLabelText(/就寝時刻/);
     fireEvent.change(bedTimeInput, { target: { value: "22:30" } });

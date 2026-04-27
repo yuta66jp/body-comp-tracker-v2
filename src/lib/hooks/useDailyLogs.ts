@@ -10,6 +10,7 @@
  * - 保存後は `mutate()` でキャッシュを更新する（revalidatePath ではなく SWR 側で即時反映）
  * - 件数上限: 直近 200 件（降順）。MealLogger の hydration 用途では十分な範囲。
  *   年単位でデータが蓄積された場合のメモリ・転送量増加を防ぐ。
+ * - 直近 200 件外の日付を手入力した場合は、useDailyLogByDate() で対象日付のみ補完取得する。
  *
  * ## full read が許容される理由
  * Client Component がブラウザからフォームを操作するため、
@@ -27,9 +28,26 @@ async function fetchDailyLogs(): Promise<DailyLog[]> {
   return fetchClientData<DailyLog[]>("/api/client-data?resource=daily_logs");
 }
 
+async function fetchDailyLogByDate(date: string): Promise<DailyLog | null> {
+  return fetchClientData<DailyLog | null>(
+    `/api/client-data?resource=daily_logs&date=${encodeURIComponent(date)}`
+  );
+}
+
 export function useDailyLogs() {
   return useSWR<DailyLog[]>("daily_logs", fetchDailyLogs, {
     revalidateOnFocus: false,
     dedupingInterval: 60_000,
   });
+}
+
+export function useDailyLogByDate(date: string, enabled: boolean) {
+  return useSWR<DailyLog | null>(
+    enabled ? ["daily_log_by_date", date] : null,
+    () => fetchDailyLogByDate(date),
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 60_000,
+    }
+  );
 }

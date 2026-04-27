@@ -25,8 +25,8 @@ import {
   type TrainingType,
   type WorkMode,
 } from "@/lib/utils/trainingType";
-import { useDailyLogs } from "@/lib/hooks/useDailyLogs";
-import { useSleepSessions } from "@/lib/hooks/useSleepSessions";
+import { useDailyLogByDate, useDailyLogs } from "@/lib/hooks/useDailyLogs";
+import { useSleepSessionByDate, useSleepSessions } from "@/lib/hooks/useSleepSessions";
 import { parseStrictNumber } from "@/lib/utils/parseNumber";
 import { buildSleepSessionDatetimes, calcSleepDurationHours, extractJstHHMM } from "@/lib/utils/sleepSession";
 
@@ -95,11 +95,20 @@ export function computeHasDailyLogChanges(input: HasContentInput): boolean {
 export function hasDailyLogForDate(
   logs: Pick<DailyLog, "log_date">[] | undefined,
   hydratedLog: Pick<DailyLog, "log_date"> | null,
+  fetchedLog: Pick<DailyLog, "log_date"> | null | undefined,
+  isFetchingByDate: boolean,
   date: string
 ): boolean | null {
   if (hydratedLog?.log_date === date) return true;
-  if (logs === undefined) return null;
-  return logs.some((log) => log.log_date === date);
+  if (logs?.some((log) => log.log_date === date)) return true;
+  if (fetchedLog?.log_date === date) return true;
+  if (logs === undefined || isFetchingByDate) return null;
+  if (fetchedLog === null) return false;
+  return false;
+}
+
+function formIsPristine(input: HasContentInput): boolean {
+  return !computeHasContent(input);
 }
 
 /**
@@ -189,18 +198,37 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
   // 食品を追加セクションの開閉状態（初期: 非表示）
   const [foodPickerOpen, setFoodPickerOpen] = useState(false);
 
+  const cachedDailyLog = useMemo(
+    () => logs?.find((l) => l.log_date === date) ?? null,
+    [logs, date]
+  );
+  const shouldFetchDailyLogByDate = date !== "" && logs !== undefined && cachedDailyLog === null;
+  const {
+    data: fetchedDailyLog,
+    isLoading: isDailyLogByDateLoading,
+  } = useDailyLogByDate(date, shouldFetchDailyLogByDate);
+
+  const cachedSleepSession = useMemo(
+    () => sleepSessions?.find((s) => s.wake_date === date) ?? null,
+    [sleepSessions, date]
+  );
+  const shouldFetchSleepSessionByDate = date !== "" && sleepSessions !== undefined && cachedSleepSession === null;
+  const {
+    data: fetchedSleepSession,
+    isLoading: isSleepSessionByDateLoading,
+  } = useSleepSessionByDate(date, shouldFetchSleepSessionByDate);
+
   /**
    * 日付変更時にフォームを hydrate または空リセットする。
    * hydrate = 既存値の「初期表示」であり、touched フラグは立てない。
    * つまり hydrate 後に Save しても、ユーザーが操作していないフィールドは
    * payload に含まれず、partial update の安全性を維持する。
    */
-  function hydrateForm(newDate: string) {
-    const existingLog = logs?.find((l) => l.log_date === newDate) ?? null;
+  function applyHydratedValues(
+    existingLog: DailyLog | null,
+    existingSleep: SleepSession | null
+  ) {
     setHydratedLog(existingLog);
-
-    // 睡眠セッション: sleep_sessions が source of truth
-    const existingSleep = sleepSessions?.find((s) => s.wake_date === newDate) ?? null;
     setHydratedSleepSession(existingSleep);
 
     // touched フラグをすべてリセット（hydrate は「未編集」として扱う）
@@ -258,6 +286,13 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     }
   }
 
+  function hydrateForm(newDate: string) {
+    const existingLog = logs?.find((l) => l.log_date === newDate) ?? null;
+    // 睡眠セッション: sleep_sessions が source of truth
+    const existingSleep = sleepSessions?.find((s) => s.wake_date === newDate) ?? null;
+    applyHydratedValues(existingLog, existingSleep);
+  }
+
   function handleDateChange(newDate: string) {
     setDate(newDate);
     hydrateForm(newDate);
@@ -296,6 +331,37 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     // date: 初回ロード時点の selectedDate で固定するため除外。
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logs, sleepSessions]);
+
+  useEffect(() => {
+    if (!shouldFetchDailyLogByDate && !shouldFetchSleepSessionByDate) return;
+    if (isDailyLogByDateLoading || isSleepSessionByDateLoading) return;
+    if (shouldFetchDailyLogByDate && fetchedDailyLog === undefined) return;
+    if (shouldFetchSleepSessionByDate && fetchedSleepSession === undefined) return;
+    if (!formIsPristine({
+      weight, weightTouched, cartItems, cartEverHadItems,
+      note, noteTouched, touchedTags,
+      sleepSessionTouched,
+      hadBowelMovementTouched, trainingTypeTouched, workModeTouched,
+      lastMealEndTimeTouched,
+    })) return;
+
+    applyHydratedValues(
+      cachedDailyLog ?? fetchedDailyLog ?? null,
+      cachedSleepSession ?? fetchedSleepSession ?? null
+    );
+    // 日付指定 fetch が後から返ったときだけ、未操作フォームへ反映する。
+    // touched 系を deps に含めるとユーザー操作ごとに再評価されるため、スナップショットとして読む。
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    shouldFetchDailyLogByDate,
+    shouldFetchSleepSessionByDate,
+    isDailyLogByDateLoading,
+    isSleepSessionByDateLoading,
+    fetchedDailyLog,
+    fetchedSleepSession,
+    cachedDailyLog,
+    cachedSleepSession,
+  ]);
 
   function toggleTag(tag: DayTag) {
     setTags((prev) => ({ ...prev, [tag]: !(prev as Record<DayTag, boolean>)[tag] }));
@@ -406,7 +472,13 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
         lastMealEndTimeTouched,
       });
 
-      const existingDailyLog = hasDailyLogForDate(logs, hydratedLog, date);
+      const existingDailyLog = hasDailyLogForDate(
+        logs,
+        hydratedLog,
+        fetchedDailyLog,
+        isDailyLogByDateLoading,
+        date
+      );
       if (
         sleepSessionTouched &&
         !sleepSessionPendingDelete &&
