@@ -39,7 +39,7 @@ type LogForSummary = {
  *     当月   = 直近実測値 (isPartialActual = true)
  *     未来月 = null
  * - diffKg            : 過去月の完全実績のみ算出 (isPartialActual / isFutureMonth は null)
- * - nextRequiredDeltaKg: 次月エントリーの requiredDeltaKg (最終月は null)
+ * - nextRequiredDeltaKg: 次月月末目標 - 実績月末 (最終月・実績なしは null)
  */
 export interface MonthlyGoalSummaryRow {
   /** "YYYY-MM" */
@@ -74,8 +74,9 @@ export interface MonthlyGoalSummaryRow {
    */
   diffKg: number | null;
   /**
-   * 翌月の requiredDeltaKg (次月エントリーの値)。
-   * 最終月または次月エントリーが存在しない場合は null。
+   * 翌月の必要変化量。
+   * 次月の月末目標から、この行の実績月末体重を引いた値。
+   * 最終月・実績なしの場合は null。
    */
   nextRequiredDeltaKg: number | null;
 }
@@ -97,7 +98,7 @@ export type MonthlyPlanProgressState =
 
 /**
  * 月次計画 vs 実績の比較行。
- * MonthlyGoalSummaryRow を extends し、状態・累積ズレを追加する。
+ * MonthlyGoalSummaryRow を extends し、状態を追加する。
  */
 export interface MonthlyGoalComparisonRow extends MonthlyGoalSummaryRow {
   /**
@@ -105,21 +106,6 @@ export interface MonthlyGoalComparisonRow extends MonthlyGoalSummaryRow {
    * diffKg = null / isPartialActual / isFutureMonth の場合は "pending"。
    */
   progressState: MonthlyPlanProgressState;
-  /**
-   * 過去完全実績月の diffKg の累積合計 (0.01 kg 丸め)。
-   * - 過去完全実績月かつ diffKg が non-null: 累積合計を返す
-   * - 過去完全実績月かつ diffKg が null (データなし): null を返す (累積に加算しない)
-   * - 当月 partial / 未来月: null
-   */
-  cumulativeGapKg: number | null;
-  /**
-   * 翌月の必要変化量 (累積ズレ補正済み)。
-   * - 確定過去月かつ cumulativeGapKg が non-null の場合:
-   *   planNextRequired - cumulativeGapKg (0.01 kg 丸め)
-   *   例: 計画 -2.5 kg、累積ズレ +0.9 kg → 調整後 -3.4 kg
-   * - それ以外 (当月 / 未来月 / データなし月): MonthlyGoalSummaryRow の値 (プラン値) を引き継ぐ
-   */
-  nextRequiredDeltaKg: number | null;
 }
 
 // ─── プライベートヘルパー ─────────────────────────────────────────────────────
@@ -243,9 +229,12 @@ export function buildMonthlyGoalSummaryRows(
         ? Math.round((actualMonthEndWeight - targetWeight) * 100) / 100
         : null;
 
-    // 翌月必要変化量
+    // 翌月必要変化量: 次月目標 - 実績月末
     const nextEntry            = plan.entries[i + 1];
-    const nextRequiredDeltaKg  = nextEntry?.requiredDeltaKg ?? null;
+    const nextRequiredDeltaKg  =
+      nextEntry && actualMonthEndWeight !== null
+        ? Math.round((nextEntry.targetWeight - actualMonthEndWeight) * 100) / 100
+        : null;
 
     return {
       month,
@@ -288,13 +277,10 @@ export function classifyMonthlyPlanGap(
 /**
  * buildMonthlyGoalComparisonRows
  *
- * MonthlyGoalSummaryRow[] に progressState と cumulativeGapKg を付与する adapter。
+ * MonthlyGoalSummaryRow[] に progressState を付与する adapter。
  * UI 側でロジックを散らさないための selector 層。
  *
  * - progressState: Cut/Bulk を考慮した月ごとの状態分類
- * - cumulativeGapKg: 過去完全実績月の diffKg の累積合計
- *   - データなし月 (diffKg=null) は累積に加算しない。その月は null を返す。
- *   - 当月 partial / 未来月は null
  *
  * @param rows  - buildMonthlyGoalSummaryRows の戻り値
  * @param phase - "Cut" | "Bulk"
@@ -304,7 +290,6 @@ export function buildMonthlyGoalComparisonRows(
   phase: string
 ): MonthlyGoalComparisonRow[] {
   const isCut = phase !== "Bulk";
-  let runningSum = 0;
 
   return rows.map((row) => {
     const progressState = classifyMonthlyPlanGap(
@@ -314,23 +299,6 @@ export function buildMonthlyGoalComparisonRows(
       row.isFutureMonth
     );
 
-    let cumulativeGapKg: number | null = null;
-    if (!row.isPartialActual && !row.isFutureMonth) {
-      if (row.diffKg !== null) {
-        runningSum += row.diffKg;
-        cumulativeGapKg = Math.round(runningSum * 100) / 100;
-      }
-      // diffKg === null: データなし。runningSum は変えず、null を返す。
-    }
-    // 当月 partial / 未来月: null のまま
-
-    // 翌月必要変化量: 確定過去月のみ累積ズレで補正する
-    const planNextRequired = row.nextRequiredDeltaKg;
-    const nextRequiredDeltaKg =
-      cumulativeGapKg !== null && planNextRequired !== null
-        ? Math.round((planNextRequired - cumulativeGapKg) * 100) / 100
-        : planNextRequired;
-
-    return { ...row, nextRequiredDeltaKg, progressState, cumulativeGapKg };
+    return { ...row, progressState };
   });
 }

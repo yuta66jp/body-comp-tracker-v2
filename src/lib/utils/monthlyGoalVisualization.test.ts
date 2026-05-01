@@ -349,20 +349,30 @@ describe("buildMonthlyGoalSummaryRows — nextRequiredDeltaKg", () => {
     entry("2026-08", 72.5, -1.3),
     entry("2026-09", 71.5, -1.0),
   ]);
-  const today = "2026-07-15";
 
-  it("最初の行: nextRequiredDeltaKg は 2 番目エントリーの requiredDeltaKg", () => {
-    const rows = buildMonthlyGoalSummaryRows(plan, [], today);
-    expect(rows[0]!.nextRequiredDeltaKg).toBeCloseTo(-1.3);
+  it("当月: nextRequiredDeltaKg は翌月目標 - 直近実測値", () => {
+    const logs = [log("2026-07-15", 74.0)];
+    const rows = buildMonthlyGoalSummaryRows(plan, logs, "2026-07-15");
+    expect(rows[0]!.nextRequiredDeltaKg).toBeCloseTo(-1.5);
   });
 
-  it("中間の行: nextRequiredDeltaKg は 3 番目エントリーの requiredDeltaKg", () => {
-    const rows = buildMonthlyGoalSummaryRows(plan, [], today);
-    expect(rows[1]!.nextRequiredDeltaKg).toBeCloseTo(-1.0);
+  it("過去月: nextRequiredDeltaKg は翌月目標 - 実績月末", () => {
+    const logs = [
+      log("2026-07-31", 74.0),
+      log("2026-08-31", 73.0),
+    ];
+    const rows = buildMonthlyGoalSummaryRows(plan, logs, "2026-09-01");
+    expect(rows[0]!.nextRequiredDeltaKg).toBeCloseTo(-1.5); // 72.5 - 74.0
+    expect(rows[1]!.nextRequiredDeltaKg).toBeCloseTo(-1.5); // 71.5 - 73.0
+  });
+
+  it("実績がない行: nextRequiredDeltaKg = null", () => {
+    const rows = buildMonthlyGoalSummaryRows(plan, [], "2026-07-15");
+    expect(rows[0]!.nextRequiredDeltaKg).toBeNull();
   });
 
   it("最後の行: nextRequiredDeltaKg = null", () => {
-    const rows = buildMonthlyGoalSummaryRows(plan, [], today);
+    const rows = buildMonthlyGoalSummaryRows(plan, [log("2026-09-30", 71.5)], "2026-10-01");
     expect(rows[2]!.nextRequiredDeltaKg).toBeNull();
   });
 });
@@ -500,11 +510,15 @@ describe("buildMonthlyGoalComparisonRows — 基本動作", () => {
     expect(rows[0]).toHaveProperty("progressState");
   });
 
-  it("cumulativeGapKg フィールドが追加される", () => {
-    const plan = makePlan([entry("2026-07", 73.8)]);
-    const summaryRows = buildMonthlyGoalSummaryRows(plan, [], "2026-07-15");
+  it("nextRequiredDeltaKg は補正せず元の値を保持する", () => {
+    const plan = makePlan([entry("2026-07", 73.8), entry("2026-08", 72.5)]);
+    const summaryRows = buildMonthlyGoalSummaryRows(
+      plan,
+      [log("2026-07-31", 74.7)],
+      "2026-08-01"
+    );
     const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
-    expect(rows[0]).toHaveProperty("cumulativeGapKg");
+    expect(rows[0]!.nextRequiredDeltaKg).toBeCloseTo(-2.2); // 72.5 - 74.7
   });
 });
 
@@ -568,183 +582,5 @@ describe("buildMonthlyGoalComparisonRows — progressState", () => {
     const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-08-01");
     const rows = buildMonthlyGoalComparisonRows(summaryRows, "Bulk");
     expect(rows[0]!.progressState).toBe("behind");
-  });
-});
-
-describe("buildMonthlyGoalComparisonRows — cumulativeGapKg", () => {
-  it("当月 (partial) → cumulativeGapKg = null", () => {
-    const plan = makePlan([entry("2026-07", 73.8)]);
-    const logs = [log("2026-07-15", 74.0)];
-    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-07-15");
-    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
-    expect(rows[0]!.cumulativeGapKg).toBeNull();
-  });
-
-  it("未来月 → cumulativeGapKg = null", () => {
-    const plan = makePlan([entry("2026-07", 73.8), entry("2026-08", 72.5)]);
-    const summaryRows = buildMonthlyGoalSummaryRows(plan, [], "2026-07-15");
-    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
-    expect(rows[1]!.cumulativeGapKg).toBeNull();
-  });
-
-  it("過去月: データなし → cumulativeGapKg = null", () => {
-    const plan = makePlan([entry("2026-07", 73.8), entry("2026-08", 72.5)]);
-    const summaryRows = buildMonthlyGoalSummaryRows(plan, [], "2026-08-10");
-    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
-    expect(rows[0]!.cumulativeGapKg).toBeNull();
-  });
-
-  it("過去月 1 ヶ月: diffKg = 0.2 → cumulativeGapKg = 0.2", () => {
-    // 74.0 - 73.8 = 0.2
-    const plan = makePlan([entry("2026-07", 73.8), entry("2026-08", 72.5)]);
-    const logs = [log("2026-07-31", 74.0)];
-    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-08-10");
-    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
-    expect(rows[0]!.cumulativeGapKg).toBeCloseTo(0.2, 2);
-  });
-
-  it("過去月 2 ヶ月: 累積が正しく積算される", () => {
-    // today = 2026-09-01 → 2026-07, 2026-08 が過去月
-    const plan = makePlan([
-      entry("2026-07", 73.8, -1.2),
-      entry("2026-08", 72.5, -1.3),
-      entry("2026-09", 71.5, -1.0),
-    ]);
-    const logs = [
-      log("2026-07-31", 74.0), // diff = 74.0 - 73.8 = +0.2
-      log("2026-08-31", 73.0), // diff = 73.0 - 72.5 = +0.5
-    ];
-    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-09-01");
-    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
-    expect(rows[0]!.cumulativeGapKg).toBeCloseTo(0.2, 2);  // month1 のみ
-    expect(rows[1]!.cumulativeGapKg).toBeCloseTo(0.7, 2);  // 0.2 + 0.5
-    expect(rows[2]!.cumulativeGapKg).toBeNull();            // 当月は null
-  });
-
-  it("データなし月を挟んでも後続月は累積を継続する", () => {
-    // today = 2026-09-01 → 2026-07 はデータなし、2026-08 はデータあり
-    const plan = makePlan([
-      entry("2026-07", 73.8, -1.2),
-      entry("2026-08", 72.5, -1.3),
-      entry("2026-09", 71.5, -1.0),
-    ]);
-    const logs = [
-      // 2026-07 のログはなし
-      log("2026-08-31", 73.0), // diff = 73.0 - 72.5 = +0.5
-    ];
-    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-09-01");
-    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
-    expect(rows[0]!.cumulativeGapKg).toBeNull();           // データなし
-    expect(rows[1]!.cumulativeGapKg).toBeCloseTo(0.5, 2); // 0.5 (07 は null なので加算対象外)
-    expect(rows[2]!.cumulativeGapKg).toBeNull();           // 当月
-  });
-
-  it("負の diffKg (先行) は累積から引かれる", () => {
-    // today = 2026-09-01
-    const plan = makePlan([
-      entry("2026-07", 73.8, -1.2),
-      entry("2026-08", 72.5, -1.3),
-      entry("2026-09", 71.5, -1.0),
-    ]);
-    const logs = [
-      log("2026-07-31", 74.0), // diff = +0.2 (遅れ)
-      log("2026-08-31", 72.0), // diff = 72.0 - 72.5 = -0.5 (先行)
-    ];
-    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-09-01");
-    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
-    expect(rows[0]!.cumulativeGapKg).toBeCloseTo(0.2, 2);   // +0.2
-    expect(rows[1]!.cumulativeGapKg).toBeCloseTo(-0.3, 2);  // 0.2 + (-0.5) = -0.3
-  });
-});
-
-// ─── buildMonthlyGoalComparisonRows — nextRequiredDeltaKg (累積ズレ補正) ────
-
-describe("buildMonthlyGoalComparisonRows — nextRequiredDeltaKg 累積ズレ補正", () => {
-  it("遅れ (+0.9 kg) があると翌月必要が計画より多くなる", () => {
-    // today = 2026-08-01 → 2026-07 は確定過去月
-    // diff = 74.7 - 73.8 = +0.9 → cumulativeGapKg = +0.9
-    // 翌月計画 = -1.3 → 調整後 = -1.3 - 0.9 = -2.2
-    const plan = makePlan([
-      entry("2026-07", 73.8, -1.2),
-      entry("2026-08", 72.5, -1.3),
-    ]);
-    const logs = [log("2026-07-31", 74.7)];
-    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-08-01");
-    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
-    expect(rows[0]!.nextRequiredDeltaKg).toBeCloseTo(-2.2, 2);
-  });
-
-  it("先行 (-0.5 kg) があると翌月必要が計画より少なくなる", () => {
-    // diff = 73.3 - 73.8 = -0.5 → cumulativeGapKg = -0.5
-    // 翌月計画 = -1.3 → 調整後 = -1.3 - (-0.5) = -0.8
-    const plan = makePlan([
-      entry("2026-07", 73.8, -1.2),
-      entry("2026-08", 72.5, -1.3),
-    ]);
-    const logs = [log("2026-07-31", 73.3)];
-    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-08-01");
-    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
-    expect(rows[0]!.nextRequiredDeltaKg).toBeCloseTo(-0.8, 2);
-  });
-
-  it("2ヶ月分の累積ズレが 3 ヶ月目の翌月必要に反映される", () => {
-    // today = 2026-09-01
-    // 07: diff = +0.2, cumul = +0.2 → 翌月必要 = -1.3 - 0.2 = -1.5
-    // 08: diff = +0.5, cumul = +0.7 → 翌月必要 = -1.0 - 0.7 = -1.7
-    // 09 (当月): nextRequiredDeltaKg = null (最終月)
-    const plan = makePlan([
-      entry("2026-07", 73.8, -1.2),
-      entry("2026-08", 72.5, -1.3),
-      entry("2026-09", 71.5, -1.0),
-    ]);
-    const logs = [
-      log("2026-07-31", 74.0), // diff = +0.2
-      log("2026-08-31", 73.0), // diff = +0.5
-    ];
-    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-09-01");
-    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
-    expect(rows[0]!.nextRequiredDeltaKg).toBeCloseTo(-1.5, 2); // -1.3 - 0.2
-    expect(rows[1]!.nextRequiredDeltaKg).toBeCloseTo(-1.7, 2); // -1.0 - 0.7
-    expect(rows[2]!.nextRequiredDeltaKg).toBeNull();            // 最終月
-  });
-
-  it("データなし過去月 (cumulativeGapKg=null) は翌月必要をそのまま返す", () => {
-    // today = 2026-08-01 → 2026-07 は過去月だがデータなし
-    const plan = makePlan([
-      entry("2026-07", 73.8, -1.2),
-      entry("2026-08", 72.5, -1.3),
-    ]);
-    const logs: { log_date: string; weight: number | null }[] = [];
-    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-08-01");
-    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
-    // cumulativeGapKg = null → 調整なし、プラン値をそのまま返す
-    expect(rows[0]!.nextRequiredDeltaKg).toBeCloseTo(-1.3, 2);
-  });
-
-  it("当月 (partial) の nextRequiredDeltaKg はプラン値をそのまま返す", () => {
-    // today = 2026-07-15 → 2026-07 は当月 (partial)
-    const plan = makePlan([
-      entry("2026-07", 73.8, -1.2),
-      entry("2026-08", 72.5, -1.3),
-    ]);
-    const logs = [log("2026-07-10", 74.0)];
-    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-07-15");
-    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
-    // 当月は cumulativeGapKg=null → 調整なし
-    expect(rows[0]!.nextRequiredDeltaKg).toBeCloseTo(-1.3, 2);
-  });
-
-  it("最終月の nextRequiredDeltaKg は null のまま (補正対象外)", () => {
-    const plan = makePlan([
-      entry("2026-07", 73.8, -1.2),
-      entry("2026-08", 72.5, -1.3),
-    ]);
-    const logs = [
-      log("2026-07-31", 74.0),
-      log("2026-08-31", 73.0),
-    ];
-    const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-09-01");
-    const rows = buildMonthlyGoalComparisonRows(summaryRows, "Cut");
-    expect(rows[1]!.nextRequiredDeltaKg).toBeNull();
   });
 });
