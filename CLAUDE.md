@@ -254,7 +254,7 @@ body-comp-tracker-v2/
 - `calcMonthlyGoalProgress` が GoalNavigator の当月進捗ゲージ用計算を担う（`calcMonthlyGoalProgress.ts`）
 - `monthlyGoalVisualization.ts` が表示用 adapter / selector 層
   - `buildMonthlyGoalSummaryRows`: plan × logs → `MonthlyGoalSummaryRow[]`
-  - `buildMonthlyGoalComparisonRows`: `MonthlyGoalSummaryRow[]` + phase → `MonthlyGoalComparisonRow[]`（progressState / cumulativeGapKg を付与）
+  - `buildMonthlyGoalComparisonRows`: `MonthlyGoalSummaryRow[]` + phase → `MonthlyGoalComparisonRow[]`（progressState を付与）
   - `buildMonthlyGoalDateMap`: ForecastChart 向けに日付 → 月末目標体重をマップ
   - UI 側でこれらの計算を再実装しない
 
@@ -332,9 +332,9 @@ body-comp-tracker-v2/
   - **`getMobileTrainingLabel`**: `training_type` の有効値なら表示、null / 無効値は非表示。特殊日の有無で抑制しない
   - 月別サマリータブ: `MonthlyGoalTable` + `SeasonSummary` + `MonthlyBehaviorSummary` で構成
     - `MonthlyGoalTable`: `buildMonthlyGoalComparisonRows`（`monthlyGoalVisualization.ts`）の出力を受け取り表示
-      - 列: 月 / 月初体重 / 月末目標 / 実績月末 / 差分 / 状態 / 累積ズレ / 翌月必要（月初体重・翌月必要は `hidden sm:table-cell`）
+      - 列: 月 / 月初体重 / 月末目標 / 実績月末 / 差分 / 状態 / 翌月必要（月初体重・翌月必要は `hidden sm:table-cell`）
       - 状態バッジ: `progressState` (先行 / 計画内 / 遅れ / 未確定) を Cut/Bulk 考慮で表示
-      - 累積ズレ: 過去完全実績月の diffKg 累積。データ欠損月はスキップしリセットしない
+      - 翌月必要: 次月の月末目標 − 実績月末体重。実績なし・最終月は空欄
     - UI 側に計画ロジックを持たない。`page.tsx` が `buildMonthlyGoalComparisonRows` を呼んで props を渡す
   - **行動・生活サマリータブ内 `MonthlyBehaviorSummary`**: 月別行動・睡眠集計テーブル
     - 列順: 月 / 便通 / トレーニング / 生活リズム / 仕事 / 特殊日
