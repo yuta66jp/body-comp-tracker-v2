@@ -133,8 +133,10 @@ curl 'http://localhost:3000/api/google-health/poc?start=2026-05-01&end=2026-05-3
 - HTTP 200 が返る。
 - `results[].ok` が対象 dataType ごとに `true` になる。
 - `results[].dataPoints` に Google Health API のレスポンスが入る。
+- `dailyMetrics[]` に `stepCount`、`sleepMinutes`、`deepSleepMinutes`、`hrvMs`、`rhrBpm` の日次正規化結果が入る。
 
 一部 scope が不足している場合、その dataType だけ `ok: false` と Google Health API のエラーメッセージが返る。
+ステップ数の scope が不足している場合は `stepsResult.ok: false` になるが、他の取得結果と `dailyMetrics` は取得できた項目だけで返る。
 
 ## API 仕様
 
