@@ -5,6 +5,7 @@ import {
 } from "./poc";
 
 const GOOGLE_HEALTH_API_BASE_URL = "https://health.googleapis.com/v4";
+export const GOOGLE_HEALTH_STEPS_PLATFORM = "FITBIT";
 
 export const GOOGLE_HEALTH_DAILY_REQUIRED_SCOPES = [
   "https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly",
@@ -163,6 +164,12 @@ function addNullableNumbers(a: number | null, b: number | null): number | null {
   return a + b;
 }
 
+function isTargetStepsPlatform(point: RecordValue): boolean {
+  const dataSource = asRecord(point.dataSource);
+  const platform = dataSource?.platform;
+  return typeof platform !== "string" || platform === GOOGLE_HEALTH_STEPS_PLATFORM;
+}
+
 function diffMinutes(start: unknown, end: unknown): number | null {
   if (typeof start !== "string" || typeof end !== "string") return null;
   const startMs = Date.parse(start);
@@ -206,6 +213,8 @@ function normalizeSteps(
 ): void {
   for (const rawPoint of dataPoints) {
     const point = asRecord(rawPoint);
+    if (!point || !isTargetStepsPlatform(point)) continue;
+
     const steps = asRecord(point?.steps);
     const interval = asRecord(steps?.interval);
     const civilStartTime = asRecord(point?.civilStartTime) ?? asRecord(interval?.civilStartTime);
@@ -320,7 +329,7 @@ export function buildGoogleHealthDailyRollupBody(range: GoogleHealthPocRange) {
       end: toCivilDateTime(range.endExclusiveDate),
     },
     windowSizeDays: 1,
-    pageSize: 10000,
+    pageSize: eachDateInRange(range).length,
     dataSourceFamily: "users/me/dataSourceFamilies/all-sources",
   };
 }

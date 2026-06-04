@@ -42,7 +42,7 @@ describe("Google Health daily metrics", () => {
         end: { date: { year: 2026, month: 6, day: 5 } },
       },
       windowSizeDays: 1,
-      pageSize: 10000,
+      pageSize: 3,
       dataSourceFamily: "users/me/dataSourceFamilies/all-sources",
     });
   });
@@ -300,6 +300,7 @@ describe("Google Health daily metrics", () => {
       sourceResults: [],
       stepsRollupDataPoints: [
         {
+          dataSource: { platform: "FITBIT" },
           steps: {
             count: "100",
             interval: {
@@ -308,11 +309,21 @@ describe("Google Health daily metrics", () => {
           },
         },
         {
+          dataSource: { platform: "FITBIT" },
           steps: {
             count: "250",
             interval: {
               startTime: "2026-06-01T15:00:00Z",
               startUtcOffset: "32400s",
+            },
+          },
+        },
+        {
+          dataSource: { platform: "HEALTH_KIT" },
+          steps: {
+            count: "9999",
+            interval: {
+              civilStartTime: { date: { year: 2026, month: 6, day: 2 } },
             },
           },
         },
