@@ -6,6 +6,7 @@ import {
 
 const GOOGLE_HEALTH_API_BASE_URL = "https://health.googleapis.com/v4";
 export const GOOGLE_HEALTH_STEPS_PLATFORM = "FITBIT";
+export const GOOGLE_HEALTH_STEPS_DATA_SOURCE_FAMILY = "users/me/dataSourceFamilies/google-wearables";
 
 export const GOOGLE_HEALTH_DAILY_REQUIRED_SCOPES = [
   "https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly",
@@ -330,7 +331,7 @@ export function buildGoogleHealthDailyRollupBody(range: GoogleHealthPocRange) {
     },
     windowSizeDays: 1,
     pageSize: eachDateInRange(range).length,
-    dataSourceFamily: "users/me/dataSourceFamilies/all-sources",
+    dataSourceFamily: GOOGLE_HEALTH_STEPS_DATA_SOURCE_FAMILY,
   };
 }
 

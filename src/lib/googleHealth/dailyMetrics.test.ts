@@ -43,7 +43,7 @@ describe("Google Health daily metrics", () => {
       },
       windowSizeDays: 1,
       pageSize: 3,
-      dataSourceFamily: "users/me/dataSourceFamilies/all-sources",
+      dataSourceFamily: "users/me/dataSourceFamilies/google-wearables",
     });
   });
 
