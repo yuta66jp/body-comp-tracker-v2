@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  GOOGLE_HEALTH_POC_REQUIRED_SCOPES,
-  fetchGoogleHealthPoc,
+  GOOGLE_HEALTH_DAILY_REQUIRED_SCOPES,
+  fetchGoogleHealthDailyMetrics,
+} from "@/lib/googleHealth/dailyMetrics";
+import {
   getGoogleHealthAccessToken,
   resolveGoogleHealthPocRange,
 } from "@/lib/googleHealth/poc";
@@ -26,20 +28,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         error: "Google Health API の access token が必要です。Authorization: Bearer <token> を指定してください。",
-        requiredScopes: GOOGLE_HEALTH_POC_REQUIRED_SCOPES,
+        requiredScopes: GOOGLE_HEALTH_DAILY_REQUIRED_SCOPES,
       },
       { status: 401 },
     );
   }
 
-  const results = await fetchGoogleHealthPoc({
+  const dailyResult = await fetchGoogleHealthDailyMetrics({
     range: rangeResult.range,
     accessToken,
   });
 
   return NextResponse.json({
     range: rangeResult.range,
-    requiredScopes: GOOGLE_HEALTH_POC_REQUIRED_SCOPES,
-    results,
+    requiredScopes: GOOGLE_HEALTH_DAILY_REQUIRED_SCOPES,
+    results: dailyResult.sourceResults,
+    stepsResult: dailyResult.stepsResult,
+    dailyMetrics: dailyResult.dailyMetrics,
   });
 }
