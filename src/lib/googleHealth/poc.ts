@@ -103,6 +103,9 @@ type GoogleHealthListResponse = {
 };
 
 type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
+type GoogleHealthAccessTokenEnv = {
+  GOOGLE_HEALTH_ACCESS_TOKEN?: string;
+};
 
 function isIsoDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -200,14 +203,14 @@ export function buildGoogleHealthDataPointsUrl(
   return url.toString();
 }
 
-export function getGoogleHealthAccessToken(headers: Headers, env: NodeJS.ProcessEnv = process.env): string | null {
+export function getGoogleHealthAccessToken(headers: Headers, env?: GoogleHealthAccessTokenEnv): string | null {
   const authorization = headers.get("Authorization");
   const match = authorization?.match(/^Bearer\s+(.+)$/i);
   if (match?.[1]?.trim()) {
     return match[1].trim();
   }
 
-  const envToken = env.GOOGLE_HEALTH_ACCESS_TOKEN?.trim();
+  const envToken = (env?.GOOGLE_HEALTH_ACCESS_TOKEN ?? process.env.GOOGLE_HEALTH_ACCESS_TOKEN)?.trim();
   return envToken && envToken.length > 0 ? envToken : null;
 }
 

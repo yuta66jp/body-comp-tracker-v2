@@ -68,12 +68,12 @@ describe("Google Health API PoC helpers", () => {
   it("Authorization ヘッダーから Bearer token を取り出す", () => {
     const headers = new Headers({ Authorization: "Bearer google-access-token" });
 
-    expect(getGoogleHealthAccessToken(headers, {} as NodeJS.ProcessEnv)).toBe("google-access-token");
+    expect(getGoogleHealthAccessToken(headers, {})).toBe("google-access-token");
   });
 
   it("Authorization ヘッダーがなければ環境変数の token を使う", () => {
     expect(
-      getGoogleHealthAccessToken(new Headers(), { GOOGLE_HEALTH_ACCESS_TOKEN: "env-token" } as NodeJS.ProcessEnv),
+      getGoogleHealthAccessToken(new Headers(), { GOOGLE_HEALTH_ACCESS_TOKEN: "env-token" }),
     ).toBe("env-token");
   });
 
