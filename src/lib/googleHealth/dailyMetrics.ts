@@ -21,24 +21,44 @@ export type GoogleHealthDailyMetric = {
   rhrBpm: number | null;
 };
 
-export type GoogleHealthStepsRollupResult =
+export type GoogleHealthStepsError = {
+  source: "dailyRollUp" | "listFallback";
+  status: number;
+  message: string;
+  details?: unknown;
+};
+
+export type GoogleHealthStepsResult =
   | {
       ok: true;
       dataType: "steps";
+      source: "dailyRollUp";
       pageCount: number;
       rollupDataPoints: unknown[];
       nextPageToken: string | null;
     }
   | {
+      ok: true;
+      dataType: "steps";
+      source: "listFallback";
+      pageCount: number;
+      dataPoints: unknown[];
+      nextPageToken: string | null;
+      fallbackFrom: GoogleHealthStepsError;
+    }
+  | {
       ok: false;
       dataType: "steps";
+      source: "dailyRollUp" | "listFallback";
       status: number;
       message: string;
+      details?: unknown;
+      fallbackFrom?: GoogleHealthStepsError;
     };
 
 export type GoogleHealthDailyMetricsResult = {
   sourceResults: GoogleHealthPocTargetResult[];
-  stepsResult: GoogleHealthStepsRollupResult;
+  stepsResult: GoogleHealthStepsResult;
   dailyMetrics: GoogleHealthDailyMetric[];
 };
 
@@ -46,6 +66,11 @@ type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
 
 type DailyRollupResponse = {
   rollupDataPoints?: unknown[];
+  nextPageToken?: string;
+};
+
+type ListResponse = {
+  dataPoints?: unknown[];
   nextPageToken?: string;
 };
 
@@ -177,19 +202,23 @@ function sumStageIntervalsMinutes(stages: unknown, stageTypes: Set<string>): num
 
 function normalizeSteps(
   map: Map<string, GoogleHealthDailyMetric>,
-  rollupDataPoints: unknown[],
+  dataPoints: unknown[],
 ): void {
-  for (const rawPoint of rollupDataPoints) {
+  for (const rawPoint of dataPoints) {
     const point = asRecord(rawPoint);
-    const civilStartTime = asRecord(point?.civilStartTime);
-    const date = parseGoogleDate(civilStartTime?.date);
+    const steps = asRecord(point?.steps);
+    const interval = asRecord(steps?.interval);
+    const civilStartTime = asRecord(point?.civilStartTime) ?? asRecord(interval?.civilStartTime);
+    const date =
+      parseGoogleDate(civilStartTime?.date) ??
+      deriveCivilDateFromTimestamp(interval?.startTime, interval?.startUtcOffset);
     if (!date) continue;
 
-    const steps = asRecord(point?.steps);
-    const count = parseNumber(steps?.countSum);
+    const count = parseNumber(steps?.countSum) ?? parseNumber(steps?.count);
     if (count === null) continue;
 
-    ensureMetric(map, date).stepCount = count;
+    const metric = ensureMetric(map, date);
+    metric.stepCount = addNullableNumbers(metric.stepCount, count);
   }
 }
 
@@ -264,6 +293,19 @@ export function buildGoogleHealthDailyRollupUrl(dataType: "steps"): string {
   return `${GOOGLE_HEALTH_API_BASE_URL}/users/me/dataTypes/${dataType}/dataPoints:dailyRollUp`;
 }
 
+export function buildGoogleHealthStepsListUrl(range: GoogleHealthPocRange, pageToken?: string): string {
+  const url = new URL(`${GOOGLE_HEALTH_API_BASE_URL}/users/me/dataTypes/steps/dataPoints`);
+  url.searchParams.set("pageSize", "10000");
+  url.searchParams.set(
+    "filter",
+    `steps.interval.civil_start_time >= "${range.startDate}" AND steps.interval.civil_start_time < "${range.endExclusiveDate}"`,
+  );
+  if (pageToken) {
+    url.searchParams.set("pageToken", pageToken);
+  }
+  return url.toString();
+}
+
 export function buildGoogleHealthDailyRollupBody(range: GoogleHealthPocRange) {
   const toCivilDateTime = (date: string) => {
     const [year, month, day] = date.split("-").map(Number) as [number, number, number];
@@ -283,12 +325,20 @@ export function buildGoogleHealthDailyRollupBody(range: GoogleHealthPocRange) {
   };
 }
 
-async function parseErrorMessage(response: Response): Promise<string> {
+async function parseGoogleHealthError(response: Response): Promise<Omit<GoogleHealthStepsError, "source" | "status">> {
   try {
-    const body = await response.json() as { error?: { message?: string }; message?: string };
-    return body.error?.message ?? body.message ?? response.statusText;
+    const body = await response.json() as {
+      error?: { message?: string; details?: unknown };
+      message?: string;
+      details?: unknown;
+    };
+    const details = body.error?.details ?? body.details;
+    return {
+      message: body.error?.message ?? body.message ?? response.statusText,
+      ...(details !== undefined ? { details } : {}),
+    };
   } catch {
-    return response.statusText;
+    return { message: response.statusText };
   }
 }
 
@@ -296,7 +346,7 @@ export async function fetchGoogleHealthStepsDailyRollup(args: {
   range: GoogleHealthPocRange;
   accessToken: string;
   fetchImpl?: FetchLike;
-}): Promise<GoogleHealthStepsRollupResult> {
+}): Promise<GoogleHealthStepsResult> {
   const { range, accessToken, fetchImpl = fetch } = args;
   const response = await fetchImpl(buildGoogleHealthDailyRollupUrl("steps"), {
     method: "POST",
@@ -309,11 +359,13 @@ export async function fetchGoogleHealthStepsDailyRollup(args: {
   });
 
   if (!response.ok) {
+    const error = await parseGoogleHealthError(response);
     return {
       ok: false,
       dataType: "steps",
+      source: "dailyRollUp",
       status: response.status,
-      message: await parseErrorMessage(response),
+      ...error,
     };
   }
 
@@ -321,10 +373,86 @@ export async function fetchGoogleHealthStepsDailyRollup(args: {
   return {
     ok: true,
     dataType: "steps",
+    source: "dailyRollUp",
     pageCount: 1,
     rollupDataPoints: Array.isArray(body.rollupDataPoints) ? body.rollupDataPoints : [],
     nextPageToken: body.nextPageToken && body.nextPageToken.length > 0 ? body.nextPageToken : null,
   };
+}
+
+export async function fetchGoogleHealthStepsListFallback(args: {
+  range: GoogleHealthPocRange;
+  accessToken: string;
+  fetchImpl?: FetchLike;
+  maxPages?: number;
+  fallbackFrom: GoogleHealthStepsError;
+}): Promise<GoogleHealthStepsResult> {
+  const { range, accessToken, fetchImpl = fetch, maxPages = 5, fallbackFrom } = args;
+  const dataPoints: unknown[] = [];
+  let nextPageToken: string | null = null;
+  let pageCount = 0;
+
+  do {
+    const response = await fetchImpl(buildGoogleHealthStepsListUrl(range, nextPageToken ?? undefined), {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+    });
+
+    pageCount++;
+
+    if (!response.ok) {
+      const error = await parseGoogleHealthError(response);
+      return {
+        ok: false,
+        dataType: "steps",
+        source: "listFallback",
+        status: response.status,
+        ...error,
+        fallbackFrom,
+      };
+    }
+
+    const body = await response.json() as ListResponse;
+    dataPoints.push(...(Array.isArray(body.dataPoints) ? body.dataPoints : []));
+    nextPageToken = body.nextPageToken && body.nextPageToken.length > 0 ? body.nextPageToken : null;
+  } while (nextPageToken && pageCount < maxPages);
+
+  return {
+    ok: true,
+    dataType: "steps",
+    source: "listFallback",
+    pageCount,
+    dataPoints,
+    nextPageToken,
+    fallbackFrom,
+  };
+}
+
+export async function fetchGoogleHealthSteps(args: {
+  range: GoogleHealthPocRange;
+  accessToken: string;
+  fetchImpl?: FetchLike;
+}): Promise<GoogleHealthStepsResult> {
+  const rollupResult = await fetchGoogleHealthStepsDailyRollup(args);
+  if (rollupResult.ok) return rollupResult;
+  if (rollupResult.status !== 400) return rollupResult;
+
+  return fetchGoogleHealthStepsListFallback({
+    ...args,
+    fallbackFrom: {
+      source: rollupResult.source,
+      status: rollupResult.status,
+      message: rollupResult.message,
+      ...(rollupResult.details !== undefined ? { details: rollupResult.details } : {}),
+    },
+  });
+}
+
+function stepsDataPointsForNormalization(result: GoogleHealthStepsResult): unknown[] {
+  if (!result.ok) return [];
+  return result.source === "dailyRollUp" ? result.rollupDataPoints : result.dataPoints;
 }
 
 export function normalizeGoogleHealthDailyMetrics(args: {
@@ -354,7 +482,7 @@ export async function fetchGoogleHealthDailyMetrics(args: {
   const { range, accessToken, fetchImpl } = args;
   const [sourceResults, stepsResult] = await Promise.all([
     fetchGoogleHealthPoc({ range, accessToken, fetchImpl }),
-    fetchGoogleHealthStepsDailyRollup({ range, accessToken, fetchImpl }),
+    fetchGoogleHealthSteps({ range, accessToken, fetchImpl }),
   ]);
 
   return {
@@ -362,7 +490,7 @@ export async function fetchGoogleHealthDailyMetrics(args: {
     stepsResult,
     dailyMetrics: normalizeGoogleHealthDailyMetrics({
       range,
-      stepsRollupDataPoints: stepsResult.ok ? stepsResult.rollupDataPoints : [],
+      stepsRollupDataPoints: stepsDataPointsForNormalization(stepsResult),
       sourceResults,
     }),
   };

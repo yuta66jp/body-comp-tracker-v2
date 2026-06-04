@@ -1,6 +1,8 @@
 import {
   buildGoogleHealthDailyRollupBody,
   buildGoogleHealthDailyRollupUrl,
+  buildGoogleHealthStepsListUrl,
+  fetchGoogleHealthSteps,
   fetchGoogleHealthStepsDailyRollup,
   normalizeGoogleHealthDailyMetrics,
 } from "./dailyMetrics";
@@ -45,6 +47,18 @@ describe("Google Health daily metrics", () => {
     });
   });
 
+  it("steps list fallback のURLを組み立てる", () => {
+    const url = new URL(buildGoogleHealthStepsListUrl(range));
+
+    expect(url.origin + url.pathname).toBe(
+      "https://health.googleapis.com/v4/users/me/dataTypes/steps/dataPoints",
+    );
+    expect(url.searchParams.get("pageSize")).toBe("10000");
+    expect(url.searchParams.get("filter")).toBe(
+      "steps.interval.civil_start_time >= \"2026-06-02\" AND steps.interval.civil_start_time < \"2026-06-05\"",
+    );
+  });
+
   it("steps dailyRollUp をPOSTで取得する", async () => {
     const fetchImpl = jest.fn().mockResolvedValue(
       new Response(JSON.stringify({
@@ -59,7 +73,8 @@ describe("Google Health daily metrics", () => {
     });
 
     expect(result.ok).toBe(true);
-    if (result.ok) {
+    if (result.ok && result.source === "dailyRollUp") {
+      expect(result.source).toBe("dailyRollUp");
       expect(result.rollupDataPoints).toEqual([{ steps: { countSum: "1234" } }]);
       expect(result.nextPageToken).toBeNull();
     }
@@ -74,6 +89,98 @@ describe("Google Health daily metrics", () => {
         }),
       }),
     );
+  });
+
+  it("steps dailyRollUp が400の場合はlistでフォールバック取得する", async () => {
+    const details = [{ reason: "invalidRange" }];
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          error: {
+            message: "Invalid argument in request.",
+            details,
+          },
+        }), { status: 400 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          dataPoints: [
+            {
+              steps: {
+                count: "123",
+                interval: {
+                  civilStartTime: { date: { year: 2026, month: 6, day: 2 } },
+                },
+              },
+            },
+          ],
+        }), { status: 200 }),
+      );
+
+    const result = await fetchGoogleHealthSteps({
+      range,
+      accessToken: "access-token",
+      fetchImpl,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok && result.source === "listFallback") {
+      expect(result.source).toBe("listFallback");
+      expect(result.fallbackFrom).toEqual({
+        source: "dailyRollUp",
+        status: 400,
+        message: "Invalid argument in request.",
+        details,
+      });
+      expect(result.dataPoints).toEqual([
+        {
+          steps: {
+            count: "123",
+            interval: {
+              civilStartTime: { date: { year: 2026, month: 6, day: 2 } },
+            },
+          },
+        },
+      ]);
+    }
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining("/users/me/dataTypes/steps/dataPoints?"),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer access-token",
+          Accept: "application/json",
+        }),
+      }),
+    );
+  });
+
+  it("steps dailyRollUp が400以外で失敗した場合はフォールバックしない", async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        error: {
+          message: "Required OAuth scope(s) are missing for this operation.",
+        },
+      }), { status: 403 }),
+    );
+
+    const result = await fetchGoogleHealthSteps({
+      range,
+      accessToken: "access-token",
+      fetchImpl,
+    });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      ok: false,
+      dataType: "steps",
+      source: "dailyRollUp",
+      status: 403,
+      message: "Required OAuth scope(s) are missing for this operation.",
+    });
   });
 
   it("raw response を日次メトリクスへ正規化する", () => {
@@ -179,6 +286,47 @@ describe("Google Health daily metrics", () => {
         deepSleepMinutes: 63,
         hrvMs: 128.8,
         rhrBpm: 43,
+      },
+    ]);
+  });
+
+  it("steps list dataPoints は日付ごとに合算する", () => {
+    const result = normalizeGoogleHealthDailyMetrics({
+      range: {
+        startDate: "2026-06-02",
+        endDate: "2026-06-02",
+        endExclusiveDate: "2026-06-03",
+      },
+      sourceResults: [],
+      stepsRollupDataPoints: [
+        {
+          steps: {
+            count: "100",
+            interval: {
+              civilStartTime: { date: { year: 2026, month: 6, day: 2 } },
+            },
+          },
+        },
+        {
+          steps: {
+            count: "250",
+            interval: {
+              startTime: "2026-06-01T15:00:00Z",
+              startUtcOffset: "32400s",
+            },
+          },
+        },
+      ],
+    });
+
+    expect(result).toEqual([
+      {
+        date: "2026-06-02",
+        stepCount: 350,
+        sleepMinutes: null,
+        deepSleepMinutes: null,
+        hrvMs: null,
+        rhrBpm: null,
       },
     ]);
   });
