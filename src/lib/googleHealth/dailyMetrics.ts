@@ -7,6 +7,7 @@ import {
 const GOOGLE_HEALTH_API_BASE_URL = "https://health.googleapis.com/v4";
 export const GOOGLE_HEALTH_STEPS_PLATFORM = "FITBIT";
 export const GOOGLE_HEALTH_STEPS_DATA_SOURCE_FAMILY = "users/me/dataSourceFamilies/google-wearables";
+export const GOOGLE_HEALTH_RECONCILED_STEPS_DATA_SOURCE_FAMILY = "users/me/dataSourceFamilies/all-sources";
 
 export const GOOGLE_HEALTH_DAILY_REQUIRED_SCOPES = [
   "https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly",
@@ -24,13 +25,21 @@ export type GoogleHealthDailyMetric = {
 };
 
 export type GoogleHealthStepsError = {
-  source: "dailyRollUp" | "listFallback";
+  source: "reconcile" | "dailyRollUp" | "listFallback";
   status: number;
   message: string;
   details?: unknown;
 };
 
 export type GoogleHealthStepsResult =
+  | {
+      ok: true;
+      dataType: "steps";
+      source: "reconcile";
+      pageCount: number;
+      dataPoints: unknown[];
+      nextPageToken: string | null;
+    }
   | {
       ok: true;
       dataType: "steps";
@@ -51,7 +60,7 @@ export type GoogleHealthStepsResult =
   | {
       ok: false;
       dataType: "steps";
-      source: "dailyRollUp" | "listFallback";
+      source: "reconcile" | "dailyRollUp" | "listFallback";
       status: number;
       message: string;
       details?: unknown;
@@ -303,6 +312,20 @@ export function buildGoogleHealthDailyRollupUrl(dataType: "steps"): string {
   return `${GOOGLE_HEALTH_API_BASE_URL}/users/me/dataTypes/${dataType}/dataPoints:dailyRollUp`;
 }
 
+export function buildGoogleHealthStepsReconcileUrl(range: GoogleHealthPocRange, pageToken?: string): string {
+  const url = new URL(`${GOOGLE_HEALTH_API_BASE_URL}/users/me/dataTypes/steps/dataPoints:reconcile`);
+  url.searchParams.set("pageSize", "10000");
+  url.searchParams.set("dataSourceFamily", GOOGLE_HEALTH_RECONCILED_STEPS_DATA_SOURCE_FAMILY);
+  url.searchParams.set(
+    "filter",
+    `steps.interval.civil_start_time >= "${range.startDate}" AND steps.interval.civil_start_time < "${range.endExclusiveDate}"`,
+  );
+  if (pageToken) {
+    url.searchParams.set("pageToken", pageToken);
+  }
+  return url.toString();
+}
+
 export function buildGoogleHealthStepsListUrl(range: GoogleHealthPocRange, pageToken?: string): string {
   const url = new URL(`${GOOGLE_HEALTH_API_BASE_URL}/users/me/dataTypes/steps/dataPoints`);
   url.searchParams.set("pageSize", "10000");
@@ -350,6 +373,53 @@ async function parseGoogleHealthError(response: Response): Promise<Omit<GoogleHe
   } catch {
     return { message: response.statusText };
   }
+}
+
+export async function fetchGoogleHealthStepsReconcile(args: {
+  range: GoogleHealthPocRange;
+  accessToken: string;
+  fetchImpl?: FetchLike;
+  maxPages?: number;
+}): Promise<GoogleHealthStepsResult> {
+  const { range, accessToken, fetchImpl = fetch, maxPages = 5 } = args;
+  const dataPoints: unknown[] = [];
+  let nextPageToken: string | null = null;
+  let pageCount = 0;
+
+  do {
+    const response = await fetchImpl(buildGoogleHealthStepsReconcileUrl(range, nextPageToken ?? undefined), {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+    });
+
+    pageCount++;
+
+    if (!response.ok) {
+      const error = await parseGoogleHealthError(response);
+      return {
+        ok: false,
+        dataType: "steps",
+        source: "reconcile",
+        status: response.status,
+        ...error,
+      };
+    }
+
+    const body = await response.json() as ListResponse;
+    dataPoints.push(...(Array.isArray(body.dataPoints) ? body.dataPoints : []));
+    nextPageToken = body.nextPageToken && body.nextPageToken.length > 0 ? body.nextPageToken : null;
+  } while (nextPageToken && pageCount < maxPages);
+
+  return {
+    ok: true,
+    dataType: "steps",
+    source: "reconcile",
+    pageCount,
+    dataPoints,
+    nextPageToken,
+  };
 }
 
 export async function fetchGoogleHealthStepsDailyRollup(args: {
@@ -445,6 +515,9 @@ export async function fetchGoogleHealthSteps(args: {
   accessToken: string;
   fetchImpl?: FetchLike;
 }): Promise<GoogleHealthStepsResult> {
+  const reconcileResult = await fetchGoogleHealthStepsReconcile(args);
+  if (reconcileResult.ok || reconcileResult.status === 403) return reconcileResult;
+
   const rollupResult = await fetchGoogleHealthStepsDailyRollup(args);
   if (rollupResult.ok) return rollupResult;
   if (rollupResult.status !== 400) return rollupResult;
