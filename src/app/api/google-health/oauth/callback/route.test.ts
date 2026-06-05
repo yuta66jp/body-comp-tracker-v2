@@ -180,4 +180,55 @@ describe("GET /api/google-health/oauth/callback", () => {
 
     expect(response.headers.get("location")).toBe("http://localhost/settings?google_health=scope_missing");
   });
+
+  it("token exchange 失敗時は sanitized reason を返す", async () => {
+    mockGetCurrentUser.mockResolvedValue({ id: "user-id", email: "owner@example.com" });
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify({
+      error: "invalid_grant",
+      error_description: "sensitive detail",
+    }), { status: 400 }));
+
+    const response = await GET(makeRequest(
+      { code: "authorization-code", state: "state-value" },
+      makeStateCookie(),
+    ));
+    const location = response.headers.get("location") ?? "";
+
+    expect(location).toBe(
+      "http://localhost/settings?google_health=error&reason=google_health_oauth_token_exchange_failed",
+    );
+    expect(location).not.toContain("sensitive");
+    expect(mockSaveConnection).not.toHaveBeenCalled();
+    expect(mockMarkError).toHaveBeenCalledWith({
+      userId: "user-id",
+      code: "oauth_token_exchange_failed",
+      message: "google_health_oauth_token_exchange_failed",
+    });
+  });
+
+  it("connection 保存失敗時は安全なエラー名だけを reason に含める", async () => {
+    mockGetCurrentUser.mockResolvedValue({ id: "user-id", email: "owner@example.com" });
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify({
+      access_token: "google-access-token",
+      refresh_token: "google-refresh-token",
+      expires_in: 3600,
+      scope: GOOGLE_HEALTH_DAILY_REQUIRED_SCOPES.join(" "),
+      token_type: "Bearer",
+    }), { status: 200 }));
+    mockSaveConnection.mockRejectedValue(new Error("supabase_service_role_env_missing"));
+
+    const response = await GET(makeRequest(
+      { code: "authorization-code", state: "state-value" },
+      makeStateCookie(),
+    ));
+
+    expect(response.headers.get("location")).toBe(
+      "http://localhost/settings?google_health=error&reason=supabase_service_role_env_missing",
+    );
+    expect(mockMarkError).toHaveBeenCalledWith({
+      userId: "user-id",
+      code: "oauth_connection_save_failed",
+      message: "supabase_service_role_env_missing",
+    });
+  });
 });

@@ -13,6 +13,16 @@ import { getCurrentUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+const SAFE_CALLBACK_FAILURE_REASONS = new Set([
+  "google_health_oauth_token_exchange_failed",
+  "google_health_oauth_token_response_invalid",
+  "supabase_service_role_env_missing",
+  "google_health_token_encryption_key_missing",
+  "google_health_token_encryption_key_invalid",
+  "google_health_connection_fetch_failed",
+  "google_health_connection_upsert_failed",
+]);
+
 function settingsRedirect(request: NextRequest, status: string, reason?: string): NextResponse {
   const url = new URL("/settings", request.nextUrl.origin);
   url.searchParams.set("google_health", status);
@@ -39,6 +49,11 @@ async function tryMarkConnectionError(userId: string, code: string, message?: st
   } catch {
     // OAuth callback must never expose service-role or token storage details to the browser.
   }
+}
+
+function getSafeCallbackFailureReason(error: unknown, fallback: string): string {
+  if (!(error instanceof Error)) return fallback;
+  return SAFE_CALLBACK_FAILURE_REASONS.has(error.message) ? error.message : fallback;
 }
 
 export async function GET(request: NextRequest) {
@@ -95,20 +110,33 @@ export async function GET(request: NextRequest) {
     return clearStateCookie(settingsRedirect(request, "error", "google_health_oauth_state_user_mismatch"));
   }
 
+  let token;
   try {
-    const token = await exchangeGoogleHealthOAuthCode({
+    token = await exchangeGoogleHealthOAuthCode({
       config,
       code,
       codeVerifier: statePayload.codeVerifier,
     });
+  } catch (error) {
+    const reason = getSafeCallbackFailureReason(error, "google_health_oauth_token_exchange_failed");
+    await tryMarkConnectionError(
+      user.id,
+      "oauth_token_exchange_failed",
+      error instanceof Error ? error.message : null,
+    );
+    return clearStateCookie(settingsRedirect(request, "error", reason));
+  }
+
+  try {
     const result = await saveGoogleHealthOAuthConnection({ userId: user.id, token });
     return clearStateCookie(settingsRedirect(request, result.status));
   } catch (error) {
+    const reason = getSafeCallbackFailureReason(error, "google_health_connection_save_failed");
     await tryMarkConnectionError(
       user.id,
-      "oauth_callback_failed",
+      "oauth_connection_save_failed",
       error instanceof Error ? error.message : null,
     );
-    return clearStateCookie(settingsRedirect(request, "error", "oauth_callback_failed"));
+    return clearStateCookie(settingsRedirect(request, "error", reason));
   }
 }
