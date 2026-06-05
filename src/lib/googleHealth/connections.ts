@@ -340,6 +340,29 @@ export async function markGoogleHealthConnectionError(args: {
   }
 }
 
+export async function markGoogleHealthConnectionSynced(args: {
+  userId: string;
+  syncedAt?: string;
+  client?: ServiceRoleClient;
+}): Promise<void> {
+  const client = args.client ?? createServiceRoleClient();
+  const syncedAt = args.syncedAt ?? new Date().toISOString();
+
+  const { error } = await privateConnections(client)
+    .update({
+      status: "connected",
+      last_checked_at: syncedAt,
+      last_sync_at: syncedAt,
+      last_error_code: null,
+      last_error_message: null,
+    })
+    .eq("user_id", args.userId);
+
+  if (error) {
+    throw new Error("google_health_connection_sync_update_failed");
+  }
+}
+
 export async function deleteGoogleHealthConnection(
   userId: string,
   client: ServiceRoleClient = createServiceRoleClient(),

@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateAfterDailyLogMutation } from "@/lib/cache/revalidate";
 import { fetchGoogleHealthDailyMetrics } from "@/lib/googleHealth/dailyMetrics";
-import { resolveGoogleHealthStoredAccessToken } from "@/lib/googleHealth/connections";
+import {
+  markGoogleHealthConnectionSynced,
+  resolveGoogleHealthStoredAccessToken,
+} from "@/lib/googleHealth/connections";
 import { resolveGoogleHealthPocRange } from "@/lib/googleHealth/poc";
 import type { GoogleHealthPocTargetResult } from "@/lib/googleHealth/poc";
 import { saveGoogleHealthDailyMetrics } from "@/lib/googleHealth/saveDailyMetrics";
@@ -129,6 +132,18 @@ export async function POST(req: NextRequest) {
 
   if (!saveResult.ok) {
     return NextResponse.json({ error: saveResult.message }, { status: 500 });
+  }
+
+  try {
+    await markGoogleHealthConnectionSynced({ userId: user.id });
+  } catch {
+    return NextResponse.json(
+      {
+        error: "Google Health sync timestamp update failed.",
+        status: "error",
+      },
+      { status: 500 },
+    );
   }
 
   if (saveResult.savedCount > 0) {
