@@ -82,7 +82,7 @@ export type Database = {
           step_count: number | null
           training_type: string | null
           updated_at: string
-          user_id?: string | null
+          user_id: string | null
           weight: number
           work_mode: string | null
         }
@@ -140,65 +140,6 @@ export type Database = {
         }
         Relationships: []
       }
-      google_health_daily_metrics: {
-        Row: {
-          created_at: string
-          deep_sleep_minutes: number | null
-          google_health_steps_source: string | null
-          hrv_ms: number | null
-          id: string
-          metric_date: string
-          rhr_bpm: number | null
-          sleep_bed_at: string | null
-          sleep_minutes: number | null
-          sleep_wake_at: string | null
-          step_count: number | null
-          synced_at: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          deep_sleep_minutes?: number | null
-          google_health_steps_source?: string | null
-          hrv_ms?: number | null
-          id?: string
-          metric_date: string
-          rhr_bpm?: number | null
-          sleep_bed_at?: string | null
-          sleep_minutes?: number | null
-          sleep_wake_at?: string | null
-          step_count?: number | null
-          synced_at?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          deep_sleep_minutes?: number | null
-          google_health_steps_source?: string | null
-          hrv_ms?: number | null
-          id?: string
-          metric_date?: string
-          rhr_bpm?: number | null
-          sleep_bed_at?: string | null
-          sleep_minutes?: number | null
-          sleep_wake_at?: string | null
-          step_count?: number | null
-          synced_at?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_google_health_daily_metrics_daily_logs"
-            columns: ["user_id", "metric_date"]
-            isOneToOne: true
-            referencedRelation: "daily_logs"
-            referencedColumns: ["user_id", "log_date"]
-          },
-        ]
-      }
       food_master: {
         Row: {
           calories: number | null
@@ -209,7 +150,7 @@ export type Database = {
           id: string
           name: string
           protein: number | null
-          user_id?: string | null
+          user_id: string | null
         }
         Insert: {
           calories?: number | null
@@ -386,13 +327,72 @@ export type Database = {
         }
         Relationships: []
       }
+      google_health_daily_metrics: {
+        Row: {
+          created_at: string
+          deep_sleep_minutes: number | null
+          google_health_steps_source: string | null
+          hrv_ms: number | null
+          id: string
+          metric_date: string
+          rhr_bpm: number | null
+          sleep_bed_at: string | null
+          sleep_minutes: number | null
+          sleep_wake_at: string | null
+          step_count: number | null
+          synced_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deep_sleep_minutes?: number | null
+          google_health_steps_source?: string | null
+          hrv_ms?: number | null
+          id?: string
+          metric_date: string
+          rhr_bpm?: number | null
+          sleep_bed_at?: string | null
+          sleep_minutes?: number | null
+          sleep_wake_at?: string | null
+          step_count?: number | null
+          synced_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deep_sleep_minutes?: number | null
+          google_health_steps_source?: string | null
+          hrv_ms?: number | null
+          id?: string
+          metric_date?: string
+          rhr_bpm?: number | null
+          sleep_bed_at?: string | null
+          sleep_minutes?: number | null
+          sleep_wake_at?: string | null
+          step_count?: number | null
+          synced_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_google_health_daily_metrics_daily_logs"
+            columns: ["user_id", "metric_date"]
+            isOneToOne: true
+            referencedRelation: "daily_logs"
+            referencedColumns: ["user_id", "log_date"]
+          },
+        ]
+      }
       menu_master: {
         Row: {
           created_at: string | null
           id: string
           name: string
           recipe: Json
-          user_id?: string | null
+          user_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -438,7 +438,7 @@ export type Database = {
         Row: {
           key: string
           updated_at: string | null
-          user_id?: string | null
+          user_id: string | null
           value_num: number | null
           value_str: string | null
         }
@@ -460,37 +460,37 @@ export type Database = {
       }
       sleep_sessions: {
         Row: {
-          id: string
-          wake_date: string
           bed_at: string
-          wake_at: string
-          source: string
-          note: string | null
           created_at: string
+          id: string
+          note: string | null
+          source: string
           updated_at: string
-          user_id?: string | null
+          user_id: string | null
+          wake_at: string
+          wake_date: string
         }
         Insert: {
-          id?: string
-          wake_date: string
           bed_at: string
-          wake_at: string
-          source?: string
-          note?: string | null
           created_at?: string
+          id?: string
+          note?: string | null
+          source?: string
           updated_at?: string
           user_id?: string | null
+          wake_at: string
+          wake_date: string
         }
         Update: {
-          id?: string
-          wake_date?: string
           bed_at?: string
-          wake_at?: string
-          source?: string
-          note?: string | null
           created_at?: string
+          id?: string
+          note?: string | null
+          source?: string
           updated_at?: string
           user_id?: string | null
+          wake_at?: string
+          wake_date?: string
         }
         Relationships: []
       }
