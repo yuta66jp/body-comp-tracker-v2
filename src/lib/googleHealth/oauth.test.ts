@@ -4,6 +4,7 @@ import {
   buildGoogleHealthOAuthAuthorizationUrl,
   createGoogleHealthOAuthStateCookieValue,
   exchangeGoogleHealthOAuthCode,
+  refreshGoogleHealthOAuthAccessToken,
   generateGoogleHealthPkcePair,
   getGoogleHealthOAuthConfig,
   getMissingGoogleHealthOAuthScopes,
@@ -166,6 +167,57 @@ describe("Google Health OAuth helpers", () => {
       codeVerifier: "code-verifier",
       fetchFn,
     })).rejects.toThrow("google_health_oauth_token_exchange_failed");
+  });
+
+  it("refresh token で access token を更新する", async () => {
+    const fetchFn = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        access_token: "new-access-token",
+        expires_in: 3600,
+        scope: "scope-a scope-b",
+        token_type: "Bearer",
+      }),
+    });
+
+    const token = await refreshGoogleHealthOAuthAccessToken({
+      config,
+      refreshToken: "refresh-token",
+      fetchFn,
+    });
+
+    expect(fetchFn).toHaveBeenCalledWith(GOOGLE_OAUTH_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: expect.any(URLSearchParams),
+    });
+    const body = fetchFn.mock.calls[0][1].body as URLSearchParams;
+    expect(body.get("client_id")).toBe(config.clientId);
+    expect(body.get("client_secret")).toBe(config.clientSecret);
+    expect(body.get("grant_type")).toBe("refresh_token");
+    expect(body.get("refresh_token")).toBe("refresh-token");
+    expect(token).toEqual({
+      accessToken: "new-access-token",
+      expiresIn: 3600,
+      grantedScopes: ["scope-a", "scope-b"],
+      tokenType: "Bearer",
+    });
+  });
+
+  it("refresh token 失敗時は safe reason を返す", async () => {
+    const fetchFn = jest.fn().mockResolvedValue({
+      ok: false,
+      json: jest.fn().mockResolvedValue({
+        error: "invalid_grant",
+        error_description: "secret detail",
+      }),
+    });
+
+    await expect(refreshGoogleHealthOAuthAccessToken({
+      config,
+      refreshToken: "refresh-token",
+      fetchFn,
+    })).rejects.toThrow("google_health_oauth_token_refresh_invalid_grant");
   });
 
   it("不足 scope を検出する", () => {
