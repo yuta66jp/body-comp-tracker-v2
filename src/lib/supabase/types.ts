@@ -637,7 +637,10 @@ export const Constants = {
 } as const
 
 // ── Convenience type aliases ──────────────────────────────────────────────────
-export type DailyLog = Database["public"]["Tables"]["daily_logs"]["Row"];
+type OptionalUserId<Row extends { user_id: string | null }> =
+  Omit<Row, "user_id"> & { user_id?: string | null };
+
+export type DailyLog = OptionalUserId<Database["public"]["Tables"]["daily_logs"]["Row"]>;
 
 /**
  * Dashboard 専用の daily_logs projection 型。
@@ -671,11 +674,11 @@ export type MacroDailyLog = Pick<DailyLog, "log_date" | "weight" | "calories" | 
 export type TdeeDailyLog = Pick<DailyLog, "log_date" | "weight" | "calories">;
 
 export type GoogleHealthDailyMetricRow = Database["public"]["Tables"]["google_health_daily_metrics"]["Row"];
-export type SleepSession = Database["public"]["Tables"]["sleep_sessions"]["Row"];
+export type SleepSession = OptionalUserId<Database["public"]["Tables"]["sleep_sessions"]["Row"]>;
 
-export type FoodMaster  = Database["public"]["Tables"]["food_master"]["Row"];
-export type MenuMaster  = Database["public"]["Tables"]["menu_master"]["Row"];
-export type Setting     = Database["public"]["Tables"]["settings"]["Row"];
+export type FoodMaster  = OptionalUserId<Database["public"]["Tables"]["food_master"]["Row"]>;
+export type MenuMaster  = OptionalUserId<Database["public"]["Tables"]["menu_master"]["Row"]>;
+export type Setting     = OptionalUserId<Database["public"]["Tables"]["settings"]["Row"]>;
 export type Prediction  = Database["public"]["Tables"]["predictions"]["Row"];
 export type AnalyticsCache = Database["public"]["Tables"]["analytics_cache"]["Row"];
 export type CareerLog   = Database["public"]["Tables"]["career_logs"]["Row"];
