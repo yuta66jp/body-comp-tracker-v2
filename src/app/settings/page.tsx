@@ -4,24 +4,43 @@ import { ImportSection } from "@/components/settings/ImportSection";
 import { StepImportSection } from "@/components/settings/StepImportSection";
 import { DataQualityPanel } from "@/components/settings/DataQualityPanel";
 import { ThemeSection } from "@/components/settings/ThemeSection";
+import { GoogleHealthSection } from "@/components/settings/GoogleHealthSection";
 import { calcDataQuality } from "@/lib/utils/calcDataQuality";
 import { fetchSettingsRows } from "@/lib/queries/settings";
 import { fetchDailyLogsForSettings } from "@/lib/queries/dailyLogs";
 import { fetchSleepSessionsForRange } from "@/lib/queries/sleepSessions";
 import { toJstDateStr, addDaysStr } from "@/lib/utils/date";
 import { PageShell } from "@/components/ui/PageShell";
+import {
+  buildGoogleHealthNotConnectedStatus,
+  buildGoogleHealthStatusError,
+  getGoogleHealthStatusForUser,
+} from "@/lib/googleHealth/status";
+import { getCurrentUser } from "@/lib/supabase/server";
 
 export const revalidate = 0;
+
+async function fetchGoogleHealthStatusForSettings(userId: string | null) {
+  if (!userId) return buildGoogleHealthNotConnectedStatus();
+
+  try {
+    return await getGoogleHealthStatusForUser(userId);
+  } catch {
+    return buildGoogleHealthStatusError("google_health_connection_status_lookup_failed");
+  }
+}
 
 export default async function SettingsPage() {
   // データ品質の睡眠セッションチェック用: JST 基準で直近 14 日分を取得する
   const today = toJstDateStr();
   const d14Start = addDaysStr(today, -13) ?? today;
+  const user = await getCurrentUser();
 
-  const [settingsRowsResult, logsResult, recentSleepSessions] = await Promise.all([
+  const [settingsRowsResult, logsResult, recentSleepSessions, googleHealthStatus] = await Promise.all([
     fetchSettingsRows(),
     fetchDailyLogsForSettings(),
     fetchSleepSessionsForRange(d14Start, today),
+    fetchGoogleHealthStatusForSettings(user?.id ?? null),
   ]);
 
   // QueryResult を展開。エラー時はフォールバック値で graceful degradation を維持する。
@@ -53,6 +72,7 @@ export default async function SettingsPage() {
 
       <div className="space-y-6">
         <ThemeSection />
+        <GoogleHealthSection initialStatus={googleHealthStatus} />
         <SettingsForm initialSettings={settingsRows} currentWeight={currentWeight} />
         <DataQualityPanel report={qualityReport} />
 
