@@ -11,7 +11,12 @@ import {
   encryptGoogleHealthToken,
 } from "./tokenCrypto";
 import {
+  GOOGLE_HEALTH_DAILY_REQUIRED_SCOPES,
+} from "./dailyMetrics";
+import {
   getMissingGoogleHealthOAuthScopes,
+  getGoogleHealthOAuthConfig,
+  refreshGoogleHealthOAuthAccessToken,
   type GoogleHealthOAuthTokenResponse,
 } from "./oauth";
 
@@ -26,6 +31,24 @@ type SaveConnectionResult = {
   missingScopes: string[];
   status: GoogleHealthConnectionStatus;
 };
+
+export type GoogleHealthStoredAccessTokenResult =
+  | {
+      ok: true;
+      accessToken: string;
+      refreshed: boolean;
+      status: "connected";
+    }
+  | {
+      ok: false;
+      status: GoogleHealthConnectionStatus;
+      statusCode: number;
+      message: string;
+      requiredScopes: readonly string[];
+      missingScopes?: string[];
+    };
+
+const ACCESS_TOKEN_REFRESH_WINDOW_MS = 5 * 60 * 1000;
 
 function privateConnections(client: ServiceRoleClient) {
   return client.schema("private").from("google_health_connections");
@@ -52,6 +75,50 @@ function resolveStatus(args: {
   if (args.missingScopes.length > 0) return "scope_missing";
   if (!args.encryptedRefreshToken) return "reauthorization_required";
   return "connected";
+}
+
+function isAccessTokenUsable(expiresAt: string | null, now = Date.now()): boolean {
+  if (!expiresAt) return false;
+  const expiresAtMs = Date.parse(expiresAt);
+  return Number.isFinite(expiresAtMs) && expiresAtMs > now + ACCESS_TOKEN_REFRESH_WINDOW_MS;
+}
+
+function toAccessTokenResultError(args: {
+  status: GoogleHealthConnectionStatus;
+  statusCode: number;
+  message: string;
+  missingScopes?: string[];
+}): GoogleHealthStoredAccessTokenResult {
+  return {
+    ok: false,
+    status: args.status,
+    statusCode: args.statusCode,
+    message: args.message,
+    requiredScopes: GOOGLE_HEALTH_DAILY_REQUIRED_SCOPES,
+    missingScopes: args.missingScopes,
+  };
+}
+
+function isRefreshReauthorizationError(error: unknown): boolean {
+  return error instanceof Error && (
+    error.message === "google_health_oauth_token_refresh_invalid_grant" ||
+    error.message === "google_health_oauth_token_refresh_invalid_client" ||
+    error.message === "google_health_oauth_token_refresh_unauthorized_client"
+  );
+}
+
+async function updateGoogleHealthConnection(
+  client: ServiceRoleClient,
+  userId: string,
+  payload: GoogleHealthConnectionUpdate,
+): Promise<void> {
+  const { error } = await privateConnections(client)
+    .update(payload)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error("google_health_connection_update_failed");
+  }
 }
 
 export async function getGoogleHealthConnectionByUserId(
@@ -113,6 +180,141 @@ export async function saveGoogleHealthOAuthConnection(args: {
   }
 
   return { connection: data, missingScopes, status };
+}
+
+export async function resolveGoogleHealthStoredAccessToken(
+  userId: string,
+  client: ServiceRoleClient = createServiceRoleClient(),
+): Promise<GoogleHealthStoredAccessTokenResult> {
+  const connection = await getGoogleHealthConnectionByUserId(userId, client);
+  if (!connection) {
+    return toAccessTokenResultError({
+      status: "not_connected",
+      statusCode: 409,
+      message: "Google Health is not connected.",
+    });
+  }
+
+  const missingScopes = getMissingGoogleHealthOAuthScopes(connection.granted_scopes);
+  if (missingScopes.length > 0) {
+    await updateGoogleHealthConnection(client, userId, {
+      status: "scope_missing",
+      last_checked_at: new Date().toISOString(),
+      last_error_code: "scope_missing",
+      last_error_message: "Required Google Health OAuth scopes are missing.",
+    });
+    return toAccessTokenResultError({
+      status: "scope_missing",
+      statusCode: 403,
+      message: "Required Google Health OAuth scopes are missing.",
+      missingScopes,
+    });
+  }
+
+  if (connection.status !== "connected") {
+    return toAccessTokenResultError({
+      status: connection.status,
+      statusCode: 409,
+      message: `Google Health connection status is ${connection.status}.`,
+    });
+  }
+
+  if (!connection.encrypted_access_token) {
+    await updateGoogleHealthConnection(client, userId, {
+      status: "reauthorization_required",
+      last_checked_at: new Date().toISOString(),
+      last_error_code: "reauthorization_required",
+      last_error_message: "Google Health OAuth access token is missing.",
+    });
+    return toAccessTokenResultError({
+      status: "reauthorization_required",
+      statusCode: 409,
+      message: "Google Health reauthorization is required.",
+    });
+  }
+
+  if (isAccessTokenUsable(connection.access_token_expires_at)) {
+    return {
+      ok: true,
+      accessToken: decryptGoogleHealthToken(connection.encrypted_access_token),
+      refreshed: false,
+      status: "connected",
+    };
+  }
+
+  if (!connection.encrypted_refresh_token) {
+    await updateGoogleHealthConnection(client, userId, {
+      status: "reauthorization_required",
+      last_checked_at: new Date().toISOString(),
+      last_error_code: "reauthorization_required",
+      last_error_message: "Google Health OAuth refresh token is missing.",
+    });
+    return toAccessTokenResultError({
+      status: "reauthorization_required",
+      statusCode: 409,
+      message: "Google Health reauthorization is required.",
+    });
+  }
+
+  try {
+    const refreshToken = decryptGoogleHealthToken(connection.encrypted_refresh_token);
+    const refreshed = await refreshGoogleHealthOAuthAccessToken({
+      config: getGoogleHealthOAuthConfig(),
+      refreshToken,
+    });
+    const grantedScopes = refreshed.grantedScopes ?? connection.granted_scopes;
+    const refreshedMissingScopes = getMissingGoogleHealthOAuthScopes(grantedScopes);
+    const nextStatus: GoogleHealthConnectionStatus = refreshedMissingScopes.length > 0
+      ? "scope_missing"
+      : "connected";
+
+    await updateGoogleHealthConnection(client, userId, {
+      encrypted_access_token: encryptedTokenToJson(encryptGoogleHealthToken(refreshed.accessToken)),
+      access_token_expires_at: buildAccessTokenExpiresAt(refreshed.expiresIn),
+      granted_scopes: grantedScopes,
+      status: nextStatus,
+      last_checked_at: new Date().toISOString(),
+      last_error_code: nextStatus === "connected" ? null : "scope_missing",
+      last_error_message: nextStatus === "connected"
+        ? null
+        : "Required Google Health OAuth scopes are missing.",
+      encryption_key_version: GOOGLE_HEALTH_TOKEN_ENCRYPTION_KEY_VERSION,
+    });
+
+    if (refreshedMissingScopes.length > 0) {
+      return toAccessTokenResultError({
+        status: "scope_missing",
+        statusCode: 403,
+        message: "Required Google Health OAuth scopes are missing.",
+        missingScopes: refreshedMissingScopes,
+      });
+    }
+
+    return {
+      ok: true,
+      accessToken: refreshed.accessToken,
+      refreshed: true,
+      status: "connected",
+    };
+  } catch (error) {
+    const reauthorizationRequired = isRefreshReauthorizationError(error);
+    await updateGoogleHealthConnection(client, userId, {
+      status: reauthorizationRequired ? "reauthorization_required" : "error",
+      last_checked_at: new Date().toISOString(),
+      last_error_code: error instanceof Error ? error.message : "google_health_oauth_token_refresh_failed",
+      last_error_message: reauthorizationRequired
+        ? "Google Health OAuth refresh token is no longer valid."
+        : "Google Health OAuth token refresh failed.",
+    });
+
+    return toAccessTokenResultError({
+      status: reauthorizationRequired ? "reauthorization_required" : "error",
+      statusCode: reauthorizationRequired ? 409 : 502,
+      message: reauthorizationRequired
+        ? "Google Health reauthorization is required."
+        : "Google Health OAuth token refresh failed.",
+    });
+  }
 }
 
 export async function markGoogleHealthConnectionError(args: {

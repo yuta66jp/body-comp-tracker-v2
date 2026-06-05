@@ -57,6 +57,13 @@ export type GoogleHealthOAuthTokenResponse = {
   tokenType: string | null;
 };
 
+export type GoogleHealthOAuthRefreshTokenResponse = {
+  accessToken: string;
+  expiresIn: number | null;
+  grantedScopes: string[] | null;
+  tokenType: string | null;
+};
+
 function readRequiredEnv(env: EnvLike, key: string): string {
   const value = env[key]?.trim();
   if (!value) throw new Error("google_health_oauth_config_missing");
@@ -270,12 +277,12 @@ function parseExpiresIn(value: unknown): number | null {
   return Math.floor(value);
 }
 
-function getTokenExchangeErrorReason(payload: unknown): string {
+function getTokenErrorReason(payload: unknown, prefix: string): string {
   const record = asRecord(payload);
   const error = typeof record?.error === "string" ? record.error : null;
   return error && SAFE_TOKEN_ERROR_REASONS.has(error)
-    ? `google_health_oauth_token_exchange_${error}`
-    : "google_health_oauth_token_exchange_failed";
+    ? `${prefix}_${error}`
+    : `${prefix}_failed`;
 }
 
 export async function exchangeGoogleHealthOAuthCode(args: {
@@ -308,7 +315,7 @@ export async function exchangeGoogleHealthOAuthCode(args: {
   }
 
   if (!response.ok) {
-    throw new Error(getTokenExchangeErrorReason(payload));
+    throw new Error(getTokenErrorReason(payload, "google_health_oauth_token_exchange"));
   }
 
   const record = asRecord(payload);
@@ -327,6 +334,55 @@ export async function exchangeGoogleHealthOAuthCode(args: {
     refreshToken,
     expiresIn: parseExpiresIn(record?.expires_in),
     grantedScopes: parseGrantedScopes(record?.scope),
+    tokenType,
+  };
+}
+
+export async function refreshGoogleHealthOAuthAccessToken(args: {
+  config: GoogleHealthOAuthConfig;
+  refreshToken: string;
+  fetchFn?: FetchLike;
+}): Promise<GoogleHealthOAuthRefreshTokenResponse> {
+  const fetchFn = args.fetchFn ?? fetch;
+  const body = new URLSearchParams({
+    client_id: args.config.clientId,
+    client_secret: args.config.clientSecret,
+    grant_type: "refresh_token",
+    refresh_token: args.refreshToken,
+  });
+
+  const response = await fetchFn(GOOGLE_OAUTH_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(getTokenErrorReason(payload, "google_health_oauth_token_refresh"));
+  }
+
+  const record = asRecord(payload);
+  const accessToken = typeof record?.access_token === "string" ? record.access_token : null;
+  if (!accessToken) {
+    throw new Error("google_health_oauth_token_response_invalid");
+  }
+
+  const tokenType = typeof record?.token_type === "string" ? record.token_type : null;
+  const grantedScopes = typeof record?.scope === "string" && record.scope.trim().length > 0
+    ? parseGrantedScopes(record.scope)
+    : null;
+
+  return {
+    accessToken,
+    expiresIn: parseExpiresIn(record?.expires_in),
+    grantedScopes,
     tokenType,
   };
 }

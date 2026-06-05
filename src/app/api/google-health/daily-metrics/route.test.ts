@@ -8,6 +8,10 @@ jest.mock("@/lib/googleHealth/dailyMetrics", () => ({
   fetchGoogleHealthDailyMetrics: jest.fn(),
 }));
 
+jest.mock("@/lib/googleHealth/connections", () => ({
+  resolveGoogleHealthStoredAccessToken: jest.fn(),
+}));
+
 jest.mock("@/lib/googleHealth/saveDailyMetrics", () => ({
   saveGoogleHealthDailyMetrics: jest.fn(),
 }));
@@ -18,6 +22,7 @@ jest.mock("@/lib/cache/revalidate", () => ({
 
 import { NextRequest } from "next/server";
 import { revalidateAfterDailyLogMutation } from "@/lib/cache/revalidate";
+import { resolveGoogleHealthStoredAccessToken } from "@/lib/googleHealth/connections";
 import { fetchGoogleHealthDailyMetrics } from "@/lib/googleHealth/dailyMetrics";
 import { saveGoogleHealthDailyMetrics } from "@/lib/googleHealth/saveDailyMetrics";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
@@ -25,6 +30,7 @@ import { POST } from "./route";
 
 const mockCreateClient = createClient as jest.Mock;
 const mockGetCurrentUser = getCurrentUser as jest.Mock;
+const mockResolveStoredAccessToken = resolveGoogleHealthStoredAccessToken as jest.Mock;
 const mockFetchGoogleHealthDailyMetrics = fetchGoogleHealthDailyMetrics as jest.Mock;
 const mockSaveGoogleHealthDailyMetrics = saveGoogleHealthDailyMetrics as jest.Mock;
 const mockRevalidate = revalidateAfterDailyLogMutation as jest.Mock;
@@ -33,14 +39,19 @@ function makeRequest(args?: {
   start?: string;
   end?: string;
   authorization?: string;
+  origin?: string | null;
 }): NextRequest {
   const url = new URL("http://localhost/api/google-health/daily-metrics");
   if (args?.start) url.searchParams.set("start", args.start);
   if (args?.end) url.searchParams.set("end", args.end);
 
+  const headers = new Headers();
+  if (args?.authorization) headers.set("Authorization", args.authorization);
+  if (args?.origin !== null) headers.set("Origin", args?.origin ?? "http://localhost");
+
   return new NextRequest(url.toString(), {
     method: "POST",
-    headers: args?.authorization ? { Authorization: args.authorization } : undefined,
+    headers,
   });
 }
 
@@ -48,6 +59,7 @@ describe("POST /api/google-health/daily-metrics", () => {
   beforeEach(() => {
     mockCreateClient.mockReset();
     mockGetCurrentUser.mockReset();
+    mockResolveStoredAccessToken.mockReset();
     mockFetchGoogleHealthDailyMetrics.mockReset();
     mockSaveGoogleHealthDailyMetrics.mockReset();
     mockRevalidate.mockReset();
@@ -56,21 +68,57 @@ describe("POST /api/google-health/daily-metrics", () => {
   it("未認証の場合は 401 を返す", async () => {
     mockGetCurrentUser.mockResolvedValue(null);
 
-    const response = await POST(makeRequest({ authorization: "Bearer google-token" }));
+    const response = await POST(makeRequest());
 
     expect(response.status).toBe(401);
+    expect(mockResolveStoredAccessToken).not.toHaveBeenCalled();
     expect(mockFetchGoogleHealthDailyMetrics).not.toHaveBeenCalled();
     expect(mockSaveGoogleHealthDailyMetrics).not.toHaveBeenCalled();
   });
 
-  it("Google Health access token がない場合は 401 を返す", async () => {
+  it("same-origin ではない POST は 403 を返す", async () => {
     mockGetCurrentUser.mockResolvedValue({ id: "user-id" });
+
+    const response = await POST(makeRequest({ origin: null }));
+
+    expect(response.status).toBe(403);
+    expect(mockResolveStoredAccessToken).not.toHaveBeenCalled();
+    expect(mockFetchGoogleHealthDailyMetrics).not.toHaveBeenCalled();
+  });
+
+  it("Google Health 未連携の場合は 409 を返す", async () => {
+    mockGetCurrentUser.mockResolvedValue({ id: "user-id" });
+    mockResolveStoredAccessToken.mockResolvedValue({
+      ok: false,
+      status: "not_connected",
+      statusCode: 409,
+      message: "Google Health is not connected.",
+      requiredScopes: ["scope-a", "scope-b"],
+    });
 
     const response = await POST(makeRequest());
     const body = await response.json();
 
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(409);
+    expect(body.status).toBe("not_connected");
     expect(body.requiredScopes).toEqual(["scope-a", "scope-b"]);
+    expect(mockResolveStoredAccessToken).toHaveBeenCalledWith("user-id");
+    expect(mockFetchGoogleHealthDailyMetrics).not.toHaveBeenCalled();
+  });
+
+  it("保存済み token 取得で例外が出た場合は sanitized 500 を返す", async () => {
+    mockGetCurrentUser.mockResolvedValue({ id: "user-id" });
+    mockResolveStoredAccessToken.mockRejectedValue(new Error("supabase_service_role_env_missing"));
+
+    const response = await POST(makeRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: "Google Health connection lookup failed.",
+      status: "error",
+    });
+    expect(JSON.stringify(body)).not.toContain("supabase_service_role_env_missing");
     expect(mockFetchGoogleHealthDailyMetrics).not.toHaveBeenCalled();
   });
 
@@ -90,6 +138,12 @@ describe("POST /api/google-health/daily-metrics", () => {
     ];
 
     mockGetCurrentUser.mockResolvedValue({ id: "user-id" });
+    mockResolveStoredAccessToken.mockResolvedValue({
+      ok: true,
+      accessToken: "stored-google-token",
+      refreshed: false,
+      status: "connected",
+    });
     mockCreateClient.mockResolvedValue(supabase);
     mockFetchGoogleHealthDailyMetrics.mockResolvedValue({
       sourceResults: [
@@ -111,7 +165,6 @@ describe("POST /api/google-health/daily-metrics", () => {
     const response = await POST(makeRequest({
       start: "2026-06-02",
       end: "2026-06-02",
-      authorization: "Bearer google-token",
     }));
     const body = await response.json();
 
@@ -122,7 +175,7 @@ describe("POST /api/google-health/daily-metrics", () => {
         endDate: "2026-06-02",
         endExclusiveDate: "2026-06-03",
       },
-      accessToken: "google-token",
+      accessToken: "stored-google-token",
     });
     expect(mockSaveGoogleHealthDailyMetrics).toHaveBeenCalledWith(supabase, {
       userId: "user-id",
@@ -147,6 +200,12 @@ describe("POST /api/google-health/daily-metrics", () => {
 
   it("歩数取得が失敗した場合は保存しない", async () => {
     mockGetCurrentUser.mockResolvedValue({ id: "user-id" });
+    mockResolveStoredAccessToken.mockResolvedValue({
+      ok: true,
+      accessToken: "stored-google-token",
+      refreshed: false,
+      status: "connected",
+    });
     mockFetchGoogleHealthDailyMetrics.mockResolvedValue({
       sourceResults: [],
       stepsResult: {
@@ -162,10 +221,17 @@ describe("POST /api/google-health/daily-metrics", () => {
     const response = await POST(makeRequest({
       start: "2026-06-02",
       end: "2026-06-02",
-      authorization: "Bearer google-token",
     }));
+    const body = await response.json();
 
     expect(response.status).toBe(403);
+    expect(body.stepsResult).toEqual({
+      dataType: "steps",
+      source: "reconcile",
+      status: 403,
+      message: "Required OAuth scope(s) are missing for this operation.",
+    });
+    expect(JSON.stringify(body)).not.toContain("details");
     expect(mockCreateClient).not.toHaveBeenCalled();
     expect(mockSaveGoogleHealthDailyMetrics).not.toHaveBeenCalled();
     expect(mockRevalidate).not.toHaveBeenCalled();

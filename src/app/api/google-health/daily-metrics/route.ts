@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateAfterDailyLogMutation } from "@/lib/cache/revalidate";
-import {
-  GOOGLE_HEALTH_DAILY_REQUIRED_SCOPES,
-  fetchGoogleHealthDailyMetrics,
-} from "@/lib/googleHealth/dailyMetrics";
+import { fetchGoogleHealthDailyMetrics } from "@/lib/googleHealth/dailyMetrics";
+import { resolveGoogleHealthStoredAccessToken } from "@/lib/googleHealth/connections";
 import { resolveGoogleHealthPocRange } from "@/lib/googleHealth/poc";
 import type { GoogleHealthPocTargetResult } from "@/lib/googleHealth/poc";
 import { saveGoogleHealthDailyMetrics } from "@/lib/googleHealth/saveDailyMetrics";
@@ -13,10 +11,26 @@ export const dynamic = "force-dynamic";
 
 const REQUIRED_SOURCE_KEYS = new Set(["sleep", "heartRateVariability", "restingHeartRate"]);
 
-function getBearerToken(headers: Headers): string | null {
-  const authorization = headers.get("Authorization");
-  const match = authorization?.match(/^Bearer\s+(.+)$/i);
-  return match?.[1]?.trim() || null;
+function isSameOriginRequest(request: NextRequest): boolean {
+  const origin = request.headers.get("Origin");
+  if (origin) {
+    try {
+      return new URL(origin).origin === request.nextUrl.origin;
+    } catch {
+      return false;
+    }
+  }
+
+  const referer = request.headers.get("Referer");
+  if (referer) {
+    try {
+      return new URL(referer).origin === request.nextUrl.origin;
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
 }
 
 function isRequiredSourceError(
@@ -25,21 +39,22 @@ function isRequiredSourceError(
   return !result.ok && REQUIRED_SOURCE_KEYS.has(result.key);
 }
 
+function sanitizeSourceError(result: Extract<GoogleHealthPocTargetResult, { ok: false }>) {
+  return {
+    key: result.key,
+    status: result.status,
+    message: result.message,
+  };
+}
+
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "auth_required" }, { status: 401 });
   }
 
-  const accessToken = getBearerToken(req.headers);
-  if (!accessToken) {
-    return NextResponse.json(
-      {
-        error: "Google Health API の access token が必要です。Authorization: Bearer <token> を指定してください。",
-        requiredScopes: GOOGLE_HEALTH_DAILY_REQUIRED_SCOPES,
-      },
-      { status: 401 },
-    );
+  if (!isSameOriginRequest(req)) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
   const rangeResult = resolveGoogleHealthPocRange(req.nextUrl.searchParams);
@@ -47,16 +62,47 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: rangeResult.message }, { status: 400 });
   }
 
+  let tokenResult;
+  try {
+    tokenResult = await resolveGoogleHealthStoredAccessToken(user.id);
+  } catch {
+    return NextResponse.json(
+      {
+        error: "Google Health connection lookup failed.",
+        status: "error",
+      },
+      { status: 500 },
+    );
+  }
+
+  if (!tokenResult.ok) {
+    return NextResponse.json(
+      {
+        error: tokenResult.message,
+        status: tokenResult.status,
+        requiredScopes: tokenResult.requiredScopes,
+        missingScopes: tokenResult.missingScopes,
+      },
+      { status: tokenResult.statusCode },
+    );
+  }
+
   const dailyResult = await fetchGoogleHealthDailyMetrics({
     range: rangeResult.range,
-    accessToken,
+    accessToken: tokenResult.accessToken,
   });
 
   if (!dailyResult.stepsResult.ok) {
     return NextResponse.json(
       {
         error: "Google Health 歩数の取得に失敗しました。",
-        stepsResult: dailyResult.stepsResult,
+        status: "google_health_api_error",
+        stepsResult: {
+          dataType: dailyResult.stepsResult.dataType,
+          source: dailyResult.stepsResult.source,
+          status: dailyResult.stepsResult.status,
+          message: dailyResult.stepsResult.message,
+        },
       },
       { status: dailyResult.stepsResult.status === 403 ? 403 : 502 },
     );
@@ -67,7 +113,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error: "Google Health 日次メトリクスの取得に失敗しました。",
-        results: sourceErrors,
+        status: "google_health_api_error",
+        results: sourceErrors.map(sanitizeSourceError),
       },
       { status: sourceErrors.some((result) => result.status === 403) ? 403 : 502 },
     );
