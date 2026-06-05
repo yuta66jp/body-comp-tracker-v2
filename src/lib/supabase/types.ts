@@ -82,7 +82,7 @@ export type Database = {
           step_count: number | null
           training_type: string | null
           updated_at: string
-          user_id?: string | null
+          user_id: string | null
           weight: number
           work_mode: string | null
         }
@@ -140,65 +140,6 @@ export type Database = {
         }
         Relationships: []
       }
-      google_health_daily_metrics: {
-        Row: {
-          created_at: string
-          deep_sleep_minutes: number | null
-          google_health_steps_source: string | null
-          hrv_ms: number | null
-          id: string
-          metric_date: string
-          rhr_bpm: number | null
-          sleep_bed_at: string | null
-          sleep_minutes: number | null
-          sleep_wake_at: string | null
-          step_count: number | null
-          synced_at: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          deep_sleep_minutes?: number | null
-          google_health_steps_source?: string | null
-          hrv_ms?: number | null
-          id?: string
-          metric_date: string
-          rhr_bpm?: number | null
-          sleep_bed_at?: string | null
-          sleep_minutes?: number | null
-          sleep_wake_at?: string | null
-          step_count?: number | null
-          synced_at?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          deep_sleep_minutes?: number | null
-          google_health_steps_source?: string | null
-          hrv_ms?: number | null
-          id?: string
-          metric_date?: string
-          rhr_bpm?: number | null
-          sleep_bed_at?: string | null
-          sleep_minutes?: number | null
-          sleep_wake_at?: string | null
-          step_count?: number | null
-          synced_at?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_google_health_daily_metrics_daily_logs"
-            columns: ["user_id", "metric_date"]
-            isOneToOne: true
-            referencedRelation: "daily_logs"
-            referencedColumns: ["user_id", "log_date"]
-          },
-        ]
-      }
       food_master: {
         Row: {
           calories: number | null
@@ -209,7 +150,7 @@ export type Database = {
           id: string
           name: string
           protein: number | null
-          user_id?: string | null
+          user_id: string | null
         }
         Insert: {
           calories?: number | null
@@ -386,13 +327,72 @@ export type Database = {
         }
         Relationships: []
       }
+      google_health_daily_metrics: {
+        Row: {
+          created_at: string
+          deep_sleep_minutes: number | null
+          google_health_steps_source: string | null
+          hrv_ms: number | null
+          id: string
+          metric_date: string
+          rhr_bpm: number | null
+          sleep_bed_at: string | null
+          sleep_minutes: number | null
+          sleep_wake_at: string | null
+          step_count: number | null
+          synced_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deep_sleep_minutes?: number | null
+          google_health_steps_source?: string | null
+          hrv_ms?: number | null
+          id?: string
+          metric_date: string
+          rhr_bpm?: number | null
+          sleep_bed_at?: string | null
+          sleep_minutes?: number | null
+          sleep_wake_at?: string | null
+          step_count?: number | null
+          synced_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deep_sleep_minutes?: number | null
+          google_health_steps_source?: string | null
+          hrv_ms?: number | null
+          id?: string
+          metric_date?: string
+          rhr_bpm?: number | null
+          sleep_bed_at?: string | null
+          sleep_minutes?: number | null
+          sleep_wake_at?: string | null
+          step_count?: number | null
+          synced_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_google_health_daily_metrics_daily_logs"
+            columns: ["user_id", "metric_date"]
+            isOneToOne: true
+            referencedRelation: "daily_logs"
+            referencedColumns: ["user_id", "log_date"]
+          },
+        ]
+      }
       menu_master: {
         Row: {
           created_at: string | null
           id: string
           name: string
           recipe: Json
-          user_id?: string | null
+          user_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -438,7 +438,7 @@ export type Database = {
         Row: {
           key: string
           updated_at: string | null
-          user_id?: string | null
+          user_id: string | null
           value_num: number | null
           value_str: string | null
         }
@@ -460,37 +460,37 @@ export type Database = {
       }
       sleep_sessions: {
         Row: {
-          id: string
-          wake_date: string
           bed_at: string
-          wake_at: string
-          source: string
-          note: string | null
           created_at: string
+          id: string
+          note: string | null
+          source: string
           updated_at: string
-          user_id?: string | null
+          user_id: string | null
+          wake_at: string
+          wake_date: string
         }
         Insert: {
-          id?: string
-          wake_date: string
           bed_at: string
-          wake_at: string
-          source?: string
-          note?: string | null
           created_at?: string
+          id?: string
+          note?: string | null
+          source?: string
           updated_at?: string
           user_id?: string | null
+          wake_at: string
+          wake_date: string
         }
         Update: {
-          id?: string
-          wake_date?: string
           bed_at?: string
-          wake_at?: string
-          source?: string
-          note?: string | null
           created_at?: string
+          id?: string
+          note?: string | null
+          source?: string
           updated_at?: string
           user_id?: string | null
+          wake_at?: string
+          wake_date?: string
         }
         Relationships: []
       }
@@ -637,7 +637,10 @@ export const Constants = {
 } as const
 
 // ── Convenience type aliases ──────────────────────────────────────────────────
-export type DailyLog = Database["public"]["Tables"]["daily_logs"]["Row"];
+type OptionalUserId<Row extends { user_id: string | null }> =
+  Omit<Row, "user_id"> & { user_id?: string | null };
+
+export type DailyLog = OptionalUserId<Database["public"]["Tables"]["daily_logs"]["Row"]>;
 
 /**
  * Dashboard 専用の daily_logs projection 型。
@@ -671,11 +674,11 @@ export type MacroDailyLog = Pick<DailyLog, "log_date" | "weight" | "calories" | 
 export type TdeeDailyLog = Pick<DailyLog, "log_date" | "weight" | "calories">;
 
 export type GoogleHealthDailyMetricRow = Database["public"]["Tables"]["google_health_daily_metrics"]["Row"];
-export type SleepSession = Database["public"]["Tables"]["sleep_sessions"]["Row"];
+export type SleepSession = OptionalUserId<Database["public"]["Tables"]["sleep_sessions"]["Row"]>;
 
-export type FoodMaster  = Database["public"]["Tables"]["food_master"]["Row"];
-export type MenuMaster  = Database["public"]["Tables"]["menu_master"]["Row"];
-export type Setting     = Database["public"]["Tables"]["settings"]["Row"];
+export type FoodMaster  = OptionalUserId<Database["public"]["Tables"]["food_master"]["Row"]>;
+export type MenuMaster  = OptionalUserId<Database["public"]["Tables"]["menu_master"]["Row"]>;
+export type Setting     = OptionalUserId<Database["public"]["Tables"]["settings"]["Row"]>;
 export type Prediction  = Database["public"]["Tables"]["predictions"]["Row"];
 export type AnalyticsCache = Database["public"]["Tables"]["analytics_cache"]["Row"];
 export type CareerLog   = Database["public"]["Tables"]["career_logs"]["Row"];
