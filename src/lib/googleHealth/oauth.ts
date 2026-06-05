@@ -23,6 +23,14 @@ const STATE_SECRET_BYTES = 32;
 const STATE_IV_BYTES = 12;
 const STATE_AUTH_TAG_BYTES = 16;
 const STATE_AAD = Buffer.from("body-comp-tracker-v2:google-health-oauth-state:v1", "utf8");
+const SAFE_TOKEN_ERROR_REASONS = new Set([
+  "invalid_request",
+  "invalid_client",
+  "invalid_grant",
+  "unauthorized_client",
+  "unsupported_grant_type",
+  "redirect_uri_mismatch",
+]);
 
 type EnvLike = Record<string, string | undefined>;
 type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
@@ -262,6 +270,14 @@ function parseExpiresIn(value: unknown): number | null {
   return Math.floor(value);
 }
 
+function getTokenExchangeErrorReason(payload: unknown): string {
+  const record = asRecord(payload);
+  const error = typeof record?.error === "string" ? record.error : null;
+  return error && SAFE_TOKEN_ERROR_REASONS.has(error)
+    ? `google_health_oauth_token_exchange_${error}`
+    : "google_health_oauth_token_exchange_failed";
+}
+
 export async function exchangeGoogleHealthOAuthCode(args: {
   config: GoogleHealthOAuthConfig;
   code: string;
@@ -292,7 +308,7 @@ export async function exchangeGoogleHealthOAuthCode(args: {
   }
 
   if (!response.ok) {
-    throw new Error("google_health_oauth_token_exchange_failed");
+    throw new Error(getTokenExchangeErrorReason(payload));
   }
 
   const record = asRecord(payload);

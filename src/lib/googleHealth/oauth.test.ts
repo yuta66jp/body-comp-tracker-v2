@@ -137,7 +137,27 @@ describe("Google Health OAuth helpers", () => {
   it("token exchange 失敗時は sanitized error を返す", async () => {
     const fetchFn = jest.fn().mockResolvedValue({
       ok: false,
-      json: jest.fn().mockResolvedValue({ error_description: "secret detail" }),
+      json: jest.fn().mockResolvedValue({
+        error: "invalid_grant",
+        error_description: "secret detail",
+      }),
+    });
+
+    await expect(exchangeGoogleHealthOAuthCode({
+      config,
+      code: "authorization-code",
+      codeVerifier: "code-verifier",
+      fetchFn,
+    })).rejects.toThrow("google_health_oauth_token_exchange_invalid_grant");
+  });
+
+  it("想定外の token exchange error は generic reason に丸める", async () => {
+    const fetchFn = jest.fn().mockResolvedValue({
+      ok: false,
+      json: jest.fn().mockResolvedValue({
+        error: "unexpected_error",
+        error_description: "secret detail",
+      }),
     });
 
     await expect(exchangeGoogleHealthOAuthCode({

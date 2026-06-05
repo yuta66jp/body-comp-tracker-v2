@@ -15,6 +15,12 @@ export const dynamic = "force-dynamic";
 
 const SAFE_CALLBACK_FAILURE_REASONS = new Set([
   "google_health_oauth_token_exchange_failed",
+  "google_health_oauth_token_exchange_invalid_request",
+  "google_health_oauth_token_exchange_invalid_client",
+  "google_health_oauth_token_exchange_invalid_grant",
+  "google_health_oauth_token_exchange_unauthorized_client",
+  "google_health_oauth_token_exchange_unsupported_grant_type",
+  "google_health_oauth_token_exchange_redirect_uri_mismatch",
   "google_health_oauth_token_response_invalid",
   "supabase_service_role_env_missing",
   "google_health_token_encryption_key_missing",

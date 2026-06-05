@@ -195,14 +195,14 @@ describe("GET /api/google-health/oauth/callback", () => {
     const location = response.headers.get("location") ?? "";
 
     expect(location).toBe(
-      "http://localhost/settings?google_health=error&reason=google_health_oauth_token_exchange_failed",
+      "http://localhost/settings?google_health=error&reason=google_health_oauth_token_exchange_invalid_grant",
     );
     expect(location).not.toContain("sensitive");
     expect(mockSaveConnection).not.toHaveBeenCalled();
     expect(mockMarkError).toHaveBeenCalledWith({
       userId: "user-id",
       code: "oauth_token_exchange_failed",
-      message: "google_health_oauth_token_exchange_failed",
+      message: "google_health_oauth_token_exchange_invalid_grant",
     });
   });
 
