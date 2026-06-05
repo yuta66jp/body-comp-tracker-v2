@@ -20,6 +20,8 @@ export type GoogleHealthDailyMetric = {
   stepCount: number | null;
   sleepMinutes: number | null;
   deepSleepMinutes: number | null;
+  sleepBedAt: string | null;
+  sleepWakeAt: string | null;
   hrvMs: number | null;
   rhrBpm: number | null;
 };
@@ -161,6 +163,8 @@ function ensureMetric(map: Map<string, GoogleHealthDailyMetric>, date: string): 
     stepCount: null,
     sleepMinutes: null,
     deepSleepMinutes: null,
+    sleepBedAt: null,
+    sleepWakeAt: null,
     hrvMs: null,
     rhrBpm: null,
   };
@@ -186,6 +190,30 @@ function diffMinutes(start: unknown, end: unknown): number | null {
   const endMs = Date.parse(end);
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return null;
   return (endMs - startMs) / 60_000;
+}
+
+function parseTimestampIso(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? new Date(time).toISOString() : null;
+}
+
+function applySleepInterval(
+  metric: GoogleHealthDailyMetric,
+  startTime: unknown,
+  endTime: unknown,
+): void {
+  const startIso = parseTimestampIso(startTime);
+  const endIso = parseTimestampIso(endTime);
+  if (startIso === null || endIso === null) return;
+  if (Date.parse(endIso) < Date.parse(startIso)) return;
+
+  if (metric.sleepBedAt === null || Date.parse(startIso) < Date.parse(metric.sleepBedAt)) {
+    metric.sleepBedAt = startIso;
+  }
+  if (metric.sleepWakeAt === null || Date.parse(endIso) > Date.parse(metric.sleepWakeAt)) {
+    metric.sleepWakeAt = endIso;
+  }
 }
 
 function getStageSummaryMinutes(summary: unknown, stageType: string): number | null {
@@ -263,6 +291,7 @@ function normalizeSleep(
     const metric = ensureMetric(map, date);
     metric.sleepMinutes = addNullableNumbers(metric.sleepMinutes, sleepMinutes);
     metric.deepSleepMinutes = addNullableNumbers(metric.deepSleepMinutes, deepSleepMinutes);
+    applySleepInterval(metric, interval?.startTime, interval?.endTime);
   }
 }
 

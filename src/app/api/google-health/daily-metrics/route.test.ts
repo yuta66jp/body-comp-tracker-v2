@@ -82,6 +82,8 @@ describe("POST /api/google-health/daily-metrics", () => {
         stepCount: 4211,
         sleepMinutes: null,
         deepSleepMinutes: null,
+        sleepBedAt: null,
+        sleepWakeAt: null,
         hrvMs: null,
         rhrBpm: 45,
       },

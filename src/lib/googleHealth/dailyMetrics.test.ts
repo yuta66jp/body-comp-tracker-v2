@@ -314,6 +314,7 @@ describe("Google Health daily metrics", () => {
         {
           sleep: {
             interval: {
+              startTime: "2026-06-02T15:34:00Z",
               endTime: "2026-06-02T20:29:00Z",
               endUtcOffset: "32400s",
             },
@@ -330,6 +331,7 @@ describe("Google Health daily metrics", () => {
         {
           sleep: {
             interval: {
+              startTime: "2026-06-03T15:02:00Z",
               endTime: "2026-06-03T20:38:00Z",
               endUtcOffset: "32400s",
             },
@@ -393,6 +395,8 @@ describe("Google Health daily metrics", () => {
         stepCount: 12000,
         sleepMinutes: null,
         deepSleepMinutes: null,
+        sleepBedAt: null,
+        sleepWakeAt: null,
         hrvMs: null,
         rhrBpm: 45,
       },
@@ -401,6 +405,8 @@ describe("Google Health daily metrics", () => {
         stepCount: null,
         sleepMinutes: 290,
         deepSleepMinutes: 54,
+        sleepBedAt: "2026-06-02T15:34:00.000Z",
+        sleepWakeAt: "2026-06-02T20:29:00.000Z",
         hrvMs: 125.8,
         rhrBpm: null,
       },
@@ -409,6 +415,8 @@ describe("Google Health daily metrics", () => {
         stepCount: 8000,
         sleepMinutes: 327,
         deepSleepMinutes: 63,
+        sleepBedAt: "2026-06-03T15:02:00.000Z",
+        sleepWakeAt: "2026-06-03T20:38:00.000Z",
         hrvMs: 128.8,
         rhrBpm: 43,
       },
@@ -461,6 +469,8 @@ describe("Google Health daily metrics", () => {
         stepCount: 350,
         sleepMinutes: null,
         deepSleepMinutes: null,
+        sleepBedAt: null,
+        sleepWakeAt: null,
         hrvMs: null,
         rhrBpm: null,
       },
@@ -479,6 +489,7 @@ describe("Google Health daily metrics", () => {
           {
             sleep: {
               interval: {
+                startTime: "2026-06-03T15:00:00Z",
                 endTime: "2026-06-03T20:38:00Z",
                 endUtcOffset: "32400s",
               },
@@ -515,6 +526,53 @@ describe("Google Health daily metrics", () => {
       stepCount: null,
       sleepMinutes: 75,
       deepSleepMinutes: 45,
+      sleepBedAt: "2026-06-03T15:00:00.000Z",
+      sleepWakeAt: "2026-06-03T20:38:00.000Z",
+      hrvMs: null,
+      rhrBpm: null,
+    });
+  });
+
+  it("同じ起床日の複数睡眠セッションは最小開始時刻と最大終了時刻を保存する", () => {
+    const result = normalizeGoogleHealthDailyMetrics({
+      range: {
+        startDate: "2026-06-04",
+        endDate: "2026-06-04",
+        endExclusiveDate: "2026-06-05",
+      },
+      sourceResults: [
+        okResult("sleep", [
+          {
+            sleep: {
+              interval: {
+                startTime: "2026-06-03T18:00:00Z",
+                endTime: "2026-06-03T20:00:00Z",
+                endUtcOffset: "32400s",
+              },
+              summary: { minutesAsleep: "120" },
+            },
+          },
+          {
+            sleep: {
+              interval: {
+                startTime: "2026-06-03T15:00:00Z",
+                endTime: "2026-06-03T16:00:00Z",
+                endUtcOffset: "32400s",
+              },
+              summary: { minutesAsleep: "60" },
+            },
+          },
+        ]),
+      ],
+    });
+
+    expect(result[0]).toEqual({
+      date: "2026-06-04",
+      stepCount: null,
+      sleepMinutes: 180,
+      deepSleepMinutes: null,
+      sleepBedAt: "2026-06-03T15:00:00.000Z",
+      sleepWakeAt: "2026-06-03T20:00:00.000Z",
       hrvMs: null,
       rhrBpm: null,
     });
