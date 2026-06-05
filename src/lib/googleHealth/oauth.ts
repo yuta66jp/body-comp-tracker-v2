@@ -1,8 +1,8 @@
 import {
+  createCipheriv,
+  createDecipheriv,
   createHash,
-  createHmac,
   randomBytes,
-  timingSafeEqual,
 } from "crypto";
 import { GOOGLE_HEALTH_DAILY_REQUIRED_SCOPES } from "./dailyMetrics";
 
@@ -17,7 +17,12 @@ const GOOGLE_OAUTH_CLIENT_ID_ENV = "GOOGLE_OAUTH_CLIENT_ID";
 const GOOGLE_OAUTH_CLIENT_SECRET_ENV = "GOOGLE_OAUTH_CLIENT_SECRET";
 const GOOGLE_OAUTH_REDIRECT_URI_ENV = "GOOGLE_OAUTH_REDIRECT_URI";
 const GOOGLE_HEALTH_OAUTH_STATE_SECRET_ENV = "GOOGLE_HEALTH_OAUTH_STATE_SECRET";
-const MIN_STATE_SECRET_BYTES = 32;
+const STATE_COOKIE_ALGORITHM = "aes-256-gcm";
+const STATE_COOKIE_VERSION = "v1";
+const STATE_SECRET_BYTES = 32;
+const STATE_IV_BYTES = 12;
+const STATE_AUTH_TAG_BYTES = 16;
+const STATE_AAD = Buffer.from("body-comp-tracker-v2:google-health-oauth-state:v1", "utf8");
 
 type EnvLike = Record<string, string | undefined>;
 type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
@@ -62,6 +67,26 @@ function fromBase64Url(value: string): Buffer {
   }
 }
 
+function parseStateSecretKey(value: string): Buffer {
+  const normalized = value.trim();
+
+  if (/^[0-9a-f]{64}$/i.test(normalized)) {
+    return Buffer.from(normalized, "hex");
+  }
+
+  try {
+    const decoded = Buffer.from(normalized, "base64url");
+    if (decoded.byteLength === STATE_SECRET_BYTES) return decoded;
+  } catch {
+    // Fall back to exactly 32 bytes of raw UTF-8 below.
+  }
+
+  const raw = Buffer.from(normalized, "utf8");
+  if (raw.byteLength === STATE_SECRET_BYTES) return raw;
+
+  throw new Error("google_health_oauth_state_secret_invalid");
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -89,16 +114,6 @@ function parseJsonPayload(value: Buffer): GoogleHealthOAuthStatePayload {
   }
 }
 
-function signStatePayload(encodedPayload: string, secret: string): string {
-  return createHmac("sha256", secret).update(encodedPayload).digest("base64url");
-}
-
-function timingSafeEqualString(a: string, b: string): boolean {
-  const aBuffer = Buffer.from(a);
-  const bBuffer = Buffer.from(b);
-  return aBuffer.byteLength === bBuffer.byteLength && timingSafeEqual(aBuffer, bBuffer);
-}
-
 function normalizePrompt(value: string | null): "consent" | null {
   if (value === null || value === "") return null;
   if (value === "consent") return "consent";
@@ -111,9 +126,7 @@ export function getGoogleHealthOAuthConfig(env: EnvLike = process.env): GoogleHe
   const redirectUri = readRequiredEnv(env, GOOGLE_OAUTH_REDIRECT_URI_ENV);
   const stateSecret = readRequiredEnv(env, GOOGLE_HEALTH_OAUTH_STATE_SECRET_ENV);
 
-  if (Buffer.byteLength(stateSecret, "utf8") < MIN_STATE_SECRET_BYTES) {
-    throw new Error("google_health_oauth_state_secret_invalid");
-  }
+  parseStateSecretKey(stateSecret);
 
   try {
     new URL(redirectUri);
@@ -145,25 +158,64 @@ export function createGoogleHealthOAuthStateCookieValue(
   payload: GoogleHealthOAuthStatePayload,
   secret: string,
 ): string {
-  const encodedPayload = toBase64Url(Buffer.from(JSON.stringify(payload), "utf8"));
-  return `${encodedPayload}.${signStatePayload(encodedPayload, secret)}`;
+  const key = parseStateSecretKey(secret);
+  const iv = randomBytes(STATE_IV_BYTES);
+  const cipher = createCipheriv(STATE_COOKIE_ALGORITHM, key, iv);
+  cipher.setAAD(STATE_AAD);
+
+  const ciphertext = Buffer.concat([
+    cipher.update(JSON.stringify(payload), "utf8"),
+    cipher.final(),
+  ]);
+  const authTag = cipher.getAuthTag();
+
+  return [
+    STATE_COOKIE_VERSION,
+    toBase64Url(iv),
+    toBase64Url(authTag),
+    toBase64Url(ciphertext),
+  ].join(".");
 }
 
 export function parseGoogleHealthOAuthStateCookieValue(
   value: string,
   secret: string,
 ): GoogleHealthOAuthStatePayload {
-  const [encodedPayload, signature, extra] = value.split(".");
-  if (!encodedPayload || !signature || extra !== undefined) {
+  const [version, encodedIv, encodedAuthTag, encodedCiphertext, extra] = value.split(".");
+  if (
+    version !== STATE_COOKIE_VERSION ||
+    !encodedIv ||
+    !encodedAuthTag ||
+    !encodedCiphertext ||
+    extra !== undefined
+  ) {
     throw new Error("google_health_oauth_state_invalid");
   }
 
-  const expectedSignature = signStatePayload(encodedPayload, secret);
-  if (!timingSafeEqualString(signature, expectedSignature)) {
+  const key = parseStateSecretKey(secret);
+  const iv = fromBase64Url(encodedIv);
+  const authTag = fromBase64Url(encodedAuthTag);
+  const ciphertext = fromBase64Url(encodedCiphertext);
+
+  if (
+    iv.byteLength !== STATE_IV_BYTES ||
+    authTag.byteLength !== STATE_AUTH_TAG_BYTES ||
+    ciphertext.byteLength === 0
+  ) {
     throw new Error("google_health_oauth_state_invalid");
   }
 
-  return parseJsonPayload(fromBase64Url(encodedPayload));
+  try {
+    const decipher = createDecipheriv(STATE_COOKIE_ALGORITHM, key, iv);
+    decipher.setAAD(STATE_AAD);
+    decipher.setAuthTag(authTag);
+    return parseJsonPayload(Buffer.concat([
+      decipher.update(ciphertext),
+      decipher.final(),
+    ]));
+  } catch {
+    throw new Error("google_health_oauth_state_invalid");
+  }
 }
 
 export function buildGoogleHealthOAuthAuthorizationUrl(args: {

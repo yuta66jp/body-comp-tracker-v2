@@ -85,9 +85,13 @@ describe("Google Health OAuth helpers", () => {
     };
 
     const value = createGoogleHealthOAuthStateCookieValue(payload, config.stateSecret);
+    const parts = value.split(".");
+    expect(parts).toHaveLength(4);
+    const authTag = parts[2]!;
+    parts[2] = authTag.startsWith("A") ? `B${authTag.slice(1)}` : `A${authTag.slice(1)}`;
 
     expect(parseGoogleHealthOAuthStateCookieValue(value, config.stateSecret)).toEqual(payload);
-    expect(() => parseGoogleHealthOAuthStateCookieValue(`${value}x`, config.stateSecret))
+    expect(() => parseGoogleHealthOAuthStateCookieValue(parts.join("."), config.stateSecret))
       .toThrow("google_health_oauth_state_invalid");
   });
 
