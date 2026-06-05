@@ -12,6 +12,86 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
+  private: {
+    Tables: {
+      google_health_connections: {
+        Row: {
+          access_token_expires_at: string | null
+          created_at: string
+          encrypted_access_token: Json | null
+          encrypted_refresh_token: Json | null
+          encryption_key_version: number
+          granted_scopes: string[]
+          id: string
+          last_checked_at: string | null
+          last_error_code: string | null
+          last_error_message: string | null
+          last_sync_at: string | null
+          status: Database["private"]["Enums"]["google_health_connection_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token_expires_at?: string | null
+          created_at?: string
+          encrypted_access_token?: Json | null
+          encrypted_refresh_token?: Json | null
+          encryption_key_version?: number
+          granted_scopes?: string[]
+          id?: string
+          last_checked_at?: string | null
+          last_error_code?: string | null
+          last_error_message?: string | null
+          last_sync_at?: string | null
+          status?: Database["private"]["Enums"]["google_health_connection_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token_expires_at?: string | null
+          created_at?: string
+          encrypted_access_token?: Json | null
+          encrypted_refresh_token?: Json | null
+          encryption_key_version?: number
+          granted_scopes?: string[]
+          id?: string
+          last_checked_at?: string | null
+          last_error_code?: string | null
+          last_error_message?: string | null
+          last_sync_at?: string | null
+          status?: Database["private"]["Enums"]["google_health_connection_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_health_connections_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      google_health_connection_status:
+        | "not_connected"
+        | "connected"
+        | "scope_missing"
+        | "reauthorization_required"
+        | "error"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       analytics_cache: {
@@ -631,6 +711,17 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  private: {
+    Enums: {
+      google_health_connection_status: [
+        "not_connected",
+        "connected",
+        "scope_missing",
+        "reauthorization_required",
+        "error",
+      ],
+    },
+  },
   public: {
     Enums: {},
   },
@@ -674,6 +765,8 @@ export type MacroDailyLog = Pick<DailyLog, "log_date" | "weight" | "calories" | 
 export type TdeeDailyLog = Pick<DailyLog, "log_date" | "weight" | "calories">;
 
 export type GoogleHealthDailyMetricRow = Database["public"]["Tables"]["google_health_daily_metrics"]["Row"];
+export type GoogleHealthConnectionRow = Database["private"]["Tables"]["google_health_connections"]["Row"];
+export type GoogleHealthConnectionStatus = Database["private"]["Enums"]["google_health_connection_status"];
 export type SleepSession = OptionalUserId<Database["public"]["Tables"]["sleep_sessions"]["Row"]>;
 
 export type FoodMaster  = OptionalUserId<Database["public"]["Tables"]["food_master"]["Row"]>;
