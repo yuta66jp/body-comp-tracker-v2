@@ -140,6 +140,65 @@ export type Database = {
         }
         Relationships: []
       }
+      google_health_daily_metrics: {
+        Row: {
+          created_at: string
+          deep_sleep_minutes: number | null
+          google_health_steps_source: string | null
+          hrv_ms: number | null
+          id: string
+          metric_date: string
+          rhr_bpm: number | null
+          sleep_bed_at: string | null
+          sleep_minutes: number | null
+          sleep_wake_at: string | null
+          step_count: number | null
+          synced_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deep_sleep_minutes?: number | null
+          google_health_steps_source?: string | null
+          hrv_ms?: number | null
+          id?: string
+          metric_date: string
+          rhr_bpm?: number | null
+          sleep_bed_at?: string | null
+          sleep_minutes?: number | null
+          sleep_wake_at?: string | null
+          step_count?: number | null
+          synced_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deep_sleep_minutes?: number | null
+          google_health_steps_source?: string | null
+          hrv_ms?: number | null
+          id?: string
+          metric_date?: string
+          rhr_bpm?: number | null
+          sleep_bed_at?: string | null
+          sleep_minutes?: number | null
+          sleep_wake_at?: string | null
+          step_count?: number | null
+          synced_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_google_health_daily_metrics_daily_logs"
+            columns: ["user_id", "metric_date"]
+            isOneToOne: true
+            referencedRelation: "daily_logs"
+            referencedColumns: ["user_id", "log_date"]
+          },
+        ]
+      }
       food_master: {
         Row: {
           calories: number | null
@@ -611,6 +670,7 @@ export type MacroDailyLog = Pick<DailyLog, "log_date" | "weight" | "calories" | 
  */
 export type TdeeDailyLog = Pick<DailyLog, "log_date" | "weight" | "calories">;
 
+export type GoogleHealthDailyMetricRow = Database["public"]["Tables"]["google_health_daily_metrics"]["Row"];
 export type SleepSession = Database["public"]["Tables"]["sleep_sessions"]["Row"];
 
 export type FoodMaster  = Database["public"]["Tables"]["food_master"]["Row"];
