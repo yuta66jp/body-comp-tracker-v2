@@ -9,6 +9,7 @@ jest.mock("@/lib/googleHealth/dailyMetrics", () => ({
 }));
 
 jest.mock("@/lib/googleHealth/connections", () => ({
+  markGoogleHealthConnectionSynced: jest.fn(),
   resolveGoogleHealthStoredAccessToken: jest.fn(),
 }));
 
@@ -22,7 +23,10 @@ jest.mock("@/lib/cache/revalidate", () => ({
 
 import { NextRequest } from "next/server";
 import { revalidateAfterDailyLogMutation } from "@/lib/cache/revalidate";
-import { resolveGoogleHealthStoredAccessToken } from "@/lib/googleHealth/connections";
+import {
+  markGoogleHealthConnectionSynced,
+  resolveGoogleHealthStoredAccessToken,
+} from "@/lib/googleHealth/connections";
 import { fetchGoogleHealthDailyMetrics } from "@/lib/googleHealth/dailyMetrics";
 import { saveGoogleHealthDailyMetrics } from "@/lib/googleHealth/saveDailyMetrics";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
@@ -31,6 +35,7 @@ import { POST } from "./route";
 const mockCreateClient = createClient as jest.Mock;
 const mockGetCurrentUser = getCurrentUser as jest.Mock;
 const mockResolveStoredAccessToken = resolveGoogleHealthStoredAccessToken as jest.Mock;
+const mockMarkConnectionSynced = markGoogleHealthConnectionSynced as jest.Mock;
 const mockFetchGoogleHealthDailyMetrics = fetchGoogleHealthDailyMetrics as jest.Mock;
 const mockSaveGoogleHealthDailyMetrics = saveGoogleHealthDailyMetrics as jest.Mock;
 const mockRevalidate = revalidateAfterDailyLogMutation as jest.Mock;
@@ -60,6 +65,7 @@ describe("POST /api/google-health/daily-metrics", () => {
     mockCreateClient.mockReset();
     mockGetCurrentUser.mockReset();
     mockResolveStoredAccessToken.mockReset();
+    mockMarkConnectionSynced.mockReset();
     mockFetchGoogleHealthDailyMetrics.mockReset();
     mockSaveGoogleHealthDailyMetrics.mockReset();
     mockRevalidate.mockReset();
@@ -161,6 +167,7 @@ describe("POST /api/google-health/daily-metrics", () => {
       savedDates: ["2026-06-02"],
       skippedDates: [],
     });
+    mockMarkConnectionSynced.mockResolvedValue(undefined);
 
     const response = await POST(makeRequest({
       start: "2026-06-02",
@@ -182,6 +189,7 @@ describe("POST /api/google-health/daily-metrics", () => {
       metrics: dailyMetrics,
       stepsSource: "reconcile",
     });
+    expect(mockMarkConnectionSynced).toHaveBeenCalledWith({ userId: "user-id" });
     expect(mockRevalidate).toHaveBeenCalledTimes(1);
     expect(body).toEqual({
       ok: true,
@@ -234,6 +242,50 @@ describe("POST /api/google-health/daily-metrics", () => {
     expect(JSON.stringify(body)).not.toContain("details");
     expect(mockCreateClient).not.toHaveBeenCalled();
     expect(mockSaveGoogleHealthDailyMetrics).not.toHaveBeenCalled();
+    expect(mockRevalidate).not.toHaveBeenCalled();
+  });
+
+  it("last_sync_at の更新に失敗した場合は sanitized 500 を返す", async () => {
+    const supabase = { from: jest.fn() };
+
+    mockGetCurrentUser.mockResolvedValue({ id: "user-id" });
+    mockResolveStoredAccessToken.mockResolvedValue({
+      ok: true,
+      accessToken: "stored-google-token",
+      refreshed: false,
+      status: "connected",
+    });
+    mockCreateClient.mockResolvedValue(supabase);
+    mockFetchGoogleHealthDailyMetrics.mockResolvedValue({
+      sourceResults: [
+        { ok: true, key: "sleep", dataPoints: [] },
+        { ok: true, key: "heartRateVariability", dataPoints: [] },
+        { ok: true, key: "restingHeartRate", dataPoints: [] },
+      ],
+      stepsResult: { ok: true, source: "reconcile" },
+      dailyMetrics: [],
+    });
+    mockSaveGoogleHealthDailyMetrics.mockResolvedValue({
+      ok: true,
+      savedCount: 0,
+      skippedCount: 0,
+      savedDates: [],
+      skippedDates: [],
+    });
+    mockMarkConnectionSynced.mockRejectedValue(new Error("supabase_service_role_env_missing"));
+
+    const response = await POST(makeRequest({
+      start: "2026-06-02",
+      end: "2026-06-02",
+    }));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: "Google Health sync timestamp update failed.",
+      status: "error",
+    });
+    expect(JSON.stringify(body)).not.toContain("supabase_service_role_env_missing");
     expect(mockRevalidate).not.toHaveBeenCalled();
   });
 });

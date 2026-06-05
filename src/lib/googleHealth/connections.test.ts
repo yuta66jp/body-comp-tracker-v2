@@ -13,6 +13,7 @@ jest.mock("./oauth", () => {
 });
 
 import {
+  markGoogleHealthConnectionSynced,
   resolveGoogleHealthStoredAccessToken,
   saveGoogleHealthOAuthConnection,
 } from "./connections";
@@ -210,5 +211,26 @@ describe("Google Health connections", () => {
       status: "reauthorization_required",
       last_error_code: "google_health_oauth_token_refresh_invalid_grant",
     }));
+  });
+
+  it("同期成功時に last_sync_at と connected status を更新する", async () => {
+    const { client, update } = makeClient({
+      encrypted_refresh_token: null,
+      status: "error",
+    });
+
+    await markGoogleHealthConnectionSynced({
+      userId: "user-id",
+      syncedAt: "2026-06-07T03:10:00.000Z",
+      client: client as never,
+    });
+
+    expect(update).toHaveBeenCalledWith({
+      status: "connected",
+      last_checked_at: "2026-06-07T03:10:00.000Z",
+      last_sync_at: "2026-06-07T03:10:00.000Z",
+      last_error_code: null,
+      last_error_message: null,
+    });
   });
 });
