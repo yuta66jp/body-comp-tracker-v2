@@ -47,6 +47,25 @@ function fmtSigned(v: number, decimals: number): string {
   return `${v > 0 ? "+" : ""}${v.toFixed(decimals)}`;
 }
 
+function hrvDeviationInsight(deviationPct: number): {
+  status: InsightStatus;
+  label: string;
+} {
+  if (deviationPct >= 10) {
+    return { status: "ok", label: "過回復・適応良好" };
+  }
+  if (deviationPct >= -10) {
+    return { status: "ok", label: "通常" };
+  }
+  if (deviationPct >= -15) {
+    return { status: "caution", label: "軽度の蓄積疲労" };
+  }
+  if (deviationPct > -25) {
+    return { status: "caution", label: "中度の疲労" };
+  }
+  return { status: "alert", label: "重度の疲労" };
+}
+
 // ── メイン関数 ────────────────────────────────────────────────────────────────
 
 /**
@@ -70,7 +89,7 @@ export function deriveWeeklyInsightItems(
 ): InsightItem[] {
   const items: InsightItem[] = [];
   const isCut = phase !== "Bulk";
-  const { weight, nutrition, tdee, quality, stagnation, specialDays } = data;
+  const { weight, nutrition, tdee, quality, stagnation, specialDays, cardio } = data;
 
   // ── 1. 体重トレンド ──────────────────────────────────────────────────────
   {
@@ -226,6 +245,16 @@ export function deriveWeeklyInsightItems(
     }
 
     items.push({ status, title: label, detail });
+  }
+
+  // ── 6. HRV ベースライン ─────────────────────────────────────────────────
+  if (cardio.hrv.deviationPct !== null && cardio.hrv.avg7d !== null && cardio.hrv.baselineAvg14d !== null) {
+    const hrv = hrvDeviationInsight(cardio.hrv.deviationPct);
+    items.push({
+      status: hrv.status,
+      title: `HRV ${fmtSigned(cardio.hrv.deviationPct, 1)}% — ${hrv.label}`,
+      detail: `7日平均 ${cardio.hrv.avg7d.toFixed(1)}ms / 2週平均 ${cardio.hrv.baselineAvg14d.toFixed(1)}ms`,
+    });
   }
 
   // ── 7. データ品質警告 ────────────────────────────────────────────────────

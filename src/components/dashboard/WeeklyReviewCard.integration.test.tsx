@@ -24,6 +24,7 @@ jest.mock("lucide-react", () => ({
   Flame: () => <span data-testid="icon-flame" />,
   Beef: () => <span data-testid="icon-beef" />,
   Moon: () => <span data-testid="icon-moon" />,
+  HeartPulse: () => <span data-testid="icon-heart-pulse" />,
 }));
 
 function makeData(overrides: Partial<WeeklyReviewData> = {}): WeeklyReviewData {
@@ -58,6 +59,22 @@ function makeData(overrides: Partial<WeeklyReviewData> = {}): WeeklyReviewData {
       avgBedTimeDeltaMins: null,
       avgWakeTimeDeltaMins: null,
       timeDaysLogged: 0,
+    },
+    cardio: {
+      hrv: {
+        avg7d: null,
+        daysLogged7d: 0,
+        baselineAvg14d: null,
+        baselineStdDev14d: null,
+        deviationPct: null,
+      },
+      rhr: {
+        avg7d: null,
+        daysLogged7d: 0,
+        baselineAvg14d: null,
+        baselineStdDev14d: null,
+        deviationPct: null,
+      },
     },
     quality: {
       score: 90,
@@ -220,6 +237,42 @@ describe("WeeklyReviewCard", () => {
       />
     );
     expect(screen.getByText("睡眠 (6 日分)")).toBeInTheDocument();
+  });
+
+  it("心肺機能セクションにHRVと安静時心拍数を表示する", () => {
+    render(
+      <WeeklyReviewCard
+        data={makeData({
+          cardio: {
+            hrv: {
+              avg7d: 127,
+              daysLogged7d: 5,
+              baselineAvg14d: 124.5,
+              baselineStdDev14d: 8.2,
+              deviationPct: 2,
+            },
+            rhr: {
+              avg7d: 43.4,
+              daysLogged7d: 6,
+              baselineAvg14d: 44.1,
+              baselineStdDev14d: 1.7,
+              deviationPct: -1.6,
+            },
+          },
+        })}
+        phase="Cut"
+      />
+    );
+
+    expect(screen.getByText("心肺機能 (6 日分)")).toBeInTheDocument();
+    expect(screen.getByText("HRV")).toBeInTheDocument();
+    expect(screen.getByText("127.0")).toBeInTheDocument();
+    expect(screen.getByText("ms")).toBeInTheDocument();
+    expect(screen.getByText("(2週 124.5±8.2ms)")).toBeInTheDocument();
+    expect(screen.getByText("安静時")).toBeInTheDocument();
+    expect(screen.getByText("43.4")).toBeInTheDocument();
+    expect(screen.getByText("bpm")).toBeInTheDocument();
+    expect(screen.getByText("(2週 44.1±1.7bpm)")).toBeInTheDocument();
   });
 
   it("必要値が欠けるときは — 表示にフォールバックし、該当所見カードを出さない", () => {

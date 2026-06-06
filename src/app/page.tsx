@@ -206,7 +206,7 @@ export default async function DashboardPage() {
   const weeklyReview = calcWeeklyReview(logs, readinessMetrics, qualityReport, {
     avgTdee14d,
     phase,
-    sleepSessions,
+    googleHealthMetrics,
   });
 
   // 今月目標進捗の比較値: 最新体重優先 (単日ノイズ込みの実測値で進捗を把握する)
