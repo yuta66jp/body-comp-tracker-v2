@@ -9,6 +9,7 @@ jest.mock("@/lib/googleHealth/dailyMetrics", () => ({
 }));
 
 jest.mock("@/lib/googleHealth/connections", () => ({
+  markGoogleHealthConnectionError: jest.fn(),
   markGoogleHealthConnectionSynced: jest.fn(),
   resolveGoogleHealthStoredAccessToken: jest.fn(),
 }));
@@ -24,6 +25,7 @@ jest.mock("@/lib/cache/revalidate", () => ({
 import { NextRequest } from "next/server";
 import { revalidateAfterDailyLogMutation } from "@/lib/cache/revalidate";
 import {
+  markGoogleHealthConnectionError,
   markGoogleHealthConnectionSynced,
   resolveGoogleHealthStoredAccessToken,
 } from "@/lib/googleHealth/connections";
@@ -35,6 +37,7 @@ import { POST } from "./route";
 const mockCreateClient = createClient as jest.Mock;
 const mockGetCurrentUser = getCurrentUser as jest.Mock;
 const mockResolveStoredAccessToken = resolveGoogleHealthStoredAccessToken as jest.Mock;
+const mockMarkConnectionError = markGoogleHealthConnectionError as jest.Mock;
 const mockMarkConnectionSynced = markGoogleHealthConnectionSynced as jest.Mock;
 const mockFetchGoogleHealthDailyMetrics = fetchGoogleHealthDailyMetrics as jest.Mock;
 const mockSaveGoogleHealthDailyMetrics = saveGoogleHealthDailyMetrics as jest.Mock;
@@ -61,14 +64,28 @@ function makeRequest(args?: {
 }
 
 describe("POST /api/google-health/daily-metrics", () => {
+  let consoleInfoSpy: jest.SpyInstance;
+  let consoleWarnSpy: jest.SpyInstance;
+  let consoleErrorSpy: jest.SpyInstance;
+
   beforeEach(() => {
     mockCreateClient.mockReset();
     mockGetCurrentUser.mockReset();
     mockResolveStoredAccessToken.mockReset();
+    mockMarkConnectionError.mockReset();
     mockMarkConnectionSynced.mockReset();
     mockFetchGoogleHealthDailyMetrics.mockReset();
     mockSaveGoogleHealthDailyMetrics.mockReset();
     mockRevalidate.mockReset();
+    consoleInfoSpy = jest.spyOn(console, "info").mockImplementation(() => {});
+    consoleWarnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleInfoSpy.mockRestore();
+    consoleWarnSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
   });
 
   it("未認証の場合は 401 を返す", async () => {
@@ -157,7 +174,11 @@ describe("POST /api/google-health/daily-metrics", () => {
         { ok: true, key: "heartRateVariability", dataPoints: [] },
         { ok: true, key: "restingHeartRate", dataPoints: [] },
       ],
-      stepsResult: { ok: true, source: "reconcile" },
+      stepsResult: {
+        ok: true,
+        source: "reconcile",
+        attempts: [{ source: "reconcile", ok: true, status: 200 }],
+      },
       dailyMetrics,
     });
     mockSaveGoogleHealthDailyMetrics.mockResolvedValue({
@@ -199,11 +220,93 @@ describe("POST /api/google-health/daily-metrics", () => {
         endExclusiveDate: "2026-06-03",
       },
       stepsSource: "reconcile",
+      stepsFallbackUsed: false,
+      stepsAttempts: [{ source: "reconcile", ok: true, status: 200 }],
+      emptyMetricCount: 0,
       savedCount: 1,
       skippedCount: 0,
       savedDates: ["2026-06-02"],
       skippedDates: [],
     });
+  });
+
+  it("歩数取得がfallbackされた場合は採用sourceと試行履歴を返す", async () => {
+    const supabase = { from: jest.fn() };
+    const dailyMetrics = [
+      {
+        date: "2026-06-02",
+        stepCount: null,
+        sleepMinutes: null,
+        deepSleepMinutes: null,
+        sleepBedAt: null,
+        sleepWakeAt: null,
+        hrvMs: null,
+        rhrBpm: null,
+      },
+    ];
+    const stepsAttempts = [
+      {
+        source: "reconcile",
+        ok: false,
+        status: 500,
+        message: "reconcile is temporarily unavailable",
+      },
+      {
+        source: "dailyRollUp",
+        ok: true,
+        status: 200,
+      },
+    ];
+
+    mockGetCurrentUser.mockResolvedValue({ id: "user-id" });
+    mockResolveStoredAccessToken.mockResolvedValue({
+      ok: true,
+      accessToken: "stored-google-token",
+      refreshed: false,
+      status: "connected",
+    });
+    mockCreateClient.mockResolvedValue(supabase);
+    mockFetchGoogleHealthDailyMetrics.mockResolvedValue({
+      sourceResults: [
+        { ok: true, key: "sleep", dataPoints: [] },
+        { ok: true, key: "heartRateVariability", dataPoints: [] },
+        { ok: true, key: "restingHeartRate", dataPoints: [] },
+      ],
+      stepsResult: {
+        ok: true,
+        source: "dailyRollUp",
+        attempts: stepsAttempts,
+      },
+      dailyMetrics,
+    });
+    mockSaveGoogleHealthDailyMetrics.mockResolvedValue({
+      ok: true,
+      savedCount: 1,
+      skippedCount: 0,
+      savedDates: ["2026-06-02"],
+      skippedDates: [],
+    });
+    mockMarkConnectionSynced.mockResolvedValue(undefined);
+
+    const response = await POST(makeRequest({
+      start: "2026-06-02",
+      end: "2026-06-02",
+    }));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(consoleInfoSpy).toHaveBeenCalledWith("[google-health-sync]", expect.objectContaining({
+      event: "steps_fallback_used",
+      stepsSource: "dailyRollUp",
+      stepsAttempts,
+    }));
+    expect(body).toEqual(expect.objectContaining({
+      ok: true,
+      stepsSource: "dailyRollUp",
+      stepsFallbackUsed: true,
+      stepsAttempts,
+      emptyMetricCount: 1,
+    }));
   });
 
   it("歩数取得が失敗した場合は保存しない", async () => {
@@ -222,6 +325,14 @@ describe("POST /api/google-health/daily-metrics", () => {
         source: "reconcile",
         status: 403,
         message: "Required OAuth scope(s) are missing for this operation.",
+        attempts: [
+          {
+            source: "reconcile",
+            ok: false,
+            status: 403,
+            message: "Required OAuth scope(s) are missing for this operation.",
+          },
+        ],
       },
       dailyMetrics: [],
     });
@@ -233,15 +344,132 @@ describe("POST /api/google-health/daily-metrics", () => {
     const body = await response.json();
 
     expect(response.status).toBe(403);
+    expect(mockMarkConnectionError).toHaveBeenCalledWith({
+      userId: "user-id",
+      code: "google_health_steps_api_forbidden",
+      message: "Required OAuth scope(s) are missing for this operation.",
+    });
+    expect(body.code).toBe("google_health_steps_api_forbidden");
     expect(body.stepsResult).toEqual({
       dataType: "steps",
       source: "reconcile",
       status: 403,
       message: "Required OAuth scope(s) are missing for this operation.",
+      attempts: [
+        {
+          source: "reconcile",
+          ok: false,
+          status: 403,
+          message: "Required OAuth scope(s) are missing for this operation.",
+        },
+      ],
     });
     expect(JSON.stringify(body)).not.toContain("details");
     expect(mockCreateClient).not.toHaveBeenCalled();
     expect(mockSaveGoogleHealthDailyMetrics).not.toHaveBeenCalled();
+    expect(mockRevalidate).not.toHaveBeenCalled();
+  });
+
+  it("必須sourceの取得に失敗した場合はconnection errorを更新して保存しない", async () => {
+    mockGetCurrentUser.mockResolvedValue({ id: "user-id" });
+    mockResolveStoredAccessToken.mockResolvedValue({
+      ok: true,
+      accessToken: "stored-google-token",
+      refreshed: false,
+      status: "connected",
+    });
+    mockFetchGoogleHealthDailyMetrics.mockResolvedValue({
+      sourceResults: [
+        {
+          ok: false,
+          key: "sleep",
+          status: 403,
+          message: "Required OAuth scope(s) are missing for this operation.",
+        },
+      ],
+      stepsResult: {
+        ok: true,
+        source: "reconcile",
+        attempts: [{ source: "reconcile", ok: true, status: 200 }],
+      },
+      dailyMetrics: [],
+    });
+
+    const response = await POST(makeRequest({
+      start: "2026-06-02",
+      end: "2026-06-02",
+    }));
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(mockMarkConnectionError).toHaveBeenCalledWith({
+      userId: "user-id",
+      code: "google_health_required_sources_api_forbidden",
+      message: "sleep:403",
+    });
+    expect(body).toEqual({
+      error: "Google Health 日次メトリクスの取得に失敗しました。",
+      status: "google_health_api_error",
+      code: "google_health_required_sources_api_forbidden",
+      results: [
+        {
+          key: "sleep",
+          status: 403,
+          message: "Required OAuth scope(s) are missing for this operation.",
+        },
+      ],
+    });
+    expect(mockCreateClient).not.toHaveBeenCalled();
+    expect(mockSaveGoogleHealthDailyMetrics).not.toHaveBeenCalled();
+  });
+
+  it("保存に失敗した場合はconnection errorを更新してsanitized 500を返す", async () => {
+    const supabase = { from: jest.fn() };
+
+    mockGetCurrentUser.mockResolvedValue({ id: "user-id" });
+    mockResolveStoredAccessToken.mockResolvedValue({
+      ok: true,
+      accessToken: "stored-google-token",
+      refreshed: false,
+      status: "connected",
+    });
+    mockCreateClient.mockResolvedValue(supabase);
+    mockFetchGoogleHealthDailyMetrics.mockResolvedValue({
+      sourceResults: [
+        { ok: true, key: "sleep", dataPoints: [] },
+        { ok: true, key: "heartRateVariability", dataPoints: [] },
+        { ok: true, key: "restingHeartRate", dataPoints: [] },
+      ],
+      stepsResult: {
+        ok: true,
+        source: "reconcile",
+        attempts: [{ source: "reconcile", ok: true, status: 200 }],
+      },
+      dailyMetrics: [],
+    });
+    mockSaveGoogleHealthDailyMetrics.mockResolvedValue({
+      ok: false,
+      message: "Google Health 日次メトリクスの保存に失敗しました: duplicate key",
+    });
+
+    const response = await POST(makeRequest({
+      start: "2026-06-02",
+      end: "2026-06-02",
+    }));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(mockMarkConnectionError).toHaveBeenCalledWith({
+      userId: "user-id",
+      code: "google_health_daily_metrics_save_failed",
+      message: "Google Health 日次メトリクスの保存に失敗しました: duplicate key",
+    });
+    expect(body).toEqual({
+      error: "Google Health 日次メトリクスの保存に失敗しました: duplicate key",
+      status: "error",
+      code: "google_health_daily_metrics_save_failed",
+    });
+    expect(mockMarkConnectionSynced).not.toHaveBeenCalled();
     expect(mockRevalidate).not.toHaveBeenCalled();
   });
 
@@ -262,7 +490,11 @@ describe("POST /api/google-health/daily-metrics", () => {
         { ok: true, key: "heartRateVariability", dataPoints: [] },
         { ok: true, key: "restingHeartRate", dataPoints: [] },
       ],
-      stepsResult: { ok: true, source: "reconcile" },
+      stepsResult: {
+        ok: true,
+        source: "reconcile",
+        attempts: [{ source: "reconcile", ok: true, status: 200 }],
+      },
       dailyMetrics: [],
     });
     mockSaveGoogleHealthDailyMetrics.mockResolvedValue({
@@ -281,9 +513,15 @@ describe("POST /api/google-health/daily-metrics", () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
+    expect(mockMarkConnectionError).toHaveBeenCalledWith({
+      userId: "user-id",
+      code: "google_health_sync_timestamp_update_failed",
+      message: "Google Health sync timestamp update failed.",
+    });
     expect(body).toEqual({
       error: "Google Health sync timestamp update failed.",
       status: "error",
+      code: "google_health_sync_timestamp_update_failed",
     });
     expect(JSON.stringify(body)).not.toContain("supabase_service_role_env_missing");
     expect(mockRevalidate).not.toHaveBeenCalled();
