@@ -12,6 +12,8 @@
 
 import type { DashboardDailyLog } from "@/lib/supabase/types";
 import type { SleepSession } from "@/lib/supabase/types";
+import type { GoogleHealthDailyMetricForDisplay } from "@/lib/googleHealth/displayMetrics";
+import { metricMinutesToHours } from "@/lib/googleHealth/displayMetrics";
 import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "./dayTags";
 import { formatConditionSummary, isValidTrainingType, isValidWorkMode, TRAINING_TYPE_LABELS, WORK_MODE_LABELS } from "./trainingType";
 import { addDaysStr } from "./date";
@@ -55,8 +57,8 @@ export interface CalendarDayData {
   fasting_hours: number | null;
   /**
    * 日次の睡眠時間（時間単位）。
-   * source of truth: daily_logs.sleep_hours
-   * (sleep_sessions の bed_at / wake_at から DB トリガー trg_sync_sleep_hours が自動同期する projection 値)
+   * Google Health metrics が渡された場合は google_health_daily_metrics.sleep_minutes 由来。
+   * 未指定時は後方互換として daily_logs.sleep_hours 由来。
    * null = 睡眠記録なし。
    */
   sleep_hours: number | null;
@@ -194,8 +196,10 @@ export function getMobileTrainingLabel(
 export function buildCalendarDayMap(
   logs: DashboardDailyLog[],
   sleepSessions: Pick<SleepSession, "wake_date" | "wake_at" | "bed_at">[] = [],
+  googleHealthMetrics?: GoogleHealthDailyMetricForDisplay[],
 ): Map<string, CalendarDayData> {
   const sorted = [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date));
+  const useGoogleHealthSleep = googleHealthMetrics !== undefined;
 
   // 体重・カロリーそれぞれの「記録ありログ」リスト（差分計算用）
   const withWeight = sorted.filter((d) => d.weight !== null);
@@ -207,6 +211,9 @@ export function buildCalendarDayMap(
   // wake_date → wake_at (ISO 8601) の高速参照テーブル（断食時間算出・UI 表示共用）
   const sessionByDate = new Map(
     sleepSessions.map((s) => [s.wake_date, s])
+  );
+  const googleHealthMetricByDate = new Map(
+    (googleHealthMetrics ?? []).map((metric) => [metric.metric_date, metric])
   );
 
   const map = new Map<string, CalendarDayData>();
@@ -258,14 +265,25 @@ export function buildCalendarDayMap(
     const prevDateKey = addDaysStr(log.log_date, -1);
     const prevDayLog  = prevDateKey ? (logByDate.get(prevDateKey) ?? null) : null;
     const session     = sessionByDate.get(log.log_date) ?? null;
-    const wakeUpTime  = session ? extractJstHHMM(session.wake_at) : null;
+    const googleHealthMetric = googleHealthMetricByDate.get(log.log_date) ?? null;
+    const bedAt = useGoogleHealthSleep
+      ? googleHealthMetric?.sleep_bed_at ?? null
+      : session?.bed_at ?? null;
+    const wakeAt = useGoogleHealthSleep
+      ? googleHealthMetric?.sleep_wake_at ?? null
+      : session?.wake_at ?? null;
+    const sleepHours = useGoogleHealthSleep
+      ? metricMinutesToHours(googleHealthMetric?.sleep_minutes)
+      : log.sleep_hours;
+    const wakeAtForFasting = wakeAt ?? session?.wake_at ?? null;
+    const wakeUpTime = wakeAtForFasting ? extractJstHHMM(wakeAtForFasting) : null;
     const fasting_hours = calcFastingHours(prevDayLog?.last_meal_end_time, wakeUpTime);
 
     map.set(log.log_date, {
       log, weightDelta, calDelta, dayTags, conditionSummary, conditionTags, fasting_hours,
-      sleep_hours: log.sleep_hours,
-      bed_at:  session?.bed_at  ?? null,
-      wake_at: session?.wake_at ?? null,
+      sleep_hours: sleepHours,
+      bed_at:  bedAt,
+      wake_at: wakeAt,
     });
   }
 

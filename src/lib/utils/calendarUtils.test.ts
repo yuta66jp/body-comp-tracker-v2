@@ -6,6 +6,7 @@
 
 import { buildCalendarDayMap, buildConditionTags, getMobileTrainingLabel, toDateKey, calcFastingHours } from "./calendarUtils";
 import type { DailyLog } from "@/lib/supabase/types";
+import type { GoogleHealthDailyMetricForDisplay } from "@/lib/googleHealth/displayMetrics";
 
 // ── テストデータ工場 ─────────────────────────────────────────────────────────
 
@@ -43,6 +44,38 @@ describe("buildCalendarDayMap", () => {
   it("ログがない場合は空 Map を返す", () => {
     const result = buildCalendarDayMap([]);
     expect(result.size).toBe(0);
+  });
+
+  it("Google Health metrics が渡された場合は就寝・起床・睡眠を Google Health 由来にする", () => {
+    const logs = [
+      makeLog({ log_date: "2026-06-04", weight: 63.8, sleep_hours: 9.9 }),
+    ];
+    const sleepSessions = [
+      {
+        wake_date: "2026-06-04",
+        bed_at: "2026-06-03T13:00:00+00:00",
+        wake_at: "2026-06-03T22:00:00+00:00",
+      },
+    ];
+    const googleHealthMetrics: GoogleHealthDailyMetricForDisplay[] = [
+      {
+        metric_date: "2026-06-04",
+        step_count: 5126,
+        sleep_minutes: 336,
+        deep_sleep_minutes: 63,
+        sleep_bed_at: "2026-06-03T15:02:00Z",
+        sleep_wake_at: "2026-06-03T20:38:00Z",
+        hrv_ms: 128.8,
+        rhr_bpm: 43,
+      },
+    ];
+
+    const map = buildCalendarDayMap(logs, sleepSessions, googleHealthMetrics);
+    const data = map.get("2026-06-04")!;
+
+    expect(data.sleep_hours).toBe(5.6);
+    expect(data.bed_at).toBe("2026-06-03T15:02:00Z");
+    expect(data.wake_at).toBe("2026-06-03T20:38:00Z");
   });
 
   it("ログ日が Map のキーになる", () => {

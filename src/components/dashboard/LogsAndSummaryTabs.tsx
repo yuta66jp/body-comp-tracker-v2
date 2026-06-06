@@ -8,6 +8,7 @@ import { MonthlyGoalTable } from "./MonthlyGoalTable";
 import { MonthlyBehaviorSummary } from "./MonthlyBehaviorSummary";
 import { SeasonSummary } from "@/components/history/SeasonSummary";
 import type { DashboardDailyLog, SleepSession } from "@/lib/supabase/types";
+import type { GoogleHealthDailyMetricForDisplay } from "@/lib/googleHealth/displayMetrics";
 import type { MonthStats } from "@/components/history/SeasonSummary";
 import type { MonthlyGoalComparisonRow } from "@/lib/utils/monthlyGoalVisualization";
 import type { MonthlyBehaviorStats } from "@/lib/utils/calcMonthlyBehaviorStats";
@@ -15,6 +16,7 @@ import type { MonthlyBehaviorStats } from "@/lib/utils/calcMonthlyBehaviorStats"
 interface LogsAndSummaryTabsProps {
   logs: DashboardDailyLog[];
   sleepSessions?: Pick<SleepSession, "wake_date" | "wake_at" | "bed_at">[];
+  googleHealthMetrics?: GoogleHealthDailyMetricForDisplay[];
   monthStats: MonthStats[];
   seasonMap?: Map<string, string>;
   currentSeason?: string | null;
@@ -34,7 +36,7 @@ const TAB_LABELS: Record<Tab, string> = {
   monthly:  "月別",
 };
 
-export function LogsAndSummaryTabs({ logs, sleepSessions = [], monthStats, seasonMap, currentSeason, monthlyGoalSummaryRows, phase, monthlyBehaviorStats }: LogsAndSummaryTabsProps) {
+export function LogsAndSummaryTabs({ logs, sleepSessions = [], googleHealthMetrics = [], monthStats, seasonMap, currentSeason, monthlyGoalSummaryRows, phase, monthlyBehaviorStats }: LogsAndSummaryTabsProps) {
   const [tab, setTab] = useState<Tab>("logs");
 
   return (
@@ -64,16 +66,16 @@ export function LogsAndSummaryTabs({ logs, sleepSessions = [], monthStats, seaso
           <div role="tabpanel" id="panel-logs" aria-labelledby="tab-logs">
             {/* モバイル: カードリスト。sm+ ではテーブル表示に切り替え */}
             <div className="sm:hidden">
-              <RecentLogsCards logs={logs} sleepSessions={sleepSessions} seasonMap={seasonMap} currentSeason={currentSeason} />
+              <RecentLogsCards logs={logs} sleepSessions={sleepSessions} googleHealthMetrics={googleHealthMetrics} seasonMap={seasonMap} currentSeason={currentSeason} />
             </div>
             <div className="hidden sm:block">
-              <RecentLogsTable logs={logs} sleepSessions={sleepSessions} embedded seasonMap={seasonMap} currentSeason={currentSeason} />
+              <RecentLogsTable logs={logs} sleepSessions={sleepSessions} googleHealthMetrics={googleHealthMetrics} embedded seasonMap={seasonMap} currentSeason={currentSeason} />
             </div>
           </div>
         )}
         {tab === "calendar" && (
           <div role="tabpanel" id="panel-calendar" aria-labelledby="tab-calendar">
-            <MonthlyCalendar logs={logs} sleepSessions={sleepSessions} />
+            <MonthlyCalendar logs={logs} sleepSessions={sleepSessions} googleHealthMetrics={googleHealthMetrics} />
           </div>
         )}
         {tab === "monthly" && (
