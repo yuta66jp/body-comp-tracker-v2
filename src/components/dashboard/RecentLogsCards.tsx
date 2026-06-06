@@ -111,11 +111,19 @@ export function RecentLogsCards({ logs, sleepSessions = [], googleHealthMetrics 
                 const googleHealthLine = formatGoogleHealthDailyMetricLine(
                   googleHealthMetricByDate.get(log.log_date),
                 );
-                if (!firstLine && googleHealthLine === "Google Health データなし") return null;
+                if (!firstLine && googleHealthLine === "データなし") return null;
                 return (
                   <div className="mt-0.5 space-y-0.5 text-[10px] leading-snug text-slate-400 dark:text-slate-500">
-                    {firstLine && <div>{firstLine}</div>}
-                    <div>{googleHealthLine}</div>
+                    {firstLine && (
+                      <div className="grid grid-cols-[5.75rem_minmax(0,1fr)] gap-x-1">
+                        <span>日次ログ:</span>
+                        <span>{firstLine}</span>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-[5.75rem_minmax(0,1fr)] gap-x-1">
+                      <span>Google Health:</span>
+                      <span>{googleHealthLine}</span>
+                    </div>
                   </div>
                 );
               })()}

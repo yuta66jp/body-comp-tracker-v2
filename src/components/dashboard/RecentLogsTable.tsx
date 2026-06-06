@@ -108,11 +108,19 @@ export function RecentLogsTable({ logs, sleepSessions = [], googleHealthMetrics 
                     const googleHealthLine = formatGoogleHealthDailyMetricLine(
                       googleHealthMetricByDate.get(log.log_date),
                     );
-                    if (!firstLine && googleHealthLine === "Google Health データなし") return null;
+                    if (!firstLine && googleHealthLine === "データなし") return null;
                     return (
                       <div className="mt-1 space-y-0.5 text-xs leading-snug text-slate-500 dark:text-slate-400">
-                        {firstLine && <div>{firstLine}</div>}
-                        <div>{googleHealthLine}</div>
+                        {firstLine && (
+                          <div className="grid grid-cols-[5.75rem_minmax(0,1fr)] gap-x-1">
+                            <span>日次ログ:</span>
+                            <span>{firstLine}</span>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-[5.75rem_minmax(0,1fr)] gap-x-1">
+                          <span>Google Health:</span>
+                          <span>{googleHealthLine}</span>
+                        </div>
                       </div>
                     );
                   })()}

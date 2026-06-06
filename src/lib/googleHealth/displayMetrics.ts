@@ -40,7 +40,7 @@ export function formatCompactNumber(value: number): string {
 export function formatGoogleHealthDailyMetricLine(
   metric: GoogleHealthDailyMetricForDisplay | null | undefined,
 ): string {
-  if (!metric) return "Google Health データなし";
+  if (!metric) return "データなし";
 
   const parts = [
     metric.step_count !== null ? `歩数 ${metric.step_count.toLocaleString()}歩` : null,
@@ -50,7 +50,5 @@ export function formatGoogleHealthDailyMetricLine(
     metric.rhr_bpm !== null ? `安静時 ${formatCompactNumber(metric.rhr_bpm)}bpm` : null,
   ].filter((part): part is string => part !== null);
 
-  return parts.length > 0
-    ? `Google Health  ${parts.join(" / ")}`
-    : "Google Health データなし";
+  return parts.length > 0 ? parts.join(" / ") : "データなし";
 }

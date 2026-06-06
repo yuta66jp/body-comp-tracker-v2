@@ -43,11 +43,11 @@ describe("googleHealth displayMetrics", () => {
       rhr_bpm: 43,
     }));
 
-    expect(line).toBe("Google Health  歩数 12,345歩 / 睡眠 7h30m / 深睡眠 1h03m / HRV 128.8ms / 安静時 43bpm");
+    expect(line).toBe("歩数 12,345歩 / 睡眠 7h30m / 深睡眠 1h03m / HRV 128.8ms / 安静時 43bpm");
   });
 
   test("値がない場合は 0 ではなくデータなし表示にする", () => {
-    expect(formatGoogleHealthDailyMetricLine(makeMetric())).toBe("Google Health データなし");
-    expect(formatGoogleHealthDailyMetricLine(null)).toBe("Google Health データなし");
+    expect(formatGoogleHealthDailyMetricLine(makeMetric())).toBe("データなし");
+    expect(formatGoogleHealthDailyMetricLine(null)).toBe("データなし");
   });
 });
