@@ -33,7 +33,7 @@ export function ExportSection() {
 
       {/* 日次ログ */}
       <div className="space-y-3">
-        <p className="text-sm font-medium text-gray-600 dark:text-slate-300">日次ログ（daily_logs）</p>
+        <p className="text-sm font-medium text-gray-600 dark:text-slate-300">日次ログ + Google Health</p>
         <div className="flex flex-wrap items-end gap-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-slate-400">開始日</label>
@@ -62,6 +62,7 @@ export function ExportSection() {
           </button>
         </div>
         <p className="text-xs text-gray-400 dark:text-slate-500">
+          体重・食事・行動ログに Google Health の歩数・睡眠・HRV・安静時心拍数を結合して出力します。
           ファイル名: bodymake_log_{start}_{end}.csv
         </p>
       </div>
