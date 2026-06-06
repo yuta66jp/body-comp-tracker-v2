@@ -1,10 +1,11 @@
 /**
  * calcMonthlySleepStats — 月別睡眠リズム集計
  *
- * sleep_sessions を source of truth として月別の睡眠集計を計算する純粋関数。
+ * sleep_sessions または Google Health 由来の睡眠入力から月別の睡眠集計を計算する純粋関数。
  *
  * ## 集計仕様
- *   - 睡眠時間  : wake_date 基準で月内の全セッションの平均 (小数点以下1桁)
+ *   - 睡眠時間  : wake_date 基準で月内の全睡眠入力の平均 (小数点以下1桁)
+ *                 sleep_minutes が渡された場合はそれを優先し、なければ bed_at / wake_at から算出する
  *   - 就寝・起床: 同月の中央値 ("HH:MM" JST)
  *   - 勤務形態別: work_mode が記録されているセッションのみを対象に平均を計算
  *
@@ -89,8 +90,9 @@ export function medianOf(values: number[]): number | null {
 
 type SleepSessionInput = {
   wake_date: string;
-  bed_at: string;   // TIMESTAMPTZ
-  wake_at: string;  // TIMESTAMPTZ
+  bed_at: string | null;   // TIMESTAMPTZ
+  wake_at: string | null;  // TIMESTAMPTZ
+  sleep_minutes?: number | null;
 };
 
 /**
@@ -104,21 +106,24 @@ export function calcMonthlySleepStats(
   workModeByDate: Map<string, string | null>,
 ): MonthlySleepStats {
   type SleepEntry = {
-    sleepHours: number;
-    bedTime: string;
-    wakeTime: string;
+    sleepHours: number | null;
+    bedTime: string | null;
+    wakeTime: string | null;
     workMode: string | null;
   };
 
   const entries: SleepEntry[] = [];
 
   for (const s of sessions) {
-    const bedTime  = extractJstHHMM(s.bed_at);
-    const wakeTime = extractJstHHMM(s.wake_at);
-    if (!bedTime || !wakeTime) continue;
-
-    const sleepHours = deriveSleepHours(bedTime, wakeTime);
-    if (sleepHours === null) continue;
+    const bedTime  = s.bed_at ? extractJstHHMM(s.bed_at) : null;
+    const wakeTime = s.wake_at ? extractJstHHMM(s.wake_at) : null;
+    const sleepHoursFromMinutes =
+      s.sleep_minutes !== null && s.sleep_minutes !== undefined
+        ? Math.round((s.sleep_minutes / 60) * 10) / 10
+        : null;
+    const sleepHoursFromTime = bedTime && wakeTime ? deriveSleepHours(bedTime, wakeTime) : null;
+    const sleepHours = sleepHoursFromMinutes ?? sleepHoursFromTime;
+    if (sleepHours === null && bedTime === null && wakeTime === null) continue;
 
     entries.push({
       sleepHours,
@@ -137,9 +142,15 @@ export function calcMonthlySleepStats(
     };
   }
 
+  const sleepHourValues = entries
+    .map((e) => e.sleepHours)
+    .filter((v): v is number => v !== null);
+
   // 全体平均睡眠時間
-  const sumHours = entries.reduce((acc, e) => acc + e.sleepHours, 0);
-  const avgSleepHours = Math.round((sumHours / entries.length) * 10) / 10;
+  const avgSleepHours =
+    sleepHourValues.length > 0
+      ? Math.round((sleepHourValues.reduce((acc, value) => acc + value, 0) / sleepHourValues.length) * 10) / 10
+      : null;
 
   // 勤務形態別平均睡眠時間 (office / remote / off のみ)
   const groups: Record<"office" | "remote" | "off", number[]> = {
@@ -148,6 +159,7 @@ export function calcMonthlySleepStats(
     off:    [],
   };
   for (const e of entries) {
+    if (e.sleepHours === null) continue;
     if (e.workMode === "office") groups.office.push(e.sleepHours);
     else if (e.workMode === "remote") groups.remote.push(e.sleepHours);
     else if (e.workMode === "off")    groups.off.push(e.sleepHours);
@@ -165,14 +177,14 @@ export function calcMonthlySleepStats(
 
   // 就寝時刻の中央値 (日跨ぎ補正あり)
   const bedMins = entries
-    .map((e) => bedTimeToMinutes(e.bedTime))
+    .map((e) => e.bedTime ? bedTimeToMinutes(e.bedTime) : null)
     .filter((v): v is number => v !== null);
   const medBed = medianOf(bedMins);
   const medianBedTime = medBed !== null ? minutesToHHMM(medBed) : null;
 
   // 起床時刻の中央値
   const wakeMins = entries
-    .map((e) => wakeTimeToMinutes(e.wakeTime))
+    .map((e) => e.wakeTime ? wakeTimeToMinutes(e.wakeTime) : null)
     .filter((v): v is number => v !== null);
   const medWake = medianOf(wakeMins);
   const medianWakeTime = medWake !== null ? minutesToHHMM(medWake) : null;

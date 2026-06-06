@@ -4,6 +4,7 @@ import {
   sortedWorkModeEntries,
 } from "../calcMonthlyBehaviorStats";
 import type { DashboardDailyLog } from "@/lib/supabase/types";
+import type { GoogleHealthDailyMetricForDisplay } from "@/lib/googleHealth/displayMetrics";
 
 /** テスト用に最低限のフィールドを持つ DashboardDailyLog を生成するヘルパー */
 function makeLog(
@@ -369,6 +370,46 @@ describe("calcMonthlyBehaviorStats — sleepStats", () => {
     expect(stats!.avgSleepHours).toBe(7.5);
     expect(stats!.medianBedTime).toBe("23:30");
     expect(stats!.medianWakeTime).toBe("07:00");
+  });
+
+  test("Google Health metrics を渡した場合は睡眠集計と心肺機能を Google Health 由来で計算する", () => {
+    const logs = [
+      makeLog("2026-06-03", { work_mode: "office" }),
+      makeLog("2026-06-04", { work_mode: "remote" }),
+    ];
+    const googleHealthMetrics: GoogleHealthDailyMetricForDisplay[] = [
+      {
+        metric_date: "2026-06-03",
+        step_count: 972,
+        sleep_minutes: 300,
+        deep_sleep_minutes: 54,
+        sleep_bed_at: "2026-06-02T15:34:00Z",
+        sleep_wake_at: "2026-06-02T20:29:00Z",
+        hrv_ms: 125.8,
+        rhr_bpm: 43,
+      },
+      {
+        metric_date: "2026-06-04",
+        step_count: 5126,
+        sleep_minutes: 336,
+        deep_sleep_minutes: 63,
+        sleep_bed_at: "2026-06-03T15:02:00Z",
+        sleep_wake_at: "2026-06-03T20:38:00Z",
+        hrv_ms: 128.8,
+        rhr_bpm: 45,
+      },
+    ];
+
+    const result = calcMonthlyBehaviorStats(logs, 0, [], googleHealthMetrics);
+    const stats = result[0]!;
+
+    expect(stats.sleepStats?.avgSleepHours).toBe(5.3);
+    expect(stats.sleepStats?.avgByWorkMode.office).toBe(5);
+    expect(stats.sleepStats?.avgByWorkMode.remote).toBe(5.6);
+    expect(stats.cardioStats).toEqual({
+      avgHrvMs: 127.3,
+      avgRhrBpm: 44,
+    });
   });
 });
 

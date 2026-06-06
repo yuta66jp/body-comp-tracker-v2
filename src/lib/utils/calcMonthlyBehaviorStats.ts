@@ -6,17 +6,21 @@
  *   - トレーニング部位別日数 (training_type の有効値ごと)
  *   - 仕事モード別日数 (work_mode の有効値ごと)
  *   - 特殊日フラグ別日数 (is_cheat_day / is_refeed_day / is_eating_out / is_travel_day)
- *   - 睡眠リズム (sleepStats: calcMonthlySleepStats の結果, #581)
+ *   - 睡眠リズム (sleepStats: calcMonthlySleepStats の結果, #581 / Google Health 対応 #688)
+ *   - 心肺機能 (Google Health 由来の HRV / 安静時心拍数の月平均)
  *
  * null 扱いの方針 (既存仕様に準拠):
  *   - had_bowel_movement: null = 未記録 → 集計対象外。true のみ日数としてカウント。false は「便通なし」だがカウントしない
  *   - training_type: null = 未記録 → 集計対象外。"off" は「オフ日」として有効値かつカウント対象
  *   - work_mode: null = 未記録 → 集計対象外。"off" は「休日」として有効値かつカウント対象
  *   - 特殊日フラグ: true のみ日数としてカウント。false / null は集計対象外
- *   - 睡眠: sleep_sessions が存在する日のみ集計。勤務形態未記録日は勤務形態別集計から除外
+ *   - 睡眠: Google Health metrics が渡された場合は sleep_minutes / sleep_bed_at / sleep_wake_at を優先。
+ *           未指定時は後方互換として sleep_sessions を使う。勤務形態未記録日は勤務形態別集計から除外
+ *   - 心肺機能: null を除外し、0 補完しない
  */
 
 import type { DashboardDailyLog } from "@/lib/supabase/types";
+import type { GoogleHealthDailyMetricForDisplay } from "@/lib/googleHealth/displayMetrics";
 import {
   isValidTrainingType,
   isValidWorkMode,
@@ -28,6 +32,13 @@ import { calcMonthlySleepStats } from "./calcMonthlySleepStats";
 import type { MonthlySleepStats } from "./calcMonthlySleepStats";
 
 export type { MonthlySleepStats };
+
+export interface MonthlyCardioStats {
+  /** HRV の月平均 (ms)。有効値なしなら null */
+  avgHrvMs: number | null;
+  /** 安静時心拍数の月平均 (bpm)。有効値なしなら null */
+  avgRhrBpm: number | null;
+}
 
 type SleepSessionInput = {
   wake_date: string;
@@ -60,9 +71,14 @@ export interface MonthlyBehaviorStats {
   };
   /**
    * 睡眠リズム集計 (#581)。
-   * sleepSessions が渡されなかった場合 / 対象月にセッションがない場合は null。
+   * Google Health metrics / sleepSessions が渡されなかった場合、または対象月に有効値がない場合は null。
    */
   sleepStats: MonthlySleepStats | null;
+  /**
+   * 心肺機能集計 (#688)。
+   * Google Health metrics が渡されなかった場合 / 対象月に有効値がない場合は null。
+   */
+  cardioStats: MonthlyCardioStats | null;
 }
 
 /**
@@ -71,12 +87,14 @@ export interface MonthlyBehaviorStats {
  * @param logs          - DashboardDailyLog の配列（全期間）
  * @param months        - 最新から何ヶ月分を返すか。0 以下なら全月を返す (デフォルト: 0)
  * @param sleepSessions - sleep_sessions の配列（省略時は睡眠集計なし）
+ * @param googleHealthMetrics - Google Health 日次メトリクス（指定時は睡眠集計の参照元として優先）
  * @returns 月ごとの集計結果。新しい月から順（降順）に並ぶ
  */
 export function calcMonthlyBehaviorStats(
   logs: DashboardDailyLog[],
   months = 0,
   sleepSessions: SleepSessionInput[] = [],
+  googleHealthMetrics?: GoogleHealthDailyMetricForDisplay[],
 ): MonthlyBehaviorStats[] {
   // month → ログ配列 に振り分ける
   const map = new Map<string, DashboardDailyLog[]>();
@@ -131,15 +149,44 @@ export function calcMonthlyBehaviorStats(
     const workModeByDate = new Map<string, string | null>(
       dayLogs.map((l) => [l.log_date, l.work_mode]),
     );
-    const monthSessions = sleepSessions.filter(
-      (s) => s.wake_date.slice(0, 7) === month,
-    );
+    const monthGoogleHealthMetrics = googleHealthMetrics?.filter(
+      (metric) => metric.metric_date.slice(0, 7) === month,
+    ) ?? [];
+    const sleepInputs = googleHealthMetrics
+      ? monthGoogleHealthMetrics.map((metric) => ({
+          wake_date:      metric.metric_date,
+          bed_at:         metric.sleep_bed_at,
+          wake_at:        metric.sleep_wake_at,
+          sleep_minutes:  metric.sleep_minutes,
+        }))
+      : sleepSessions.filter((s) => s.wake_date.slice(0, 7) === month);
+    const rawSleepStats =
+      sleepInputs.length > 0
+        ? calcMonthlySleepStats(sleepInputs, workModeByDate)
+        : null;
     const sleepStats =
-      monthSessions.length > 0
-        ? calcMonthlySleepStats(monthSessions, workModeByDate)
+      rawSleepStats &&
+      (
+        rawSleepStats.avgSleepHours !== null ||
+        rawSleepStats.medianBedTime !== null ||
+        rawSleepStats.medianWakeTime !== null
+      )
+        ? rawSleepStats
         : null;
 
-    return { month, bowelDays, trainingCounts, workModeCounts, flagCounts, sleepStats };
+    const avg = (values: Array<number | null>): number | null => {
+      const valid = values.filter((value): value is number => value !== null);
+      if (valid.length === 0) return null;
+      return Math.round((valid.reduce((sum, value) => sum + value, 0) / valid.length) * 10) / 10;
+    };
+    const avgHrvMs = avg(monthGoogleHealthMetrics.map((metric) => metric.hrv_ms));
+    const avgRhrBpm = avg(monthGoogleHealthMetrics.map((metric) => metric.rhr_bpm));
+    const cardioStats =
+      avgHrvMs !== null || avgRhrBpm !== null
+        ? { avgHrvMs, avgRhrBpm }
+        : null;
+
+    return { month, bowelDays, trainingCounts, workModeCounts, flagCounts, sleepStats, cardioStats };
   });
 }
 

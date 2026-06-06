@@ -48,6 +48,12 @@ const FLAG_KEYS = [
   "is_travel_day",
 ] as const;
 
+function formatMetricAverage(value: number | null, unit: string): string | null {
+  if (value === null) return null;
+  const formatted = Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
+  return `${formatted}${unit}`;
+}
+
 export function MonthlyBehaviorSummary({ stats }: MonthlyBehaviorSummaryProps) {
   if (stats.length === 0) return null;
 
@@ -64,6 +70,7 @@ export function MonthlyBehaviorSummary({ stats }: MonthlyBehaviorSummaryProps) {
               <th className="pb-2 pr-3 text-right font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">便通</th>
               <th className="pb-2 pr-3 font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">トレーニング</th>
               <th className="pb-2 pr-3 font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">生活リズム</th>
+              <th className="pb-2 pr-3 font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">心肺機能</th>
               <th className="pb-2 pr-3 font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">仕事</th>
               <th className="pb-2 font-semibold uppercase tracking-wide text-slate-400 whitespace-nowrap">特殊日</th>
             </tr>
@@ -130,6 +137,26 @@ export function MonthlyBehaviorSummary({ stats }: MonthlyBehaviorSummaryProps) {
                     )}
                   </td>
 
+                  {/* 心肺機能 */}
+                  <td className="py-2.5 pr-3 text-slate-600 dark:text-slate-300">
+                    {s.cardioStats ? (
+                      <span className="flex flex-col gap-0.5">
+                        {s.cardioStats.avgHrvMs !== null && (
+                          <span className="whitespace-nowrap tabular-nums text-slate-600 dark:text-slate-300">
+                            HRV {formatMetricAverage(s.cardioStats.avgHrvMs, "ms")}
+                          </span>
+                        )}
+                        {s.cardioStats.avgRhrBpm !== null && (
+                          <span className="whitespace-nowrap tabular-nums text-slate-600 dark:text-slate-300">
+                            安静時 {formatMetricAverage(s.cardioStats.avgRhrBpm, "bpm")}
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-slate-300 dark:text-slate-600">—</span>
+                    )}
+                  </td>
+
                   {/* 仕事モード */}
                   <td className="py-2.5 pr-3 text-slate-600 dark:text-slate-300">
                     {workEntries.length > 0 ? (
@@ -174,7 +201,7 @@ export function MonthlyBehaviorSummary({ stats }: MonthlyBehaviorSummaryProps) {
         </table>
       </div>
       <p className="mt-1.5 text-[10px] text-slate-400 dark:text-slate-500">
-        ※ 未記録日は集計対象外。トレーニング・仕事モードの「—」は当月に有効な記録がないことを示す。
+        ※ 未記録日は集計対象外。生活リズム・心肺機能は Google Health 由来。トレーニング・仕事モードの「—」は当月に有効な記録がないことを示す。
       </p>
     </div>
   );

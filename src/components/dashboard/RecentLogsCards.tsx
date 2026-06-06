@@ -22,22 +22,34 @@ import { formatConditionSummary } from "@/lib/utils/trainingType";
 import { computeWeightDelta, buildRecentLogArrays } from "@/lib/utils/recentLogsUtils";
 import { calcFastingHours } from "@/lib/utils/calendarUtils";
 import { addDaysStr } from "@/lib/utils/date";
+import {
+  buildGoogleHealthDailyMetricMap,
+  formatGoogleHealthDailyMetricLine,
+  type GoogleHealthDailyMetricForDisplay,
+} from "@/lib/googleHealth/displayMetrics";
 
 interface RecentLogsCardsProps {
   logs: DashboardDailyLog[];
   sleepSessions?: Pick<SleepSession, "wake_date" | "wake_at">[];
+  googleHealthMetrics?: GoogleHealthDailyMetricForDisplay[];
   seasonMap?: Map<string, string>;
   currentSeason?: string | null;
 }
 
-export function RecentLogsCards({ logs, sleepSessions = [], seasonMap, currentSeason }: RecentLogsCardsProps) {
+export function RecentLogsCards({ logs, sleepSessions = [], googleHealthMetrics = [], seasonMap, currentSeason }: RecentLogsCardsProps) {
   const { sorted, ascending } = buildRecentLogArrays(logs);
+  const googleHealthMetricByDate = buildGoogleHealthDailyMetricMap(googleHealthMetrics);
   // 断食時間算出用: 日付 → ログ の高速参照テーブル（前日 D-1 の last_meal_end_time を参照するため）
   const logByDate = new Map(ascending.map((l) => [l.log_date, l]));
   // 断食時間算出用: wake_date → wake_at (JST HH:MM) の高速参照テーブル
   const wakeTimeByDate = new Map(
     sleepSessions
       .map((s) => [s.wake_date, extractJstHHMM(s.wake_at)] as [string, string | null])
+      .filter((entry): entry is [string, string] => entry[1] !== null)
+  );
+  const googleHealthWakeTimeByDate = new Map(
+    googleHealthMetrics
+      .map((metric) => [metric.metric_date, metric.sleep_wake_at ? extractJstHHMM(metric.sleep_wake_at) : null] as [string, string | null])
       .filter((entry): entry is [string, string] => entry[1] !== null)
   );
 
@@ -88,18 +100,30 @@ export function RecentLogsCards({ logs, sleepSessions = [], seasonMap, currentSe
               {(() => {
                 const prevDate    = addDaysStr(log.log_date, -1);
                 const prevDayLog  = prevDate ? (logByDate.get(prevDate) ?? null) : null;
-                const wakeUpTime  = wakeTimeByDate.get(log.log_date) ?? null;
+                const wakeUpTime  = googleHealthWakeTimeByDate.get(log.log_date) ?? wakeTimeByDate.get(log.log_date) ?? null;
                 const fastingHours = calcFastingHours(prevDayLog?.last_meal_end_time, wakeUpTime);
-                if (!conditionSummary && log.sleep_hours === null && fastingHours === null) return null;
+                const firstLine = [
+                  conditionSummary,
+                  fastingHours !== null ? `断食${fastingHours % 1 === 0 ? fastingHours.toFixed(0) : fastingHours.toFixed(1)}h` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" / ");
+                const googleHealthLine = formatGoogleHealthDailyMetricLine(
+                  googleHealthMetricByDate.get(log.log_date),
+                );
+                if (!firstLine && googleHealthLine === "データなし") return null;
                 return (
-                  <div className="mt-0.5 text-[10px] leading-snug text-slate-400 dark:text-slate-500">
-                    {[
-                      conditionSummary,
-                      log.sleep_hours !== null ? `睡眠${log.sleep_hours}h` : null,
-                      fastingHours !== null ? `断食${fastingHours % 1 === 0 ? fastingHours.toFixed(0) : fastingHours.toFixed(1)}h` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" / ")}
+                  <div className="mt-0.5 space-y-0.5 text-[10px] leading-snug text-slate-400 dark:text-slate-500">
+                    {firstLine && (
+                      <div className="grid grid-cols-[5.75rem_minmax(0,1fr)] gap-x-1">
+                        <span>日次ログ:</span>
+                        <span>{firstLine}</span>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-[5.75rem_minmax(0,1fr)] gap-x-1">
+                      <span>Google Health:</span>
+                      <span>{googleHealthLine}</span>
+                    </div>
                   </div>
                 );
               })()}

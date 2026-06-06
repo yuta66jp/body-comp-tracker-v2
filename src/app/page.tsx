@@ -22,6 +22,7 @@ import { calcMonthlyBehaviorStats } from "@/lib/utils/calcMonthlyBehaviorStats";
 import { resolveMonthlyPlanHistoryAnchor } from "@/lib/utils/monthlyPlanHistory";
 import { fetchDashboardDailyLogs, fetchPredictions, fetchCareerLogsForDashboard } from "@/lib/queries/dailyLogs";
 import { fetchSleepSessionsForRange } from "@/lib/queries/sleepSessions";
+import { fetchGoogleHealthDailyMetricsForRange } from "@/lib/queries/googleHealthDailyMetrics";
 import { fetchSettings } from "@/lib/queries/settings";
 import { fetchEnrichedLogs } from "@/lib/queries/analytics";
 import { mapToAppSettings } from "@/lib/domain/settings";
@@ -111,9 +112,14 @@ export default async function DashboardPage() {
   // 終端を today にすることで、当日の daily_log がまだない状態でも
   // 当日の sleep_session を取得できる（データ品質チェックの sleepUnloggedDays に正しく反映される）。
   const firstLogDate = logs.at(0)?.log_date ?? null;
-  const sleepSessions = firstLogDate
-    ? await fetchSleepSessionsForRange(firstLogDate, today)
-    : [];
+  const [sleepSessions, googleHealthMetricsResult] = firstLogDate
+    ? await Promise.all([
+        fetchSleepSessionsForRange(firstLogDate, today),
+        fetchGoogleHealthDailyMetricsForRange(firstLogDate, today),
+      ])
+    : [[], { kind: "ok" as const, data: [] }];
+  const googleHealthMetrics =
+    googleHealthMetricsResult.kind === "ok" ? googleHealthMetricsResult.data : [];
 
   // MAX(updated_at) を使って stale 判定する。
   // MAX(log_date) ではなく MAX(updated_at) を使うことで、過去日の行修正でも stale を正しく検知できる。
@@ -258,7 +264,7 @@ export default async function DashboardPage() {
       : [];
 
   // 月別行動・生活集計: buildMonthStats と同じ 3 ヶ月分を計算する
-  const monthlyBehaviorStats = calcMonthlyBehaviorStats(logs, 3, sleepSessions);
+  const monthlyBehaviorStats = calcMonthlyBehaviorStats(logs, 3, sleepSessions, googleHealthMetrics);
 
   return (
     <DashboardLayout
@@ -273,6 +279,11 @@ export default async function DashboardPage() {
           {settingsResult.kind === "error" && (
             <StatusNotice status="error">
               設定データの取得中にエラーが発生しました。一部の表示がデフォルト値になります。
+            </StatusNotice>
+          )}
+          {googleHealthMetricsResult.kind === "error" && (
+            <StatusNotice status="caution">
+              Google Health データの取得中にエラーが発生しました。日次メトリクス表示は一部欠落します。
             </StatusNotice>
           )}
           {readinessMetrics.days_to_contest !== null && readinessMetrics.days_to_contest < 0 && (
@@ -324,6 +335,7 @@ export default async function DashboardPage() {
           <LogsAndSummaryTabs
             logs={logs}
             sleepSessions={sleepSessions}
+            googleHealthMetrics={googleHealthMetrics}
             monthStats={monthStats}
             seasonMap={seasonMap}
             currentSeason={currentSeason}

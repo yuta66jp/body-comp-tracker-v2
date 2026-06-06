@@ -41,6 +41,7 @@ import { DayPicker } from "react-day-picker";
 import { ja } from "date-fns/locale";
 import * as JapaneseHolidays from "japanese-holidays";
 import type { DashboardDailyLog, SleepSession } from "@/lib/supabase/types";
+import type { GoogleHealthDailyMetricForDisplay } from "@/lib/googleHealth/displayMetrics";
 import { buildCalendarDayMap, getMobileTrainingLabel, toDateKey, type CalendarDayData, type CalendarDayTagInfo } from "@/lib/utils/calendarUtils";
 import type { DayProps } from "react-day-picker";
 import { toJstDateStr } from "@/lib/utils/date";
@@ -480,16 +481,20 @@ function MobileDayDetailPanel({
 interface MonthlyCalendarProps {
   logs: DashboardDailyLog[];
   sleepSessions?: Pick<SleepSession, "wake_date" | "wake_at" | "bed_at">[];
+  googleHealthMetrics?: GoogleHealthDailyMetricForDisplay[];
 }
 
-export function MonthlyCalendar({ logs, sleepSessions = [] }: MonthlyCalendarProps) {
+export function MonthlyCalendar({ logs, sleepSessions = [], googleHealthMetrics = [] }: MonthlyCalendarProps) {
   const todayKey = toJstDateStr();
   const [y, m]   = todayKey.split("-").map(Number) as [number, number, number];
 
   const [month,       setMonth]       = useState<Date>(new Date(y, m - 1, 1));
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
-  const dayMap = useMemo(() => buildCalendarDayMap(logs, sleepSessions), [logs, sleepSessions]);
+  const dayMap = useMemo(
+    () => buildCalendarDayMap(logs, sleepSessions, googleHealthMetrics),
+    [logs, sleepSessions, googleHealthMetrics],
+  );
 
   // 再タップで解除するトグル。sm 以上（デスクトップ）では詳細パネルが非表示のため state 変更しない
   const handleSelectDay = useCallback((key: string) => {
