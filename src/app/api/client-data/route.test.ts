@@ -108,49 +108,6 @@ describe("GET /api/client-data", () => {
     expect(response.status).toBe(400);
   });
 
-  it("fetches one sleep session when date is specified", async () => {
-    mockGetCurrentUser.mockResolvedValue({ id: "user-id", email: "owner@example.com" });
-    const limit = jest.fn().mockReturnValue(queryResult([{ wake_date: "2024-01-01" }]));
-    const eq = jest.fn().mockReturnValue({ limit });
-    const select = jest.fn().mockReturnValue({ eq });
-    const from = jest.fn().mockReturnValue({ select });
-    mockCreateClient.mockResolvedValue({ from });
-
-    const response = await GET(makeRequest({ resource: "sleep_sessions", date: "2024-01-01" }));
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(from).toHaveBeenCalledWith("sleep_sessions");
-    expect(select).toHaveBeenCalledWith("*");
-    expect(eq).toHaveBeenCalledWith("wake_date", "2024-01-01");
-    expect(limit).toHaveBeenCalledWith(1);
-    expect(body.data).toEqual({ wake_date: "2024-01-01" });
-  });
-
-  it("returns null when date-specified sleep session is not found", async () => {
-    mockGetCurrentUser.mockResolvedValue({ id: "user-id", email: "owner@example.com" });
-    const limit = jest.fn().mockReturnValue(queryResult([]));
-    const eq = jest.fn().mockReturnValue({ limit });
-    const select = jest.fn().mockReturnValue({ eq });
-    const from = jest.fn().mockReturnValue({ select });
-    mockCreateClient.mockResolvedValue({ from });
-
-    const response = await GET(makeRequest({ resource: "sleep_sessions", date: "2024-01-01" }));
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.data).toBeNull();
-  });
-
-  it("rejects invalid date for date-specified sleep session", async () => {
-    mockGetCurrentUser.mockResolvedValue({ id: "user-id", email: "owner@example.com" });
-    mockCreateClient.mockResolvedValue({ from: jest.fn() });
-
-    const response = await GET(makeRequest({ resource: "sleep_sessions", date: "2024/01/01" }));
-
-    expect(response.status).toBe(400);
-  });
-
   it("validates date range for daily_log_dates", async () => {
     mockGetCurrentUser.mockResolvedValue({ id: "user-id", email: "owner@example.com" });
 

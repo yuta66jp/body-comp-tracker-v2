@@ -5,7 +5,7 @@
  *   - 体重・カロリーの欠損日数 (ログなし日も含む) → スコアに反映
  *   - 異常値候補 (前日比 ±3kg 超 / カロリー極端値) → スコアに反映
  *   - 必須項目の未記録日数 (-2/日/項目 でスコアに反映)
- *     - 最終食事時刻 / 排便の有無 / 勤務情報 / トレーニング情報 / 睡眠（就寝・起床時刻）
+ *     - 排便の有無 / 勤務情報 / トレーニング情報
  *   - 同日重複 (DBのPKで通常は防がれるが検出のみ)
  *
  * スコア計算 (0〜100):
@@ -27,7 +27,6 @@ import { toJstDateStr, addDaysStr, dateRangeStr } from "./date";
  * fetchDailyLogsForSettings() / fetchDashboardDailyLogs() の戻り値型と対応する。
  *
  * 追加フィールド (必須項目未入力検知に使用):
- *   - last_meal_end_time: null = 未入力 (欠損扱い)
  *   - had_bowel_movement: null = 未記録 / false = 便通なし (記録あり) / true = 便通あり (記録あり)
  *   - work_mode: null = 未入力 (欠損扱い)
  *   - training_type: null = 未入力 (欠損扱い)
@@ -37,20 +36,10 @@ export type DataQualityLog = Pick<
   | "log_date"
   | "weight"
   | "calories"
-  | "last_meal_end_time"
   | "had_bowel_movement"
   | "work_mode"
   | "training_type"
 >;
-
-/**
- * 睡眠セッション情報の軽量型。
- * SleepSession の構造的サブタイプ (SleepSession[] をそのまま渡せる)。
- * wake_date をキーとして睡眠の記録有無を判定する。
- */
-export type DataQualitySleepEntry = {
-  wake_date: string; // YYYY-MM-DD
-};
 
 // ---- 閾値定数 ----
 /** 前日比でこれを超えたら体重異常値 (kg) */
@@ -83,8 +72,6 @@ export interface AnomalyEntry {
  * ログ自体が存在しない日はすべての項目が未記録として計上する。
  */
 export interface MissingFields {
-  /** last_meal_end_time が null の日数 */
-  lastMealEndTimeDays: number;
   /**
    * had_bowel_movement が null の日数。
    * false (便通なし) は記録済みのため欠損扱いしない。
@@ -94,8 +81,6 @@ export interface MissingFields {
   workModeDays: number;
   /** training_type が null の日数 */
   trainingTypeDays: number;
-  /** sleep_sessions に wake_date が記録されていない日数 */
-  sleepUnloggedDays: number;
 }
 
 export interface QualityWindow {
@@ -129,7 +114,7 @@ function calcScore(
     window.weightMissingDays * PENALTY_WEIGHT_MISSING +
     window.caloriesMissingDays * PENALTY_CALORIES_MISSING +
     window.anomalies.length * PENALTY_ANOMALY +
-    (mf.lastMealEndTimeDays + mf.bowelMovementDays + mf.workModeDays + mf.trainingTypeDays + mf.sleepUnloggedDays) *
+    (mf.bowelMovementDays + mf.workModeDays + mf.trainingTypeDays) *
       PENALTY_REQUIRED_FIELD_MISSING;
   return Math.max(0, 100 - deductions);
 }
@@ -139,7 +124,6 @@ function buildWindow(
   dates: string[],
   logByDate: Map<string, DataQualityLog>,
   sortedWithWeight: Array<{ date: string; weight: number }>,
-  sleepDateSet: Set<string> | null // null = 睡眠データ未提供 → sleepUnloggedDays は 0 のまま
 ): QualityWindow {
   const totalDays = dates.length;
 
@@ -148,11 +132,9 @@ function buildWindow(
   let caloriesMissingDays = 0;
 
   // 必須項目未記録カウント (-2/日/項目 でスコアに反映)
-  let lastMealEndTimeDays = 0;
   let bowelMovementDays = 0;
   let workModeDays = 0;
   let trainingTypeDays = 0;
-  let sleepUnloggedDays = 0;
 
   for (const d of dates) {
     const log = logByDate.get(d);
@@ -162,15 +144,10 @@ function buildWindow(
     if (!log || log.calories === null) caloriesMissingDays++;
 
     // 必須項目未記録: ログ自体がなければすべて未記録として計上
-    if (!log || log.last_meal_end_time === null) lastMealEndTimeDays++;
     // had_bowel_movement: null = 未記録。false (便通なし) は記録済み扱い
     if (!log || log.had_bowel_movement === null) bowelMovementDays++;
     if (!log || log.work_mode === null) workModeDays++;
     if (!log || log.training_type === null) trainingTypeDays++;
-
-    // 睡眠セッション: sleepDateSet が提供されている場合のみチェック
-    // sleepDateSet === null (未提供) のときはスキップ → sleepUnloggedDays = 0 のまま
-    if (sleepDateSet !== null && !sleepDateSet.has(d)) sleepUnloggedDays++;
   }
 
   // 異常値: カロリー極端値
@@ -227,11 +204,9 @@ function buildWindow(
   });
 
   const missingFields: MissingFields = {
-    lastMealEndTimeDays,
     bowelMovementDays,
     workModeDays,
     trainingTypeDays,
-    sleepUnloggedDays,
   };
 
   const scoreInput = { weightMissingDays, caloriesMissingDays, anomalies: uniqueAnomalies, missingFields };
@@ -243,13 +218,10 @@ function buildWindow(
  *
  * @param logs         daily_logs 全件
  * @param today        基準日 (YYYY-MM-DD JST). 省略時は JST 今日
- * @param sleepSessions sleep_sessions の配列 (wake_date のみ参照)。
- *                     省略時は睡眠セッション未記録チェックをスキップ (全日 sleepUnloggedDays = 0)
  */
 export function calcDataQuality(
   logs: DataQualityLog[],
   today?: string,
-  sleepSessions?: DataQualitySleepEntry[]
 ): DataQualityReport {
   const todayStr = today ?? toJstDateStr(new Date());
 
@@ -274,14 +246,6 @@ export function calcDataQuality(
     .sort((a, b) => a.log_date.localeCompare(b.log_date))
     .map((l) => ({ date: l.log_date, weight: l.weight! }));
 
-  // ---- 睡眠セッションの wake_date セット ----
-  // sleepSessions が undefined の場合は null を渡して睡眠チェックをスキップ。
-  // 空配列が渡された場合はチェックを行い、全日 sleepUnloggedDays を計上する。
-  const sleepDateSet: Set<string> | null =
-    sleepSessions !== undefined
-      ? new Set<string>(sleepSessions.map((s) => s.wake_date))
-      : null;
-
   // ---- 7日・14日ウィンドウの暦日リスト ----
   // JST 基準で今日を含む直近 N 日を計算する。
   // addDaysStr は parseLocalDateStr 経由で date-only を安全に解釈する。
@@ -291,8 +255,8 @@ export function calcDataQuality(
   const dates7 = dateRangeStr(d7Start, todayStr);
   const dates14 = dateRangeStr(d14Start, todayStr);
 
-  const period7 = buildWindow(dates7, logByDate, sortedWithWeight, sleepDateSet);
-  const period14 = buildWindow(dates14, logByDate, sortedWithWeight, sleepDateSet);
+  const period7 = buildWindow(dates7, logByDate, sortedWithWeight);
+  const period14 = buildWindow(dates14, logByDate, sortedWithWeight);
 
   return { period7, period14, duplicateDates };
 }

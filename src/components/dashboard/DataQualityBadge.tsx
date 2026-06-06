@@ -32,11 +32,9 @@ function scoreLabel(score: number): string {
 /** 必須項目のうち 1日以上未記録のものを数える */
 function countMissingFieldTypes(mf: MissingFields): number {
   return [
-    mf.lastMealEndTimeDays,
     mf.bowelMovementDays,
     mf.workModeDays,
     mf.trainingTypeDays,
-    mf.sleepUnloggedDays,
   ].filter((v) => v > 0).length;
 }
 

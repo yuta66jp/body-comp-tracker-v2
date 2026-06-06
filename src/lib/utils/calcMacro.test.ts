@@ -19,13 +19,10 @@ function makeLog(log_date: string, overrides: Partial<DailyLog> = {}): DailyLog 
     is_travel_day:     false,
     is_tanning_day:    false,
     is_posing_day:     false,
-    sleep_hours:       null,
     had_bowel_movement: false,
     training_type:     null,
     work_mode:          null,
     leg_flag:           null,
-    last_meal_end_time: null,
-    step_count: null,
     updated_at:         "2026-03-01T00:00:00Z",
     ...overrides,
   };

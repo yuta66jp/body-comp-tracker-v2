@@ -1,13 +1,10 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Minus } from "lucide-react";
-import type { DashboardDailyLog, SleepSession } from "@/lib/supabase/types";
-import { extractJstHHMM } from "@/lib/utils/sleepSession";
+import type { DashboardDailyLog } from "@/lib/supabase/types";
 import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayTags";
 import { formatConditionSummary } from "@/lib/utils/trainingType";
 import { computeWeightDelta, buildRecentLogArrays } from "@/lib/utils/recentLogsUtils";
-import { calcFastingHours } from "@/lib/utils/calendarUtils";
-import { addDaysStr } from "@/lib/utils/date";
 import {
   buildGoogleHealthDailyMetricMap,
   formatGoogleHealthDailyMetricLine,
@@ -16,29 +13,15 @@ import {
 
 interface RecentLogsTableProps {
   logs: DashboardDailyLog[];
-  sleepSessions?: Pick<SleepSession, "wake_date" | "wake_at">[];
   googleHealthMetrics?: GoogleHealthDailyMetricForDisplay[];
   embedded?: boolean;
   seasonMap?: Map<string, string>;   // log_date → season name
   currentSeason?: string | null;
 }
 
-export function RecentLogsTable({ logs, sleepSessions = [], googleHealthMetrics = [], embedded = false, seasonMap, currentSeason }: RecentLogsTableProps) {
+export function RecentLogsTable({ logs, googleHealthMetrics = [], embedded = false, seasonMap, currentSeason }: RecentLogsTableProps) {
   const { sorted, ascending } = buildRecentLogArrays(logs);
   const googleHealthMetricByDate = buildGoogleHealthDailyMetricMap(googleHealthMetrics);
-  // 断食時間算出用: 日付 → ログ の高速参照テーブル（前日 D-1 の last_meal_end_time を参照するため）
-  const logByDate = new Map(ascending.map((l) => [l.log_date, l]));
-  // 断食時間算出用: wake_date → wake_at (JST HH:MM) の高速参照テーブル
-  const wakeTimeByDate = new Map(
-    sleepSessions
-      .map((s) => [s.wake_date, extractJstHHMM(s.wake_at)] as [string, string | null])
-      .filter((entry): entry is [string, string] => entry[1] !== null)
-  );
-  const googleHealthWakeTimeByDate = new Map(
-    googleHealthMetrics
-      .map((metric) => [metric.metric_date, metric.sleep_wake_at ? extractJstHHMM(metric.sleep_wake_at) : null] as [string, string | null])
-      .filter((entry): entry is [string, string] => entry[1] !== null)
-  );
 
   /** 直前ログとのカロリー差分。calories / 前回 calories いずれかが null なら null */
   function getCalDelta(log: DashboardDailyLog): number | null {
@@ -95,13 +78,8 @@ export function RecentLogsTable({ logs, sleepSessions = [], googleHealthMetrics 
                     ))}
                   </div>
                   {(() => {
-                    const prevDate    = addDaysStr(log.log_date, -1);
-                    const prevDayLog  = prevDate ? (logByDate.get(prevDate) ?? null) : null;
-                    const wakeUpTime  = googleHealthWakeTimeByDate.get(log.log_date) ?? wakeTimeByDate.get(log.log_date) ?? null;
-                    const fastingHours = calcFastingHours(prevDayLog?.last_meal_end_time, wakeUpTime);
                     const firstLine = [
                       conditionSummary,
-                      fastingHours !== null ? `断食${fastingHours % 1 === 0 ? fastingHours.toFixed(0) : fastingHours.toFixed(1)}h` : null,
                     ]
                       .filter(Boolean)
                       .join(" / ");

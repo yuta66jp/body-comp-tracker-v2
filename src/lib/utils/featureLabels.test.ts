@@ -62,13 +62,12 @@ describe("getFeatureLabel", () => {
     }
   });
 
-  it("numeric 系のうち kcal / g / h を持つ項目は単位が含まれる", () => {
+  it("numeric 系のうち kcal / g を持つ項目は単位が含まれる", () => {
     expect(getFeatureLabel("cal_lag1")).toContain("kcal");
     expect(getFeatureLabel("rolling_cal_7")).toContain("kcal");
     expect(getFeatureLabel("p_lag1")).toContain("g");
     expect(getFeatureLabel("f_lag1")).toContain("g");
     expect(getFeatureLabel("c_lag1")).toContain("g");
-    expect(getFeatureLabel("sleep_hours")).toContain("h");
   });
 });
 

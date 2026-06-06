@@ -28,7 +28,6 @@ export const ACTIVE_FEATURE_NAMES = [
   "p_lag1",
   "f_lag1",
   "c_lag1",
-  "sleep_hours",
 ] as const;
 
 export type ActiveFeatureName = typeof ACTIVE_FEATURE_NAMES[number];
@@ -87,12 +86,6 @@ const ACTIVE_FEATURE_EXPLANATIONS: Record<ActiveFeatureName, ActiveFeatureExplan
     note:      "グリコーゲン貯蔵と水分保持の影響が大きい",
     hint:      "炭水化物はグリコーゲン貯蔵・水分保持を通じた体重変動が出やすい栄養素です。チートデイやリフィード後の変動と照らし合わせてみてください。",
   },
-  sleep_hours: {
-    label:     "睡眠時間（h）",
-    direction: "↕ 睡眠不足・長時間睡眠で体重変動に影響する可能性",
-    note:      "回復・水分保持・測定条件の影響を反映する可能性",
-    hint:      "睡眠時間は翌日の水分保持や測定条件と関連することがあります。短眠日や長時間睡眠日の翌日変動と照らし合わせてみてください。",
-  },
 };
 
 // ── 将来の特徴量候補（ラベルのみ）───────────────────────────────────────────
@@ -106,6 +99,7 @@ const INACTIVE_FEATURE_LABEL_MAP: Readonly<Record<string, string>> = {
   fat:         "脂質（g）",
   carbs:       "炭水化物（g）",
   weight:      "体重（kg）",
+  sleep_hours: "睡眠時間（h）",
 
   // boolean / flag
   had_bowel_movement: "便通あり",

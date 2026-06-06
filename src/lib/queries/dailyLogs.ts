@@ -22,7 +22,7 @@
  *
  * | 関数 | 取得列 | 用途 | 戻り値型 |
  * |---|---|---|---|
- * | fetchDashboardDailyLogs()   | 17列（note・leg_flag 除く）  | Dashboard 専用 (#165)                | QueryResult |
+ * | fetchDashboardDailyLogs()   | 16列（note・leg_flag 除く）  | Dashboard 専用 (#165)                | QueryResult |
  * | fetchMacroDailyLogs(days)   | 6列・DESC LIMIT days         | Macro 専用 (#166)                    | QueryResult |
  * | fetchTdeeDailyLogs(limit)   | 3列・DESC LIMIT limit        | TDEE raw fallback 専用 (#166)        | QueryResult |
  * | fetchLatestUpdatedAt()      | updated_at 1行               | stale 判定用（Macro/TDEE共用）       | ベストエフォート |
@@ -37,22 +37,20 @@ import type { DataQualityLog } from "@/lib/utils/calcDataQuality";
 import type { QueryResult } from "./queryResult";
 
 /**
- * Dashboard 専用: daily_logs を 19 列・全期間・日付昇順で取得する。
+ * Dashboard 専用: daily_logs を 16 列・全期間・日付昇順で取得する。
  *
- * ## 取得列と除外列の根拠（#165 棚卸し済み、#435 で時刻列追加、#436 で step_count 追加、#529 で bed_time 除外）
+ * ## 取得列と除外列の根拠（#165 棚卸し済み、#710 で旧歩数・睡眠・断食列を削除）
  *
- * 取得列 (17列):
+ * 取得列 (16列):
  *   log_date, weight, calories, protein, fat, carbs,
  *   is_cheat_day, is_refeed_day, is_eating_out, is_travel_day,
  *   is_tanning_day, is_posing_day,
- *   sleep_hours, had_bowel_movement, training_type, work_mode, updated_at,
- *   last_meal_end_time, step_count
+ *   had_bowel_movement, training_type, work_mode, updated_at
  *
  * 除外列 (4列):
  *   - note          : Dashboard のいずれの関数・コンポーネントでも参照されない
  *   - leg_flag      : Dashboard では参照されない（training_type から導出される派生値）
- *   - weigh_in_time : #526 で廃止。起床時刻は sleep_sessions.wake_at を直接参照する
- *   - bed_time      : #529 で廃止。就寝時刻は sleep_sessions.bed_at を直接参照する
+ *   - step_count / sleep_hours / last_meal_end_time : #710 で daily_logs から削除
  *
  * ## 用途別の列対応
  *   - calcReadiness          : log_date, weight
@@ -62,7 +60,7 @@ import type { QueryResult } from "./queryResult";
  *   - monthlyGoalVisualization: log_date, weight
  *   - calendarUtils          : log_date, weight, calories, had_bowel_movement, training_type, work_mode,
  *                              is_cheat_day, is_refeed_day, is_eating_out, is_travel_day
- *   - RecentLogsTable        : log_date, weight, calories, sleep_hours, had_bowel_movement,
+ *   - RecentLogsTable        : log_date, weight, calories, had_bowel_movement,
  *                              training_type, work_mode, is_cheat_day, is_refeed_day,
  *                              is_eating_out, is_travel_day
  *   - ForecastChart          : log_date, weight
@@ -87,8 +85,7 @@ export async function fetchDashboardDailyLogs(): Promise<QueryResult<DashboardDa
       "log_date, weight, calories, protein, fat, carbs, " +
       "is_cheat_day, is_refeed_day, is_eating_out, is_travel_day, " +
       "is_tanning_day, is_posing_day, " +
-      "sleep_hours, had_bowel_movement, training_type, work_mode, updated_at, " +
-      "last_meal_end_time, step_count"
+      "had_bowel_movement, training_type, work_mode, updated_at"
     )
     .order("log_date", { ascending: true });
   if (error) {
@@ -227,8 +224,7 @@ export async function fetchWeightLogs(): Promise<Pick<DailyLog, "log_date" | "we
  * 利用画面: Settings ページ専用（DataQuality 計算 + currentWeight 取得）。
  * 他画面への流用禁止（用途が混在するとクエリ責務が不明確になる）。
  *
- * 取得列: log_date, weight, calories,
- *         last_meal_end_time, had_bowel_movement, work_mode, training_type
+ * 取得列: log_date, weight, calories, had_bowel_movement, work_mode, training_type
  * 必須項目の未入力検知に必要な列を含む。
  *
  * 戻り値:
@@ -241,7 +237,7 @@ export async function fetchDailyLogsForSettings(): Promise<QueryResult<DataQuali
     .from("daily_logs")
     .select(
       "log_date, weight, calories, " +
-      "last_meal_end_time, had_bowel_movement, work_mode, training_type"
+      "had_bowel_movement, work_mode, training_type"
     )
     .order("log_date", { ascending: true });
   if (error) {

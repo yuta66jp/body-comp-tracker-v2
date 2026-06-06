@@ -19,7 +19,6 @@ function makeLog(
     protein: null,
     fat: null,
     carbs: null,
-    sleep_hours: null,
     training_type: null,
     work_mode: null,
     had_bowel_movement: null,
@@ -29,8 +28,6 @@ function makeLog(
     is_travel_day:  false,
     is_tanning_day: false,
     is_posing_day:  false,
-    last_meal_end_time: null,
-    step_count: null,
     created_at: null,
     updated_at: "2026-01-01T00:00:00Z",
     ...overrides,
@@ -279,53 +276,46 @@ describe("calcMonthlyBehaviorStats", () => {
 });
 
 describe("calcMonthlyBehaviorStats — sleepStats", () => {
-  /**
-   * テスト用 sleep_session を生成する。
-   * bed_hhmm > wake_hhmm（前日夜就寝）の場合は bed_at を wake_date の前日に設定し、
-   * DB制約 `bed_at < wake_at` を正しく再現する。
-   * これは production の buildSleepSessionDatetimes と同じ判定ロジック。
-   */
-  function makeSession(wake_date: string, bed_hhmm: string, wake_hhmm: string) {
-    const isOvernight = bed_hhmm > wake_hhmm; // 辞書順比較: "23:00" > "07:00" は真
-    const bedDate = isOvernight ? prevDate(wake_date) : wake_date;
-    return {
-      wake_date,
-      bed_at:  `${bedDate}T${bed_hhmm}:00+09:00`,
-      wake_at: `${wake_date}T${wake_hhmm}:00+09:00`,
-    };
-  }
-
-  /** wake_date の前日を "YYYY-MM-DD" で返す */
-  function prevDate(dateStr: string): string {
-    const [y, m, d] = dateStr.split("-").map(Number) as [number, number, number];
-    const prev = new Date(Date.UTC(y, m - 1, d - 1));
-    return prev.toISOString().slice(0, 10);
-  }
-
-  test("sleepSessions を渡さない場合 sleepStats は null", () => {
+  test("Google Health metrics を渡さない場合 sleepStats は null", () => {
     const logs = [makeLog("2026-03-15")];
     const result = calcMonthlyBehaviorStats(logs);
     expect(result[0]!.sleepStats).toBeNull();
   });
 
-  test("空の sleepSessions を渡した場合 sleepStats は null", () => {
+  test("空の Google Health metrics を渡した場合 sleepStats は null", () => {
     const logs = [makeLog("2026-03-15")];
     const result = calcMonthlyBehaviorStats(logs, 0, []);
     expect(result[0]!.sleepStats).toBeNull();
   });
 
-  test("該当月にセッションがある場合 avgSleepHours / medianBedTime / medianWakeTime が計算される", () => {
+  test("該当月に Google Health metrics がある場合 avgSleepHours / medianBedTime / medianWakeTime が計算される", () => {
     const logs = [
       makeLog("2026-03-15", { work_mode: "office" }),
       makeLog("2026-03-16", { work_mode: "remote" }),
     ];
-    const sessions = [
-      // 前日夜就寝: bed_at = 2026-03-14T23:00+09, wake_at = 2026-03-15T07:00+09 → 8h
-      makeSession("2026-03-15", "23:00", "07:00"),
-      // 当日深夜就寝: bed_at = 2026-03-16T00:00+09, wake_at = 2026-03-16T07:30+09 → 7.5h
-      makeSession("2026-03-16", "00:00", "07:30"),
+    const googleHealthMetrics: GoogleHealthDailyMetricForDisplay[] = [
+      {
+        metric_date: "2026-03-15",
+        step_count: null,
+        sleep_minutes: 480,
+        deep_sleep_minutes: null,
+        sleep_bed_at: "2026-03-14T14:00:00Z",
+        sleep_wake_at: "2026-03-14T22:00:00Z",
+        hrv_ms: null,
+        rhr_bpm: null,
+      },
+      {
+        metric_date: "2026-03-16",
+        step_count: null,
+        sleep_minutes: 450,
+        deep_sleep_minutes: null,
+        sleep_bed_at: "2026-03-15T15:00:00Z",
+        sleep_wake_at: "2026-03-15T22:30:00Z",
+        hrv_ms: null,
+        rhr_bpm: null,
+      },
     ];
-    const result = calcMonthlyBehaviorStats(logs, 0, sessions);
+    const result = calcMonthlyBehaviorStats(logs, 0, googleHealthMetrics);
     const stats = result[0]!.sleepStats;
     expect(stats).not.toBeNull();
     // 8h + 7.5h = 15.5h / 2 = 7.75 → 7.8
@@ -336,18 +326,27 @@ describe("calcMonthlyBehaviorStats — sleepStats", () => {
     expect(stats!.medianWakeTime).toBe("07:15");
   });
 
-  test("別月のセッションは他月の sleepStats に影響しない", () => {
+  test("別月の Google Health metrics は他月の sleepStats に影響しない", () => {
     const logs = [
       makeLog("2026-03-15"),
       makeLog("2026-04-15"),
     ];
-    const sessions = [
-      makeSession("2026-03-15", "23:00", "07:00"),
+    const googleHealthMetrics: GoogleHealthDailyMetricForDisplay[] = [
+      {
+        metric_date: "2026-03-15",
+        step_count: null,
+        sleep_minutes: 480,
+        deep_sleep_minutes: null,
+        sleep_bed_at: "2026-03-14T14:00:00Z",
+        sleep_wake_at: "2026-03-14T22:00:00Z",
+        hrv_ms: null,
+        rhr_bpm: null,
+      },
     ];
-    const result = calcMonthlyBehaviorStats(logs, 0, sessions);
+    const result = calcMonthlyBehaviorStats(logs, 0, googleHealthMetrics);
     // 降順: 2026-04 が result[0], 2026-03 が result[1]
     expect(result[0]!.month).toBe("2026-04");
-    expect(result[0]!.sleepStats).toBeNull(); // 4月にセッションなし
+    expect(result[0]!.sleepStats).toBeNull(); // 4月に Google Health metrics なし
     expect(result[1]!.month).toBe("2026-03");
     expect(result[1]!.sleepStats).not.toBeNull();
   });
@@ -356,14 +355,19 @@ describe("calcMonthlyBehaviorStats — sleepStats", () => {
     // Supabase は TIMESTAMPTZ を UTC 形式で返す (例: "2026-03-14T14:30:00+00:00")
     // JST 23:30 = UTC 14:30、JST 07:00 = UTC 22:00 (前日の UTC 日付になる)
     const logs = [makeLog("2026-03-15")];
-    const sessions = [
+    const googleHealthMetrics: GoogleHealthDailyMetricForDisplay[] = [
       {
-        wake_date: "2026-03-15",
-        bed_at:    "2026-03-14T14:30:00+00:00", // UTC = JST 2026-03-14 23:30
-        wake_at:   "2026-03-14T22:00:00+00:00", // UTC = JST 2026-03-15 07:00
+        metric_date: "2026-03-15",
+        step_count: null,
+        sleep_minutes: 450,
+        deep_sleep_minutes: null,
+        sleep_bed_at: "2026-03-14T14:30:00+00:00",
+        sleep_wake_at: "2026-03-14T22:00:00+00:00",
+        hrv_ms: null,
+        rhr_bpm: null,
       },
     ];
-    const result = calcMonthlyBehaviorStats(logs, 0, sessions);
+    const result = calcMonthlyBehaviorStats(logs, 0, googleHealthMetrics);
     const stats = result[0]!.sleepStats;
     expect(stats).not.toBeNull();
     // 23:30 → 07:00 = 7.5h
@@ -400,7 +404,7 @@ describe("calcMonthlyBehaviorStats — sleepStats", () => {
       },
     ];
 
-    const result = calcMonthlyBehaviorStats(logs, 0, [], googleHealthMetrics);
+    const result = calcMonthlyBehaviorStats(logs, 0, googleHealthMetrics);
     const stats = result[0]!;
 
     expect(stats.sleepStats?.avgSleepHours).toBe(5.3);

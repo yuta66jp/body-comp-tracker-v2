@@ -41,11 +41,5 @@ export function buildUpdatePayload(
     payload.leg_flag      = deriveLegFlag(input.training_type);
   }
 
-  // #435 追加: 食事タイミング
-  if (input.last_meal_end_time !== undefined) payload.last_meal_end_time = input.last_meal_end_time;
-
-  // #436 追加: 歩数（Apple Health インポート専用。MealLogger からは渡されない）
-  if (input.step_count !== undefined) payload.step_count = input.step_count;
-
   return payload;
 }

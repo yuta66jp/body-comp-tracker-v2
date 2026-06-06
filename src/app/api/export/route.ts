@@ -9,7 +9,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { isValidDateParam } from "@/lib/utils/date";
-import { extractJstHHMM } from "@/lib/utils/sleepSession";
 
 // ── バリデーション ────────────────────────────────────────────────────────────
 
@@ -65,46 +64,13 @@ export async function GET(req: NextRequest) {
     const { data, error } = await query;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    // sleep_sessions から就寝・起床時刻を取得する。
-    // source of truth: sleep_sessions.bed_at / wake_at
-    // 対応付け: daily_logs.log_date = sleep_sessions.wake_date
-    let sleepQuery = supabase
-      .from("sleep_sessions")
-      .select("wake_date,bed_at,wake_at")
-      .order("wake_date", { ascending: true });
-    if (start) sleepQuery = sleepQuery.gte("wake_date", start);
-    if (end) sleepQuery = sleepQuery.lte("wake_date", end);
-    const { data: sleepData, error: sleepError } = await sleepQuery;
-    if (sleepError) return NextResponse.json({ error: sleepError.message }, { status: 500 });
-
-    // wake_date → session の O(1) 参照マップを構築する
-    type SleepRow = { wake_date: string; bed_at: string | null; wake_at: string | null };
-    const sleepByWakeDate = new Map<string, SleepRow>();
-    for (const s of (sleepData ?? []) as SleepRow[]) {
-      sleepByWakeDate.set(s.wake_date, s);
-    }
-
-    // 各ログ行に sleep_bed_time / sleep_wake_time (JST HH:MM) を付加する。
-    // sleep_sessions が存在しない日は null → toCSV で空欄になる。
-    const enrichedRows = (data ?? []).map((rawLog) => {
-      const log = rawLog as Record<string, unknown>;
-      const session = sleepByWakeDate.get(log["log_date"] as string);
-      return {
-        ...log,
-        sleep_bed_time:  session?.bed_at  ? (extractJstHHMM(session.bed_at)  ?? null) : null,
-        sleep_wake_time: session?.wake_at ? (extractJstHHMM(session.wake_at) ?? null) : null,
-      };
-    });
-
     const columns = [
       "log_date", "weight", "calories", "protein", "fat", "carbs", "note",
       "is_cheat_day", "is_refeed_day", "is_eating_out", "is_travel_day",
       "is_tanning_day", "is_posing_day",
-      "sleep_hours", "sleep_bed_time", "sleep_wake_time",
       "had_bowel_movement", "training_type", "work_mode", "leg_flag",
-      "last_meal_end_time", "step_count",
     ];
-    const csv = toCSV(enrichedRows as Record<string, unknown>[], columns);
+    const csv = toCSV((data ?? []) as Record<string, unknown>[], columns);
     const filename = `bodymake_log_${start || "all"}_${end || "all"}.csv`;
 
     return new NextResponse(csv, {

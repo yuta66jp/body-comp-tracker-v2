@@ -24,12 +24,9 @@ function makeLog(
     is_travel_day:  false,
     is_tanning_day: false,
     is_posing_day:  false,
-    sleep_hours: null,
     training_type: null,
     updated_at: "2026-04-02T00:00:00Z",
     work_mode: null,
-    last_meal_end_time: null,
-    step_count: null,
     ...overrides,
   };
 }
@@ -53,11 +50,9 @@ function makeMetrics(overrides: Partial<ReadinessMetrics> = {}): ReadinessMetric
 }
 
 const EMPTY_MISSING_FIELDS = {
-  lastMealEndTimeDays: 0,
   bowelMovementDays: 0,
   workModeDays: 0,
   trainingTypeDays: 0,
-  sleepUnloggedDays: 0,
 };
 
 function makeQualityReport(overrides: Partial<DataQualityReport> = {}): DataQualityReport {

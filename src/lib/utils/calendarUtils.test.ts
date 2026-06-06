@@ -4,7 +4,7 @@
  * buildCalendarDayMap の差分計算・タグ処理・コンディション整形を検証する。
  */
 
-import { buildCalendarDayMap, buildConditionTags, getMobileTrainingLabel, toDateKey, calcFastingHours } from "./calendarUtils";
+import { buildCalendarDayMap, buildConditionTags, getMobileTrainingLabel, toDateKey } from "./calendarUtils";
 import type { DailyLog } from "@/lib/supabase/types";
 import type { GoogleHealthDailyMetricForDisplay } from "@/lib/googleHealth/displayMetrics";
 
@@ -27,13 +27,10 @@ function makeLog(overrides: Omit<Partial<DailyLog>, "weight"> & { log_date: stri
     is_travel_day:      overrides.is_travel_day      ?? false,
     is_tanning_day:     overrides.is_tanning_day     ?? false,
     is_posing_day:      overrides.is_posing_day      ?? false,
-    sleep_hours:        overrides.sleep_hours        ?? null,
     had_bowel_movement: overrides.had_bowel_movement ?? null,
     training_type:      overrides.training_type      ?? null,
     work_mode:          overrides.work_mode          ?? null,
     leg_flag:           overrides.leg_flag           ?? null,
-    last_meal_end_time: overrides.last_meal_end_time ?? null,
-    step_count:         overrides.step_count         ?? null,
     updated_at:         overrides.updated_at         ?? "2026-03-01T00:00:00Z",
   };
 }
@@ -48,14 +45,7 @@ describe("buildCalendarDayMap", () => {
 
   it("Google Health metrics が渡された場合は就寝・起床・睡眠を Google Health 由来にする", () => {
     const logs = [
-      makeLog({ log_date: "2026-06-04", weight: 63.8, sleep_hours: 9.9 }),
-    ];
-    const sleepSessions = [
-      {
-        wake_date: "2026-06-04",
-        bed_at: "2026-06-03T13:00:00+00:00",
-        wake_at: "2026-06-03T22:00:00+00:00",
-      },
+      makeLog({ log_date: "2026-06-04", weight: 63.8 }),
     ];
     const googleHealthMetrics: GoogleHealthDailyMetricForDisplay[] = [
       {
@@ -70,7 +60,7 @@ describe("buildCalendarDayMap", () => {
       },
     ];
 
-    const map = buildCalendarDayMap(logs, sleepSessions, googleHealthMetrics);
+    const map = buildCalendarDayMap(logs, googleHealthMetrics);
     const data = map.get("2026-06-04")!;
 
     expect(data.sleep_hours).toBe(5.6);
@@ -323,198 +313,6 @@ describe("buildConditionTags", () => {
   it("work_mode=remote → cyan color", () => {
     const tags = buildConditionTags({ had_bowel_movement: null, training_type: null, work_mode: "remote" });
     expect(tags[0]!.colorClass).toContain("cyan");
-  });
-});
-
-// ── buildCalendarDayMap — fasting_hours (前日参照仕様) ─────────────────────────
-
-describe("buildCalendarDayMap — fasting_hours", () => {
-  it("前日 last_meal_end_time と当日 sleep_sessions.wake_at から算出する", () => {
-    // 前日 22:30 → 当日 07:00 = 8.5h
-    const logs = [
-      makeLog({ log_date: "2026-03-09", weight: 70, last_meal_end_time: "22:30:00" }),
-      makeLog({ log_date: "2026-03-10", weight: 70 }),
-    ];
-    const sleepSessions = [{ wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00", bed_at: "2026-03-09T23:00:00+09:00" }];
-    const map = buildCalendarDayMap(logs, sleepSessions);
-    expect(map.get("2026-03-10")!.fasting_hours).toBe(8.5);
-  });
-
-  it("前日ログがない場合は null", () => {
-    // 2026-03-11 の前日 (2026-03-10) はログなし
-    const logs = [
-      makeLog({ log_date: "2026-03-09", weight: 70, last_meal_end_time: "22:30:00" }),
-      makeLog({ log_date: "2026-03-11", weight: 70 }),
-    ];
-    const sleepSessions = [{ wake_date: "2026-03-11", wake_at: "2026-03-11T07:00:00+09:00", bed_at: "2026-03-09T23:00:00+09:00" }];
-    const map = buildCalendarDayMap(logs, sleepSessions);
-    // 2026-03-10 のログが存在しないので 2026-03-11 は null
-    expect(map.get("2026-03-11")!.fasting_hours).toBeNull();
-  });
-
-  it("前日 last_meal_end_time がない場合は null", () => {
-    const logs = [
-      makeLog({ log_date: "2026-03-09", weight: 70, last_meal_end_time: null }),
-      makeLog({ log_date: "2026-03-10", weight: 70 }),
-    ];
-    const sleepSessions = [{ wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00", bed_at: "2026-03-09T23:00:00+09:00" }];
-    const map = buildCalendarDayMap(logs, sleepSessions);
-    expect(map.get("2026-03-10")!.fasting_hours).toBeNull();
-  });
-
-  it("当日 sleep_sessions がない場合は null", () => {
-    const logs = [
-      makeLog({ log_date: "2026-03-09", weight: 70, last_meal_end_time: "22:30:00" }),
-      makeLog({ log_date: "2026-03-10", weight: 70 }),
-    ];
-    // sleepSessions を渡さない（2026-03-10 の sleep_session なし）
-    const map = buildCalendarDayMap(logs);
-    expect(map.get("2026-03-10")!.fasting_hours).toBeNull();
-  });
-
-  it("当日の same-day last_meal_end_time は断食時間に使われない", () => {
-    // 当日 D に last_meal_end_time があっても、前日がなければ null
-    const logs = [
-      makeLog({ log_date: "2026-03-10", weight: 70, last_meal_end_time: "22:30:00" }),
-    ];
-    const sleepSessions = [{ wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00", bed_at: "2026-03-09T23:00:00+09:00" }];
-    const map = buildCalendarDayMap(logs, sleepSessions);
-    // 前日ログがないので null（旧仕様では 8.5h だった）
-    expect(map.get("2026-03-10")!.fasting_hours).toBeNull();
-  });
-
-  it("ログが1件のみ（前日参照不能）の場合は null", () => {
-    const logs = [
-      makeLog({ log_date: "2026-03-10", weight: 70, last_meal_end_time: "22:30:00" }),
-    ];
-    const sleepSessions = [{ wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00", bed_at: "2026-03-09T23:00:00+09:00" }];
-    const map = buildCalendarDayMap(logs, sleepSessions);
-    expect(map.get("2026-03-10")!.fasting_hours).toBeNull();
-  });
-
-  it("連続ログが複数ある場合、各日は正しく前日を参照する", () => {
-    const logs = [
-      makeLog({ log_date: "2026-03-08", weight: 70, last_meal_end_time: "21:00:00" }),
-      makeLog({ log_date: "2026-03-09", weight: 70, last_meal_end_time: "22:30:00" }),
-      makeLog({ log_date: "2026-03-10", weight: 70 }),
-    ];
-    const sleepSessions = [
-      { wake_date: "2026-03-09", wake_at: "2026-03-09T06:00:00+09:00", bed_at: "2026-03-09T23:00:00+09:00" },
-      { wake_date: "2026-03-10", wake_at: "2026-03-10T07:00:00+09:00", bed_at: "2026-03-09T23:00:00+09:00" },
-    ];
-    const map = buildCalendarDayMap(logs, sleepSessions);
-    // 2026-03-09: 前日(08) 21:00 → 当日(09) 06:00 = 9h
-    expect(map.get("2026-03-09")!.fasting_hours).toBe(9);
-    // 2026-03-10: 前日(09) 22:30 → 当日(10) 07:00 = 8.5h
-    expect(map.get("2026-03-10")!.fasting_hours).toBe(8.5);
-    // 2026-03-08: 前日ログなし → null
-    expect(map.get("2026-03-08")!.fasting_hours).toBeNull();
-  });
-});
-
-// ── buildCalendarDayMap — sleep_hours ────────────────────────────────────────
-
-describe("buildCalendarDayMap — sleep_hours", () => {
-  it("sleep_hours が設定されているとき CalendarDayData.sleep_hours に格納される", () => {
-    const logs = [makeLog({ log_date: "2026-03-10", weight: 70, sleep_hours: 7.5 })];
-    const map = buildCalendarDayMap(logs);
-    expect(map.get("2026-03-10")!.sleep_hours).toBe(7.5);
-  });
-
-  it("sleep_hours が null のとき CalendarDayData.sleep_hours は null", () => {
-    const logs = [makeLog({ log_date: "2026-03-10", weight: 70, sleep_hours: null })];
-    const map = buildCalendarDayMap(logs);
-    expect(map.get("2026-03-10")!.sleep_hours).toBeNull();
-  });
-
-  it("整数値 (8.0) も正しく格納される", () => {
-    const logs = [makeLog({ log_date: "2026-03-10", weight: 70, sleep_hours: 8.0 })];
-    const map = buildCalendarDayMap(logs);
-    expect(map.get("2026-03-10")!.sleep_hours).toBe(8.0);
-  });
-
-  it("複数ログでそれぞれの sleep_hours が独立して格納される", () => {
-    const logs = [
-      makeLog({ log_date: "2026-03-10", weight: 70, sleep_hours: 7.0 }),
-      makeLog({ log_date: "2026-03-11", weight: 70, sleep_hours: null }),
-      makeLog({ log_date: "2026-03-12", weight: 70, sleep_hours: 8.5 }),
-    ];
-    const map = buildCalendarDayMap(logs);
-    expect(map.get("2026-03-10")!.sleep_hours).toBe(7.0);
-    expect(map.get("2026-03-11")!.sleep_hours).toBeNull();
-    expect(map.get("2026-03-12")!.sleep_hours).toBe(8.5);
-  });
-});
-
-// ── calcFastingHours ─────────────────────────────────────────────────────────
-
-describe("calcFastingHours", () => {
-  it("通常ケース: 22:30 → 07:00 は 8.5h", () => {
-    expect(calcFastingHours("22:30", "07:00")).toBe(8.5);
-  });
-
-  it("日またぎなし: 08:00 → 12:30 は 4.5h", () => {
-    expect(calcFastingHours("08:00", "12:30")).toBe(4.5);
-  });
-
-  it("秒付き形式 (PostgreSQL TIME の戻り値) も解釈できる", () => {
-    expect(calcFastingHours("22:30:00", "07:00:00")).toBe(8.5);
-  });
-
-  it("整数時間: 20:00 → 06:00 は 10h", () => {
-    expect(calcFastingHours("20:00", "06:00")).toBe(10);
-  });
-
-  it("片方 null → null を返す", () => {
-    expect(calcFastingHours(null, "07:00")).toBeNull();
-    expect(calcFastingHours("22:30", null)).toBeNull();
-    expect(calcFastingHours(null, null)).toBeNull();
-  });
-
-  it("片方 undefined → null を返す", () => {
-    expect(calcFastingHours(undefined, "07:00")).toBeNull();
-    expect(calcFastingHours("22:30", undefined)).toBeNull();
-  });
-
-  it("同一時刻 (delta=0) → null を返す（0h断食は無意味）", () => {
-    expect(calcFastingHours("07:00", "07:00")).toBeNull();
-  });
-
-  it("24h 以上になるケース → null を返す（異常値除外）", () => {
-    // delta = 0 に折りたたまれるため null
-    expect(calcFastingHours("07:00:01", "07:00:01")).toBeNull();
-  });
-
-  it("不正フォーマット → null を返す", () => {
-    expect(calcFastingHours("invalid", "07:00")).toBeNull();
-    expect(calcFastingHours("22:30", "not-a-time")).toBeNull();
-  });
-
-  // 境界値テスト
-  it("delta=1439（23h59m）: null にならず 24.0h を返す（丸め結果）", () => {
-    // lastMealEndTime=00:01, wakeUpTime=00:00 → delta=-1+1440=1439 < 1440 → 有効
-    // Math.round(1439/60*10)/10 = Math.round(239.83)/10 = 240/10 = 24.0
-    expect(calcFastingHours("00:01", "00:00")).toBe(24.0);
-  });
-
-  it("小数点切り捨て: 2分差(0.033h) → 0.0h に丸まる", () => {
-    // weighMins=422(07:02) - lastMins=420(07:00) = 2 → Math.round(2/60*10)/10 = 0
-    expect(calcFastingHours("07:00", "07:02")).toBe(0.0);
-  });
-
-  it("小数点切り上げ: 3分差(0.05h) → 0.1h に丸まる", () => {
-    // weighMins=423(07:03) - lastMins=420(07:00) = 3 → Math.round(3/60*10)/10 = 0.1
-    expect(calcFastingHours("07:00", "07:03")).toBe(0.1);
-  });
-
-  it("日またぎ + 小数丸め(切り捨て): 22:00→07:02 → 9.0h", () => {
-    // delta=422-1320=-898+1440=542 → Math.round(542/60*10)/10 = Math.round(90.33)/10 = 9.0
-    expect(calcFastingHours("22:00", "07:02")).toBe(9.0);
-  });
-
-  it("日またぎ + 小数丸め(切り上げ): 22:00→07:05 → 9.1h", () => {
-    // delta=425-1320=-895+1440=545 → Math.round(545/60*10)/10 = Math.round(90.83)/10 = 9.1
-    expect(calcFastingHours("22:00", "07:05")).toBe(9.1);
   });
 });
 
