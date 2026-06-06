@@ -419,6 +419,9 @@ Vercel などにデプロイする場合は、個人利用でも Supabase Auth +
 初回移行時は Supabase Auth の自分用ユーザーを作成し、server-only `ALLOWED_AUTH_EMAIL` を設定した上で、
 既存行の `user_id` を owner user id で backfill する。手順は [docs/security-single-user-auth.md](docs/security-single-user-auth.md) を参照。
 
+Google Health 連携を本番環境で使う場合は、Google Cloud OAuth、Vercel の server-only env、Supabase service role、quota / billing、OAuth verification を事前に確認する。
+手順は [docs/google-health-production-readiness.md](docs/google-health-production-readiness.md) を参照。
+
 ### 5. テスト実行（unit tests + UI integration tests）
 
 ```bash
