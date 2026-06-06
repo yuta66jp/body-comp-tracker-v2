@@ -51,19 +51,21 @@ condition 系特徴量は、データ蓄積後に段階的に投入する。
 - 特定の値に極端に偏っていないか
 - 将来的な分析・説明に使えるだけの意味があるか
 
-#### 観測フィールドの追加状況（#435 / #443 / #444 / #501）
+#### 観測フィールドの整理状況（#435 / #443 / #444 / #501 / #710）
 
-以下のフィールドを `daily_logs` に追加し、保存と表示の基盤を整えた。
-条件系特徴量としての投入は、データ蓄積後に欠損率・分布・有効行数への影響を確認しながら段階的に行う。
+歩数・睡眠・断食時間の旧スキーマは #710 で整理した。
+現行では、入力コストが高く精度も安定しない断食時間は廃止し、歩数・睡眠系データは Google Health に統合している。
 
 | フィールド | 概要 | DB 列 |
 |---|---|---|
-| 歩数 | Apple Health から CSV/JSON 経由でインポート | `daily_logs.step_count` |
-| 空腹時間 | 前日の最後の食事終了時刻と当日の起床時刻（`sleep_sessions.wake_at`）の差分として算出 | `daily_logs.last_meal_end_time`（前日値）, `sleep_sessions.wake_at`（当日値） |
-| 睡眠時間 | 就寝・起床日時（TIMESTAMPTZ）を `sleep_sessions` に記録。DB トリガーが `daily_logs.sleep_hours` へ projection する（#514〜#517） | `sleep_sessions`（source of truth）, `daily_logs.sleep_hours`（projection） |
+| 歩数 | Google Health から同期 | `google_health_daily_metrics.step_count` |
+| 睡眠時間 | Google Health の睡眠セッションから同期 | `google_health_daily_metrics.sleep_minutes` |
+| 深睡眠 | Google Health の sleep summary / stages から同期 | `google_health_daily_metrics.deep_sleep_minutes` |
+| 就寝・起床 | Google Health の sleep interval から同期 | `google_health_daily_metrics.sleep_bed_at`, `google_health_daily_metrics.sleep_wake_at` |
+| HRV / 安静時心拍数 | Google Health の日次メトリクスから同期 | `google_health_daily_metrics.hrv_ms`, `google_health_daily_metrics.rhr_bpm` |
 
-空腹時間・睡眠時間は直近ログ（テーブル・カードリスト）で確認できる。
-歩数は現時点で専用表示 UI なし（CSV エクスポートで確認可能）。
+Google Health 指標は直近ログ、カレンダー、月別サマリー、週間レビュー、CSV export で参照できる。
+`daily_logs.step_count` / `daily_logs.sleep_hours` / `daily_logs.last_meal_end_time` / `sleep_sessions` は削除済み。
 
 詳細: `docs/step-count-and-fasting-hours.md`
 
@@ -71,12 +73,13 @@ condition 系特徴量は、データ蓄積後に段階的に投入する。
 
 2026-04-27 時点で、2026-03-11 以降のデータを対象に condition 系候補の欠損率・分布を確認した。
 
-`sleep_hours` は欠損 2 / 48 行（4.2%）で、既存食事系特徴量の有効行 47 行に対し、`sleep_hours` 追加後も 45 行を維持できるため、最初の condition 系特徴量として `active=True` に変更した。
+旧 `sleep_hours` は #710 で `daily_logs` から削除済みのため、現行の active 特徴量には含めない。
+Google Health 睡眠を特徴量化する場合は、`google_health_daily_metrics.sleep_minutes` を ML バッチへ取り込む設計を別途行う。
 
 一方で、以下は継続観測とし、この時点では active 化しない。
 
-- `had_bowel_movement`: 欠損率は低いが、今回は `sleep_hours` の単独投入を優先する
-- `leg_flag`: 候補にはなるが、今回は `sleep_hours` の単独投入を優先する
+- `had_bowel_movement`: 欠損率は低いが、実運用での意味づけを継続確認する
+- `leg_flag`: 候補にはなるが、`training_type` からの導出値であり扱いを整理してから投入する
 - `is_cheat_day` / `is_refeed_day` / `is_eating_out`: 対象期間では全件 `false` のため、現時点では学習効果を評価できない
 - `training_type` / `work_mode`: 対象期間では全欠損のため投入不可
 
@@ -135,7 +138,8 @@ read projection / window 最適化は現時点では保留とする。
 
 ### 5. 睡眠機能の発展候補（運用期間後に再評価）
 
-睡眠時間の記録基盤（`sleep_sessions` / `daily_logs.sleep_hours`）は整備済みであり、週次サマリーへの平均睡眠時間表示（#530）とカレンダーへの日次表示（#531）も対応している。
+睡眠時間の記録基盤は Google Health に統合済みであり、`google_health_daily_metrics.sleep_minutes` / `sleep_bed_at` / `sleep_wake_at` を表示・集計に使う。
+週次サマリー、カレンダー、月別サマリー、心肺機能指標の表示も Google Health 由来に整理済み。
 
 以下の機能候補は、現時点では実装対象としない。運用期間中のデータ蓄積と利用実態を踏まえて、必要性を再評価する。
 
@@ -199,7 +203,7 @@ read projection / window 最適化は現時点では保留とする。
 |---|---|
 | [`docs/forecast-model-analysis-and-roadmap.md`](forecast-model-analysis-and-roadmap.md) | バックテスト結果の詳細分析・予測モデルの改善ロードマップ（Phase 1〜4）|
 | [`docs/daily-logs-read-inventory.md`](daily-logs-read-inventory.md) | daily_logs の read API 利用箇所棚卸し・query 分割方針 |
-| [`docs/step-count-and-fasting-hours.md`](step-count-and-fasting-hours.md) | 歩数・空腹時間の記録仕様・入力方法・今後の分析利用方針 |
-| [`docs/apple-health-step-export.md`](apple-health-step-export.md) | Apple Health ZIP → 日次歩数 CSV/JSON 変換ツールの使い方 |
+| [`docs/step-count-and-fasting-hours.md`](step-count-and-fasting-hours.md) | 旧歩数・断食・睡眠スキーマの整理と Google Health 移行後の現行方針 |
+| [`docs/apple-health-step-export.md`](apple-health-step-export.md) | 旧 Apple Health ZIP → 日次歩数 CSV/JSON 変換ツールの使い方 |
 | [`docs/long-event-policy-design.md`](long-event-policy-design.md) | 長期イベント区間を考慮した予測評価・予測生成ポリシーの親テーマ設計（#479） |
 | `CLAUDE.md` | プロジェクト全体の設計方針・実装原則・非目標 |

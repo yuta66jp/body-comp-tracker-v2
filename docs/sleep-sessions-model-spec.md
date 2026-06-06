@@ -1,5 +1,10 @@
 # sleep_sessions モデル仕様書
 
+> **現在の扱い（#710 以降）**
+> この仕様書は過去の `sleep_sessions` 移行設計の履歴資料であり、現行スキーマではない。
+> #710 で `sleep_sessions`、`daily_logs.sleep_hours`、`daily_logs.step_count`、`daily_logs.last_meal_end_time` は削除済み。
+> 現在の歩数・睡眠系データは `google_health_daily_metrics` を source of truth とする。現行方針は `docs/step-count-and-fasting-hours.md` を参照する。
+
 > Issue: #514 (親: #513)  
 > ステータス: 仕様確定  
 > 後続: #515 (DB/保存基盤) / #516 (UI/UX) / #517 (表示投影) / #518 (docs更新)

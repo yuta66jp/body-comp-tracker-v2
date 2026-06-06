@@ -1,5 +1,10 @@
 # Apple Health 歩数エクスポートツール
 
+> **現在の扱い（#710 以降）**
+> このツールは旧 `daily_logs.step_count` 向けのローカル変換ツールであり、現行アプリ導線では使わない。
+> 現在の歩数は Google Health 同期で `google_health_daily_metrics.step_count` に保存する。
+> このドキュメントは過去ツールの利用方法を履歴として残す。
+
 `ml-pipeline/extract_steps.py` — Apple Health ZIP から日次歩数 CSV/JSON を生成するローカルツール。
 
 ## 目的
@@ -7,7 +12,8 @@
 Apple Health の「すべてのヘルスケアデータを書き出す」で生成される ZIP は 200MB 超に達することがある。
 このツールは巨大 ZIP/XML をアプリ本体に持ち込まず、ローカルで日次歩数だけを抽出して軽量な CSV/JSON に変換する。
 
-生成した `daily_steps.csv` は Issue #444 のアプリ側インポート機能で利用する。
+生成した `daily_steps.csv` は Issue #444 の旧アプリ側インポート機能で利用していた。
+現行では Google Health 同期を使うため、アプリへの取り込み手順としては扱わない。
 
 ---
 
@@ -111,16 +117,17 @@ date,step_count
 
 ---
 
-## 次の手順
+## 旧導線
 
-生成した `daily_steps.csv` は設定画面の「歩数インポート（CSV / JSON）」セクションからアプリに取り込む（`/api/step-import`）。
+生成した `daily_steps.csv` は、旧設定画面の「歩数インポート（CSV / JSON）」セクションからアプリに取り込んでいた（`/api/step-import`）。
+#710 以降、この導線は現行の保存方針では使わない。
 
 ```
 extract_steps.py
     ↓ daily_steps.csv / daily_steps.json を生成
 設定画面 → 歩数インポート（CSV / JSON）
     ↓ preflight（件数確認）→ 実行
-daily_logs.step_count に保存
+旧 daily_logs.step_count に保存
 ```
 
-歩数の保存・分析方針の詳細は `docs/step-count-and-fasting-hours.md` を参照。
+現行の歩数保存・分析方針の詳細は `docs/step-count-and-fasting-hours.md` を参照。
