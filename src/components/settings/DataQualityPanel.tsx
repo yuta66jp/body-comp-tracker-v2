@@ -52,11 +52,9 @@ function MissingFieldRow({ label, days }: { label: string; days: number }) {
 
 function WindowSection({ title, w }: { title: string; w: QualityWindow }) {
   const hasMissingFields =
-    w.missingFields.lastMealEndTimeDays > 0 ||
     w.missingFields.bowelMovementDays > 0 ||
     w.missingFields.workModeDays > 0 ||
-    w.missingFields.trainingTypeDays > 0 ||
-    w.missingFields.sleepUnloggedDays > 0;
+    w.missingFields.trainingTypeDays > 0;
 
   return (
     <div className={`rounded-xl border p-4 ${scoreBg(w.score)} ${scoreBorder(w.score)}`}>
@@ -129,11 +127,9 @@ function WindowSection({ title, w }: { title: string; w: QualityWindow }) {
         </p>
         {hasMissingFields && (
           <div className="space-y-1.5">
-            <MissingFieldRow label="最終食事時刻" days={w.missingFields.lastMealEndTimeDays} />
             <MissingFieldRow label="排便の有無" days={w.missingFields.bowelMovementDays} />
             <MissingFieldRow label="勤務情報" days={w.missingFields.workModeDays} />
             <MissingFieldRow label="トレーニング" days={w.missingFields.trainingTypeDays} />
-            <MissingFieldRow label="睡眠（就寝・起床時刻）" days={w.missingFields.sleepUnloggedDays} />
           </div>
         )}
         <p className="mt-2 text-xs text-gray-400 dark:text-slate-500">

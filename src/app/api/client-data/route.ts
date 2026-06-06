@@ -4,7 +4,6 @@ import { isValidDateParam } from "@/lib/utils/date";
 
 const RESOURCES = [
   "daily_logs",
-  "sleep_sessions",
   "food_master",
   "menu_master",
   "predictions",
@@ -49,30 +48,6 @@ export async function GET(request: NextRequest) {
       .from("daily_logs")
       .select("*")
       .order("log_date", { ascending: false })
-      .limit(200);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ data: data ?? [] });
-  }
-
-  if (resource === "sleep_sessions") {
-    const date = request.nextUrl.searchParams.get("date") ?? "";
-    if (date) {
-      if (!isValidDateParam(date)) {
-        return NextResponse.json({ error: "Invalid date" }, { status: 400 });
-      }
-      const { data, error } = await supabase
-        .from("sleep_sessions")
-        .select("*")
-        .eq("wake_date", date)
-        .limit(1);
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-      return NextResponse.json({ data: data?.[0] ?? null });
-    }
-
-    const { data, error } = await supabase
-      .from("sleep_sessions")
-      .select("*")
-      .order("wake_date", { ascending: false })
       .limit(200);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ data: data ?? [] });

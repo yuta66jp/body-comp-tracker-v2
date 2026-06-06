@@ -11,13 +11,10 @@
  */
 
 import type { DashboardDailyLog } from "@/lib/supabase/types";
-import type { SleepSession } from "@/lib/supabase/types";
 import type { GoogleHealthDailyMetricForDisplay } from "@/lib/googleHealth/displayMetrics";
 import { metricMinutesToHours } from "@/lib/googleHealth/displayMetrics";
 import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "./dayTags";
 import { formatConditionSummary, isValidTrainingType, isValidWorkMode, TRAINING_TYPE_LABELS, WORK_MODE_LABELS } from "./trainingType";
-import { addDaysStr } from "./date";
-import { extractJstHHMM } from "./sleepSession";
 
 // ── 型定義 ──────────────────────────────────────────────────────────────────
 
@@ -50,64 +47,21 @@ export interface CalendarDayData {
    */
   conditionTags: CalendarDayTagInfo[];
   /**
-   * 断食時間（時間単位、小数点1桁）。
-   * 表示日 D の断食時間 = 前日 D-1 の last_meal_end_time と 当日 D の sleep_sessions.wake_at の差分。
-   * 前日ログなし・前日に last_meal_end_time なし・当日に sleep_sessions なし のいずれかで null。
-   */
-  fasting_hours: number | null;
-  /**
    * 日次の睡眠時間（時間単位）。
-   * Google Health metrics が渡された場合は google_health_daily_metrics.sleep_minutes 由来。
-   * 未指定時は後方互換として daily_logs.sleep_hours 由来。
+   * google_health_daily_metrics.sleep_minutes 由来。
    * null = 睡眠記録なし。
    */
   sleep_hours: number | null;
   /**
-   * 就寝時刻 ISO 8601 文字列（sleep_sessions.bed_at）。セッションなし時は null。
+   * 就寝時刻 ISO 8601 文字列（google_health_daily_metrics.sleep_bed_at）。記録なし時は null。
    * 表示時は UI 層で extractJstHHMM() を呼んでフォーマットする。
    */
   bed_at: string | null;
   /**
-   * 起床時刻 ISO 8601 文字列（sleep_sessions.wake_at）。セッションなし時は null。
+   * 起床時刻 ISO 8601 文字列（google_health_daily_metrics.sleep_wake_at）。記録なし時は null。
    * 表示時は UI 層で extractJstHHMM() を呼んでフォーマットする。
    */
   wake_at: string | null;
-}
-
-/**
- * 2つの時刻文字列から断食時間（h）を算出する低レベルユーティリティ。
- *
- * - 両方の時刻が存在する場合のみ計算する。
- * - 日をまたぐ場合（wakeUpTime < lastMealEndTime）は +24h で補正する。
- * - タイムゾーン情報なし・時刻のみを扱う。
- * - 入力は "HH:MM" または "HH:MM:SS" 形式を許容する（PostgreSQL TIME 型は "HH:MM:SS" で返す）。
- *
- * 呼び出し側の責務:
- *   - lastMealEndTime には「前日 D-1 の last_meal_end_time」を渡すこと
- *   - wakeUpTime には「当日 D の sleep_sessions.wake_at を JST 変換した HH:MM」を渡すこと
- *   - 前日ログが存在しない場合は null を渡し、呼び出し側でハンドリングすること
- */
-export function calcFastingHours(
-  lastMealEndTime: string | null | undefined,
-  wakeUpTime: string | null | undefined,
-): number | null {
-  if (!lastMealEndTime || !wakeUpTime) return null;
-  const parseMins = (t: string): number | null => {
-    const parts = t.split(":");
-    const h = parseInt(parts[0] ?? "");
-    const m = parseInt(parts[1] ?? "");
-    if (isNaN(h) || isNaN(m)) return null;
-    return h * 60 + m;
-  };
-  const lastMins  = parseMins(lastMealEndTime);
-  const wakeMins = parseMins(wakeUpTime);
-  if (lastMins === null || wakeMins === null) return null;
-  let delta = wakeMins - lastMins;
-  // delta < 0: 日またぎ（例: 前日 22:30 → 翌朝 07:00）→ +24h で正値に補正
-  // delta = 0: 同時刻 → +24h で 1440 になり、次行の >= 1440 判定で null を返す
-  if (delta <= 0) delta += 24 * 60;
-  if (delta >= 24 * 60) return null; // 24h 以上は異常値（同時刻・delta=0 の場合も含む）として除外
-  return Math.round(delta / 60 * 10) / 10; // 小数点1桁
 }
 
 // ── コンディションタグ ────────────────────────────────────────────────────────
@@ -195,25 +149,16 @@ export function getMobileTrainingLabel(
  */
 export function buildCalendarDayMap(
   logs: DashboardDailyLog[],
-  sleepSessions: Pick<SleepSession, "wake_date" | "wake_at" | "bed_at">[] = [],
-  googleHealthMetrics?: GoogleHealthDailyMetricForDisplay[],
+  googleHealthMetrics: GoogleHealthDailyMetricForDisplay[] = [],
 ): Map<string, CalendarDayData> {
   const sorted = [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date));
-  const useGoogleHealthSleep = googleHealthMetrics !== undefined;
 
   // 体重・カロリーそれぞれの「記録ありログ」リスト（差分計算用）
   const withWeight = sorted.filter((d) => d.weight !== null);
   const withCals   = sorted.filter((d) => d.calories !== null);
 
-  // 断食時間算出用: 日付 → ログ の高速参照テーブル
-  const logByDate = new Map(sorted.map((l) => [l.log_date, l]));
-
-  // wake_date → wake_at (ISO 8601) の高速参照テーブル（断食時間算出・UI 表示共用）
-  const sessionByDate = new Map(
-    sleepSessions.map((s) => [s.wake_date, s])
-  );
   const googleHealthMetricByDate = new Map(
-    (googleHealthMetrics ?? []).map((metric) => [metric.metric_date, metric])
+    googleHealthMetrics.map((metric) => [metric.metric_date, metric])
   );
 
   const map = new Map<string, CalendarDayData>();
@@ -260,27 +205,13 @@ export function buildCalendarDayMap(
       work_mode:          log.work_mode,
     });
 
-    // 断食時間: 前日 D-1 の last_meal_end_time → 当日 D の sleep_sessions.wake_at (JST HH:MM)
-    // 前日ログなし・前日 last_meal_end_time なし・当日 sleep_sessions なし → null
-    const prevDateKey = addDaysStr(log.log_date, -1);
-    const prevDayLog  = prevDateKey ? (logByDate.get(prevDateKey) ?? null) : null;
-    const session     = sessionByDate.get(log.log_date) ?? null;
     const googleHealthMetric = googleHealthMetricByDate.get(log.log_date) ?? null;
-    const bedAt = useGoogleHealthSleep
-      ? googleHealthMetric?.sleep_bed_at ?? null
-      : session?.bed_at ?? null;
-    const wakeAt = useGoogleHealthSleep
-      ? googleHealthMetric?.sleep_wake_at ?? null
-      : session?.wake_at ?? null;
-    const sleepHours = useGoogleHealthSleep
-      ? metricMinutesToHours(googleHealthMetric?.sleep_minutes)
-      : log.sleep_hours;
-    const wakeAtForFasting = wakeAt ?? session?.wake_at ?? null;
-    const wakeUpTime = wakeAtForFasting ? extractJstHHMM(wakeAtForFasting) : null;
-    const fasting_hours = calcFastingHours(prevDayLog?.last_meal_end_time, wakeUpTime);
+    const bedAt = googleHealthMetric?.sleep_bed_at ?? null;
+    const wakeAt = googleHealthMetric?.sleep_wake_at ?? null;
+    const sleepHours = metricMinutesToHours(googleHealthMetric?.sleep_minutes);
 
     map.set(log.log_date, {
-      log, weightDelta, calDelta, dayTags, conditionSummary, conditionTags, fasting_hours,
+      log, weightDelta, calDelta, dayTags, conditionSummary, conditionTags,
       sleep_hours: sleepHours,
       bed_at:  bedAt,
       wake_at: wakeAt,

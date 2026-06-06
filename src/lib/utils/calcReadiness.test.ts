@@ -37,7 +37,6 @@ function makeDailyLog(
     fat: null,
     carbs: null,
     note: null,
-    sleep_hours: null,
     training_type: null,
     work_mode: null,
     had_bowel_movement: false,
@@ -48,8 +47,6 @@ function makeDailyLog(
     is_tanning_day: false,
     is_posing_day:  false,
     leg_flag: false,
-    last_meal_end_time: null,
-    step_count: null,
     updated_at: "2026-03-01T00:00:00Z",
     ...overrides,
   };

@@ -1,7 +1,7 @@
 /**
  * calcMonthlySleepStats — 月別睡眠リズム集計
  *
- * sleep_sessions または Google Health 由来の睡眠入力から月別の睡眠集計を計算する純粋関数。
+ * Google Health 由来の睡眠入力から月別の睡眠集計を計算する純粋関数。
  *
  * ## 集計仕様
  *   - 睡眠時間  : wake_date 基準で月内の全睡眠入力の平均 (小数点以下1桁)
@@ -15,7 +15,7 @@
  *   単純な数値ソートで正しい中央値を算出できる。
  *
  * ## 注意
- *   - sleep_sessions がないセッションは全集計から除外される
+ *   - 睡眠情報がない日は全集計から除外される
  *   - 勤務形態未記録日 (work_mode === null) は勤務形態別集計から除外される
  *   - その他の work_mode 値 (active / travel / other 等) も勤務形態別集計から除外される
  */
@@ -88,7 +88,7 @@ export function medianOf(values: number[]): number | null {
     : (sorted[mid - 1]! + sorted[mid]!) / 2;
 }
 
-type SleepSessionInput = {
+type SleepInput = {
   wake_date: string;
   bed_at: string | null;   // TIMESTAMPTZ
   wake_at: string | null;  // TIMESTAMPTZ
@@ -98,11 +98,11 @@ type SleepSessionInput = {
 /**
  * 1ヶ月分の睡眠セッションと勤務形態マップから睡眠集計を計算する。
  *
- * @param sessions       対象月の sleep_sessions
+ * @param sessions       対象月の睡眠入力
  * @param workModeByDate wake_date → work_mode のマップ (daily_logs から構築)
  */
 export function calcMonthlySleepStats(
-  sessions: SleepSessionInput[],
+  sessions: SleepInput[],
   workModeByDate: Map<string, string | null>,
 ): MonthlySleepStats {
   type SleepEntry = {

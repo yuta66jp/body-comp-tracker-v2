@@ -479,7 +479,7 @@ describe("saveDailyLog — 連続保存シナリオ（体重→macro）", () => 
     expect(capture.p_fields?.had_bowel_movement).toBe(true);
     expect(capture.p_fields?.work_mode).toBe("office");
     expect("weight"        in (capture.p_fields ?? {})).toBe(false);
-    expect("sleep_hours"   in (capture.p_fields ?? {})).toBe(false);
+    expect("step_count"    in (capture.p_fields ?? {})).toBe(false);
     expect("training_type" in (capture.p_fields ?? {})).toBe(false);
     expect("leg_flag"      in (capture.p_fields ?? {})).toBe(false);
   });

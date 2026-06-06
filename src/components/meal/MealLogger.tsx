@@ -4,11 +4,10 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { Loader2, PenLine, X, Undo2, ChevronDown, Plus } from "lucide-react";
 import { Toast } from "@/components/ui/Toast";
 import { saveDailyLog } from "@/app/actions/saveDailyLog";
-import { saveSleepSession, deleteSleepSession } from "@/app/actions/saveSleepSession";
 import { FoodPicker } from "./FoodPicker";
 import { Cart, calcCartTotals } from "./Cart";
 import type { CartItem, TempFoodItem } from "./Cart";
-import type { FoodMaster, DailyLog, SleepSession } from "@/lib/supabase/types";
+import type { FoodMaster, DailyLog } from "@/lib/supabase/types";
 import { toJstDateStr } from "@/lib/utils/date";
 import {
   type DayTag,
@@ -26,9 +25,7 @@ import {
   type WorkMode,
 } from "@/lib/utils/trainingType";
 import { useDailyLogByDate, useDailyLogs } from "@/lib/hooks/useDailyLogs";
-import { useSleepSessionByDate, useSleepSessions } from "@/lib/hooks/useSleepSessions";
 import { parseStrictNumber } from "@/lib/utils/parseNumber";
-import { buildSleepSessionDatetimes, calcSleepDurationHours, extractJstHHMM } from "@/lib/utils/sleepSession";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -45,11 +42,9 @@ export interface HasContentInput {
   note: string | null;            // null = 明示的クリア予定
   noteTouched: boolean;           // ユーザーが note を操作したか
   touchedTags: Set<DayTag>;
-  sleepSessionTouched: boolean;  // 就寝/起床時刻を変更またはセッションを削除操作したか
   hadBowelMovementTouched: boolean; // ボタンを一度でも操作したか
   trainingTypeTouched: boolean;
   workModeTouched: boolean;
-  lastMealEndTimeTouched: boolean;
 }
 
 export function computeHasContent(input: HasContentInput): boolean {
@@ -62,20 +57,14 @@ export function computeHasContent(input: HasContentInput): boolean {
     input.cartEverHadItems ||       // カートを空にした場合も null 送信のため有効化
     input.noteTouched ||
     input.touchedTags.size > 0 ||
-    input.sleepSessionTouched ||   // 就寝/起床入力 or セッション削除操作
     input.hadBowelMovementTouched || // touched なら null 送信も含め有効化
     input.trainingTypeTouched ||
-    input.workModeTouched ||
-    input.lastMealEndTimeTouched
+    input.workModeTouched
   );
 }
 
 /**
  * daily_logs 側に保存すべき変更があるかを判定する。
- *
- * sleepSessionTouched は sleep_sessions への変更を示し daily_logs とは独立しているため、
- * この関数では含めない。handleSave で saveDailyLog を呼ぶ前に必ずチェックし、
- * 睡眠のみ変更された場合に「保存するデータがありません」エラーを防ぐ。
  */
 export function computeHasDailyLogChanges(input: HasContentInput): boolean {
   return (
@@ -86,9 +75,7 @@ export function computeHasDailyLogChanges(input: HasContentInput): boolean {
     input.touchedTags.size > 0 ||
     input.hadBowelMovementTouched ||
     input.trainingTypeTouched ||
-    input.workModeTouched ||
-    input.lastMealEndTimeTouched
-    // sleepSessionTouched は sleep_sessions 側の変更。daily_logs には含めない。
+    input.workModeTouched
   );
 }
 
@@ -142,13 +129,9 @@ interface MealLoggerProps {
 export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }: MealLoggerProps) {
   // 既存ログ（SWR キャッシュ。日付変更時の hydrate に使用）
   const { data: logs, mutate: mutateLogs } = useDailyLogs();
-  // 睡眠セッション（SWR キャッシュ。sleep_sessions が source of truth）
-  const { data: sleepSessions, mutate: mutateSleepSessions } = useSleepSessions();
 
   // hydrate 元のログ（null = 新規入力）
   const [hydratedLog, setHydratedLog] = useState<DailyLog | null>(null);
-  // hydrate 元の睡眠セッション（null = このwake_dateに睡眠記録なし）
-  const [hydratedSleepSession, setHydratedSleepSession] = useState<SleepSession | null>(null);
 
   // ── 既存フィールド ──
   const [date, setDate] = useState(todayStr);
@@ -167,16 +150,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string>("");
 
-  // ── Phase 2.5 新規フィールド ──
-  // 睡眠セッション (sleep_sessions が source of truth)
-  // sleepBedTime: "" = 未入力, "HH:MM" = 就寝時刻
-  // sleepWakeTime: "" = 未入力, "HH:MM" = 起床時刻
-  // sleepSessionTouched: true のとき保存ボタンが有効化（入力 or 削除操作）
-  // sleepSessionPendingDelete: true のとき削除予定状態
-  const [sleepBedTime, setSleepBedTime] = useState("");
-  const [sleepWakeTime, setSleepWakeTime] = useState("");
-  const [sleepSessionTouched, setSleepSessionTouched] = useState(false);
-  const [sleepSessionPendingDelete, setSleepSessionPendingDelete] = useState(false);
   // had_bowel_movement: null=未記録（未選択）, true=便通あり, false=便通なし
   // hadBowelMovementTouched=true のとき: null→null 送信（明示クリア=未記録），true/false→値送信
   // hadBowelMovementTouched=false のとき: undefined 送信（既存値を保持）
@@ -188,11 +161,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
   // work_mode: 同上
   const [workMode, setWorkMode] = useState<WorkMode | null>(null);
   const [workModeTouched, setWorkModeTouched] = useState(false);
-
-  // ── #435 追加: 食事タイミング ──
-  // "" = 未入力, "HH:MM" = 入力値。null は使わない（time input はクリアで "" になる）
-  const [lastMealEndTime, setLastMealEndTime] = useState("");
-  const [lastMealEndTimeTouched, setLastMealEndTimeTouched] = useState(false);
 
   // 食品を追加セクションの開閉状態（初期: 非表示）
   const [foodPickerOpen, setFoodPickerOpen] = useState(false);
@@ -207,38 +175,21 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     isLoading: isDailyLogByDateLoading,
   } = useDailyLogByDate(date, shouldFetchDailyLogByDate);
 
-  const cachedSleepSession = useMemo(
-    () => sleepSessions?.find((s) => s.wake_date === date) ?? null,
-    [sleepSessions, date]
-  );
-  const shouldFetchSleepSessionByDate = date !== "" && sleepSessions !== undefined && cachedSleepSession === null;
-  const {
-    data: fetchedSleepSession,
-    isLoading: isSleepSessionByDateLoading,
-  } = useSleepSessionByDate(date, shouldFetchSleepSessionByDate);
-
   /**
    * 日付変更時にフォームを hydrate または空リセットする。
    * hydrate = 既存値の「初期表示」であり、touched フラグは立てない。
    * つまり hydrate 後に Save しても、ユーザーが操作していないフィールドは
    * payload に含まれず、partial update の安全性を維持する。
    */
-  function applyHydratedValues(
-    existingLog: DailyLog | null,
-    existingSleep: SleepSession | null
-  ) {
+  function applyHydratedValues(existingLog: DailyLog | null) {
     setHydratedLog(existingLog);
-    setHydratedSleepSession(existingSleep);
 
     // touched フラグをすべてリセット（hydrate は「未編集」として扱う）
     setWeightTouched(false);
     setNoteTouched(false);
-    setSleepSessionTouched(false);
-    setSleepSessionPendingDelete(false);
     setHadBowelMovementTouched(false);
     setTrainingTypeTouched(false);
     setWorkModeTouched(false);
-    setLastMealEndTimeTouched(false);
     setTouchedTags(new Set());
 
     // カートはマクロ値から復元不可のためリセット
@@ -260,8 +211,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
         is_tanning_day: existingLog.is_tanning_day ?? false,
         is_posing_day:  existingLog.is_posing_day  ?? false,
       });
-      // TIME 型は "HH:MM:SS" で返るため、input[type=time] 用に "HH:MM" に切り出す
-      setLastMealEndTime(existingLog.last_meal_end_time?.slice(0, 5) ?? "");
     } else {
       // 新規日付: 空フォームにリセット
       setWeight("");
@@ -270,26 +219,12 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       setTrainingType(null);
       setWorkMode(null);
       setTags(emptyTagState());
-      setLastMealEndTime("");
-    }
-
-    // 睡眠セッション: TIMESTAMPTZ (UTC) から JST の "HH:MM" を復元
-    // Supabase は TIMESTAMPTZ を UTC 形式（例: "2026-04-07T14:30:00+00:00"）で返すため、
-    // slice(11, 16) は UTC 時刻を切り出してしまう。extractJstHHMM() で JST に変換する。
-    if (existingSleep) {
-      setSleepBedTime(extractJstHHMM(existingSleep.bed_at) ?? "");
-      setSleepWakeTime(extractJstHHMM(existingSleep.wake_at) ?? "");
-    } else {
-      setSleepBedTime("");
-      setSleepWakeTime("");
     }
   }
 
   function hydrateForm(newDate: string) {
     const existingLog = logs?.find((l) => l.log_date === newDate) ?? null;
-    // 睡眠セッション: sleep_sessions が source of truth
-    const existingSleep = sleepSessions?.find((s) => s.wake_date === newDate) ?? null;
-    applyHydratedValues(existingLog, existingSleep);
+    applyHydratedValues(existingLog);
   }
 
   function handleDateChange(newDate: string) {
@@ -299,12 +234,11 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
 
   // SWR 初回ロード完了後に選択中日付の既存値を自動 prefill する (#555)
   //
-  // マウント直後は logs / sleepSessions が undefined（SWR 未解決）のため
-  // 空フォームで表示される。両方が揃ったタイミングで hydrateForm を呼び出し
-  // 当日ログや睡眠セッションを初期表示に反映する。
+  // マウント直後は logs が undefined（SWR 未解決）のため空フォームで表示される。
+  // logs が揃ったタイミングで hydrateForm を呼び出し、当日ログを初期表示に反映する。
   //
   // 実行条件:
-  //   1. logs / sleepSessions が両方 resolved（undefined → 配列）になった初回のみ
+  //   1. logs が resolved（undefined → 配列）になった初回のみ
   //   2. フォームが pristine（ユーザーが何も操作していない）であること
   //      → SWR 解決前にユーザーが入力を始めていた場合は上書きしない
   //
@@ -313,54 +247,44 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
   const initialHydrateDone = useRef(false);
   useEffect(() => {
     if (initialHydrateDone.current) return;
-    if (logs === undefined || sleepSessions === undefined) return;
+    if (logs === undefined) return;
     // SWR が解決した時点で一度だけ実行する（pristine チェックの有無に関わらず）
     initialHydrateDone.current = true;
     // touched フラグが1つでも立っていたらユーザーが既に操作済みとみなして skip
     if (
-      weightTouched || noteTouched || sleepSessionTouched ||
+      weightTouched || noteTouched ||
       hadBowelMovementTouched || trainingTypeTouched || workModeTouched ||
-      lastMealEndTimeTouched || touchedTags.size > 0 || cartEverHadItems
+      touchedTags.size > 0 || cartEverHadItems
     ) return;
     hydrateForm(date);
     // touched 系フラグ・hydrateForm・date は deps から意図的に除外する。
-    // touched 系: logs/sleepSessions 変化時のスナップショットとして読むだけで、
+    // touched 系: logs 変化時のスナップショットとして読むだけで、
     //   deps に含めるとユーザー操作ごとに再実行されてしまう。
     // hydrateForm: 毎レンダーで新しい関数参照になるため deps に含めると無限ループになる。
     // date: 初回ロード時点の selectedDate で固定するため除外。
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [logs, sleepSessions]);
+  }, [logs]);
 
   useEffect(() => {
-    if (!shouldFetchDailyLogByDate && !shouldFetchSleepSessionByDate) return;
-    if (isDailyLogByDateLoading || isSleepSessionByDateLoading) return;
+    if (!shouldFetchDailyLogByDate) return;
+    if (isDailyLogByDateLoading) return;
     if (shouldFetchDailyLogByDate && fetchedDailyLog === undefined) return;
-    if (shouldFetchSleepSessionByDate && fetchedSleepSession === undefined) return;
     if (!formIsPristine({
       weight, weightTouched, cartItems, cartEverHadItems,
       note, noteTouched, touchedTags,
-      sleepSessionTouched,
       hadBowelMovementTouched, trainingTypeTouched, workModeTouched,
-      lastMealEndTimeTouched,
     })) return;
 
-    applyHydratedValues(
-      cachedDailyLog ?? fetchedDailyLog ?? null,
-      cachedSleepSession ?? fetchedSleepSession ?? null
-    );
+    applyHydratedValues(cachedDailyLog ?? fetchedDailyLog ?? null);
     // 日付指定 fetch が後から返ったときだけ、未操作フォームへ反映する。
     // SWR 再検証で再実行されても、未操作フォームなら最新の補完値へ同期してよい。
     // touched 系を deps に含めるとユーザー操作ごとに再評価されるため、スナップショットとして読む。
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     shouldFetchDailyLogByDate,
-    shouldFetchSleepSessionByDate,
     isDailyLogByDateLoading,
-    isSleepSessionByDateLoading,
     fetchedDailyLog,
-    fetchedSleepSession,
     cachedDailyLog,
-    cachedSleepSession,
   ]);
 
   function toggleTag(tag: DayTag) {
@@ -429,72 +353,12 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
 
     setStatus("saving");
 
-    // daily_logs 保存済みフラグ。
-    // sleep_sessions 保存が失敗した場合に partial save（日次ログは保存済み/睡眠は未保存）を
-    // ユーザーへ正確に伝えるために使用する (#544)。
-    let dailyLogSaved = false;
-
     try {
-      // ── 睡眠入力の事前妥当性チェック ──
-      // saveDailyLog より先に実行する (#528)。
-      // 片側だけ入力されたまま saveDailyLog まで進むと、daily_logs が保存された後に
-      // エラーが返る回帰が生じるため、何も保存する前にここでガードする。
-      if (
-        sleepSessionTouched &&
-        !sleepSessionPendingDelete &&
-        (sleepBedTime || sleepWakeTime) &&
-        !(sleepBedTime && sleepWakeTime)
-      ) {
-        setErrorMessage("就寝時刻と起床時刻はセットで入力してください。");
-        setStatus("error");
-        setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
-        return;
-      }
-
-      // ── daily_logs 保存（変更がある場合のみ）──
-      // sleep_sessions より先に保存する (#528)。
-      //
-      // 【保存順序の重要性】
-      // DB トリガー (trg_sync_sleep_hours) は sleep_sessions の INSERT/UPDATE 後に
-      // `UPDATE daily_logs SET sleep_hours=... WHERE log_date=wake_date` を実行する。
-      // 新規日付の場合、saveSleepSession を先に呼ぶとトリガーが発火した時点で
-      // daily_logs 行がまだ存在せず、UPDATE が 0 行で終わって sleep_hours が null のまま残る。
-      // daily_logs を先に作成してから saveSleepSession を呼ぶことで、
-      // トリガーが正しく sleep_hours を書き込める。
-      //
-      // 既存 daily_logs 行がある日付の睡眠だけ変更では daily_logs 更新は不要。
-      // 新規日付では sleep_sessions トリガーの更新先がないため、睡眠だけ保存は後続で弾く。
       const hasDailyLogChanges = computeHasDailyLogChanges({
         weight, weightTouched, cartItems, cartEverHadItems,
         note, noteTouched, touchedTags,
-        sleepSessionTouched, // 渡すが computeHasDailyLogChanges 内では無視される
         hadBowelMovementTouched, trainingTypeTouched, workModeTouched,
-        lastMealEndTimeTouched,
       });
-
-      const existingDailyLog = hasDailyLogForDate(
-        logs,
-        hydratedLog,
-        fetchedDailyLog,
-        isDailyLogByDateLoading,
-        date
-      );
-      if (
-        sleepSessionTouched &&
-        !sleepSessionPendingDelete &&
-        !hasDailyLogChanges &&
-        existingDailyLog !== true &&
-        sleepBedTime &&
-        sleepWakeTime
-      ) {
-        const message = existingDailyLog === null
-          ? "既存ログを確認中です。少し待ってからもう一度保存してください。"
-          : "新しい日付で睡眠記録を保存するには、体重も入力してください。";
-        setErrorMessage(message);
-        setStatus("error");
-        setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
-        return;
-      }
 
       if (hasDailyLogChanges) {
         const totals = calcCartTotals(cartItems);
@@ -527,69 +391,11 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
           had_bowel_movement: hadBowelMovementTouched ? hadBowelMovement : undefined,
           training_type:      trainingTypeTouched ? trainingType : undefined,
           work_mode:          workModeTouched     ? workMode     : undefined,
-          // 時刻: touched かつ非空 → 値保存、touched かつ空 → null（明示クリア）、未操作 → undefined
-          last_meal_end_time: lastMealEndTimeTouched ? (lastMealEndTime !== "" ? lastMealEndTime : null) : undefined,
         });
 
         if (!result.ok) {
           console.error("[MealLogger] save error:", result.message);
           setErrorMessage(result.message);
-          setStatus("error");
-          setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
-          return;
-        }
-        // saveDailyLog 成功。以降の sleep 保存失敗時に partial save を検知するために記録する (#544)。
-        dailyLogSaved = true;
-      }
-
-      // ── 睡眠セッション保存（sleep_sessions が source of truth）──
-      // daily_logs より後に保存する (#528)。
-      // DB トリガー (trg_sync_sleep_hours) が daily_logs.sleep_hours を更新するとき、
-      // daily_logs 行が既に存在している必要がある。
-      // 既存日はどちらの順序でも動作するが、新規日でも正しく動作するよう
-      // daily_logs を先に保存する順序を維持すること。
-      if (sleepSessionTouched) {
-        if (process.env.NODE_ENV !== "production") {
-          console.log("[MealLogger] sleep save attempt:", {
-            date, sleepBedTime, sleepWakeTime,
-            sleepSessionPendingDelete,
-            hasHydratedSession: hydratedSleepSession !== null,
-          });
-        }
-
-        let sleepResult: { ok: boolean; message?: string };
-        try {
-          if (sleepSessionPendingDelete && hydratedSleepSession) {
-            // セッション削除
-            sleepResult = await deleteSleepSession(date);
-          } else if (sleepBedTime && sleepWakeTime) {
-            // セッション保存（新規 or 上書き）
-            sleepResult = await saveSleepSession({
-              wake_date: date,
-              bed_time:  sleepBedTime,
-              wake_time: sleepWakeTime,
-            });
-          } else {
-            // 両方空 (操作なし) → スキップ
-            // 片側入力は tryブロック冒頭の事前チェックで弾いているため、ここには到達しない。
-            sleepResult = { ok: true };
-          }
-        } catch (sleepError) {
-          // Server Action 境界の想定外例外（ネットワーク障害など）のフォールバック。
-          // saveSleepSession.ts 側の try/catch で通常は捕捉されるが、
-          // 万一 throw が伝播した場合でも generic catch に落とさずここで止める (#544)。
-          console.error("[MealLogger] sleep session action threw:", sleepError);
-          sleepResult = { ok: false, message: "睡眠記録の保存に失敗しました" };
-        }
-
-        if (!sleepResult.ok) {
-          // partial save（日次ログは保存済み / 睡眠記録は未保存）のとき、
-          // ユーザーに実態を伝えるメッセージを優先する (#544)。
-          const sleepErrorMsg = dailyLogSaved
-            ? "日次ログは保存されましたが、睡眠記録の保存に失敗しました。再度睡眠時刻を入力して保存できます。"
-            : (sleepResult.message ?? "睡眠記録の保存に失敗しました");
-          console.error("[MealLogger] sleep save failed:", { dailyLogSaved, message: sleepResult.message });
-          setErrorMessage(sleepErrorMsg);
           setStatus("error");
           setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
           return;
@@ -600,7 +406,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       setStatus("saved");
       // フォームをリセット（保存後は空フォームに戻す）
       setHydratedLog(null);
-      setHydratedSleepSession(null);
       setCartItems([]);
       setCartEverHadItems(false);
       setWeight("");
@@ -609,21 +414,14 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       setNoteTouched(false);
       setTags(emptyTagState());
       setTouchedTags(new Set());
-      setSleepBedTime("");
-      setSleepWakeTime("");
-      setSleepSessionTouched(false);
-      setSleepSessionPendingDelete(false);
       setHadBowelMovement(null);
       setHadBowelMovementTouched(false);
       setTrainingType(null);
       setTrainingTypeTouched(false);
       setWorkMode(null);
       setWorkModeTouched(false);
-      setLastMealEndTime("");
-      setLastMealEndTimeTouched(false);
       // SWR キャッシュを更新して次回 hydrate に最新ログを反映させる
       void mutateLogs();
-      void mutateSleepSessions();
       setTimeout(() => setStatus("idle"), 2000);
       // 保存成功コールバック: Toast が少し見えてから modal / sheet を閉じる
       if (onSaveSuccess) setTimeout(onSaveSuccess, 800);
@@ -640,24 +438,8 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
   const hasContent = computeHasContent({
     weight, weightTouched, cartItems, cartEverHadItems,
     note, noteTouched, touchedTags,
-    sleepSessionTouched,
     hadBowelMovementTouched, trainingTypeTouched, workModeTouched,
-    lastMealEndTimeTouched,
   });
-
-  // 就寝・起床時刻から推定睡眠時間をリアルタイム計算（入力フィードバック用）
-  const sleepDurationHours = useMemo(() => {
-    if (!sleepBedTime || !sleepWakeTime) return null;
-    const dt = buildSleepSessionDatetimes(date, sleepBedTime, sleepWakeTime);
-    if (!dt) return null;
-    return calcSleepDurationHours(dt.bedAt, dt.wakeAt);
-  }, [date, sleepBedTime, sleepWakeTime]);
-
-  // 就寝・起床どちらか片方だけ入力されている（不完全な状態）
-  const sleepInputIsPartial =
-    sleepSessionTouched &&
-    !sleepSessionPendingDelete &&
-    (!!sleepBedTime !== !!sleepWakeTime);
 
   const inputCls =
     "w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800 dark:focus:border-blue-500 dark:focus:ring-blue-900/40";
@@ -826,129 +608,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       <div className="min-w-0">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">コンディション</p>
         <div className={`grid gap-3 min-w-0 ${sidebar ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
-          {/* 睡眠セクション（就寝時刻 + 起床時刻 + 推定時間）*/}
-          <div className="sm:col-span-2 min-w-0 overflow-hidden rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-800/40">
-            <p className="mb-0.5 text-xs font-medium text-slate-500">睡眠</p>
-            {sleepSessionPendingDelete ? (
-              /* 削除予定状態 */
-              <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 dark:border-rose-700/50 dark:bg-rose-900/20">
-                <p className="flex flex-wrap items-center gap-1 text-xs text-rose-500">
-                  <Undo2 size={11} className="shrink-0" />
-                  <span>
-                    {hydratedSleepSession
-                      ? `保存すると睡眠記録（就寝 ${extractJstHHMM(hydratedSleepSession.bed_at) ?? "?"} / 起床 ${extractJstHHMM(hydratedSleepSession.wake_at) ?? "?"}）を削除します。`
-                      : "保存すると睡眠記録を削除します。"}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSleepSessionPendingDelete(false);
-                      setSleepSessionTouched(false);
-                      if (hydratedSleepSession) {
-                        setSleepBedTime(extractJstHHMM(hydratedSleepSession.bed_at) ?? "");
-                        setSleepWakeTime(extractJstHHMM(hydratedSleepSession.wake_at) ?? "");
-                      } else {
-                        setSleepBedTime("");
-                        setSleepWakeTime("");
-                      }
-                    }}
-                    className="underline font-medium"
-                  >
-                    元に戻す
-                  </button>
-                </p>
-              </div>
-            ) : (
-              /* 通常入力状態 */
-              <div className="flex flex-col gap-2">
-                <div className="grid grid-cols-1 gap-2">
-                  <div className="min-w-0 w-full max-w-full overflow-hidden">
-                    <label htmlFor="meal-log-sleep-bed-time" className="mb-1 block text-[10px] text-slate-400">就寝時刻（昨夜〜深夜）</label>
-                    <input
-                      id="meal-log-sleep-bed-time"
-                      type="time"
-                      value={sleepBedTime}
-                      onChange={(e) => { setSleepBedTime(e.target.value); setSleepSessionTouched(true); }}
-                      className={dateTimeInputCls}
-                      style={{ width: "100%", minWidth: "0" }}
-                    />
-                    {sleepBedTime !== "" && (
-                      <button
-                        type="button"
-                        onClick={() => { setSleepBedTime(""); setSleepSessionTouched(true); }}
-                        className="mt-1 text-[10px] text-slate-400 underline hover:text-rose-400 transition-colors"
-                      >
-                        クリア
-                      </button>
-                    )}
-                  </div>
-                  <div className="min-w-0 w-full max-w-full overflow-hidden">
-                    <label htmlFor="meal-log-sleep-wake-time" className="mb-1 block text-[10px] text-slate-400">起床時刻（今朝）</label>
-                    <input
-                      id="meal-log-sleep-wake-time"
-                      type="time"
-                      value={sleepWakeTime}
-                      onChange={(e) => { setSleepWakeTime(e.target.value); setSleepSessionTouched(true); }}
-                      className={dateTimeInputCls}
-                      style={{ width: "100%", minWidth: "0" }}
-                    />
-                    {sleepWakeTime !== "" && (
-                      <button
-                        type="button"
-                        onClick={() => { setSleepWakeTime(""); setSleepSessionTouched(true); }}
-                        className="mt-1 text-[10px] text-slate-400 underline hover:text-rose-400 transition-colors"
-                      >
-                        クリア
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {/* 片方だけ入力時の警告 */}
-                {sleepInputIsPartial && (
-                  <p className="text-[10px] text-amber-500 dark:text-amber-400">
-                    就寝時刻と起床時刻はセットで入力してください。
-                  </p>
-                )}
-                {/* 推定睡眠時間（入力フィードバック） */}
-                {sleepDurationHours !== null && (
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                    推定睡眠時間: <span className="font-semibold">{sleepDurationHours} 時間</span>
-                  </p>
-                )}
-                {/* 既存セッションがある場合は削除ボタンを表示 */}
-                {hydratedSleepSession && !sleepSessionTouched && (
-                  <button
-                    type="button"
-                    onClick={() => { setSleepSessionPendingDelete(true); setSleepSessionTouched(true); }}
-                    className="self-start text-[10px] text-slate-400 underline hover:text-rose-400 transition-colors"
-                  >
-                    記録を削除
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-          {/* 最終食事終了時刻 */}
-          <div className="sm:col-span-2 min-w-0">
-            <label htmlFor="meal-log-last-meal-end-time" className="mb-1.5 block text-xs font-medium text-slate-500">最終食事終了</label>
-            <input
-              id="meal-log-last-meal-end-time"
-              type="time"
-              value={lastMealEndTime}
-              onChange={(e) => { setLastMealEndTime(e.target.value); setLastMealEndTimeTouched(true); }}
-              className={dateTimeInputCls}
-              style={{ width: "100%", minWidth: "0" }}
-            />
-            {lastMealEndTime !== "" && (
-              <button
-                type="button"
-                onClick={() => { setLastMealEndTime(""); setLastMealEndTimeTouched(true); }}
-                className="mt-1 text-[10px] text-slate-400 underline hover:text-rose-400 transition-colors"
-              >
-                クリア
-              </button>
-            )}
-          </div>
           {/* 便通 */}
           <div className="sm:col-span-2">
             <label className="mb-1.5 block text-xs font-medium text-slate-500">便通</label>

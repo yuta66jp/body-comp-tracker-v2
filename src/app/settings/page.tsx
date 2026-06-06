@@ -1,15 +1,13 @@
 import { SettingsForm } from "@/components/settings/SettingsForm";
 import { ExportSection } from "@/components/settings/ExportSection";
 import { ImportSection } from "@/components/settings/ImportSection";
-import { StepImportSection } from "@/components/settings/StepImportSection";
 import { DataQualityPanel } from "@/components/settings/DataQualityPanel";
 import { ThemeSection } from "@/components/settings/ThemeSection";
 import { GoogleHealthSection } from "@/components/settings/GoogleHealthSection";
 import { calcDataQuality } from "@/lib/utils/calcDataQuality";
 import { fetchSettingsRows } from "@/lib/queries/settings";
 import { fetchDailyLogsForSettings } from "@/lib/queries/dailyLogs";
-import { fetchSleepSessionsForRange } from "@/lib/queries/sleepSessions";
-import { toJstDateStr, addDaysStr } from "@/lib/utils/date";
+import { toJstDateStr } from "@/lib/utils/date";
 import { PageShell } from "@/components/ui/PageShell";
 import {
   buildGoogleHealthNotConnectedStatus,
@@ -31,22 +29,19 @@ async function fetchGoogleHealthStatusForSettings(userId: string | null) {
 }
 
 export default async function SettingsPage() {
-  // データ品質の睡眠セッションチェック用: JST 基準で直近 14 日分を取得する
   const today = toJstDateStr();
-  const d14Start = addDaysStr(today, -13) ?? today;
   const user = await getCurrentUser();
 
-  const [settingsRowsResult, logsResult, recentSleepSessions, googleHealthStatus] = await Promise.all([
+  const [settingsRowsResult, logsResult, googleHealthStatus] = await Promise.all([
     fetchSettingsRows(),
     fetchDailyLogsForSettings(),
-    fetchSleepSessionsForRange(d14Start, today),
     fetchGoogleHealthStatusForSettings(user?.id ?? null),
   ]);
 
   // QueryResult を展開。エラー時はフォールバック値で graceful degradation を維持する。
   const settingsRows = settingsRowsResult.kind === "ok" ? settingsRowsResult.data : [];
   const logs = logsResult.kind === "ok" ? logsResult.data : [];
-  const qualityReport = calcDataQuality(logs, today, recentSleepSessions);
+  const qualityReport = calcDataQuality(logs, today);
 
   // 最新の非 null 体重。月次目標計画の起点体重として使用。
   // 最新 log_date のレコードに weight がなくても、過去の記録があれば計画 UI が機能する。
@@ -90,9 +85,6 @@ export default async function SettingsPage() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <ExportSection />
             <ImportSection />
-          </div>
-          <div className="mt-6">
-            <StepImportSection />
           </div>
         </div>
       </div>

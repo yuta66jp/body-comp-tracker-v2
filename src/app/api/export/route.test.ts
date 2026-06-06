@@ -4,7 +4,7 @@
  * テスト構成:
  *   1. isValidDateParam — 純粋関数のユニットテスト
  *   2. GET handler — table / start / end の不正入力で 400 を返すことを検証
- *   3. GET handler — daily_logs CSV 出力（sleep_bed_time / sleep_wake_time 含む）
+ *   3. GET handler — daily_logs CSV 出力
  *
  * 注: バリデーション 400 ケースは DB 呼び出し前に return するため、
  * supabase モックが実際に呼ばれることはない。
@@ -132,7 +132,7 @@ describe("GET /api/export — バリデーション", () => {
   });
 });
 
-// ── GET handler — daily_logs CSV 出力（sleep times 含む） ──────────────────────
+// ── GET handler — daily_logs CSV 出力 ─────────────────────────────────────────
 
 /**
  * supabase の chained query builder をモックする。
@@ -162,37 +162,25 @@ const SAMPLE_LOG = {
   is_refeed_day: false,
   is_eating_out: false,
   is_travel_day: false,
-  sleep_hours: 7.5,
+  is_tanning_day: false,
+  is_posing_day: false,
   had_bowel_movement: null,
   training_type: null,
   work_mode: null,
   leg_flag: null,
-  last_meal_end_time: null,
-  step_count: null,
 };
 
-describe("GET /api/export — daily_logs CSV with sleep times", () => {
+describe("GET /api/export — daily_logs CSV", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("sleep_bed_time / sleep_wake_time が CSV ヘッダーとデータ行に含まれる", async () => {
+  it("旧歩数・睡眠・断食列を含まず daily_logs CSV を返す", async () => {
     const dailyLogsQuery = makeChainableQuery({ data: [SAMPLE_LOG], error: null });
-    const sleepQuery = makeChainableQuery({
-      data: [{
-        wake_date: "2026-04-01",
-        // UTC 14:30 = JST 23:30
-        bed_at:  "2026-03-31T14:30:00+00:00",
-        // UTC 22:00 = JST 07:00
-        wake_at: "2026-03-31T22:00:00+00:00",
-      }],
-      error: null,
-    });
+    const from = jest.fn(() => dailyLogsQuery);
 
     mockCreateClient.mockReturnValue({
-      from: jest.fn((table: string) =>
-        table === "daily_logs" ? dailyLogsQuery : sleepQuery
-      ),
+      from,
     });
 
     const res = await GET(makeRequest({ table: "daily_logs" }));
@@ -200,38 +188,18 @@ describe("GET /api/export — daily_logs CSV with sleep times", () => {
     const csv = await res.text();
     const lines = csv.split("\n");
 
-    // ヘッダーに sleep_hours / sleep_bed_time / sleep_wake_time が含まれること
-    expect(lines[0]).toContain("sleep_hours");
-    expect(lines[0]).toContain("sleep_bed_time");
-    expect(lines[0]).toContain("sleep_wake_time");
-
-    // データ行に JST HH:MM が含まれること
-    expect(lines[1]).toContain("23:30"); // bed_time JST
-    expect(lines[1]).toContain("07:00"); // wake_time JST
-  });
-
-  it("sleep_sessions がない日は sleep_bed_time / sleep_wake_time が空欄になる", async () => {
-    const dailyLogsQuery = makeChainableQuery({
-      data: [{ ...SAMPLE_LOG, sleep_hours: null }],
-      error: null,
-    });
-    const sleepQuery = makeChainableQuery({ data: [], error: null }); // セッションなし
-
-    mockCreateClient.mockReturnValue({
-      from: jest.fn((table: string) =>
-        table === "daily_logs" ? dailyLogsQuery : sleepQuery
-      ),
-    });
-
-    const res = await GET(makeRequest({ table: "daily_logs" }));
-    expect(res.status).toBe(200);
-    const csv = await res.text();
-    const lines = csv.split("\n");
-
-    const headers = lines[0]!.split(",");
-    const values  = lines[1]!.split(",");
-
-    expect(values[headers.indexOf("sleep_bed_time")]).toBe("");
-    expect(values[headers.indexOf("sleep_wake_time")]).toBe("");
+    expect(from).toHaveBeenCalledWith("daily_logs");
+    expect(lines[0]).toBe(
+      "log_date,weight,calories,protein,fat,carbs,note," +
+      "is_cheat_day,is_refeed_day,is_eating_out,is_travel_day," +
+      "is_tanning_day,is_posing_day," +
+      "had_bowel_movement,training_type,work_mode,leg_flag",
+    );
+    expect(lines[0]).not.toContain("sleep_hours");
+    expect(lines[0]).not.toContain("sleep_bed_time");
+    expect(lines[0]).not.toContain("sleep_wake_time");
+    expect(lines[0]).not.toContain("last_meal_end_time");
+    expect(lines[0]).not.toContain("step_count");
+    expect(lines[1]).toContain("2026-04-01");
   });
 });

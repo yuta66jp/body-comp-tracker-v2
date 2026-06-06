@@ -10,7 +10,7 @@ import { deriveSleepHours } from "./sleep";
 /**
  * 起床日基準の canonical ケース (#507)
  *
- * sleep_hours は log_date（起床・測定日）に属する睡眠セッションの長さ。
+ * sleep_hours は log_date（起床・測定日）に属する睡眠の長さ。
  * 前日夜就寝・当日深夜就寝・早朝就寝のいずれも同じ log_date に紐づく。
  * 以下の 3 例はすべて log_date = 2026-04-08 に対応する。
  */

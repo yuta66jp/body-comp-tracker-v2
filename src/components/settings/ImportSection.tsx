@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, X, AlertTriangle } from "lucide-react";
+import { Upload, FileText, CheckCircle2, AlertCircle, AlertTriangle, Loader2, X } from "lucide-react";
 import { fetchClientData } from "@/lib/clientData/fetchJson";
 import { parseCSV, deduplicateByLogDate } from "@/lib/utils/csvParser";
 import type { ParseResult } from "@/lib/utils/csvParser";
@@ -18,7 +18,7 @@ export function ImportSection() {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [result, setResult] = useState<"success" | "error" | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [importCount, setImportCount] = useState<{ saved: number; skipped: number; sleepSkipped: number } | null>(null);
+  const [importCount, setImportCount] = useState<{ saved: number; skipped: number } | null>(null);
 
   // 事前集計 (preflight)
   const [preflight, setPreflight] = useState<ImportPreflightSummary | null>(null);
@@ -63,7 +63,7 @@ export function ImportSection() {
    *
    * 全件取得ではなく CSV の日付範囲（minDate〜maxDate）に絞り込んで取得する。
    * これにより蓄積件数が増えてもクライアント転送量が CSV 件数に比例する範囲に収まる。
-   * step-import の /api/step-import（#448）と同方式。
+   * CSV 件数に対して最小限の既存データだけを見る方式。
    */
   async function runPreflight(
     rows: { log_date: string }[],
@@ -121,21 +121,19 @@ export function ImportSection() {
     try {
       let totalSaved = 0;
       let totalSkipped = 0;
-      let totalSleepSkipped = 0;
       for (let i = 0; i < total; i += BATCH_SIZE) {
         const batch = parsed.rows.slice(i, i + BATCH_SIZE);
         const res = await importDailyLogs(batch);
         if (!res.ok) throw new Error(res.message);
         totalSaved += res.count;
         totalSkipped += res.skipped;
-        totalSleepSkipped += res.sleepSkipped;
         setProgress({ done: Math.min(i + BATCH_SIZE, total), total });
       }
       // 全バッチ完了後に 1 回だけ revalidate する
       if (totalSaved > 0) {
         await revalidateAfterImport();
       }
-      setImportCount({ saved: totalSaved, skipped: totalSkipped, sleepSkipped: totalSleepSkipped });
+      setImportCount({ saved: totalSaved, skipped: totalSkipped });
       setResult("success");
     } catch (e) {
       setResult("error");
@@ -358,14 +356,6 @@ export function ImportSection() {
                   )}
                 </span>
               </div>
-              {importCount.sleepSkipped > 0 && (
-                <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 text-sm text-amber-700 dark:bg-amber-900/20 dark:border-amber-700/50 dark:text-amber-400">
-                  <AlertTriangle size={16} className="flex-shrink-0" />
-                  <span>
-                    {importCount.sleepSkipped.toLocaleString()} 件の睡眠データ（sleep_sessions）を保存できませんでした。日次ログ自体は保存済みです。
-                  </span>
-                </div>
-              )}
             </div>
           )}
           {result === "error" && (

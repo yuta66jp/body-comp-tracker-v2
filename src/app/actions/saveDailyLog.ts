@@ -37,12 +37,6 @@ export type SaveDailyLogInput = {
   /** 'off' | 'office' | 'remote' */
   work_mode?: string | null;
   // leg_flag はユーザーから受け取らない。training_type から導出する。
-  // ── #435 追加 ──
-  /** 最後の食事終了時刻 "HH:MM" 形式。null = 明示クリア */
-  last_meal_end_time?: string | null;
-  // ── #436 追加 ──
-  /** Apple Health 歩数（日次集計）。null = 明示クリア */
-  step_count?: number | null;
 };
 
 /** DB に渡す更新ペイロード（undefined フィールドを除去したもの）*/
@@ -103,36 +97,6 @@ export async function saveDailyLog(
   if (input.work_mode !== undefined && input.work_mode !== null) {
     if (!isValidWorkMode(input.work_mode)) {
       return { ok: false, message: "work_mode の値が不正です" };
-    }
-  }
-
-  // step_count は Apple Health インポート専用。MealLogger からは渡されないが、
-  // 万一渡された場合に不正値で上書きされないようバリデーションを維持する。
-  if (input.step_count !== undefined && input.step_count !== null) {
-    if (!Number.isInteger(input.step_count) || input.step_count < 0 || input.step_count > 200000) {
-      return { ok: false, message: "歩数は 0〜200,000 の整数で入力してください" };
-    }
-  }
-
-  // 時刻バリデーション: "HH:MM" または "HH:MM:SS" 形式 + 値域チェック
-  for (const key of ["last_meal_end_time"] as const) {
-    const v = input[key];
-    if (v !== undefined && v !== null) {
-      const parts = v.split(":");
-      if (parts.length < 2 || parts.length > 3) {
-        return { ok: false, message: `${key} の形式が正しくありません（HH:MM 形式で入力してください）` };
-      }
-      const h = parseInt(parts[0] ?? "", 10);
-      const m = parseInt(parts[1] ?? "", 10);
-      const s = parts.length === 3 ? parseInt(parts[2] ?? "", 10) : 0;
-      if (
-        isNaN(h) || isNaN(m) || isNaN(s) ||
-        h < 0 || h > 23 ||
-        m < 0 || m > 59 ||
-        s < 0 || s > 59
-      ) {
-        return { ok: false, message: `${key} の値が不正です（時: 0-23、分: 0-59 の範囲で入力してください）` };
-      }
     }
   }
 

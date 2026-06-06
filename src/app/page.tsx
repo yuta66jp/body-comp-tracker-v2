@@ -21,7 +21,6 @@ import { buildMonthlyGoalSummaryRows, buildMonthlyGoalComparisonRows } from "@/l
 import { calcMonthlyBehaviorStats } from "@/lib/utils/calcMonthlyBehaviorStats";
 import { resolveMonthlyPlanHistoryAnchor } from "@/lib/utils/monthlyPlanHistory";
 import { fetchDashboardDailyLogs, fetchPredictions, fetchCareerLogsForDashboard } from "@/lib/queries/dailyLogs";
-import { fetchSleepSessionsForRange } from "@/lib/queries/sleepSessions";
 import { fetchGoogleHealthDailyMetricsForRange } from "@/lib/queries/googleHealthDailyMetrics";
 import { fetchSettings } from "@/lib/queries/settings";
 import { fetchEnrichedLogs } from "@/lib/queries/analytics";
@@ -108,16 +107,10 @@ export default async function DashboardPage() {
   const logs = logsResult.kind === "ok" ? logsResult.data : [];
   const settings = settingsResult.kind === "ok" ? settingsResult.data : mapToAppSettings([]);
 
-  // 睡眠セッションを取得する。
-  // 終端を today にすることで、当日の daily_log がまだない状態でも
-  // 当日の sleep_session を取得できる（データ品質チェックの sleepUnloggedDays に正しく反映される）。
   const firstLogDate = logs.at(0)?.log_date ?? null;
-  const [sleepSessions, googleHealthMetricsResult] = firstLogDate
-    ? await Promise.all([
-        fetchSleepSessionsForRange(firstLogDate, today),
-        fetchGoogleHealthDailyMetricsForRange(firstLogDate, today),
-      ])
-    : [[], { kind: "ok" as const, data: [] }];
+  const googleHealthMetricsResult = firstLogDate
+    ? await fetchGoogleHealthDailyMetricsForRange(firstLogDate, today)
+    : { kind: "ok" as const, data: [] };
   const googleHealthMetrics =
     googleHealthMetricsResult.kind === "ok" ? googleHealthMetricsResult.data : [];
 
@@ -159,7 +152,7 @@ export default async function DashboardPage() {
     season: getSeasonForMonth(s.month, seasonRanges, currentSeason),
   }));
 
-  const qualityReport = calcDataQuality(logs, today, sleepSessions);
+  const qualityReport = calcDataQuality(logs, today);
 
   const phase = settings.currentPhase ?? "Cut";
 
@@ -264,7 +257,7 @@ export default async function DashboardPage() {
       : [];
 
   // 月別行動・生活集計: buildMonthStats と同じ 3 ヶ月分を計算する
-  const monthlyBehaviorStats = calcMonthlyBehaviorStats(logs, 3, sleepSessions, googleHealthMetrics);
+  const monthlyBehaviorStats = calcMonthlyBehaviorStats(logs, 3, googleHealthMetrics);
 
   return (
     <DashboardLayout
@@ -332,10 +325,9 @@ export default async function DashboardPage() {
               <p>ML バッチ（predict.py）が実行されると表示されます。毎日 AM 3:00 JST に自動実行されます。</p>
             </StatusNotice>
           )}
-          <LogsAndSummaryTabs
-            logs={logs}
-            sleepSessions={sleepSessions}
-            googleHealthMetrics={googleHealthMetrics}
+        <LogsAndSummaryTabs
+          logs={logs}
+          googleHealthMetrics={googleHealthMetrics}
             monthStats={monthStats}
             seasonMap={seasonMap}
             currentSeason={currentSeason}

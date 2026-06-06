@@ -1,5 +1,5 @@
 import { calcDataQuality } from "./calcDataQuality";
-import type { DataQualityLog, DataQualitySleepEntry } from "./calcDataQuality";
+import type { DataQualityLog } from "./calcDataQuality";
 
 // ---- ヘルパー ----
 
@@ -11,16 +11,11 @@ function makeLog(
     log_date,
     weight: 70,
     calories: 2000,
-    last_meal_end_time: "21:00:00",
     had_bowel_movement: true,
     work_mode: "office",
     training_type: "chest",
     ...overrides,
   };
-}
-
-function makeSleep(wake_date: string): DataQualitySleepEntry {
-  return { wake_date };
 }
 
 /** today 基準で n 日前の日付文字列を生成 (n=0 なら today 自身) */
@@ -103,14 +98,13 @@ describe("calcDataQuality", () => {
       expect(report.period7.score).toBe(100);
     });
 
-    it("当日ログなし: 体重・カロリー・必須4項目の欠損がスコアに反映される", () => {
+    it("当日ログなし: 体重・カロリー・必須3項目の欠損がスコアに反映される", () => {
       const today = "2026-04-25";
       // 今日だけログなし (6日分はすべての項目が揃ったログ)
       const logs = Array.from({ length: 6 }, (_, i) => makeLog(daysBack(today, i + 1)));
-      // sleepSessions 未指定 → sleepUnloggedDays = 0
       const report = calcDataQuality(logs, today);
-      // ログなし 1日: weight(-10) + calories(-5) + 4項目各(-2) = -23
-      expect(report.period7.score).toBe(Math.max(0, 100 - 10 - 5 - 4 * 2));
+      // ログなし 1日: weight(-10) + calories(-5) + 3項目各(-2) = -21
+      expect(report.period7.score).toBe(Math.max(0, 100 - 10 - 5 - 3 * 2));
     });
 
     it("スコアは 0 を下回らない", () => {
@@ -148,15 +142,6 @@ describe("calcDataQuality", () => {
       expect(report.period7.missingFields.bowelMovementDays).toBe(0);
     });
 
-    it("last_meal_end_time === null は欠損として計上する", () => {
-      const today = "2026-04-25";
-      const logs = Array.from({ length: 7 }, (_, i) =>
-        makeLog(daysBack(today, i), { last_meal_end_time: null })
-      );
-      const report = calcDataQuality(logs, today);
-      expect(report.period7.missingFields.lastMealEndTimeDays).toBe(7);
-    });
-
     it("work_mode === null は欠損として計上する", () => {
       const today = "2026-04-25";
       const logs = Array.from({ length: 7 }, (_, i) =>
@@ -179,17 +164,14 @@ describe("calcDataQuality", () => {
       const today = "2026-04-25";
       const logs = Array.from({ length: 7 }, (_, i) =>
         makeLog(daysBack(today, i), {
-          last_meal_end_time: null,
           had_bowel_movement: null,
           work_mode: null,
           training_type: null,
         })
       );
-      // sleepSessions 未指定 → sleepUnloggedDays = 0 (チェックスキップ)
       const report = calcDataQuality(logs, today);
-      // 4項目 × 7日 × (-2) = -56
-      expect(report.period7.score).toBe(Math.max(0, 100 - 4 * 7 * 2));
-      expect(report.period7.missingFields.lastMealEndTimeDays).toBe(7);
+      // 3項目 × 7日 × (-2) = -42
+      expect(report.period7.score).toBe(Math.max(0, 100 - 3 * 7 * 2));
       expect(report.period7.missingFields.bowelMovementDays).toBe(7);
       expect(report.period7.missingFields.workModeDays).toBe(7);
       expect(report.period7.missingFields.trainingTypeDays).toBe(7);
@@ -199,46 +181,9 @@ describe("calcDataQuality", () => {
       const today = "2026-04-25";
       // ログなし → 7日すべて欠損
       const report = calcDataQuality([], today);
-      expect(report.period7.missingFields.lastMealEndTimeDays).toBe(7);
       expect(report.period7.missingFields.bowelMovementDays).toBe(7);
       expect(report.period7.missingFields.workModeDays).toBe(7);
       expect(report.period7.missingFields.trainingTypeDays).toBe(7);
-    });
-  });
-
-  describe("睡眠セッション (sleepUnloggedDays)", () => {
-    it("sleepSessions が省略された場合 sleepUnloggedDays は常に 0", () => {
-      const today = "2026-04-25";
-      const report = calcDataQuality([], today);
-      expect(report.period7.missingFields.sleepUnloggedDays).toBe(0);
-    });
-
-    it("sleepSessions が空配列の場合 sleepUnloggedDays は totalDays と等しい", () => {
-      const today = "2026-04-25";
-      const report = calcDataQuality([], today, []);
-      expect(report.period7.missingFields.sleepUnloggedDays).toBe(7);
-    });
-
-    it("today のスリープセッションがある場合は sleepUnloggedDays に計上しない", () => {
-      const today = "2026-04-25";
-      const sleepSessions = [makeSleep(today)];
-      const report = calcDataQuality([], today, sleepSessions);
-      expect(report.period7.missingFields.sleepUnloggedDays).toBe(6); // today 以外の 6 日が未記録
-    });
-
-    it("7日分すべてのスリープセッションがある場合 sleepUnloggedDays === 0", () => {
-      const today = "2026-04-25";
-      const sleepSessions = Array.from({ length: 7 }, (_, i) => makeSleep(daysBack(today, i)));
-      const report = calcDataQuality([], today, sleepSessions);
-      expect(report.period7.missingFields.sleepUnloggedDays).toBe(0);
-    });
-
-    it("14日ウィンドウのスリープ欠損を正しく計上する", () => {
-      const today = "2026-04-25";
-      // 7日分のみ → 14日ウィンドウでは 7日未記録
-      const sleepSessions = Array.from({ length: 7 }, (_, i) => makeSleep(daysBack(today, i)));
-      const report = calcDataQuality([], today, sleepSessions);
-      expect(report.period14.missingFields.sleepUnloggedDays).toBe(7);
     });
   });
 

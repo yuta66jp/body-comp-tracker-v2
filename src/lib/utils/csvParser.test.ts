@@ -8,9 +8,6 @@ const NEW_FIELD_DEFAULTS = {
   is_travel_day:  false,
   is_tanning_day: false,
   is_posing_day:  false,
-  sleep_hours: null,
-  sleep_bed_time: null,
-  sleep_wake_time: null,
   had_bowel_movement: null,
   training_type: null,
   work_mode: null,
@@ -38,7 +35,7 @@ function toCSV(rows: Record<string, unknown>[], columns: string[]): string {
 const DAILY_LOG_COLUMNS = [
   "log_date", "weight", "calories", "protein", "fat", "carbs", "note",
   "is_cheat_day", "is_refeed_day", "is_eating_out", "is_travel_day",
-  "sleep_hours", "sleep_bed_time", "sleep_wake_time",
+  "is_tanning_day", "is_posing_day",
   "had_bowel_movement", "training_type", "work_mode", "leg_flag",
 ];
 
@@ -407,17 +404,16 @@ describe("parseCSV", () => {
     expect(result.rows[0]!.leg_flag).toBe(false);
   });
 
-  it("新カラム: training_type / work_mode / sleep_hours を正しくパースする", () => {
+  it("新カラム: training_type / work_mode を正しくパースする", () => {
     const csv = [
-      "log_date,training_type,work_mode,sleep_hours",
-      "2026-03-14,chest,office,7.5",
+      "log_date,training_type,work_mode",
+      "2026-03-14,chest,office",
     ].join("\n");
 
     const result = parseCSV(csv);
     expect(result.rows[0]).toMatchObject({
       training_type: "chest",
       work_mode: "office",
-      sleep_hours: 7.5,
     });
   });
 
@@ -430,137 +426,6 @@ describe("parseCSV", () => {
     const result = parseCSV(csv);
     expect(result.rows[0]!.training_type).toBeNull();
     expect(result.rows[0]!.work_mode).toBeNull();
-  });
-
-  // ---- sleep_bed_time / sleep_wake_time ----
-
-  it("sleep列: 両方ある場合は正しくパースされる", () => {
-    const csv = [
-      "log_date,weight,sleep_bed_time,sleep_wake_time",
-      "2026-04-01,70.0,23:30,07:00",
-    ].join("\n");
-
-    const result = parseCSV(csv);
-    expect(result.errors).toHaveLength(0);
-    expect(result.rows[0]).toMatchObject({
-      sleep_bed_time:  "23:30",
-      sleep_wake_time: "07:00",
-    });
-  });
-
-  it("sleep列: 当日就寝（床時刻 < 起床時刻）も正しくパースされる", () => {
-    const csv = [
-      "log_date,sleep_bed_time,sleep_wake_time",
-      "2026-04-01,01:00,08:00",
-    ].join("\n");
-
-    const result = parseCSV(csv);
-    expect(result.errors).toHaveLength(0);
-    expect(result.rows[0]!.sleep_bed_time).toBe("01:00");
-    expect(result.rows[0]!.sleep_wake_time).toBe("08:00");
-  });
-
-  it("sleep列: 両方ない場合は sleep_bed_time / sleep_wake_time が null", () => {
-    const csv = [
-      "log_date,weight",
-      "2026-04-01,70.0",
-    ].join("\n");
-
-    const result = parseCSV(csv);
-    expect(result.errors).toHaveLength(0);
-    expect(result.rows[0]!.sleep_bed_time).toBeNull();
-    expect(result.rows[0]!.sleep_wake_time).toBeNull();
-  });
-
-  it("sleep列: 列があり両方空の場合は null として扱う", () => {
-    const csv = [
-      "log_date,sleep_bed_time,sleep_wake_time",
-      "2026-04-01,,",
-    ].join("\n");
-
-    const result = parseCSV(csv);
-    expect(result.errors).toHaveLength(0);
-    expect(result.rows[0]!.sleep_bed_time).toBeNull();
-    expect(result.rows[0]!.sleep_wake_time).toBeNull();
-  });
-
-  it("sleep列: sleep_bed_time だけある場合は行をスキップしエラーを記録する", () => {
-    // sleep_bed_time は値あり・sleep_wake_time が空の場合にスキップされることを確認
-    const csv2 = [
-      "log_date,weight,sleep_bed_time,sleep_wake_time",
-      "2026-04-01,70.0,23:30,",
-      "2026-04-02,69.0,,",
-    ].join("\n");
-    const result = parseCSV(csv2);
-    expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]).toContain("片方だけ");
-    expect(result.rows).toHaveLength(1);
-    expect(result.rows[0]!.log_date).toBe("2026-04-02");
-  });
-
-  it("sleep列: sleep_wake_time だけある場合は行をスキップしエラーを記録する", () => {
-    const csv = [
-      "log_date,weight,sleep_bed_time,sleep_wake_time",
-      "2026-04-01,70.0,,07:00",
-      "2026-04-02,69.0,,",
-    ].join("\n");
-
-    const result = parseCSV(csv);
-    expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]).toContain("片方だけ");
-    expect(result.rows).toHaveLength(1);
-    expect(result.rows[0]!.log_date).toBe("2026-04-02");
-  });
-
-  it("sleep列: sleep_bed_time が不正フォーマット（9:30 → ゼロ埋めなし）は行をスキップ", () => {
-    const csv = [
-      "log_date,weight,sleep_bed_time,sleep_wake_time",
-      "2026-04-01,70.0,9:30,07:00",
-      "2026-04-02,69.0,,",
-    ].join("\n");
-
-    const result = parseCSV(csv);
-    expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]).toContain("sleep_bed_time");
-    expect(result.rows).toHaveLength(1);
-    expect(result.rows[0]!.log_date).toBe("2026-04-02");
-  });
-
-  it("sleep列: sleep_wake_time が不正フォーマットは行をスキップ", () => {
-    const csv = [
-      "log_date,weight,sleep_bed_time,sleep_wake_time",
-      "2026-04-01,70.0,23:30,7:00",
-      "2026-04-02,69.0,,",
-    ].join("\n");
-
-    const result = parseCSV(csv);
-    expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]).toContain("sleep_wake_time");
-    expect(result.rows).toHaveLength(1);
-  });
-
-  it("sleep列: 時刻が値域外 (25:00) は行をスキップ", () => {
-    const csv = [
-      "log_date,weight,sleep_bed_time,sleep_wake_time",
-      "2026-04-01,70.0,25:00,07:00",
-      "2026-04-02,69.0,,",
-    ].join("\n");
-
-    const result = parseCSV(csv);
-    expect(result.errors).toHaveLength(1);
-    expect(result.rows).toHaveLength(1);
-  });
-
-  it("sleep列: 分が値域外 (23:60) は行をスキップ", () => {
-    const csv = [
-      "log_date,weight,sleep_bed_time,sleep_wake_time",
-      "2026-04-01,70.0,23:60,07:00",
-      "2026-04-02,69.0,,",
-    ].join("\n");
-
-    const result = parseCSV(csv);
-    expect(result.errors).toHaveLength(1);
-    expect(result.rows).toHaveLength(1);
   });
 
   it("旧 CSV（新カラムなし）をインポートしても新フィールドはデフォルト値になる", () => {
@@ -587,7 +452,8 @@ describe("round-trip: export → import", () => {
       protein: 150, fat: 50, carbs: 200,
       note: "chicken, rice",
       is_cheat_day: false, is_refeed_day: false, is_eating_out: false, is_travel_day: false,
-      sleep_hours: null, had_bowel_movement: false,
+      is_tanning_day: false, is_posing_day: false,
+      had_bowel_movement: false,
       training_type: null, work_mode: null, leg_flag: null,
     }];
 
@@ -606,7 +472,8 @@ describe("round-trip: export → import", () => {
       protein: 130, fat: 45, carbs: 180,
       note: 'say "hello" today',
       is_cheat_day: false, is_refeed_day: false, is_eating_out: false, is_travel_day: false,
-      sleep_hours: null, had_bowel_movement: false,
+      is_tanning_day: false, is_posing_day: false,
+      had_bowel_movement: false,
       training_type: null, work_mode: null, leg_flag: null,
     }];
 
@@ -623,7 +490,8 @@ describe("round-trip: export → import", () => {
       protein: 140, fat: 40, carbs: 190,
       note: "朝: オートミール\n昼: チキン\n夜: サラダ",
       is_cheat_day: false, is_refeed_day: false, is_eating_out: false, is_travel_day: false,
-      sleep_hours: 7, had_bowel_movement: true,
+      is_tanning_day: false, is_posing_day: false,
+      had_bowel_movement: true,
       training_type: "chest", work_mode: "office", leg_flag: false,
     }];
 
@@ -643,7 +511,8 @@ describe("round-trip: export → import", () => {
         protein: 120, fat: 38, carbs: 170,
         note: "line1\nline2",
         is_cheat_day: false, is_refeed_day: false, is_eating_out: false, is_travel_day: false,
-        sleep_hours: null, had_bowel_movement: false,
+        is_tanning_day: false, is_posing_day: false,
+        had_bowel_movement: false,
         training_type: null, work_mode: null, leg_flag: null,
       },
       {
@@ -651,7 +520,8 @@ describe("round-trip: export → import", () => {
         protein: 130, fat: 40, carbs: 175,
         note: null,
         is_cheat_day: true, is_refeed_day: false, is_eating_out: false, is_travel_day: false,
-        sleep_hours: 6.5, had_bowel_movement: true,
+        is_tanning_day: false, is_posing_day: false,
+        had_bowel_movement: true,
         training_type: "back", work_mode: "remote", leg_flag: false,
       },
     ];
@@ -664,7 +534,6 @@ describe("round-trip: export → import", () => {
     expect(result.rows[0]!.note).toBe("line1\nline2");
     expect(result.rows[1]!.log_date).toBe("2026-03-24");
     expect(result.rows[1]!.is_cheat_day).toBe(true);
-    expect(result.rows[1]!.sleep_hours).toBe(6.5);
     expect(result.rows[1]!.training_type).toBe("back");
   });
 
@@ -674,7 +543,8 @@ describe("round-trip: export → import", () => {
       protein: 160, fat: 55, carbs: 210,
       note: "test note",
       is_cheat_day: true, is_refeed_day: true, is_eating_out: true, is_travel_day: true,
-      sleep_hours: 5.5, had_bowel_movement: true,
+      is_tanning_day: true, is_posing_day: true,
+      had_bowel_movement: true,
       training_type: "quads", work_mode: "remote", leg_flag: true,
     }];
 
@@ -687,7 +557,8 @@ describe("round-trip: export → import", () => {
     expect(row.is_refeed_day).toBe(true);
     expect(row.is_eating_out).toBe(true);
     expect(row.is_travel_day).toBe(true);
-    expect(row.sleep_hours).toBe(5.5);
+    expect(row.is_tanning_day).toBe(true);
+    expect(row.is_posing_day).toBe(true);
     expect(row.had_bowel_movement).toBe(true);
     expect(row.training_type).toBe("quads");
     expect(row.work_mode).toBe("remote");
@@ -701,7 +572,6 @@ describe("deduplicateByLogDate", () => {
     weight: null, calories: null, protein: null, fat: null, carbs: null,
     note: null, is_cheat_day: false, is_refeed_day: false, is_eating_out: false,
     is_travel_day: false, is_tanning_day: false, is_posing_day: false,
-    sleep_hours: null, sleep_bed_time: null, sleep_wake_time: null,
     had_bowel_movement: null, training_type: null, work_mode: null, leg_flag: null,
   };
 

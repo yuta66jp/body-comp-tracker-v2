@@ -14,14 +14,14 @@
  *     2. 体重 + 前日差分（近接表示: 71.2kg (+0.3)）
  *     3. カロリー + 差分（近接表示: 1984k (+65)）
  *     3b. 就寝 / 起床時刻（sm 以上）
- *     3c. 睡眠 / 断食（sm 以上・同一行・text-[11px]）
+ *     3c. 睡眠（sm 以上・text-[11px]）
  *     4. 特殊日タグ（優先順位順で最大 2 件 + "+n"。sm 以上）
  *     4m. トレーニング部位（モバイルのみ）
  *     5. コンディションタグ（sm 以上）
  *
  * モバイル詳細パネル (#594):
  *   日付セルをタップするとカレンダー直下にインラインパネルを表示。
- *   就寝・起床・睡眠・断食・特殊日・トレーニング・排便を確認できる。
+ *   就寝・起床・睡眠・特殊日・トレーニング・排便を確認できる。
  *   再タップで解除。月切替時にリセット。
  *
  * 土日祝:
@@ -40,7 +40,7 @@ import { createContext, useCallback, useContext, useMemo, useState } from "react
 import { DayPicker } from "react-day-picker";
 import { ja } from "date-fns/locale";
 import * as JapaneseHolidays from "japanese-holidays";
-import type { DashboardDailyLog, SleepSession } from "@/lib/supabase/types";
+import type { DashboardDailyLog } from "@/lib/supabase/types";
 import type { GoogleHealthDailyMetricForDisplay } from "@/lib/googleHealth/displayMetrics";
 import { buildCalendarDayMap, getMobileTrainingLabel, toDateKey, type CalendarDayData, type CalendarDayTagInfo } from "@/lib/utils/calendarUtils";
 import type { DayProps } from "react-day-picker";
@@ -251,27 +251,16 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
           );
         })()}
 
-        {/* ③-c 睡眠 / 断食（デスクトップのみ）*/}
-        {(data?.sleep_hours != null || data?.fasting_hours != null) && (
+        {/* ③-c 睡眠（デスクトップのみ）*/}
+        {data?.sleep_hours != null && (
           <div className="mt-0.5 hidden sm:flex items-baseline gap-1.5 leading-none flex-wrap">
-            {data?.sleep_hours != null && (
-              <span className="inline-flex items-baseline gap-0.5">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">睡眠</span>
-                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
-                  {data.sleep_hours % 1 === 0 ? data.sleep_hours.toFixed(0) : data.sleep_hours.toFixed(1)}
-                </span>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">h</span>
+            <span className="inline-flex items-baseline gap-0.5">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">睡眠</span>
+              <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                {data.sleep_hours % 1 === 0 ? data.sleep_hours.toFixed(0) : data.sleep_hours.toFixed(1)}
               </span>
-            )}
-            {data?.fasting_hours != null && (
-              <span className="inline-flex items-baseline gap-0.5">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">断食</span>
-                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
-                  {data.fasting_hours % 1 === 0 ? data.fasting_hours.toFixed(0) : data.fasting_hours.toFixed(1)}
-                </span>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">h</span>
-              </span>
-            )}
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">h</span>
+            </span>
           </div>
         )}
 
@@ -338,7 +327,7 @@ function DetailRow({ label, value }: { label: string; value: string | null | und
 
 /**
  * モバイル専用の選択日詳細パネル。
- * 就寝・起床・睡眠・断食・特殊日・トレーニング・排便を表示する。
+ * 就寝・起床・睡眠・特殊日・トレーニング・排便を表示する。
  * sm 以上では hidden（PC は各セル内に情報が表示される）。
  */
 function MobileDayDetailPanel({
@@ -359,8 +348,7 @@ function MobileDayDetailPanel({
   const bedHHMM  = data?.bed_at  ? extractJstHHMM(data.bed_at)  : null;
   const wakeHHMM = data?.wake_at ? extractJstHHMM(data.wake_at) : null;
 
-  const hasSleepData = bedHHMM != null || wakeHHMM != null ||
-    data?.sleep_hours != null || data?.fasting_hours != null;
+  const hasSleepData = bedHHMM != null || wakeHHMM != null || data?.sleep_hours != null;
 
   const trainingTag = data?.conditionTags.find((t) => t.key === "training");
   const bowelTag    = data?.conditionTags.find((t) => t.key === "bowel");
@@ -402,12 +390,6 @@ function MobileDayDetailPanel({
                 label="睡眠"
                 value={data.sleep_hours != null
                   ? `${data.sleep_hours % 1 === 0 ? data.sleep_hours.toFixed(0) : data.sleep_hours.toFixed(1)}h`
-                  : null}
-              />
-              <DetailRow
-                label="断食"
-                value={data.fasting_hours != null
-                  ? `${data.fasting_hours % 1 === 0 ? data.fasting_hours.toFixed(0) : data.fasting_hours.toFixed(1)}h`
                   : null}
               />
             </div>
@@ -480,11 +462,10 @@ function MobileDayDetailPanel({
 
 interface MonthlyCalendarProps {
   logs: DashboardDailyLog[];
-  sleepSessions?: Pick<SleepSession, "wake_date" | "wake_at" | "bed_at">[];
   googleHealthMetrics?: GoogleHealthDailyMetricForDisplay[];
 }
 
-export function MonthlyCalendar({ logs, sleepSessions = [], googleHealthMetrics = [] }: MonthlyCalendarProps) {
+export function MonthlyCalendar({ logs, googleHealthMetrics = [] }: MonthlyCalendarProps) {
   const todayKey = toJstDateStr();
   const [y, m]   = todayKey.split("-").map(Number) as [number, number, number];
 
@@ -492,8 +473,8 @@ export function MonthlyCalendar({ logs, sleepSessions = [], googleHealthMetrics 
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const dayMap = useMemo(
-    () => buildCalendarDayMap(logs, sleepSessions, googleHealthMetrics),
-    [logs, sleepSessions, googleHealthMetrics],
+    () => buildCalendarDayMap(logs, googleHealthMetrics),
+    [logs, googleHealthMetrics],
   );
 
   // 再タップで解除するトグル。sm 以上（デスクトップ）では詳細パネルが非表示のため state 変更しない

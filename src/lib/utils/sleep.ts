@@ -2,13 +2,13 @@
  * 推定睡眠時間算出ユーティリティ
  *
  * bed_time (就寝時刻) と wake_up_time (起床時刻) から
- * 推定睡眠時間 (sleep_hours) を算出する純粋関数群。
+ * 就寝・起床時刻から推定睡眠時間を算出する純粋関数群。
  *
  * ## 起床日基準（#507）
  *
- * sleep_hours は「log_date（起床日）に属する睡眠セッション」の長さを表す。
+ * 睡眠時間は「起床日」に属する睡眠の長さを表す。
  * bed_time が前日夜・当日深夜・早朝のいずれであっても、
- * wake_up_time（= 起床時刻。sleep_sessions.wake_at を extractJstHHMM で変換した値）
+ * wake_up_time（= 起床時刻。Google Health sleep_wake_at を extractJstHHMM で変換した値）
  * と同じ log_date に属する値として扱う。
  *
  * 例（いずれも log_date = 2026-04-08）:
@@ -49,16 +49,16 @@ function timeToMinutes(time: string): number | null {
 }
 
 /**
- * bed_time と wake_up_time から推定睡眠時間 (sleep_hours) を算出する。
+ * bed_time と wake_up_time から推定睡眠時間を算出する。
  *
- * 起床日基準: bedTime は log_date の朝に起床した睡眠セッションの開始時刻を表す。
+ * 起床日基準: bedTime は log_date の朝に起床した睡眠の開始時刻を表す。
  * 前日夜（23:30 等）・当日深夜（01:30 等）・早朝（04:00 等）のいずれも同じ計算式で処理する。
  *
- * #526: wake_up_time は sleep_sessions.wake_at を extractJstHHMM で JST 変換した値。
+ * wake_up_time は Google Health の wake_at を extractJstHHMM で JST 変換した値。
  *
  * @param bedTime     就寝時刻 "HH:MM" または "HH:MM:SS"
- *                    （この log_date の朝の起床に対応する睡眠セッションの開始時刻）
- * @param wakeUpTime  起床時刻 "HH:MM" または "HH:MM:SS"（sleep_sessions.wake_at の JST 変換値）
+ *                    （この log_date の朝の起床に対応する睡眠の開始時刻）
+ * @param wakeUpTime  起床時刻 "HH:MM" または "HH:MM:SS"
  * @returns 推定睡眠時間 (h, 小数点以下 1 桁)、または null (算出不能・異常値)
  *
  * 仕様:

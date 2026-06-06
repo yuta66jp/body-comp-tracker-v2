@@ -155,7 +155,7 @@ FEATURE_REGISTRY: list[FeatureDef] = [
         nullable=True,
         source_col="sleep_hours",
         encoder_hint=EncoderHint.PASSTHROUGH,
-        active=True,
+        active=False,
     ),
     FeatureDef(
         name="had_bowel_movement",

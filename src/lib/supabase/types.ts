@@ -145,13 +145,10 @@ export type Database = {
           is_refeed_day: boolean
           is_tanning_day: boolean
           is_travel_day: boolean
-          last_meal_end_time: string | null
           leg_flag: boolean | null
           log_date: string
           note: string | null
           protein: number | null
-          sleep_hours: number | null
-          step_count: number | null
           training_type: string | null
           updated_at: string
           user_id: string | null
@@ -171,13 +168,10 @@ export type Database = {
           is_refeed_day?: boolean
           is_tanning_day?: boolean
           is_travel_day?: boolean
-          last_meal_end_time?: string | null
           leg_flag?: boolean | null
           log_date: string
           note?: string | null
           protein?: number | null
-          sleep_hours?: number | null
-          step_count?: number | null
           training_type?: string | null
           updated_at?: string
           user_id?: string | null
@@ -197,13 +191,10 @@ export type Database = {
           is_refeed_day?: boolean
           is_tanning_day?: boolean
           is_travel_day?: boolean
-          last_meal_end_time?: string | null
           leg_flag?: boolean | null
           log_date?: string
           note?: string | null
           protein?: number | null
-          sleep_hours?: number | null
-          step_count?: number | null
           training_type?: string | null
           updated_at?: string
           user_id?: string | null
@@ -530,42 +521,6 @@ export type Database = {
         }
         Relationships: []
       }
-      sleep_sessions: {
-        Row: {
-          bed_at: string
-          created_at: string
-          id: string
-          note: string | null
-          source: string
-          updated_at: string
-          user_id: string | null
-          wake_at: string
-          wake_date: string
-        }
-        Insert: {
-          bed_at: string
-          created_at?: string
-          id?: string
-          note?: string | null
-          source?: string
-          updated_at?: string
-          user_id?: string | null
-          wake_at: string
-          wake_date: string
-        }
-        Update: {
-          bed_at?: string
-          created_at?: string
-          id?: string
-          note?: string | null
-          source?: string
-          updated_at?: string
-          user_id?: string | null
-          wake_at?: string
-          wake_date?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
@@ -727,7 +682,7 @@ export type DailyLog = OptionalUserId<Database["public"]["Tables"]["daily_logs"]
 
 /**
  * Dashboard 専用の daily_logs projection 型。
- * fetchDashboardDailyLogs() が取得する 21 列に対応する（#436 で step_count 追加、#577 で is_tanning_day / is_posing_day 追加）。
+ * fetchDashboardDailyLogs() が取得する列に対応する（#577 で is_tanning_day / is_posing_day 追加、#710 で旧歩数・睡眠・断食列を削除）。
  *
  * 除外列:
  *   - note     : Dashboard のいずれの関数・コンポーネントでも参照されない
@@ -742,7 +697,7 @@ export type DashboardDailyLog = Omit<DailyLog, "note" | "leg_flag">;
  * Macro ページ専用の daily_logs projection 型。
  * fetchMacroDailyLogs() が取得する 6 列に対応する。
  *
- * 除外列: is_* フラグ / sleep_hours / had_bowel_movement / training_type / work_mode /
+ * 除外列: is_* フラグ / had_bowel_movement / training_type / work_mode /
  *         note / leg_flag / updated_at — Macro 計算で不要なため除外。
  */
 export type MacroDailyLog = Pick<DailyLog, "log_date" | "weight" | "calories" | "protein" | "fat" | "carbs">;
@@ -751,7 +706,7 @@ export type MacroDailyLog = Pick<DailyLog, "log_date" | "weight" | "calories" | 
  * TDEE ページ専用の daily_logs projection 型。
  * fetchTdeeDailyLogs() が取得する 3 列に対応する。
  *
- * 除外列: protein / fat / carbs / is_* フラグ / sleep_hours / had_bowel_movement /
+ * 除外列: protein / fat / carbs / is_* フラグ / had_bowel_movement /
  *         training_type / work_mode / note / leg_flag / updated_at — TDEE 計算で不要なため除外。
  */
 export type TdeeDailyLog = Pick<DailyLog, "log_date" | "weight" | "calories">;
@@ -759,7 +714,6 @@ export type TdeeDailyLog = Pick<DailyLog, "log_date" | "weight" | "calories">;
 export type GoogleHealthDailyMetricRow = Database["public"]["Tables"]["google_health_daily_metrics"]["Row"];
 export type GoogleHealthConnectionRow = Database["private"]["Tables"]["google_health_connections"]["Row"];
 export type GoogleHealthConnectionStatus = Database["private"]["Enums"]["google_health_connection_status"];
-export type SleepSession = OptionalUserId<Database["public"]["Tables"]["sleep_sessions"]["Row"]>;
 
 export type FoodMaster  = OptionalUserId<Database["public"]["Tables"]["food_master"]["Row"]>;
 export type MenuMaster  = OptionalUserId<Database["public"]["Tables"]["menu_master"]["Row"]>;
