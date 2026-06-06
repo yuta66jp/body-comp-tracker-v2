@@ -1,5 +1,6 @@
 import { calcWeeklyReview } from "./calcWeeklyReview";
-import type { DashboardDailyLog, SleepSession } from "@/lib/supabase/types";
+import type { DashboardDailyLog } from "@/lib/supabase/types";
+import type { GoogleHealthDailyMetricForDisplay } from "@/lib/googleHealth/displayMetrics";
 import type { ReadinessMetrics } from "./calcReadiness";
 import type { DataQualityReport } from "./calcDataQuality";
 
@@ -82,6 +83,23 @@ function makeQualityReport(overrides: Partial<DataQualityReport> = {}): DataQual
   } as DataQualityReport;
 }
 
+function makeGoogleHealthMetric(
+  metricDate: string,
+  overrides: Partial<GoogleHealthDailyMetricForDisplay> = {},
+): GoogleHealthDailyMetricForDisplay {
+  return {
+    metric_date: metricDate,
+    step_count: null,
+    sleep_minutes: null,
+    deep_sleep_minutes: null,
+    sleep_bed_at: null,
+    sleep_wake_at: null,
+    hrv_ms: null,
+    rhr_bpm: null,
+    ...overrides,
+  };
+}
+
 describe("calcWeeklyReview", () => {
   it("タンパク質 g/kg BW と脂質カロリー比を算出する", () => {
     const logs = [
@@ -108,20 +126,29 @@ describe("calcWeeklyReview", () => {
 
   it("直近 7 暦日の平均睡眠時間を算出する", () => {
     const logs = [
-      makeLog("2026-03-27", { sleep_hours: 7.0 }),
-      makeLog("2026-03-28", { sleep_hours: 8.0 }),
-      makeLog("2026-03-29", { sleep_hours: 7.5 }),
-      makeLog("2026-03-30", { sleep_hours: null }), // 欠損は除外
-      makeLog("2026-03-31", { sleep_hours: 6.5 }),
-      makeLog("2026-04-01", { sleep_hours: 8.0 }),
-      makeLog("2026-04-02", { sleep_hours: 7.0 }),
+      makeLog("2026-03-27"),
+      makeLog("2026-03-28"),
+      makeLog("2026-03-29"),
+      makeLog("2026-03-30"),
+      makeLog("2026-03-31"),
+      makeLog("2026-04-01"),
+      makeLog("2026-04-02"),
+    ];
+    const metrics = [
+      makeGoogleHealthMetric("2026-03-27", { sleep_minutes: 420 }),
+      makeGoogleHealthMetric("2026-03-28", { sleep_minutes: 480 }),
+      makeGoogleHealthMetric("2026-03-29", { sleep_minutes: 450 }),
+      makeGoogleHealthMetric("2026-03-30", { sleep_minutes: null }),
+      makeGoogleHealthMetric("2026-03-31", { sleep_minutes: 390 }),
+      makeGoogleHealthMetric("2026-04-01", { sleep_minutes: 480 }),
+      makeGoogleHealthMetric("2026-04-02", { sleep_minutes: 420 }),
     ];
 
     const result = calcWeeklyReview(
       logs,
       makeMetrics(),
       makeQualityReport(),
-      { today: "2026-04-02", phase: "Cut" }
+      { today: "2026-04-02", phase: "Cut", googleHealthMetrics: metrics }
     );
 
     // (7.0 + 8.0 + 7.5 + 6.5 + 8.0 + 7.0) / 6 = 44 / 6 ≈ 7.333
@@ -129,10 +156,10 @@ describe("calcWeeklyReview", () => {
     expect(result.sleep.sleepDaysLogged).toBe(6);
   });
 
-  it("sleep_hours が全て null のときは avgSleepHours が null になる", () => {
+  it("睡眠データが全て欠損しているときは avgSleepHours が null になる", () => {
     const logs = [
-      makeLog("2026-03-27", { sleep_hours: null }),
-      makeLog("2026-03-28", { sleep_hours: null }),
+      makeLog("2026-03-27"),
+      makeLog("2026-03-28"),
     ];
 
     const result = calcWeeklyReview(
@@ -146,7 +173,7 @@ describe("calcWeeklyReview", () => {
     expect(result.sleep.sleepDaysLogged).toBe(0);
   });
 
-  it("新フィールドのデフォルト: sleepSessions 未指定のとき全て null / 0", () => {
+  it("新フィールドのデフォルトは null / 0", () => {
     const result = calcWeeklyReview(
       [makeLog("2026-04-02")],
       makeMetrics(),
@@ -158,28 +185,24 @@ describe("calcWeeklyReview", () => {
     expect(result.sleep.avgBedTimeDeltaMins).toBeNull();
     expect(result.sleep.avgWakeTimeDeltaMins).toBeNull();
     expect(result.sleep.timeDaysLogged).toBe(0);
+    expect(result.cardio.hrv.avg7d).toBeNull();
+    expect(result.cardio.rhr.avg7d).toBeNull();
   });
 
   // ─── 就寝・起床平均時刻 ───────────────────────────────────────────────────────
 
-  function makeSleepSession(
-    wakeDate: string,
+  function makeSleepMetric(
+    metricDate: string,
     bedAtUtc: string,
     wakeAtUtc: string
-  ): SleepSession {
-    return {
-      id: `session-${wakeDate}`,
-      wake_date: wakeDate,
-      bed_at: bedAtUtc,
-      wake_at: wakeAtUtc,
-      source: "manual",
-      note: null,
-      created_at: "2026-01-01T00:00:00Z",
-      updated_at: "2026-01-01T00:00:00Z",
-    };
+  ): GoogleHealthDailyMetricForDisplay {
+    return makeGoogleHealthMetric(metricDate, {
+      sleep_bed_at: bedAtUtc,
+      sleep_wake_at: wakeAtUtc,
+    });
   }
 
-  it("sleepSessions から就寝・起床平均時刻を算出する", () => {
+  it("就寝・起床平均時刻を算出する", () => {
     // today = 2026-04-02, 当週: 2026-03-27〜2026-04-02
     // セッション 1 (wake_date=2026-04-01): bed 23:00 JST, wake 7:00 JST
     //   bed_at UTC: JST23:00=UTC14:00 → "2026-03-31T14:00:00Z"
@@ -187,15 +210,15 @@ describe("calcWeeklyReview", () => {
     // セッション 2 (wake_date=2026-04-02): bed 23:30 JST, wake 7:00 JST
     //   bed_at UTC: JST23:30=UTC14:30 → "2026-04-01T14:30:00Z"
     //   wake_at UTC: JST07:00=UTC22:00 → "2026-04-01T22:00:00Z"
-    const sessions = [
-      makeSleepSession("2026-04-01", "2026-03-31T14:00:00Z", "2026-03-31T22:00:00Z"),
-      makeSleepSession("2026-04-02", "2026-04-01T14:30:00Z", "2026-04-01T22:00:00Z"),
+    const metrics = [
+      makeSleepMetric("2026-04-01", "2026-03-31T14:00:00Z", "2026-03-31T22:00:00Z"),
+      makeSleepMetric("2026-04-02", "2026-04-01T14:30:00Z", "2026-04-01T22:00:00Z"),
     ];
     const result = calcWeeklyReview(
       [makeLog("2026-04-01"), makeLog("2026-04-02")],
       makeMetrics(),
       makeQualityReport(),
-      { today: "2026-04-02", sleepSessions: sessions }
+      { today: "2026-04-02", googleHealthMetrics: metrics }
     );
     // avg bed: (23:00=1380 + 23:30=1410) / 2 = 1395 → 23:15
     expect(result.sleep.avgBedTime).toBe("23:15");
@@ -208,15 +231,15 @@ describe("calcWeeklyReview", () => {
     // 0:30 JST = UTC 15:30 前日 → timestampToJstMinutes → 30 → +1440 = 1470
     // 23:30 JST = UTC 14:30 → 1410 → 補正なし
     // avg = (1470 + 1410) / 2 = 1440 → minutesToHHMM(1440) = 1440%1440=0 → "00:00"
-    const sessions = [
-      makeSleepSession("2026-04-01", "2026-03-31T15:30:00Z", "2026-04-01T22:00:00Z"),
-      makeSleepSession("2026-04-02", "2026-04-01T14:30:00Z", "2026-04-01T22:00:00Z"),
+    const metrics = [
+      makeSleepMetric("2026-04-01", "2026-03-31T15:30:00Z", "2026-04-01T22:00:00Z"),
+      makeSleepMetric("2026-04-02", "2026-04-01T14:30:00Z", "2026-04-01T22:00:00Z"),
     ];
     const result = calcWeeklyReview(
       [makeLog("2026-04-01"), makeLog("2026-04-02")],
       makeMetrics(),
       makeQualityReport(),
-      { today: "2026-04-02", sleepSessions: sessions }
+      { today: "2026-04-02", googleHealthMetrics: metrics }
     );
     expect(result.sleep.avgBedTime).toBe("00:00");
   });
@@ -229,15 +252,15 @@ describe("calcWeeklyReview", () => {
     //   bed_at UTC: "2026-04-06T14:00:00Z", wake_at UTC: "2026-04-06T22:00:00Z"
     // 当週 (wake_date=2026-04-14): bed 23:30(1410), wake 07:30(450)
     //   bed_at UTC: "2026-04-13T14:30:00Z", wake_at UTC: "2026-04-13T22:30:00Z"
-    const sessions = [
-      makeSleepSession("2026-04-07", "2026-04-06T14:00:00Z", "2026-04-06T22:00:00Z"),
-      makeSleepSession("2026-04-14", "2026-04-13T14:30:00Z", "2026-04-13T22:30:00Z"),
+    const metrics = [
+      makeSleepMetric("2026-04-07", "2026-04-06T14:00:00Z", "2026-04-06T22:00:00Z"),
+      makeSleepMetric("2026-04-14", "2026-04-13T14:30:00Z", "2026-04-13T22:30:00Z"),
     ];
     const result = calcWeeklyReview(
       [makeLog("2026-04-07"), makeLog("2026-04-14")],
       makeMetrics(),
       makeQualityReport(),
-      { today: "2026-04-14", sleepSessions: sessions }
+      { today: "2026-04-14", googleHealthMetrics: metrics }
     );
     // bed delta: 1410 - 1380 = 30 分 (30分遅くなった)
     expect(result.sleep.avgBedTimeDeltaMins).toBe(30);
@@ -247,18 +270,43 @@ describe("calcWeeklyReview", () => {
 
   it("前週データがない場合は delta が null", () => {
     // 当週のみのセッション (前週は空)
-    const sessions = [
-      makeSleepSession("2026-04-02", "2026-04-01T14:30:00Z", "2026-04-01T22:00:00Z"),
+    const metrics = [
+      makeSleepMetric("2026-04-02", "2026-04-01T14:30:00Z", "2026-04-01T22:00:00Z"),
     ];
     const result = calcWeeklyReview(
       [makeLog("2026-04-02")],
       makeMetrics(),
       makeQualityReport(),
-      { today: "2026-04-02", sleepSessions: sessions }
+      { today: "2026-04-02", googleHealthMetrics: metrics }
     );
     expect(result.sleep.avgBedTime).toBe("23:30");
     expect(result.sleep.avgBedTimeDeltaMins).toBeNull();
     expect(result.sleep.avgWakeTimeDeltaMins).toBeNull();
+  });
+
+  it("心肺機能の直近7日平均と14日ベースラインを算出する", () => {
+    const metrics = [
+      makeGoogleHealthMetric("2026-03-20", { hrv_ms: 100, rhr_bpm: 40 }),
+      makeGoogleHealthMetric("2026-03-21", { hrv_ms: 120, rhr_bpm: 44 }),
+      makeGoogleHealthMetric("2026-03-27", { hrv_ms: 130, rhr_bpm: 42 }),
+      makeGoogleHealthMetric("2026-03-28", { hrv_ms: null, rhr_bpm: null }),
+      makeGoogleHealthMetric("2026-04-02", { hrv_ms: 150, rhr_bpm: 46 }),
+    ];
+
+    const result = calcWeeklyReview(
+      [makeLog("2026-04-02")],
+      makeMetrics(),
+      makeQualityReport(),
+      { today: "2026-04-02", googleHealthMetrics: metrics }
+    );
+
+    expect(result.cardio.hrv.avg7d).toBe(140);
+    expect(result.cardio.hrv.daysLogged7d).toBe(2);
+    expect(result.cardio.hrv.baselineAvg14d).toBe(125);
+    expect(result.cardio.hrv.baselineStdDev14d).toBeCloseTo(Math.sqrt(325), 5);
+    expect(result.cardio.hrv.deviationPct).toBeCloseTo(12, 5);
+    expect(result.cardio.rhr.avg7d).toBe(44);
+    expect(result.cardio.rhr.baselineAvg14d).toBe(43);
   });
 
   it("基準体重や脂質/カロリーが欠けるときは null にフォールバックする", () => {

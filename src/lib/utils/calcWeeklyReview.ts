@@ -15,7 +15,8 @@
  *   - generateFindings で「チートデイ後の水分増加の可能性」を注記
  */
 
-import type { DashboardDailyLog, SleepSession } from "@/lib/supabase/types";
+import type { DashboardDailyLog } from "@/lib/supabase/types";
+import type { GoogleHealthDailyMetricForDisplay } from "@/lib/googleHealth/displayMetrics";
 import type { ReadinessMetrics } from "./calcReadiness";
 import type { DataQualityReport } from "./calcDataQuality";
 import { addDaysStr, dateRangeStr, toJstDateStr } from "./date";
@@ -101,21 +102,19 @@ export interface WeeklyTdee {
 
 export interface WeeklySleep {
   /**
-   * 直近 7 暦日のうち sleep_hours が記録されている日の平均 (h)。
-   * source of truth: daily_logs.sleep_hours
-   * (sleep_sessions の bed_at / wake_at から DB トリガーが自動同期する projection 値)
+   * 直近 7 暦日のうち Google Health sleep_minutes が記録されている日の平均 (h)。
    */
   avgSleepHours: number | null;
-  /** sleep_hours が非 null の日数 */
+  /** sleep_minutes が非 null の日数 */
   sleepDaysLogged: number;
   /**
    * 直近 7 暦日の平均就寝時刻 "HH:MM" (JST)。
-   * sleepSessions が渡されない場合、または当週のデータがない場合は null。
+   * Google Health sleep_bed_at がない場合は null。
    */
   avgBedTime: string | null;
   /**
    * 直近 7 暦日の平均起床時刻 "HH:MM" (JST)。
-   * sleepSessions が渡されない場合、または当週のデータがない場合は null。
+   * Google Health sleep_wake_at がない場合は null。
    */
   avgWakeTime: string | null;
   /**
@@ -130,6 +129,24 @@ export interface WeeklySleep {
   avgWakeTimeDeltaMins: number | null;
   /** 直近 7 日のうち bed_at / wake_at がある日数 */
   timeDaysLogged: number;
+}
+
+export interface WeeklyCardioMetric {
+  /** 直近 7 暦日の平均 */
+  avg7d: number | null;
+  /** 直近 7 暦日の記録日数 */
+  daysLogged7d: number;
+  /** 直近 14 暦日の平均 */
+  baselineAvg14d: number | null;
+  /** 直近 14 暦日の標準偏差。記録が 2 件未満なら null */
+  baselineStdDev14d: number | null;
+  /** 直近 7 日平均の 14 日平均との差分 (%) */
+  deviationPct: number | null;
+}
+
+export interface WeeklyCardio {
+  hrv: WeeklyCardioMetric;
+  rhr: WeeklyCardioMetric;
 }
 
 /** 直近 7 日の特殊日集計 */
@@ -149,6 +166,7 @@ export interface WeeklyReviewData {
   nutrition: WeeklyNutrition;
   tdee: WeeklyTdee;
   sleep: WeeklySleep;
+  cardio: WeeklyCardio;
   quality: {
     score: number;
     weightMissingDays: number;
@@ -466,18 +484,19 @@ function applyBedTimeCrossing(mins: number): number {
 
 type AvgTimeResult = { avgMins: number; count: number };
 
-/**
- * 指定した wake_date セットに対応する睡眠セッションの平均就寝時刻を計算する。
- * 日付越え補正済みの生の avgMins を返す（minutesToHHMM で変換する前の値）。
- */
+type GoogleHealthMetricDateKey = Pick<
+  GoogleHealthDailyMetricForDisplay,
+  "metric_date" | "sleep_bed_at" | "sleep_wake_at"
+>;
+
 function computeAvgBedTime(
-  sessions: SleepSession[],
+  metrics: GoogleHealthMetricDateKey[],
   dateSet: Set<string>
 ): AvgTimeResult | null {
   const vals: number[] = [];
-  for (const s of sessions) {
-    if (!dateSet.has(s.wake_date)) continue;
-    const mins = timestampToJstMinutes(s.bed_at);
+  for (const metric of metrics) {
+    if (!dateSet.has(metric.metric_date) || metric.sleep_bed_at === null) continue;
+    const mins = timestampToJstMinutes(metric.sleep_bed_at);
     if (mins === null) continue;
     vals.push(applyBedTimeCrossing(mins));
   }
@@ -485,22 +504,61 @@ function computeAvgBedTime(
   return { avgMins: vals.reduce((a, b) => a + b, 0) / vals.length, count: vals.length };
 }
 
-/**
- * 指定した wake_date セットに対応する睡眠セッションの平均起床時刻を計算する。
- */
 function computeAvgWakeTime(
-  sessions: SleepSession[],
+  metrics: GoogleHealthMetricDateKey[],
   dateSet: Set<string>
 ): AvgTimeResult | null {
   const vals: number[] = [];
-  for (const s of sessions) {
-    if (!dateSet.has(s.wake_date)) continue;
-    const mins = timestampToJstMinutes(s.wake_at);
+  for (const metric of metrics) {
+    if (!dateSet.has(metric.metric_date) || metric.sleep_wake_at === null) continue;
+    const mins = timestampToJstMinutes(metric.sleep_wake_at);
     if (mins === null) continue;
     vals.push(mins);
   }
   if (vals.length === 0) return null;
   return { avgMins: vals.reduce((a, b) => a + b, 0) / vals.length, count: vals.length };
+}
+
+function average(values: number[]): number | null {
+  return values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null;
+}
+
+function stdDev(values: number[]): number | null {
+  if (values.length < 2) return null;
+  const avg = average(values);
+  if (avg === null) return null;
+  const variance = values.reduce((sum, value) => sum + (value - avg) ** 2, 0) / values.length;
+  return Math.sqrt(variance);
+}
+
+function buildCardioMetric(args: {
+  metrics: GoogleHealthDailyMetricForDisplay[];
+  currentDateSet: Set<string>;
+  baselineDateSet: Set<string>;
+  field: "hrv_ms" | "rhr_bpm";
+}): WeeklyCardioMetric {
+  const currentValues = args.metrics
+    .filter((metric) => args.currentDateSet.has(metric.metric_date))
+    .map((metric) => metric[args.field])
+    .filter((value): value is number => value !== null);
+  const baselineValues = args.metrics
+    .filter((metric) => args.baselineDateSet.has(metric.metric_date))
+    .map((metric) => metric[args.field])
+    .filter((value): value is number => value !== null);
+
+  const avg7d = average(currentValues);
+  const baselineAvg14d = average(baselineValues);
+
+  return {
+    avg7d,
+    daysLogged7d: currentValues.length,
+    baselineAvg14d,
+    baselineStdDev14d: stdDev(baselineValues),
+    deviationPct:
+      avg7d !== null && baselineAvg14d !== null && baselineAvg14d > 0
+        ? ((avg7d - baselineAvg14d) / baselineAvg14d) * 100
+        : null,
+  };
 }
 
 // ─── メイン関数 ──────────────────────────────────────────────────────────────
@@ -515,8 +573,7 @@ function computeAvgWakeTime(
  *                            未指定のときは WeeklyTdee.avgEstimated / balancePerDay が null になる。
  * @param options.phase  "Cut" | "Bulk" (デフォルト "Cut")
  * @param options.today  基準日 YYYY-MM-DD (省略時 JST 今日)
- * @param options.sleepSessions  sleep_sessions テーブルの行。就寝・起床平均時刻の算出に使う。
- *                               渡されない場合は avgBedTime / avgWakeTime が null になる。
+ * @param options.googleHealthMetrics  google_health_daily_metrics の行。睡眠・心肺機能の算出に使う。
  */
 export function calcWeeklyReview(
   logs: DashboardDailyLog[],
@@ -526,10 +583,10 @@ export function calcWeeklyReview(
     avgTdee14d?: number | null;
     phase?: string;
     today?: string;
-    sleepSessions?: SleepSession[];
+    googleHealthMetrics?: GoogleHealthDailyMetricForDisplay[];
   } = {}
 ): WeeklyReviewData {
-  const { avgTdee14d, phase = "Cut", today, sleepSessions } = options;
+  const { avgTdee14d, phase = "Cut", today, googleHealthMetrics = [] } = options;
   const todayStr = today ?? toJstDateStr(new Date());
 
   // ── 7 暦日リスト ──
@@ -611,17 +668,18 @@ export function calcWeeklyReview(
 
   // ── Sleep ──
 
-  // 平均睡眠時間: daily_logs.sleep_hours (sleep_sessions からの DB トリガー projection 値)
-  const sleepVals = windowLogs
-    .filter((l) => l.sleep_hours !== null)
-    .map((l) => l.sleep_hours as number);
-
-  // 就寝・起床平均時刻: sleep_sessions.bed_at / wake_at から算出
   // 前週比のため、前の 7 暦日 (today-13 〜 today-7) も集計する
   const d7DateSet = new Set(last7Dates);
   const prevD14Start = addDaysStr(todayStr, -13) ?? todayStr;
   const prevD7End    = addDaysStr(todayStr, -7)  ?? todayStr;
   const prev7DateSet = new Set(dateRangeStr(prevD14Start, prevD7End));
+  const d14DateSet = new Set(dateRangeStr(prevD14Start, todayStr));
+
+  const sleepVals = googleHealthMetrics
+    .filter((metric) => d7DateSet.has(metric.metric_date))
+    .map((metric) => metric.sleep_minutes)
+    .filter((value): value is number => value !== null)
+    .map((minutes) => minutes / 60);
 
   let avgBedTime: string | null = null;
   let avgWakeTime: string | null = null;
@@ -629,11 +687,11 @@ export function calcWeeklyReview(
   let avgWakeTimeDeltaMins: number | null = null;
   let timeDaysLogged = 0;
 
-  if (sleepSessions && sleepSessions.length > 0) {
-    const currBed  = computeAvgBedTime(sleepSessions, d7DateSet);
-    const currWake = computeAvgWakeTime(sleepSessions, d7DateSet);
-    const prevBed  = computeAvgBedTime(sleepSessions, prev7DateSet);
-    const prevWake = computeAvgWakeTime(sleepSessions, prev7DateSet);
+  if (googleHealthMetrics.length > 0) {
+    const currBed  = computeAvgBedTime(googleHealthMetrics, d7DateSet);
+    const currWake = computeAvgWakeTime(googleHealthMetrics, d7DateSet);
+    const prevBed  = computeAvgBedTime(googleHealthMetrics, prev7DateSet);
+    const prevWake = computeAvgWakeTime(googleHealthMetrics, prev7DateSet);
 
     avgBedTime  = currBed  ? minutesToHHMM(currBed.avgMins)  : null;
     avgWakeTime = currWake ? minutesToHHMM(currWake.avgMins) : null;
@@ -649,16 +707,28 @@ export function calcWeeklyReview(
   }
 
   const sleep: WeeklySleep = {
-    avgSleepHours:
-      sleepVals.length > 0
-        ? sleepVals.reduce((a, b) => a + b, 0) / sleepVals.length
-        : null,
+    avgSleepHours: average(sleepVals),
     sleepDaysLogged: sleepVals.length,
     avgBedTime,
     avgWakeTime,
     avgBedTimeDeltaMins,
     avgWakeTimeDeltaMins,
     timeDaysLogged,
+  };
+
+  const cardio: WeeklyCardio = {
+    hrv: buildCardioMetric({
+      metrics: googleHealthMetrics,
+      currentDateSet: d7DateSet,
+      baselineDateSet: d14DateSet,
+      field: "hrv_ms",
+    }),
+    rhr: buildCardioMetric({
+      metrics: googleHealthMetrics,
+      currentDateSet: d7DateSet,
+      baselineDateSet: d14DateSet,
+      field: "rhr_bpm",
+    }),
   };
 
   // ── TDEE (14日平均 TDEE を基準線として参照) ──
@@ -722,6 +792,7 @@ export function calcWeeklyReview(
     nutrition,
     tdee,
     sleep,
+    cardio,
     quality,
     stagnation,
     specialDays,

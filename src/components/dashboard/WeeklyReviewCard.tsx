@@ -32,6 +32,7 @@ import {
   Flame,
   Beef,
   Moon,
+  HeartPulse,
 } from "lucide-react";
 import type { WeeklyReviewData, StagnationLevel } from "@/lib/utils/calcWeeklyReview";
 import { DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayTags";
@@ -177,6 +178,12 @@ function fmtSignedKcal(v: number | null): string {
   const s = v > 0 ? "+" : "";
   return `${s}${Math.round(v).toLocaleString()}`;
 }
+function fmtBaseline(avg: number | null, stdDev: number | null, unit: string): string | undefined {
+  if (avg === null) return undefined;
+  return stdDev !== null
+    ? `(2週 ${avg.toFixed(1)}±${stdDev.toFixed(1)}${unit})`
+    : `(2週 ${avg.toFixed(1)}${unit})`;
+}
 
 function qualityScoreColor(score: number): string {
   if (score >= 90) return "text-emerald-600";
@@ -220,6 +227,8 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
   const StIcon = stCfg.icon;
 
   const { weight, nutrition, tdee, sleep, quality } = data;
+  const cardio = data.cardio;
+  const showCardio = cardio.hrv.avg7d !== null || cardio.rhr.avg7d !== null;
 
   // 所見カード用データを導出 (既存 findings string[] とは別に生成)
   const insightItems = deriveWeeklyInsightItems(data, phase);
@@ -441,6 +450,33 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
                         ? `(${sleep.avgWakeTimeDeltaMins >= 0 ? "+" : ""}${sleep.avgWakeTimeDeltaMins}分)`
                         : undefined
                     }
+                  />
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 心肺機能 */}
+          {showCardio && (
+            <div>
+              <SectionLabel icon={<HeartPulse size={12} className="text-rose-400" />}>
+                心肺機能 ({Math.max(cardio.hrv.daysLogged7d, cardio.rhr.daysLogged7d)} 日分)
+              </SectionLabel>
+              <div className="space-y-0.5">
+                {cardio.hrv.avg7d !== null && (
+                  <StatRow
+                    label="HRV"
+                    value={cardio.hrv.avg7d.toFixed(1)}
+                    unit="ms"
+                    sub={fmtBaseline(cardio.hrv.baselineAvg14d, cardio.hrv.baselineStdDev14d, "ms")}
+                  />
+                )}
+                {cardio.rhr.avg7d !== null && (
+                  <StatRow
+                    label="安静時"
+                    value={cardio.rhr.avg7d.toFixed(1)}
+                    unit="bpm"
+                    sub={fmtBaseline(cardio.rhr.baselineAvg14d, cardio.rhr.baselineStdDev14d, "bpm")}
                   />
                 )}
               </div>

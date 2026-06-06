@@ -53,6 +53,22 @@ function makeData(overrides: Partial<WeeklyReviewData> = {}): WeeklyReviewData {
       avgWakeTimeDeltaMins: null,
       timeDaysLogged: 0,
     },
+    cardio: {
+      hrv: {
+        avg7d: null,
+        daysLogged7d: 0,
+        baselineAvg14d: null,
+        baselineStdDev14d: null,
+        deviationPct: null,
+      },
+      rhr: {
+        avg7d: null,
+        daysLogged7d: 0,
+        baselineAvg14d: null,
+        baselineStdDev14d: null,
+        deviationPct: null,
+      },
+    },
     quality: {
       score: 90,
       weightMissingDays: 0,
@@ -85,6 +101,25 @@ function makeStagnation(
     trendKgPerWeek: -0.35,
     qualityNote: null,
     ...overrides,
+  };
+}
+
+function makeHrvData(deviationPct: number | null): WeeklyReviewData["cardio"] {
+  return {
+    hrv: {
+      avg7d: deviationPct === null ? null : 120,
+      daysLogged7d: deviationPct === null ? 0 : 7,
+      baselineAvg14d: deviationPct === null ? null : 125,
+      baselineStdDev14d: deviationPct === null ? null : 8.5,
+      deviationPct,
+    },
+    rhr: {
+      avg7d: null,
+      daysLogged7d: 0,
+      baselineAvg14d: null,
+      baselineStdDev14d: null,
+      deviationPct: null,
+    },
   };
 }
 
@@ -479,7 +514,76 @@ describe("deriveWeeklyInsightItems", () => {
     });
   });
 
+  // ── HRV ベースライン ── //
+
+  describe("HRV ベースライン InsightItem", () => {
+    it("+10%以上 → 過回復・適応良好として status ok", () => {
+      const items = deriveWeeklyInsightItems(
+        makeData({ cardio: makeHrvData(10) }),
+        "Cut",
+      );
+      const hrvItem = items.find((i) => i.title.startsWith("HRV "));
+      expect(hrvItem).toBeDefined();
+      expect(hrvItem!.status).toBe("ok");
+      expect(hrvItem!.title).toContain("過回復・適応良好");
+      expect(hrvItem!.detail).toContain("7日平均 120.0ms / 2週平均 125.0ms");
+    });
+
+    it("±10%以内 → 通常として status ok", () => {
+      const items = deriveWeeklyInsightItems(
+        makeData({ cardio: makeHrvData(-10) }),
+        "Cut",
+      );
+      const hrvItem = items.find((i) => i.title.startsWith("HRV "));
+      expect(hrvItem).toBeDefined();
+      expect(hrvItem!.status).toBe("ok");
+      expect(hrvItem!.title).toContain("通常");
+    });
+
+    it("-10〜-15% → 軽度の蓄積疲労として status caution", () => {
+      const items = deriveWeeklyInsightItems(
+        makeData({ cardio: makeHrvData(-12) }),
+        "Cut",
+      );
+      const hrvItem = items.find((i) => i.title.startsWith("HRV "));
+      expect(hrvItem).toBeDefined();
+      expect(hrvItem!.status).toBe("caution");
+      expect(hrvItem!.title).toContain("軽度の蓄積疲労");
+    });
+
+    it("-15〜-25% → 中度の疲労として status caution", () => {
+      const items = deriveWeeklyInsightItems(
+        makeData({ cardio: makeHrvData(-20) }),
+        "Cut",
+      );
+      const hrvItem = items.find((i) => i.title.startsWith("HRV "));
+      expect(hrvItem).toBeDefined();
+      expect(hrvItem!.status).toBe("caution");
+      expect(hrvItem!.title).toContain("中度の疲労");
+    });
+
+    it("-25%以上低下 → 重度の疲労として status alert", () => {
+      const items = deriveWeeklyInsightItems(
+        makeData({ cardio: makeHrvData(-25) }),
+        "Cut",
+      );
+      const hrvItem = items.find((i) => i.title.startsWith("HRV "));
+      expect(hrvItem).toBeDefined();
+      expect(hrvItem!.status).toBe("alert");
+      expect(hrvItem!.title).toContain("重度の疲労");
+    });
+
+    it("HRV の偏差が算出できないときは InsightItem を生成しない", () => {
+      const items = deriveWeeklyInsightItems(
+        makeData({ cardio: makeHrvData(null) }),
+        "Cut",
+      );
+      expect(items.every((i) => !i.title.startsWith("HRV "))).toBe(true);
+    });
+  });
+
   // ── データ品質警告 ── //
+
 
   describe("データ品質警告 InsightItem", () => {
     it("weightMissingDays > 0 → caution item が生成される", () => {
