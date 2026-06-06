@@ -147,7 +147,7 @@ export function MonthlyBehaviorSummary({ stats }: MonthlyBehaviorSummaryProps) {
                           </span>
                         )}
                         {s.cardioStats.avgRhrBpm !== null && (
-                          <span className="whitespace-nowrap tabular-nums text-slate-400 dark:text-slate-500">
+                          <span className="whitespace-nowrap tabular-nums text-slate-600 dark:text-slate-300">
                             安静時 {formatMetricAverage(s.cardioStats.avgRhrBpm, "bpm")}
                           </span>
                         )}
