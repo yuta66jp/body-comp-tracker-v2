@@ -224,6 +224,25 @@ describe("Google Health daily metrics", () => {
         message: "Invalid argument in request.",
         details,
       });
+      expect(result.attempts).toEqual([
+        {
+          source: "reconcile",
+          ok: false,
+          status: 500,
+          message: "reconcile is temporarily unavailable",
+        },
+        {
+          source: "dailyRollUp",
+          ok: false,
+          status: 400,
+          message: "Invalid argument in request.",
+        },
+        {
+          source: "listFallback",
+          ok: true,
+          status: 200,
+        },
+      ]);
       expect(result.dataPoints).toEqual([
         {
           steps: {
@@ -280,6 +299,20 @@ describe("Google Health daily metrics", () => {
       source: "dailyRollUp",
       status: 403,
       message: "Required OAuth scope(s) are missing for this operation.",
+      attempts: [
+        {
+          source: "reconcile",
+          ok: false,
+          status: 500,
+          message: "reconcile is temporarily unavailable",
+        },
+        {
+          source: "dailyRollUp",
+          ok: false,
+          status: 403,
+          message: "Required OAuth scope(s) are missing for this operation.",
+        },
+      ],
     });
   });
 
@@ -305,6 +338,14 @@ describe("Google Health daily metrics", () => {
       source: "reconcile",
       status: 403,
       message: "Required OAuth scope(s) are missing for this operation.",
+      attempts: [
+        {
+          source: "reconcile",
+          ok: false,
+          status: 403,
+          message: "Required OAuth scope(s) are missing for this operation.",
+        },
+      ],
     });
   });
 

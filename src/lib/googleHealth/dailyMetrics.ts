@@ -33,6 +33,13 @@ export type GoogleHealthStepsError = {
   details?: unknown;
 };
 
+export type GoogleHealthStepsAttempt = {
+  source: GoogleHealthStepsError["source"];
+  ok: boolean;
+  status: number;
+  message?: string;
+};
+
 export type GoogleHealthStepsResult =
   | {
       ok: true;
@@ -41,6 +48,7 @@ export type GoogleHealthStepsResult =
       pageCount: number;
       dataPoints: unknown[];
       nextPageToken: string | null;
+      attempts: GoogleHealthStepsAttempt[];
     }
   | {
       ok: true;
@@ -49,6 +57,7 @@ export type GoogleHealthStepsResult =
       pageCount: number;
       rollupDataPoints: unknown[];
       nextPageToken: string | null;
+      attempts: GoogleHealthStepsAttempt[];
     }
   | {
       ok: true;
@@ -58,6 +67,7 @@ export type GoogleHealthStepsResult =
       dataPoints: unknown[];
       nextPageToken: string | null;
       fallbackFrom: GoogleHealthStepsError;
+      attempts: GoogleHealthStepsAttempt[];
     }
   | {
       ok: false;
@@ -67,6 +77,7 @@ export type GoogleHealthStepsResult =
       message: string;
       details?: unknown;
       fallbackFrom?: GoogleHealthStepsError;
+      attempts: GoogleHealthStepsAttempt[];
     };
 
 export type GoogleHealthDailyMetricsResult = {
@@ -404,6 +415,28 @@ async function parseGoogleHealthError(response: Response): Promise<Omit<GoogleHe
   }
 }
 
+function buildSuccessfulStepsAttempt(source: GoogleHealthStepsError["source"], status: number): GoogleHealthStepsAttempt {
+  return { source, ok: true, status };
+}
+
+function buildFailedStepsAttempt(error: GoogleHealthStepsError): GoogleHealthStepsAttempt {
+  return {
+    source: error.source,
+    ok: false,
+    status: error.status,
+    message: error.message,
+  };
+}
+
+function stepsErrorFromResult(result: Extract<GoogleHealthStepsResult, { ok: false }>): GoogleHealthStepsError {
+  return {
+    source: result.source,
+    status: result.status,
+    message: result.message,
+    ...(result.details !== undefined ? { details: result.details } : {}),
+  };
+}
+
 export async function fetchGoogleHealthStepsReconcile(args: {
   range: GoogleHealthPocRange;
   accessToken: string;
@@ -427,12 +460,16 @@ export async function fetchGoogleHealthStepsReconcile(args: {
 
     if (!response.ok) {
       const error = await parseGoogleHealthError(response);
+      const stepsError = {
+        source: "reconcile" as const,
+        status: response.status,
+        ...error,
+      };
       return {
         ok: false,
         dataType: "steps",
-        source: "reconcile",
-        status: response.status,
-        ...error,
+        ...stepsError,
+        attempts: [buildFailedStepsAttempt(stepsError)],
       };
     }
 
@@ -448,6 +485,7 @@ export async function fetchGoogleHealthStepsReconcile(args: {
     pageCount,
     dataPoints,
     nextPageToken,
+    attempts: [buildSuccessfulStepsAttempt("reconcile", 200)],
   };
 }
 
@@ -469,12 +507,16 @@ export async function fetchGoogleHealthStepsDailyRollup(args: {
 
   if (!response.ok) {
     const error = await parseGoogleHealthError(response);
+    const stepsError = {
+      source: "dailyRollUp" as const,
+      status: response.status,
+      ...error,
+    };
     return {
       ok: false,
       dataType: "steps",
-      source: "dailyRollUp",
-      status: response.status,
-      ...error,
+      ...stepsError,
+      attempts: [buildFailedStepsAttempt(stepsError)],
     };
   }
 
@@ -486,6 +528,7 @@ export async function fetchGoogleHealthStepsDailyRollup(args: {
     pageCount: 1,
     rollupDataPoints: Array.isArray(body.rollupDataPoints) ? body.rollupDataPoints : [],
     nextPageToken: body.nextPageToken && body.nextPageToken.length > 0 ? body.nextPageToken : null,
+    attempts: [buildSuccessfulStepsAttempt("dailyRollUp", response.status)],
   };
 }
 
@@ -495,11 +538,14 @@ export async function fetchGoogleHealthStepsListFallback(args: {
   fetchImpl?: FetchLike;
   maxPages?: number;
   fallbackFrom: GoogleHealthStepsError;
+  previousAttempts?: GoogleHealthStepsAttempt[];
 }): Promise<GoogleHealthStepsResult> {
   const { range, accessToken, fetchImpl = fetch, maxPages = 5, fallbackFrom } = args;
+  const previousAttempts = args.previousAttempts ?? [buildFailedStepsAttempt(fallbackFrom)];
   const dataPoints: unknown[] = [];
   let nextPageToken: string | null = null;
   let pageCount = 0;
+  let successStatus = 200;
 
   do {
     const response = await fetchImpl(buildGoogleHealthStepsListUrl(range, nextPageToken ?? undefined), {
@@ -513,16 +559,21 @@ export async function fetchGoogleHealthStepsListFallback(args: {
 
     if (!response.ok) {
       const error = await parseGoogleHealthError(response);
+      const stepsError = {
+        source: "listFallback" as const,
+        status: response.status,
+        ...error,
+      };
       return {
         ok: false,
         dataType: "steps",
-        source: "listFallback",
-        status: response.status,
-        ...error,
+        ...stepsError,
         fallbackFrom,
+        attempts: [...previousAttempts, buildFailedStepsAttempt(stepsError)],
       };
     }
 
+    successStatus = response.status;
     const body = await response.json() as ListResponse;
     dataPoints.push(...(Array.isArray(body.dataPoints) ? body.dataPoints : []));
     nextPageToken = body.nextPageToken && body.nextPageToken.length > 0 ? body.nextPageToken : null;
@@ -536,6 +587,7 @@ export async function fetchGoogleHealthStepsListFallback(args: {
     dataPoints,
     nextPageToken,
     fallbackFrom,
+    attempts: [...previousAttempts, buildSuccessfulStepsAttempt("listFallback", successStatus)],
   };
 }
 
@@ -548,17 +600,24 @@ export async function fetchGoogleHealthSteps(args: {
   if (reconcileResult.ok || reconcileResult.status === 403) return reconcileResult;
 
   const rollupResult = await fetchGoogleHealthStepsDailyRollup(args);
-  if (rollupResult.ok) return rollupResult;
-  if (rollupResult.status !== 400) return rollupResult;
+  const rollupAttempts = [...reconcileResult.attempts, ...rollupResult.attempts];
+  if (rollupResult.ok) {
+    return {
+      ...rollupResult,
+      attempts: rollupAttempts,
+    };
+  }
+  if (rollupResult.status !== 400) {
+    return {
+      ...rollupResult,
+      attempts: rollupAttempts,
+    };
+  }
 
   return fetchGoogleHealthStepsListFallback({
     ...args,
-    fallbackFrom: {
-      source: rollupResult.source,
-      status: rollupResult.status,
-      message: rollupResult.message,
-      ...(rollupResult.details !== undefined ? { details: rollupResult.details } : {}),
-    },
+    fallbackFrom: stepsErrorFromResult(rollupResult),
+    previousAttempts: rollupAttempts,
   });
 }
 
