@@ -8,10 +8,14 @@
 以下のユーザー入力データは `user_id` owner scoped にする。
 
 - `daily_logs`
-- `sleep_sessions`
+- `google_health_daily_metrics`
 - `settings`
 - `food_master`
 - `menu_master`
+
+以下の Google Health OAuth token 保存テーブルは private schema に置き、service role 専用で扱う。
+
+- `private.google_health_connections`
 
 以下のバッチ生成・派生データは `user_id` を持たないため owner scoped にはしないが、読み取りは authenticated session に限定する。
 
@@ -55,7 +59,6 @@ DECLARE
   owner_id UUID := '00000000-0000-0000-0000-000000000000';
 BEGIN
   UPDATE daily_logs     SET user_id = owner_id WHERE user_id IS NULL;
-  UPDATE sleep_sessions SET user_id = owner_id WHERE user_id IS NULL;
   UPDATE settings       SET user_id = owner_id WHERE user_id IS NULL;
   UPDATE food_master    SET user_id = owner_id WHERE user_id IS NULL;
   UPDATE menu_master    SET user_id = owner_id WHERE user_id IS NULL;
@@ -69,8 +72,6 @@ backfill 後は、以下の確認用 SQL で owner scoped 対象テーブルに 
 
 ```sql
 SELECT 'daily_logs' AS table_name, COUNT(*) AS null_user_id_count FROM daily_logs WHERE user_id IS NULL
-UNION ALL
-SELECT 'sleep_sessions', COUNT(*) FROM sleep_sessions WHERE user_id IS NULL
 UNION ALL
 SELECT 'settings', COUNT(*) FROM settings WHERE user_id IS NULL
 UNION ALL
@@ -87,9 +88,11 @@ SELECT 'menu_master', COUNT(*) FROM menu_master WHERE user_id IS NULL;
 - 未ログイン状態でアプリを開くとログイン画面だけが表示される。
 - ログイン後、通常画面が表示される。
 - `daily_logs` などの主要テーブルは、Supabase anon key だけでは読み書きできない。
+- `google_health_daily_metrics` はログイン済み session の自分の `user_id` 行だけを読み書きできる。
+- `private.google_health_connections` は service role 専用で、ブラウザや anon / authenticated role から直接読ませない。
 - `predictions` / `analytics_cache` / `career_logs` / `forecast_backtest_*` も anon key だけでは読み取りできない。
 - 自分の session で作成した行には `user_id` が入る。
-- CSV export / step import はログイン済み session の行だけを対象にする。
+- CSV export / Google Health 同期はログイン済み session の行だけを対象にする。
 
 ## 注意
 

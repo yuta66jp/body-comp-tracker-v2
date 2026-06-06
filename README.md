@@ -10,7 +10,8 @@
 
 - 体重
 - Macro（カロリー・タンパク質・脂質・炭水化物）
-- コンディション：就寝・起床時刻（→睡眠時間）・便通・トレーニング種別・勤務モード
+- コンディション：便通・トレーニング種別・勤務モード
+- Google Health：歩数・睡眠・深睡眠・HRV・安静時心拍数
 - メモ
 - ※ leg_flag は training_type から自動導出（直接入力なし）
 
@@ -127,8 +128,9 @@ ForecastChart（`src/components/charts/ForecastChart.tsx`）は 3 タブ（7日 
 | f_lag1 | 脂質（g） |
 | c_lag1 | 炭水化物（g） |
 
-`sleep_hours` / `had_bowel_movement` / `training_type` / `work_mode` / `leg_flag` 等の condition 系特徴量は
+`had_bowel_movement` / `training_type` / `work_mode` / `leg_flag` 等の condition 系特徴量は
 `feature_registry.py` に `active=False` で登録済み。データ蓄積後に段階投入する（後述）。
+旧 `sleep_hours` は #710 で `daily_logs` から削除済み。Google Health 睡眠を ML 特徴量に使う場合は、`google_health_daily_metrics.sleep_minutes` を前提に別途設計する。
 
 ### stability 指標について
 
@@ -253,8 +255,8 @@ E2E_REQUIRE_AUTH=true E2E_AUTH_EMAIL=you@example.com E2E_AUTH_PASSWORD='password
 
 condition 系特徴量は、欠損率・分布・有効行数への影響を確認しながら少数ずつ投入する。
 
-2026-04-27 時点では、2026-03-11 以降データの確認結果に基づき、
-`sleep_hours` を最初の condition 系特徴量として `active=True` に変更済み。
+旧 `sleep_hours` は #710 で削除済みのため、現行では active 化していない。
+Google Health 睡眠を分析に使う場合は、`google_health_daily_metrics.sleep_minutes` を batch 側へ取り込む別 Issue として扱う。
 
 その他の候補は `feature_registry.py` に将来候補として残している。
 
@@ -303,7 +305,7 @@ Client Components のデータ取得も `/api/client-data` 経由で server-side
 
 | テーブル群 | anon | authenticated | service_role |
 |---|---|---|---|
-| `daily_logs` / `sleep_sessions` / `food_master` / `menu_master` / `settings` | なし | 自分の `user_id` 行のみ SELECT / INSERT / UPDATE / DELETE | RLS バイパス |
+| `daily_logs` / `google_health_daily_metrics` / `food_master` / `menu_master` / `settings` | なし | 自分の `user_id` 行のみ SELECT / INSERT / UPDATE / DELETE | RLS バイパス |
 | `predictions` / `analytics_cache` | なし | SELECT のみ | RLS バイパス（ML バッチが書き込み） |
 | `career_logs` / `forecast_backtest_*` | なし | SELECT のみ | ALL（ML バッチが書き込み） |
 
@@ -321,10 +323,11 @@ Client Components のデータ取得も `/api/client-data` 経由で server-side
 ### /api/export エンドポイントについて
 
 `/api/export` はログイン済み session を要求し、`daily_logs` / `food_master` / `predictions` を CSV で返す。
+`daily_logs` export では `google_health_daily_metrics` を日付でマージし、Google Health 由来の歩数・睡眠・HRV・安静時心拍数も含める。
 ユーザー入力データは RLS により自分の `user_id` 行だけが返る。
 
-- `daily_logs` には体重・睡眠・腸の記録など個人データが含まれる
-- export / step import はログイン済み session の権限で実行する
+- `daily_logs` には体重・腸の記録など個人データが含まれる
+- Google Health 同期・export はログイン済み session の権限で実行する
 
 ### 将来 multi-user 対応を行う場合
 
