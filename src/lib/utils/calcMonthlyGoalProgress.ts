@@ -13,7 +13,7 @@ import {
   buildMonthlyGoalPlan,
   MAX_SAFE_MONTHLY_DELTA_KG,
 } from "@/lib/utils/monthlyGoalPlan";
-import type { MonthlyGoalOverride } from "@/lib/utils/monthlyGoalPlan";
+import type { MonthlyGoalOverride, MonthlyGoalWarning } from "@/lib/utils/monthlyGoalPlan";
 import { calcDaysLeft } from "@/lib/utils/date";
 import { resolveMonthlyPlanHistoryAnchor } from "@/lib/utils/monthlyPlanHistory";
 
@@ -80,8 +80,10 @@ export interface MonthlyGoalProgress {
   requiredPaceKgPerWeek: number | null;
   /** 状態判定 */
   state: MonthlyProgressState;
-  /** 今月の計画に warning が 1 件以上あるか */
+  /** Dashboard に表示すべき月次計画 warning があるか */
   hasWarnings: boolean;
+  /** Dashboard に表示する月次計画 warning 文言。表示対象がなければ null */
+  dashboardWarningLabel: string | null;
 }
 
 // ─── プライベートヘルパー ─────────────────────────────────────────────────────
@@ -144,6 +146,43 @@ function calcMonthlyProgressState(
   return "replan_recommended";
 }
 
+/**
+ * Dashboard の「今月目標進捗」に出す warning 文言を返す。
+ *
+ * 設定画面は詳細確認用として全 warning を表示するが、Dashboard では
+ * 当月以降の再計画・確認につながるものだけを 1 件に絞って表示する。
+ */
+export function getDashboardMonthlyGoalWarningLabel(
+  warnings: MonthlyGoalWarning[],
+  today: string
+): string | null {
+  const todayMonth = today.slice(0, 7);
+  const appliesToCurrentOrFutureMonth = (w: MonthlyGoalWarning): boolean =>
+    typeof w.month === "string" && w.month >= todayMonth;
+
+  if (
+    warnings.some(
+      (w) => w.code === "WRONG_DIRECTION" && appliesToCurrentOrFutureMonth(w)
+    )
+  ) {
+    return "⚠ 月次目標の方向を確認";
+  }
+
+  if (
+    warnings.some(
+      (w) => w.code === "HIGH_MONTHLY_DELTA" && appliesToCurrentOrFutureMonth(w)
+    )
+  ) {
+    return "⚠ 月間目標変化量が大きい";
+  }
+
+  if (warnings.some((w) => w.code === "DEADLINE_TOO_CLOSE")) {
+    return "⚠ 期限まで残り1ヶ月以下";
+  }
+
+  return null;
+}
+
 // ─── メイン計算関数 ──────────────────────────────────────────────────────────
 
 /**
@@ -192,6 +231,7 @@ export function calcMonthlyGoalProgress(input: {
     requiredPaceKgPerWeek: null,
     state: "unavailable",
     hasWarnings: false,
+    dashboardWarningLabel: null,
   };
 
   // 前提条件チェック (いずれか欠損 → 計算不能)
@@ -254,6 +294,10 @@ export function calcMonthlyGoalProgress(input: {
 
   const isCut = phase !== "Bulk";
   const state = calcMonthlyProgressState(deltaKg, requiredPaceKgPerWeek, isCut);
+  const dashboardWarningLabel = getDashboardMonthlyGoalWarningLabel(
+    plan.warnings,
+    today
+  );
 
   return {
     hasData: true,
@@ -264,6 +308,7 @@ export function calcMonthlyGoalProgress(input: {
     weeksToMonthEnd,
     requiredPaceKgPerWeek,
     state,
-    hasWarnings: plan.warnings.length > 0,
+    hasWarnings: dashboardWarningLabel !== null,
+    dashboardWarningLabel,
   };
 }

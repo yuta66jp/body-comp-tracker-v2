@@ -14,6 +14,7 @@ import {
   calcMonthlyGoalProgress,
   getMonthEndDate,
   calcDaysToMonthEnd,
+  getDashboardMonthlyGoalWarningLabel,
   MONTHLY_ON_TRACK_PACE_KG_WEEK,
   MONTHLY_REPLAN_PACE_KG_WEEK,
 } from "./calcMonthlyGoalProgress";
@@ -338,10 +339,112 @@ describe("calcMonthlyGoalProgress — 月末当日 (daysToMonthEnd = 0)", () => 
   });
 });
 
-// ─── calcMonthlyGoalProgress — hasWarnings ───────────────────────────────────
+// ─── getDashboardMonthlyGoalWarningLabel ─────────────────────────────────────
 
-describe("calcMonthlyGoalProgress — hasWarnings", () => {
-  it("contestDate が今月末 → DEADLINE_TOO_CLOSE 警告あり → hasWarnings: true", () => {
+describe("getDashboardMonthlyGoalWarningLabel", () => {
+  const today = "2026-07-15";
+
+  it("表示対象 warning がなければ null", () => {
+    expect(getDashboardMonthlyGoalWarningLabel([], today)).toBeNull();
+  });
+
+  it("ALREADY_AT_GOAL のみでは表示しない", () => {
+    expect(
+      getDashboardMonthlyGoalWarningLabel([{ code: "ALREADY_AT_GOAL" }], today)
+    ).toBeNull();
+  });
+
+  it("MANUAL_GOAL_MISMATCH のみでは表示しない", () => {
+    expect(
+      getDashboardMonthlyGoalWarningLabel(
+        [{ code: "MANUAL_GOAL_MISMATCH" }],
+        today
+      )
+    ).toBeNull();
+  });
+
+  it("DEADLINE_TOO_CLOSE は表示する", () => {
+    expect(
+      getDashboardMonthlyGoalWarningLabel(
+        [{ code: "DEADLINE_TOO_CLOSE" }],
+        today
+      )
+    ).toBe("⚠ 期限まで残り1ヶ月以下");
+  });
+
+  it("過去月の HIGH_MONTHLY_DELTA は表示しない", () => {
+    expect(
+      getDashboardMonthlyGoalWarningLabel(
+        [
+          {
+            code: "HIGH_MONTHLY_DELTA",
+            month: "2026-06",
+            value: 2.5,
+            threshold: 2.0,
+          },
+        ],
+        today
+      )
+    ).toBeNull();
+  });
+
+  it("当月以降の HIGH_MONTHLY_DELTA は表示する", () => {
+    expect(
+      getDashboardMonthlyGoalWarningLabel(
+        [
+          {
+            code: "HIGH_MONTHLY_DELTA",
+            month: "2026-07",
+            value: 2.5,
+            threshold: 2.0,
+          },
+        ],
+        today
+      )
+    ).toBe("⚠ 月間目標変化量が大きい");
+  });
+
+  it("過去月の WRONG_DIRECTION は表示しない", () => {
+    expect(
+      getDashboardMonthlyGoalWarningLabel(
+        [{ code: "WRONG_DIRECTION", month: "2026-06" }],
+        today
+      )
+    ).toBeNull();
+  });
+
+  it("当月以降の WRONG_DIRECTION は表示する", () => {
+    expect(
+      getDashboardMonthlyGoalWarningLabel(
+        [{ code: "WRONG_DIRECTION", month: "2026-08" }],
+        today
+      )
+    ).toBe("⚠ 月次目標の方向を確認");
+  });
+
+  it("複数 warning では WRONG_DIRECTION を最優先する", () => {
+    expect(
+      getDashboardMonthlyGoalWarningLabel(
+        [
+          { code: "DEADLINE_TOO_CLOSE" },
+          {
+            code: "HIGH_MONTHLY_DELTA",
+            month: "2026-07",
+            value: 2.5,
+            threshold: 2.0,
+          },
+          { code: "WRONG_DIRECTION", month: "2026-07" },
+        ],
+        today
+      )
+    ).toBe("⚠ 月次目標の方向を確認");
+  });
+});
+
+// ─── calcMonthlyGoalProgress — dashboard warning ─────────────────────────────
+
+describe("calcMonthlyGoalProgress — dashboard warning", () => {
+  it("contestDate が今月末 → DEADLINE_TOO_CLOSE → dashboard warning 表示", () => {
     const result = calcMonthlyGoalProgress({
       contestDate: "2026-07-31",
       targetWeight: 73.8,
@@ -353,9 +456,26 @@ describe("calcMonthlyGoalProgress — hasWarnings", () => {
       phase: "Cut",
     });
     expect(result.hasWarnings).toBe(true);
+    expect(result.dashboardWarningLabel).toBe("⚠ 期限まで残り1ヶ月以下");
   });
 
-  it("余裕のある計画 → hasWarnings: false", () => {
+  it("ALREADY_AT_GOAL のみなら dashboard warning は表示しない", () => {
+    const result = calcMonthlyGoalProgress({
+      contestDate: "2026-12-31",
+      targetWeight: 75.0,
+      monthlyPlanStartMonth: null,
+      monthlyPlanStartWeight: null,
+      monthlyPlanOverrides: null,
+      comparisonWeight: 75.0,
+      today: "2026-07-15",
+      phase: "Cut",
+    });
+    expect(result.state).toBe("achieved");
+    expect(result.hasWarnings).toBe(false);
+    expect(result.dashboardWarningLabel).toBeNull();
+  });
+
+  it("余裕のある計画 → dashboard warning なし", () => {
     // 6ヶ月, 月間変化 ≈ -0.33 kg → 警告なし
     const result = calcMonthlyGoalProgress({
       contestDate: "2026-12-31",
@@ -368,6 +488,7 @@ describe("calcMonthlyGoalProgress — hasWarnings", () => {
       phase: "Cut",
     });
     expect(result.hasWarnings).toBe(false);
+    expect(result.dashboardWarningLabel).toBeNull();
   });
 });
 
