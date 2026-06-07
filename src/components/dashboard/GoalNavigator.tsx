@@ -564,9 +564,11 @@ export function GoalNavigator({
               </span>
             )}
 
-            {/* 警告あり補足 */}
-            {monthlyGoalProgress.hasWarnings && (
-              <span className="text-[10px] text-amber-600">⚠ 計画に警告あり</span>
+            {/* 月次計画の注意補足 */}
+            {monthlyGoalProgress.dashboardWarningLabel && (
+              <span className="text-[10px] text-amber-600">
+                {monthlyGoalProgress.dashboardWarningLabel}
+              </span>
             )}
           </div>
         </div>
