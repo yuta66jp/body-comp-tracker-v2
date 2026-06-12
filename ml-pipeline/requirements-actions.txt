@@ -1,0 +1,9 @@
+# Runtime dependencies for GitHub Actions ML workflows.
+# PyTorch is installed separately from the official CPU wheel index.
+neuralprophet==0.9.*
+xgboost==2.*
+scikit-learn>=1.3
+pandas==2.*
+numpy==1.*
+supabase==2.*
+python-dotenv==1.*

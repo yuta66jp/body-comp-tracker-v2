@@ -55,10 +55,12 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-          cache: pip
+
+      - name: Install PyTorch CPU
+        run: python -m pip install --no-cache-dir torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
 
       - name: Install dependencies
-        run: pip install -r ml-pipeline/requirements.txt
+        run: python -m pip install --no-cache-dir -r ml-pipeline/requirements-actions.txt
 
       # workflow_dispatch 時のみ追加 CLI 引数を組み立てる。
       # schedule 実行時は github.event_name == "schedule" のため EXTRA_ARGS は空になり、
