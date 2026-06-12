@@ -17,7 +17,7 @@
  * daily_logs 更新:
  *   /             fetchDashboardDailyLogs / fetchEnrichedLogs
  *   /history      fetchWeightLogs
- *   /macro        fetchMacroDailyLogs / fetchLatestUpdatedAt / fetchFactorAnalysis
+ *   /macro        fetchMacroDailyLogs
  *   /tdee         fetchTdeeDailyLogs / fetchLatestUpdatedAt / fetchEnrichedLogs
  *   /settings     fetchDailyLogsForSettings (データ品質セクション)
  *

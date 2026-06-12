@@ -1,7 +1,6 @@
 import {
   getAnalyticsAvailability,
   getEnrichedLogsAvailability,
-  getXgboostAvailability,
   errorAvailability,
   unavailableAvailability,
 } from "./status";
@@ -143,28 +142,5 @@ describe("getEnrichedLogsAvailability", () => {
     const r = getEnrichedLogsAvailability("2026-03-12T00:00:00Z", "2026-03-14");
     expect(r.status).toBe("stale");
     expect(r.staleDays).toBe(2);
-  });
-});
-
-describe("getXgboostAvailability", () => {
-  it("getAnalyticsAvailability と同じ判定を返す（fresh）", () => {
-    const r = getXgboostAvailability("2026-03-14T00:00:00Z", "2026-03-14");
-    expect(r.status).toBe("fresh");
-  });
-
-  it("cacheUpdatedAt が null → unavailable", () => {
-    const r = getXgboostAvailability(null, "2026-03-14");
-    expect(r.status).toBe("unavailable");
-  });
-
-  it("latestRawLogDate が undefined (取得失敗) → unavailable", () => {
-    const r = getXgboostAvailability("2026-03-14T12:00:00Z", undefined);
-    expect(r.status).toBe("unavailable");
-  });
-
-  it("stale 判定が伝播する", () => {
-    const r = getXgboostAvailability("2026-03-10T00:00:00Z", "2026-03-14");
-    expect(r.status).toBe("stale");
-    expect(r.staleDays).toBe(4);
   });
 });

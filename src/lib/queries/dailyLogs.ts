@@ -13,7 +13,7 @@
  * |---|---|---|
  * | Client SWR hook    | `src/lib/hooks/useDailyLogs.ts`    | MealLogger フォーム hydration 用クライアント全列取得 |
  * | CSV export route   | `src/app/api/export/route.ts`      | CSV ダウンロード用全列取得（全列が必要）              |
- * | ML/batch (Python)  | `ml-pipeline/enrich.py`, `analyze.py` | TDEE・因子分析バッチ。supabase-py 経由で直接読む    |
+ * | ML/batch (Python)  | `ml-pipeline/enrich.py`              | TDEE 推定バッチ。supabase-py 経由で直接読む          |
  *
  * front 側の Server Component ページがこれらの経路を使わないようにすること。
  * 新しい画面を追加する場合は、必要な列を絞った専用 query をここに追加すること。
@@ -25,7 +25,7 @@
  * | fetchDashboardDailyLogs()   | 16列（note・leg_flag 除く）  | Dashboard 専用 (#165)                | QueryResult |
  * | fetchMacroDailyLogs(days)   | 6列・DESC LIMIT days         | Macro 専用 (#166)                    | QueryResult |
  * | fetchTdeeDailyLogs(limit)   | 3列・DESC LIMIT limit        | TDEE raw fallback 専用 (#166)        | QueryResult |
- * | fetchLatestUpdatedAt()      | updated_at 1行               | stale 判定用（Macro/TDEE共用）       | ベストエフォート |
+ * | fetchLatestUpdatedAt()      | updated_at 1行               | TDEE stale 判定用                    | ベストエフォート |
  * | fetchWeightLogs()           | log_date, weight             | History ページ補助                   | ベストエフォート |
  * | fetchDailyLogsForSettings() | log_date, weight, calories   | Settings DataQuality 計算            | QueryResult |
  *
@@ -171,12 +171,12 @@ export async function fetchTdeeDailyLogs(limit = 180): Promise<QueryResult<TdeeD
 /**
  * daily_logs の最終更新日時を取得する。
  *
- * Macro / TDEE ページの analytics_cache stale 判定用。
+ * TDEE ページの analytics_cache stale 判定用。
  * MAX(log_date) ではなく MAX(updated_at) を使うことで、
  * 過去日ログの更新でも正しく stale を検知できる。
  *
  * フォールバック: エラー時は null を返す（ベストエフォート）。
- * stale 判定が null になると fetchEnrichedLogs / fetchFactorAnalysis が
+ * stale 判定が null になると fetchEnrichedLogs が
  * キャッシュを常に fresh とみなすため、最悪ケースでも表示は崩れない。
  */
 export async function fetchLatestUpdatedAt(): Promise<string | null> {

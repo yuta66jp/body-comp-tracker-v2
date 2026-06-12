@@ -3,11 +3,8 @@
 # Used by .github/workflows/ci.yml python-test job.
 #
 # 依存の整理状況:
-#   analyze.py: xgboost は run_importance() 内で遅延 import、
-#               supabase は main() 内で遅延 import 済み。
 #   enrich.py:  supabase は main() 内で遅延 import 済み。
-#               → import analyze / import enrich ともに supabase 不要になった。
+#               → import enrich は supabase 不要になった。
 pandas==2.*
-xgboost==2.*
 scikit-learn>=1.3
 pytest

@@ -41,13 +41,6 @@ class TestImportBoundary:
         import predict  # noqa: F401 — import できることを確認するだけ
         assert "predict" in sys.modules
 
-    def test_import_analyze_without_supabase(self):
-        """import analyze が supabase なしで成功する。"""
-        if "analyze" in sys.modules:
-            del sys.modules["analyze"]
-        import analyze  # noqa: F401
-        assert "analyze" in sys.modules
-
     def test_import_enrich_without_supabase(self):
         """import enrich が supabase なしで成功する。"""
         if "enrich" in sys.modules:

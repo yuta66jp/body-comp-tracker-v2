@@ -38,9 +38,6 @@ jobs:
       - name: Run predict
         run: python ml-pipeline/predict.py
 
-      - name: Run analyze
-        run: python ml-pipeline/analyze.py
-
       - name: Notify failure via GitHub Issue
         if: failure()
         uses: actions/github-script@v8
