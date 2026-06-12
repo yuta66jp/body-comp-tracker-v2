@@ -8,7 +8,7 @@
  * - unavailable: 「未計算 — <unavailableLabel>」
  * - error:       「取得エラー — <errorLabel>」
  *
- * 使用箇所: TdeeKpiCard, WeeklyReviewCard エネルギーバランス, FactorAnalysis ヘッダー
+ * 使用箇所: TdeeKpiCard, WeeklyReviewCard エネルギーバランス
  */
 import type { AnalyticsAvailability } from "@/lib/analytics/status";
 

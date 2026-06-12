@@ -7,7 +7,7 @@
  * InsightItem / InsightStatus 型はここが正規定義源。
  * InsightCard.tsx / TdeeKpiCard.tsx はここからインポートする。
  *
- * #360 で追加。将来の AI 因子分析・condition 系所見にも流用可能。
+ * #360 で追加。condition 系所見にも流用可能。
  */
 
 import type { WeeklyReviewData } from "./calcWeeklyReview";

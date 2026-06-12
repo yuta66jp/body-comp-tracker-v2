@@ -111,34 +111,12 @@ ForecastChart（`src/components/charts/ForecastChart.tsx`）は 3 タブ（7日 
 - batch 側で算出・平滑化した canonical な TDEE 値を表示する前提
 - **手動更新ボタン**: ml-daily バッチ実行後の即時反映用。保存済み `analytics_cache` の再表示であり、再計算ではない
 
-### AI 因子分析
+### 短期体重要因分析の扱い
 
-- XGBoost による翌日体重変化量への特徴量重要度（解釈補助テキストあり）
-- **因果を断定するものではなく、振り返り補助として使用する**
-- サンプル数・欠損状況によって解釈に注意が必要
-- データ不足時は警告 / 表示抑制を行う
-
-**現在の active 特徴量（feature_registry.py で管理）**
-
-| 特徴量 | 説明 |
-|---|---|
-| cal_lag1 | 摂取 kcal（当日） |
-| rolling_cal_7 | 摂取 kcal（週平均） |
-| p_lag1 | タンパク質（g） |
-| f_lag1 | 脂質（g） |
-| c_lag1 | 炭水化物（g） |
-
-`had_bowel_movement` / `training_type` / `work_mode` / `leg_flag` 等の condition 系特徴量は
-`feature_registry.py` に `active=False` で登録済み。データ蓄積後に段階投入する（後述）。
-旧 `sleep_hours` は #710 で `daily_logs` から削除済み。Google Health 睡眠を ML 特徴量に使う場合は、`google_health_daily_metrics.sleep_minutes` を前提に別途設計する。
-
-### stability 指標について
-
-- **stability** は feature importance がデータの微小な変動でどの程度変わるかを示す補助指標
-- **high**: ほぼ安定して同じ特徴量が重要と判定される
-- **medium**: ある程度安定しているが、解釈には注意が必要
-- **low**: データの揺らぎによって重要度が変わりやすく、強い解釈は避ける
-- importance が高くても stability が低い場合、偶然の相関や小サンプルの影響を受けている可能性がある
+- XGBoost による AI 因子分析は #720 で削除済み
+- `analytics_cache` の `xgboost_importance` は今後 read / write しない
+- SHAP ベース説明は将来課題ではなく、実装しない方針とする
+- 今後の分析軸は TDEE、予測精度、データ品質に寄せる
 
 ### 予測精度ページ（`/forecast-accuracy`）
 
@@ -199,8 +177,6 @@ ForecastChart（`src/components/charts/ForecastChart.tsx`）は 3 タブ（7日 
 
 | 項目 | 内容 |
 |---|---|
-| feature registry | `ml-pipeline/feature_registry.py` が特徴量定義の単一ソース。analyze.py は `active_feature_cols()` / `active_feature_labels()` を呼ぶ。FEATURE_COLS / FEATURE_LABELS の直書き廃止 |
-| featureLabels.ts 同期 | `ACTIVE_FEATURE_NAMES as const` + `ACTIVE_FEATURE_EXPLANATIONS` で TypeScript がコンパイル時に説明マップの完全性を保証。`test_feature_registry.py` の `TestActiveFeatureNamesSync` が Python 側 `active_feature_names()` と TS 側 `ACTIVE_FEATURE_NAMES` の一致をテストで自動検知 |
 | backtest 実験基盤 | `backtest.py` が CLI オプション（`--series-type` / `--max-origins` / `--origin-step-days` / `--horizons` / `--feature-set`）で実験条件を制御可能。デフォルト設定を変えずに条件比較できる |
 | TDEE batch canonical | フロント再計算を廃止。`enrich.py` が算出した値を canonical として表示 |
 | 読み取りエラー区別 | `QueryResult<T>` discriminated union（`kind: "ok"` / `kind: "error"`）で、DB エラーと正常な空状態を型レベルで分離。主要クエリ（daily_logs / career_logs / settings 系）に適用し、各ページで error banner を表示しつつ graceful degradation を維持する |
@@ -218,7 +194,7 @@ ForecastChart（`src/components/charts/ForecastChart.tsx`）は 3 タブ（7日 
 | 項目 | 内容 |
 |---|---|
 | TypeScript | lint / tsc / jest / build を CI で自動検証 |
-| Python | pytest で `test_analyze.py` / `test_enrich.py` / `test_feature_registry.py` / `test_backtest.py` を CI 監視 |
+| Python | pytest で `test_predict.py` / `test_enrich.py` / `test_backtest.py` を CI 監視 |
 | E2E smoke | Playwright でログイン画面と認証済み主要画面を読み取り専用で検証 |
 
 #### E2E smoke の CI secrets
@@ -249,31 +225,14 @@ E2E_REQUIRE_AUTH=true E2E_AUTH_EMAIL=you@example.com E2E_AUTH_PASSWORD='password
 
 本プロジェクトは主要な実装フェーズを一旦完了し、現在は運用期間に入っています。
 
-運用期間の目的、想定期間、condition 系特徴量の段階投入、SHAP ベース説明への移行、read projection / window 最適化の扱いについては `docs/project-status.md` を参照してください。
+運用期間の目的、想定期間、短期体重要因分析を扱わない方針、予測モデル改善、read projection / window 最適化の扱いについては `docs/project-status.md` を参照してください。
 
-### condition 系特徴量の段階投入
+### 短期体重要因分析・SHAP の非採用
 
-condition 系特徴量は、欠損率・分布・有効行数への影響を確認しながら少数ずつ投入する。
+短期体重の要因分析は実運用で確認しないため、XGBoost による AI 因子分析は #720 で削除済み。
+SHAP ベース説明も将来課題ではなく、実装しない方針とする。
 
-旧 `sleep_hours` は #710 で削除済みのため、現行では active 化していない。
-Google Health 睡眠を分析に使う場合は、`google_health_daily_metrics.sleep_minutes` を batch 側へ取り込む別 Issue として扱う。
-
-その他の候補は `feature_registry.py` に将来候補として残している。
-
-- `had_bowel_movement` / `leg_flag`: 次の候補
-- `is_cheat_day` / `is_refeed_day` / `is_eating_out`: 対象期間では全件 `false` のため継続観測
-- `training_type` / `work_mode`: 対象期間では全欠損のため投入保留
-
-詳細は `docs/project-status.md` を参照。
-
-### SHAP ベース説明への移行（将来課題）
-
-現在の因子分析は XGBoost の `feature_importances_`（重要度の大きさのみ）を使用している。
-SHAP（各予測への寄与量）は個別サンプルへの説明力が高く、将来の移行候補として
-`feature_registry.py` の `encoder_hint` に想定設計を残している。
-
-現時点では未実装。移行する場合は `analyze.py` の `run_importance()` を差し替える想定で、
-`feature_registry.py` 自体は変更不要な設計になっている。
+今後は TDEE、予測精度、データ品質、記録継続性を主な分析・改善対象にする。
 
 ### read projection / window 最適化（現時点では保留）
 
@@ -344,7 +303,7 @@ Client Components のデータ取得も `/api/client-data` 経由で server-side
 | Frontend | Next.js (App Router) + TypeScript + Tailwind CSS 4 |
 | Database | Supabase (PostgreSQL + RLS) |
 | Charts | Recharts |
-| ML batch | Python — NeuralProphet, XGBoost (GitHub Actions, 日次 cron) |
+| ML batch | Python — NeuralProphet / TDEE enrich (GitHub Actions, 日次 cron) |
 
 ## ローカル開発
 

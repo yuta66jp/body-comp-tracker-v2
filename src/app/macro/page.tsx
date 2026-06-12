@@ -3,7 +3,6 @@ import { MacroKpiCards } from "@/components/macro/MacroKpiCards";
 import { MacroStackedChart } from "@/components/macro/MacroStackedChart";
 import { MacroDailyTable } from "@/components/macro/MacroDailyTable";
 import { MacroPfcSummary } from "@/components/macro/MacroPfcSummary";
-import { FactorAnalysis, FactorAnalysisPlaceholder } from "@/components/charts/FactorAnalysis";
 import { PageShell } from "@/components/ui/PageShell";
 import { TableScroll } from "@/components/ui/TableScroll";
 import {
@@ -13,24 +12,20 @@ import {
   calcPfcKcalRatio,
 } from "@/lib/utils/calcMacro";
 import type { MacroTargets } from "@/lib/utils/calcMacro";
-import { fetchMacroDailyLogs, fetchLatestUpdatedAt } from "@/lib/queries/dailyLogs";
+import { fetchMacroDailyLogs } from "@/lib/queries/dailyLogs";
 import { fetchMacroTargets, fetchSettings } from "@/lib/queries/settings";
-import { fetchFactorAnalysis } from "@/lib/queries/analytics";
 
 export const revalidate = 3600;
 
 export default async function MacroPage() {
-  const [logsResult, targetsResult, settingsResult, latestUpdatedAt] = await Promise.all([
+  const [logsResult, targetsResult, settingsResult] = await Promise.all([
     fetchMacroDailyLogs(60),
     fetchMacroTargets(),
     fetchSettings(),
-    fetchLatestUpdatedAt(),
   ]);
 
   // QueryResult を展開。エラー時はフォールバック値で graceful degradation を維持する。
   const logs = logsResult.kind === "ok" ? logsResult.data : [];
-
-  const factorResult = await fetchFactorAnalysis(latestUpdatedAt);
 
   const { calTarget, ...targets }: MacroTargets & { calTarget: number | null } = targetsResult;
   const currentPhase = settingsResult.kind === "ok" ? settingsResult.data.currentPhase : null;
@@ -68,17 +63,6 @@ export default async function MacroPage() {
           <TableScroll>
             <MacroDailyTable data={dailyData} calTarget={calTarget} />
           </TableScroll>
-
-          {factorResult.payload !== null ? (
-            <FactorAnalysis
-              data={factorResult.payload}
-              meta={factorResult.meta}
-              updatedAt={factorResult.updatedAt ?? ""}
-              analyticsAvailability={factorResult.availability}
-            />
-          ) : (
-            <FactorAnalysisPlaceholder analyticsAvailability={factorResult.availability} />
-          )}
         </div>
       )}
 

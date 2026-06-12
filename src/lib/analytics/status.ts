@@ -101,17 +101,3 @@ export function getEnrichedLogsAvailability(
 ): AnalyticsAvailability {
   return getAnalyticsAvailability(cacheUpdatedAt, latestRawLogDate);
 }
-
-/**
- * xgboost_importance キャッシュの新鮮さを判定する。
- * 依存: rawLogs の MAX(updated_at) (ISO 8601)
- *
- * latestRawLogDate ではなく MAX(updated_at) を使うことで、
- * 過去日の行を編集した場合でも stale を正しく検知できる。
- */
-export function getXgboostAvailability(
-  cacheUpdatedAt: string | null,
-  latestRawLogDate: string | null | undefined
-): AnalyticsAvailability {
-  return getAnalyticsAvailability(cacheUpdatedAt, latestRawLogDate);
-}

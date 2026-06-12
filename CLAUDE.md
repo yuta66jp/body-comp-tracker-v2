@@ -15,12 +15,12 @@
 ```
 Frontend:  Next.js 16 (App Router) + TypeScript → Vercel (Free Tier)
 Database:  Supabase (PostgreSQL + RLS)
-ML Batch:  Python (NeuralProphet + XGBoost) → GitHub Actions (日次 cron)
+ML Batch:  Python (NeuralProphet + TDEE enrich) → GitHub Actions (日次 cron)
 ```
 
 ### Core Principle
 **「計算」と「表示」の完全分離**
-- NeuralProphet/XGBoost の学習処理は GitHub Actions の日次バッチで実行
+- NeuralProphet の学習処理と TDEE enrich は GitHub Actions の日次バッチで実行
 - フロントエンドは事前計算済みの結果を Supabase から取得して描画するだけ
 - Python バックエンドサーバーは不要。CRUD は supabase-js で直接実行
 - TDEE / analytics の値は batch canonical を参照する。フロントで再計算しない
@@ -59,7 +59,7 @@ body-comp-tracker-v2/
 │   │   └── api/export/route.ts     # CSV エクスポート
 │   ├── components/                 # UIコンポーネント
 │   │   ├── dashboard/              # KpiCards, GoalNavigator, WeeklyReviewCard, LogsAndSummaryTabs, MonthlyCalendar, MonthlyBehaviorSummary, MobileMealLoggerSheet
-│   │   ├── charts/                 # ForecastChart, FactorAnalysis
+│   │   ├── charts/                 # ForecastChart, BacktestResults など
 │   │   ├── tdee/                   # TdeeKpiCard, TdeeDetailChart, TdeeDailyTable
 │   │   ├── macro/                  # MacroKpiCards, MacroPfcSummary, MacroStackedChart
 │   │   ├── settings/               # SettingsForm (+ integration test), ThemeSection
@@ -93,8 +93,6 @@ body-comp-tracker-v2/
 │   │       ├── calcWeeklyReview.ts # 週次レビュー + 停滞検知
 │   │       ├── calcTdee.ts         # 理論 TDEE / 信頼度 / 解釈補助
 │   │       ├── calcMacro.ts        # Macro KPI 集計
-│   │       ├── featureLabels.ts    # AI 因子分析の特徴量表示ラベル・説明 (ACTIVE_FEATURE_NAMES など)
-│   │       ├── factorAnalysisUtils.ts # 因子分析結果の型定義・表示整形ユーティリティ
 │   │       ├── monthlyGoalPlan.ts  # buildMonthlyGoalPlan — 月次目標計画の canonical 計算ロジック
 │   │       ├── calcMonthlyGoalProgress.ts # calcMonthlyGoalProgress — 当月進捗ゲージ用計算
 │   │       ├── monthlyGoalVisualization.ts # 月次計画 vs 実績の表示用 adapter / selector
@@ -107,11 +105,9 @@ body-comp-tracker-v2/
 │   └── ...                         # その他設計メモ
 ├── ml-pipeline/                    # Python (GitHub Actions 専用)
 │   ├── predict.py                  # NeuralProphet バッチ予測
-│   ├── analyze.py                  # XGBoost 因子分析 (feature_registry 経由で FEATURE_COLS を参照)
 │   ├── enrich.py                   # TDEE計算・データ加工 (canonical source)
 │   ├── backtest.py                 # 体重予測モデルの walk-forward 精度評価 (CLI で実験条件を制御)
-│   ├── feature_registry.py         # 因子分析 特徴量定義の単一ソース (active/inactive フラグ付き)
-│   ├── requirements.txt            # Python依存 (neuralprophet, xgboost, supabase)
+│   ├── requirements.txt            # Python依存 (neuralprophet, supabase)
 │   └── requirements-ci.txt         # CI用軽量依存 (supabase 不要)
 ├── .github/workflows/
 │   ├── ml-daily.yml                # 日次バッチ (cron: 毎日 AM 3:00 JST)
@@ -138,7 +134,6 @@ body-comp-tracker-v2/
 
 ### ML Pipeline (Python)
 - neuralprophet (体重予測)
-- xgboost (因子分析)
 - pandas, numpy
 - supabase-py (結果書き込み。main() 内で遅延 import)
 
@@ -352,9 +347,7 @@ body-comp-tracker-v2/
   - **14日平均（`avg_tdee_14d`）= 基準線**。日次ノイズに強く、判断用 KPI（収支差分・理論変化・収支の解釈・Dashboard の「摂取 − 推定TDEE」）はこれを参照する
   - **7日平均（`avg_tdee_7d`）= 短期変化確認**。`/tdee` KPI カードの補助表示でのみ使う
   - どちらも canonical は `enrich.py` 出力。フロントで再集計しない
-- AI 因子分析は因果ではなく振り返り補助として扱う
-  - サンプル不足・欠損時は警告や代替表示を優先する
-  - stability は importance の補助指標であり、同義ではない
+- 短期体重の要因分析は扱わない。XGBoost 因子分析と SHAP ベース説明は #720 で非採用方針とする
 - fallback 可能な画面はページ全体をブロックせず、未計算項目だけ unavailable にする
 - NaN や意味不明な空欄をそのまま露出しない
 
@@ -364,40 +357,28 @@ body-comp-tracker-v2/
 - **手動 refresh ボタン**（#587）: ml-daily バッチは GitHub Actions から Supabase を直接更新するため Next.js の ISR キャッシュは自動無効化されない。
   `/tdee` / `/forecast-accuracy` に配置した refresh ボタン（`revalidatePath()` + `router.refresh()`）で定期・手動バッチを問わずユーザー起点で即時反映する。
   revalidate 集約は `src/lib/cache/revalidate.ts`
-- `analyze.py` / `enrich.py` / `predict.py`: supabase は `main()` 内で遅延 import — トップレベルに戻さない
+- `enrich.py` / `predict.py`: supabase は `main()` 内で遅延 import — トップレベルに戻さない
 - キャッシュ: stale / unavailable の状態定義（`analytics_cache` の `status` 区分）を崩さない
   - `AnalyticsAvailability` 型 (`src/lib/analytics/status.ts`) が状態の単一定義源
 - nullable / 三状態の意味論（未操作 / 明示値 / 明示クリア）を後退させない
-- **feature_registry.py が特徴量定義の単一ソース**。`analyze.py` は `active_feature_cols()` / `active_feature_labels()` / `active_feature_names()` を呼ぶ。FEATURE_COLS / FEATURE_LABELS の直書き禁止
-- **featureLabels.ts との同期は `TestActiveFeatureNamesSync`（`test_feature_registry.py`）で自動検知**
-  - Python 側 `active_feature_names()` と TS 側 `ACTIVE_FEATURE_NAMES` の一致を pytest が検証する
-  - active 特徴量を変更したときは両ファイルを同時に更新しないとテストが失敗する
-- `compute_meta()` は `feature_names` / `feature_labels` を payload に含めてフロントの fallback を担保する
 
 ## 非目標
 - 予測モデルの大規模刷新を前提にしない
 - 新規入力項目を無制限に増やさない
 - 画面を数値だらけにしない
 - 説明なしに指標を追加しない
+- 短期体重の要因分析や SHAP 説明を再導入しない
 - 見た目改善のためにロジック整合性を壊さない
 - README と矛盾する説明を残さない
 
 ## 今後の課題
 
-**直近の基盤整備は完了。今後はデータ蓄積後の分析拡張を慎重に進める。**
+**直近の基盤整備は完了。今後は TDEE、予測精度、データ品質を中心に必要な改善を慎重に進める。**
 
 ### データ蓄積後の課題
-- 因子分析の特徴量拡張（sleep_hours / had_bowel_movement / training_type / work_mode / leg_flag）
-  - `feature_registry.py` に `active=False` で登録済み
-  - 現時点ではサンプル不足・欠損率・カテゴリ偏りにより解釈が不安定
-  - データが十分に蓄積された段階で `active=True` に変更し、`featureLabels.ts` の
-    `ACTIVE_FEATURE_NAMES` / `ACTIVE_FEATURE_EXPLANATIONS` に追記して段階投入する
-  - `TestActiveFeatureNamesSync` により変更漏れはテストで検知される
-
-### SHAP 移行（将来課題）
-- 現在は XGBoost の `feature_importances_`（重要度の大きさのみ）を使用。**SHAP は未実装**
-- SHAP 移行時は `analyze.py` の `run_importance()` を差し替える想定
-- `feature_registry.py` の `encoder_hint` に前処理方針を記載済みで、registry 自体は変更不要な設計
+- 予測モデルの backtest 再実行と Bias 再評価
+- TDEE 表示・解釈の改善余地確認
+- Google Health 由来の睡眠・心肺指標を readiness 表示へどう反映するかの再評価
 
 ### read projection / window 最適化（対応済み）
 - Dashboard / Macro / TDEE / History / Settings はそれぞれ画面専用の projection query に分離済み
@@ -445,7 +426,7 @@ body-comp-tracker-v2/
 - 型ヒント必須 (`def predict(df: pd.DataFrame) -> pd.DataFrame:`)
 - ロギングは `logging` モジュール (`print` デバッグ禁止)
 - Supabase への書き込みは upsert を使用 (冪等性の保証)
-- トップレベル import は軽量依存のみ。重い外部依存（supabase, xgboost, neuralprophet）は `main()` 内で遅延 import
+- トップレベル import は軽量依存のみ。重い外部依存（supabase, neuralprophet）は `main()` 内で遅延 import
 
 ### Git
 - コミットメッセージ: Conventional Commits (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`)

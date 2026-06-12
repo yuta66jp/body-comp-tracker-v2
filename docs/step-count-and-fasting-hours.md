@@ -55,8 +55,7 @@
 
 ## 分析利用の注意
 
-- `feature_registry.py` に残る `sleep_hours` は旧 daily_logs schema の候補名であり、現行 DB からは取得できない。
-- Google Health 睡眠を ML 特徴量として使う場合は、`google_health_daily_metrics.sleep_minutes` を取り込む新しい設計が必要。
+- 短期体重の要因分析は #720 で削除済みであり、Google Health 睡眠を ML 特徴量として取り込む予定はない。
 - 旧 `step_count` / `sleep_hours` / `last_meal_end_time` を前提にした分析や import は、新規実装では使わない。
 
 ## 関連ドキュメント・ファイル
