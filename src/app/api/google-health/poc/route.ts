@@ -44,6 +44,8 @@ export async function GET(req: NextRequest) {
     requiredScopes: GOOGLE_HEALTH_DAILY_REQUIRED_SCOPES,
     results: dailyResult.sourceResults,
     stepsResult: dailyResult.stepsResult,
+    weightResult: dailyResult.weightResult,
+    weightMetrics: dailyResult.weightMetrics,
     dailyMetrics: dailyResult.dailyMetrics,
   });
 }

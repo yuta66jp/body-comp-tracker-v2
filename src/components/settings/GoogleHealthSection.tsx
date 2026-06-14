@@ -28,6 +28,20 @@ type GoogleHealthSyncSuccessResponse = {
   skippedCount: number;
   savedDates: string[];
   skippedDates: string[];
+  weightSync?: {
+    syncedCount: number;
+    createdCount: number;
+    updatedCount: number;
+    skippedCount: number;
+    createdDates: string[];
+    updatedDates: string[];
+    skipped: Array<{
+      date: string | null;
+      reason: string;
+      count?: number;
+      message: string;
+    }>;
+  };
 };
 
 type GoogleHealthSyncErrorResponse = {
@@ -165,7 +179,22 @@ function buildSyncUrl(): string {
 }
 
 function buildSyncSuccessMessage(result: GoogleHealthSyncSuccessResponse): string {
-  return `同期しました。保存: ${result.savedCount.toLocaleString()}日 / スキップ: ${result.skippedCount.toLocaleString()}日`;
+  const base = `同期しました。保存: ${result.savedCount.toLocaleString()}日 / スキップ: ${result.skippedCount.toLocaleString()}日`;
+  const weightSync = result.weightSync;
+  if (!weightSync) return base;
+
+  const weightSummary =
+    `体重: 作成 ${weightSync.createdCount.toLocaleString()}日 / ` +
+    `更新 ${weightSync.updatedCount.toLocaleString()}日 / ` +
+    `スキップ ${weightSync.skippedCount.toLocaleString()}日`;
+  const skippedSummary = weightSync.skipped
+    .slice(0, 3)
+    .map((item) => `${item.date ?? "日付不明"}: ${item.message}`)
+    .join(" / ");
+
+  return skippedSummary
+    ? `${base} / ${weightSummary}（${skippedSummary}）`
+    : `${base} / ${weightSummary}`;
 }
 
 function buildSyncErrorMessage(result: GoogleHealthSyncErrorResponse): string {

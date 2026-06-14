@@ -5,6 +5,7 @@ import {
   type GoogleHealthDailyMetric,
   type GoogleHealthStepsAttempt,
   type GoogleHealthStepsResult,
+  type GoogleHealthWeightResult,
 } from "@/lib/googleHealth/dailyMetrics";
 import {
   markGoogleHealthConnectionError,
@@ -14,6 +15,7 @@ import {
 import { resolveGoogleHealthPocRange } from "@/lib/googleHealth/poc";
 import type { GoogleHealthPocTargetResult } from "@/lib/googleHealth/poc";
 import { saveGoogleHealthDailyMetrics } from "@/lib/googleHealth/saveDailyMetrics";
+import { saveGoogleHealthWeightMetrics } from "@/lib/googleHealth/saveWeightMetrics";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -77,6 +79,12 @@ function buildRequiredSourceApiErrorCode(results: Extract<GoogleHealthPocTargetR
   return results.some((result) => result.status === 403)
     ? "google_health_required_sources_api_forbidden"
     : "google_health_required_sources_api_error";
+}
+
+function buildWeightApiErrorCode(result: Extract<GoogleHealthWeightResult, { ok: false }>): string {
+  return result.status === 403
+    ? "google_health_weight_api_forbidden"
+    : "google_health_weight_api_error";
 }
 
 function apiErrorHttpStatus(status: number): number {
@@ -234,7 +242,62 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (!dailyResult.weightResult.ok) {
+    const code = buildWeightApiErrorCode(dailyResult.weightResult);
+
+    await markConnectionErrorSafely({
+      userId: user.id,
+      code,
+      message: dailyResult.weightResult.message,
+    });
+    logGoogleHealthSync("warn", "weight_fetch_failed", {
+      code,
+      range: rangeResult.range,
+      status: dailyResult.weightResult.status,
+    });
+
+    return NextResponse.json(
+      {
+        error: "Google Health 体重ログの取得に失敗しました。",
+        status: "google_health_api_error",
+        code,
+        weightResult: {
+          dataType: dailyResult.weightResult.dataType,
+          status: dailyResult.weightResult.status,
+          message: dailyResult.weightResult.message,
+        },
+      },
+      { status: apiErrorHttpStatus(dailyResult.weightResult.status) },
+    );
+  }
+
   const supabase = await createClient();
+  const weightSaveResult = await saveGoogleHealthWeightMetrics(supabase, {
+    userId: user.id,
+    metrics: dailyResult.weightMetrics.metrics,
+    skipped: dailyResult.weightMetrics.skipped,
+  });
+
+  if (!weightSaveResult.ok) {
+    const code = "google_health_weight_save_failed";
+
+    await markConnectionErrorSafely({
+      userId: user.id,
+      code,
+      message: weightSaveResult.message,
+    });
+    logGoogleHealthSync("error", "weight_save_failed", {
+      code,
+      range: rangeResult.range,
+    });
+
+    return NextResponse.json({
+      error: weightSaveResult.message,
+      status: "error",
+      code,
+    }, { status: 500 });
+  }
+
   const saveResult = await saveGoogleHealthDailyMetrics(supabase, {
     userId: user.id,
     metrics: dailyResult.dailyMetrics,
@@ -286,7 +349,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (saveResult.savedCount > 0) {
+  if (saveResult.savedCount > 0 || weightSaveResult.syncedCount > 0) {
     revalidateAfterDailyLogMutation();
   }
 
@@ -301,5 +364,14 @@ export async function POST(req: NextRequest) {
     skippedCount: saveResult.skippedCount,
     savedDates: saveResult.savedDates,
     skippedDates: saveResult.skippedDates,
+    weightSync: {
+      syncedCount: weightSaveResult.syncedCount,
+      createdCount: weightSaveResult.createdCount,
+      updatedCount: weightSaveResult.updatedCount,
+      skippedCount: weightSaveResult.skippedCount,
+      createdDates: weightSaveResult.createdDates,
+      updatedDates: weightSaveResult.updatedDates,
+      skipped: weightSaveResult.skipped,
+    },
   });
 }

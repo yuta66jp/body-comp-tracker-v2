@@ -26,6 +26,30 @@ export type GoogleHealthDailyMetric = {
   rhrBpm: number | null;
 };
 
+export type GoogleHealthWeightMetric = {
+  date: string;
+  weightKg: number;
+  sampleTime: string | null;
+  dataPointName: string | null;
+};
+
+export type GoogleHealthWeightSkipReason =
+  | "multiple_weight_logs"
+  | "invalid_weight_value"
+  | "date_unresolved";
+
+export type GoogleHealthWeightSkippedMetric = {
+  date: string | null;
+  reason: GoogleHealthWeightSkipReason;
+  count?: number;
+  message: string;
+};
+
+export type GoogleHealthWeightMetrics = {
+  metrics: GoogleHealthWeightMetric[];
+  skipped: GoogleHealthWeightSkippedMetric[];
+};
+
 export type GoogleHealthStepsError = {
   source: "reconcile" | "dailyRollUp" | "listFallback";
   status: number;
@@ -80,9 +104,28 @@ export type GoogleHealthStepsResult =
       attempts: GoogleHealthStepsAttempt[];
     };
 
+export type GoogleHealthWeightResult =
+  | {
+      ok: true;
+      dataType: "weight";
+      pageCount: number;
+      dataPoints: unknown[];
+      nextPageToken: string | null;
+      weightMetrics: GoogleHealthWeightMetrics;
+    }
+  | {
+      ok: false;
+      dataType: "weight";
+      status: number;
+      message: string;
+      details?: unknown;
+    };
+
 export type GoogleHealthDailyMetricsResult = {
   sourceResults: GoogleHealthPocTargetResult[];
   stepsResult: GoogleHealthStepsResult;
+  weightResult: GoogleHealthWeightResult;
+  weightMetrics: GoogleHealthWeightMetrics;
   dailyMetrics: GoogleHealthDailyMetric[];
 };
 
@@ -348,6 +391,100 @@ function dataPointsFor(
   return result?.ok ? result.dataPoints : [];
 }
 
+function buildWeightSkippedMetric(args: {
+  date: string | null;
+  reason: GoogleHealthWeightSkipReason;
+  count?: number;
+}): GoogleHealthWeightSkippedMetric {
+  const countText = args.count !== undefined ? `${args.count}件` : "";
+  const message =
+    args.reason === "multiple_weight_logs"
+      ? `Google Health の体重ログが同日に${countText}あるためスキップしました。`
+      : args.reason === "invalid_weight_value"
+        ? "Google Health の体重値が不正なためスキップしました。"
+        : "Google Health の体重ログの日付を特定できないためスキップしました。";
+
+  return {
+    date: args.date,
+    reason: args.reason,
+    ...(args.count !== undefined ? { count: args.count } : {}),
+    message,
+  };
+}
+
+function resolveWeightMetricDate(weight: RecordValue): string | null {
+  const sampleTime = asRecord(weight.sampleTime);
+  const civilTime = asRecord(sampleTime?.civilTime);
+  const date = parseGoogleDate(civilTime?.date);
+  return date ?? deriveCivilDateFromTimestamp(sampleTime?.physicalTime, sampleTime?.utcOffset);
+}
+
+function resolveWeightMetricSampleTime(weight: RecordValue): string | null {
+  const sampleTime = asRecord(weight.sampleTime);
+  return parseTimestampIso(sampleTime?.physicalTime);
+}
+
+function parseWeightKg(value: unknown): number | null {
+  const grams = parseNumber(value);
+  if (grams === null) return null;
+
+  const kg = Math.round((grams / 1000) * 1000) / 1000;
+  return Number.isFinite(kg) && kg > 0 && kg <= 300 ? kg : null;
+}
+
+export function normalizeGoogleHealthWeightMetrics(dataPoints: unknown[]): GoogleHealthWeightMetrics {
+  const candidatesByDate = new Map<string, GoogleHealthWeightMetric[]>();
+  const skipped: GoogleHealthWeightSkippedMetric[] = [];
+
+  for (const rawPoint of dataPoints) {
+    const point = asRecord(rawPoint);
+    const weight = asRecord(point?.weight);
+    if (!point || !weight) {
+      skipped.push(buildWeightSkippedMetric({ date: null, reason: "date_unresolved" }));
+      continue;
+    }
+
+    const date = resolveWeightMetricDate(weight);
+    if (!date) {
+      skipped.push(buildWeightSkippedMetric({ date: null, reason: "date_unresolved" }));
+      continue;
+    }
+
+    const weightKg = parseWeightKg(weight.weightGrams);
+    if (weightKg === null) {
+      skipped.push(buildWeightSkippedMetric({ date, reason: "invalid_weight_value" }));
+      continue;
+    }
+
+    const candidate: GoogleHealthWeightMetric = {
+      date,
+      weightKg,
+      sampleTime: resolveWeightMetricSampleTime(weight),
+      dataPointName: typeof point.name === "string" ? point.name : null,
+    };
+    candidatesByDate.set(date, [...(candidatesByDate.get(date) ?? []), candidate]);
+  }
+
+  const metrics: GoogleHealthWeightMetric[] = [];
+  for (const [date, candidates] of candidatesByDate) {
+    if (candidates.length === 1) {
+      metrics.push(candidates[0]!);
+      continue;
+    }
+
+    skipped.push(buildWeightSkippedMetric({
+      date,
+      reason: "multiple_weight_logs",
+      count: candidates.length,
+    }));
+  }
+
+  return {
+    metrics: metrics.sort((a, b) => a.date.localeCompare(b.date)),
+    skipped: skipped.sort((a, b) => (a.date ?? "").localeCompare(b.date ?? "")),
+  };
+}
+
 export function buildGoogleHealthDailyRollupUrl(dataType: "steps"): string {
   return `${GOOGLE_HEALTH_API_BASE_URL}/users/me/dataTypes/${dataType}/dataPoints:dailyRollUp`;
 }
@@ -372,6 +509,19 @@ export function buildGoogleHealthStepsListUrl(range: GoogleHealthPocRange, pageT
   url.searchParams.set(
     "filter",
     `steps.interval.civil_start_time >= "${range.startDate}" AND steps.interval.civil_start_time < "${range.endExclusiveDate}"`,
+  );
+  if (pageToken) {
+    url.searchParams.set("pageToken", pageToken);
+  }
+  return url.toString();
+}
+
+export function buildGoogleHealthWeightListUrl(range: GoogleHealthPocRange, pageToken?: string): string {
+  const url = new URL(`${GOOGLE_HEALTH_API_BASE_URL}/users/me/dataTypes/weight/dataPoints`);
+  url.searchParams.set("pageSize", "10000");
+  url.searchParams.set(
+    "filter",
+    `weight.sample_time.civil_time >= "${range.startDate}" AND weight.sample_time.civil_time < "${range.endExclusiveDate}"`,
   );
   if (pageToken) {
     url.searchParams.set("pageToken", pageToken);
@@ -621,6 +771,52 @@ export async function fetchGoogleHealthSteps(args: {
   });
 }
 
+export async function fetchGoogleHealthWeight(args: {
+  range: GoogleHealthPocRange;
+  accessToken: string;
+  fetchImpl?: FetchLike;
+  maxPages?: number;
+}): Promise<GoogleHealthWeightResult> {
+  const { range, accessToken, fetchImpl = fetch, maxPages = 5 } = args;
+  const dataPoints: unknown[] = [];
+  let nextPageToken: string | null = null;
+  let pageCount = 0;
+
+  do {
+    const response = await fetchImpl(buildGoogleHealthWeightListUrl(range, nextPageToken ?? undefined), {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+    });
+
+    pageCount++;
+
+    if (!response.ok) {
+      const error = await parseGoogleHealthError(response);
+      return {
+        ok: false,
+        dataType: "weight",
+        status: response.status,
+        ...error,
+      };
+    }
+
+    const body = await response.json() as ListResponse;
+    dataPoints.push(...(Array.isArray(body.dataPoints) ? body.dataPoints : []));
+    nextPageToken = body.nextPageToken && body.nextPageToken.length > 0 ? body.nextPageToken : null;
+  } while (nextPageToken && pageCount < maxPages);
+
+  return {
+    ok: true,
+    dataType: "weight",
+    pageCount,
+    dataPoints,
+    nextPageToken,
+    weightMetrics: normalizeGoogleHealthWeightMetrics(dataPoints),
+  };
+}
+
 function stepsDataPointsForNormalization(result: GoogleHealthStepsResult): unknown[] {
   if (!result.ok) return [];
   return result.source === "dailyRollUp" ? result.rollupDataPoints : result.dataPoints;
@@ -651,14 +847,20 @@ export async function fetchGoogleHealthDailyMetrics(args: {
   fetchImpl?: FetchLike;
 }): Promise<GoogleHealthDailyMetricsResult> {
   const { range, accessToken, fetchImpl } = args;
-  const [sourceResults, stepsResult] = await Promise.all([
+  const [sourceResults, stepsResult, weightResult] = await Promise.all([
     fetchGoogleHealthPoc({ range, accessToken, fetchImpl }),
     fetchGoogleHealthSteps({ range, accessToken, fetchImpl }),
+    fetchGoogleHealthWeight({ range, accessToken, fetchImpl }),
   ]);
+  const weightMetrics = weightResult.ok
+    ? weightResult.weightMetrics
+    : { metrics: [], skipped: [] };
 
   return {
     sourceResults,
     stepsResult,
+    weightResult,
+    weightMetrics,
     dailyMetrics: normalizeGoogleHealthDailyMetrics({
       range,
       stepsRollupDataPoints: stepsDataPointsForNormalization(stepsResult),

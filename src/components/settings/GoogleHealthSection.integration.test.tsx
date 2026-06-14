@@ -110,6 +110,22 @@ describe("GoogleHealthSection", () => {
         skippedCount: 1,
         savedDates: ["2026-06-05", "2026-06-06"],
         skippedDates: ["2026-06-07"],
+        weightSync: {
+          syncedCount: 2,
+          createdCount: 1,
+          updatedCount: 1,
+          skippedCount: 1,
+          createdDates: ["2026-06-05"],
+          updatedDates: ["2026-06-06"],
+          skipped: [
+            {
+              date: "2026-06-07",
+              reason: "multiple_weight_logs",
+              count: 2,
+              message: "Google Health の体重ログが同日に2件あるためスキップしました。",
+            },
+          ],
+        },
       }))
       .mockResolvedValueOnce(jsonResponse({
         ok: true,
@@ -147,7 +163,9 @@ describe("GoogleHealthSection", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith("/api/google-health/status", { method: "GET" });
     });
-    expect(await screen.findByText("同期しました。保存: 2日 / スキップ: 1日")).toBeInTheDocument();
+    expect(await screen.findByText(
+      "同期しました。保存: 2日 / スキップ: 1日 / 体重: 作成 1日 / 更新 1日 / スキップ 1日（2026-06-07: Google Health の体重ログが同日に2件あるためスキップしました。）",
+    )).toBeInTheDocument();
     expect(screen.getAllByText("2026/06/07 12:10")).toHaveLength(2);
   });
 

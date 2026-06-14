@@ -3,10 +3,13 @@ import {
   buildGoogleHealthDailyRollupUrl,
   buildGoogleHealthStepsReconcileUrl,
   buildGoogleHealthStepsListUrl,
+  buildGoogleHealthWeightListUrl,
+  fetchGoogleHealthWeight,
   fetchGoogleHealthSteps,
   fetchGoogleHealthStepsDailyRollup,
   fetchGoogleHealthStepsReconcile,
   normalizeGoogleHealthDailyMetrics,
+  normalizeGoogleHealthWeightMetrics,
 } from "./dailyMetrics";
 import type { GoogleHealthPocRange, GoogleHealthPocTargetResult } from "./poc";
 
@@ -74,6 +77,18 @@ describe("Google Health daily metrics", () => {
     );
   });
 
+  it("weight list のURLを組み立てる", () => {
+    const url = new URL(buildGoogleHealthWeightListUrl(range));
+
+    expect(url.origin + url.pathname).toBe(
+      "https://health.googleapis.com/v4/users/me/dataTypes/weight/dataPoints",
+    );
+    expect(url.searchParams.get("pageSize")).toBe("10000");
+    expect(url.searchParams.get("filter")).toBe(
+      "weight.sample_time.civil_time >= \"2026-06-02\" AND weight.sample_time.civil_time < \"2026-06-05\"",
+    );
+  });
+
   it("steps reconcile をGETで取得する", async () => {
     const fetchImpl = jest.fn().mockResolvedValue(
       new Response(JSON.stringify({
@@ -132,6 +147,56 @@ describe("Google Health daily metrics", () => {
         headers: expect.objectContaining({
           Authorization: "Bearer access-token",
           "Content-Type": "application/json",
+        }),
+      }),
+    );
+  });
+
+  it("weight をGETで取得して正規化する", async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        dataPoints: [
+          {
+            name: "users/me/dataTypes/weight/dataPoints/weight-1",
+            weight: {
+              sampleTime: {
+                physicalTime: "2026-06-01T23:10:00Z",
+                utcOffset: "32400s",
+                civilTime: { date: { year: 2026, month: 6, day: 2 } },
+              },
+              weightGrams: 72500,
+            },
+          },
+        ],
+      }), { status: 200 }),
+    );
+
+    const result = await fetchGoogleHealthWeight({
+      range,
+      accessToken: "access-token",
+      fetchImpl,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.weightMetrics).toEqual({
+        metrics: [
+          {
+            date: "2026-06-02",
+            weightKg: 72.5,
+            sampleTime: "2026-06-01T23:10:00.000Z",
+            dataPointName: "users/me/dataTypes/weight/dataPoints/weight-1",
+          },
+        ],
+        skipped: [],
+      });
+    }
+    expect(fetchImpl).toHaveBeenCalledWith(
+      expect.stringContaining("/users/me/dataTypes/weight/dataPoints?"),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer access-token",
+          Accept: "application/json",
         }),
       }),
     );
@@ -347,6 +412,70 @@ describe("Google Health daily metrics", () => {
         },
       ],
     });
+  });
+
+  it("同日の複数 weight は同期候補から除外して理由を返す", () => {
+    const result = normalizeGoogleHealthWeightMetrics([
+      {
+        weight: {
+          sampleTime: {
+            civilTime: { date: { year: 2026, month: 6, day: 2 } },
+            physicalTime: "2026-06-01T22:00:00Z",
+            utcOffset: "32400s",
+          },
+          weightGrams: 72100,
+        },
+      },
+      {
+        weight: {
+          sampleTime: {
+            civilTime: { date: { year: 2026, month: 6, day: 2 } },
+            physicalTime: "2026-06-01T23:00:00Z",
+            utcOffset: "32400s",
+          },
+          weightGrams: 72200,
+        },
+      },
+      {
+        weight: {
+          sampleTime: {
+            physicalTime: "2026-06-02T22:00:00Z",
+            utcOffset: "32400s",
+          },
+          weightGrams: 72300,
+        },
+      },
+      {
+        weight: {
+          sampleTime: {
+            civilTime: { date: { year: 2026, month: 6, day: 4 } },
+          },
+          weightGrams: 0,
+        },
+      },
+    ]);
+
+    expect(result.metrics).toEqual([
+      {
+        date: "2026-06-03",
+        weightKg: 72.3,
+        sampleTime: "2026-06-02T22:00:00.000Z",
+        dataPointName: null,
+      },
+    ]);
+    expect(result.skipped).toEqual([
+      {
+        date: "2026-06-02",
+        reason: "multiple_weight_logs",
+        count: 2,
+        message: "Google Health の体重ログが同日に2件あるためスキップしました。",
+      },
+      {
+        date: "2026-06-04",
+        reason: "invalid_weight_value",
+        message: "Google Health の体重値が不正なためスキップしました。",
+      },
+    ]);
   });
 
   it("raw response を日次メトリクスへ正規化する", () => {
