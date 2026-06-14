@@ -54,6 +54,7 @@ SHAP ベース説明も将来課題ではなく、実装しない方針とする
 
 | フィールド | 概要 | DB 列 |
 |---|---|---|
+| 体重 | Google Health の体重ログから同期。手動入力も同じ列を使う | `daily_logs.weight` |
 | 歩数 | Google Health から同期 | `google_health_daily_metrics.step_count` |
 | 睡眠時間 | Google Health の睡眠セッションから同期 | `google_health_daily_metrics.sleep_minutes` |
 | 深睡眠 | Google Health の sleep summary / stages から同期 | `google_health_daily_metrics.deep_sleep_minutes` |

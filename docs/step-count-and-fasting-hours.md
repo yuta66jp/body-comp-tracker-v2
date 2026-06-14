@@ -12,12 +12,14 @@
 - `sleep_sessions`
 
 歩数・睡眠系データの source of truth は `google_health_daily_metrics` に統合した。
+体重は既存の `daily_logs.weight` を source of truth とし、Google Health に 1 日 1 件の体重ログがある場合は同期で作成・更新する。
 断食時間は `last_meal_end_time` の入力コストと精度の問題から廃止した。
 
 ## 現行の保存先
 
 | 項目 | 保存先 | 備考 |
 |---|---|---|
+| 体重 | `daily_logs.weight` | Google Health API の `weight` 由来。1 日 1 件のみ同期し、同日複数ログはスキップ |
 | 歩数 | `google_health_daily_metrics.step_count` | Google Health API の `steps` 由来 |
 | 睡眠時間 | `google_health_daily_metrics.sleep_minutes` | 分単位。表示時に h / m へ変換 |
 | 深睡眠 | `google_health_daily_metrics.deep_sleep_minutes` | Google Health の sleep summary / stages 由来 |

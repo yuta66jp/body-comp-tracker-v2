@@ -18,6 +18,10 @@ jest.mock("@/lib/googleHealth/saveDailyMetrics", () => ({
   saveGoogleHealthDailyMetrics: jest.fn(),
 }));
 
+jest.mock("@/lib/googleHealth/saveWeightMetrics", () => ({
+  saveGoogleHealthWeightMetrics: jest.fn(),
+}));
+
 jest.mock("@/lib/cache/revalidate", () => ({
   revalidateAfterDailyLogMutation: jest.fn(),
 }));
@@ -31,6 +35,7 @@ import {
 } from "@/lib/googleHealth/connections";
 import { fetchGoogleHealthDailyMetrics } from "@/lib/googleHealth/dailyMetrics";
 import { saveGoogleHealthDailyMetrics } from "@/lib/googleHealth/saveDailyMetrics";
+import { saveGoogleHealthWeightMetrics } from "@/lib/googleHealth/saveWeightMetrics";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { POST } from "./route";
 
@@ -41,6 +46,7 @@ const mockMarkConnectionError = markGoogleHealthConnectionError as jest.Mock;
 const mockMarkConnectionSynced = markGoogleHealthConnectionSynced as jest.Mock;
 const mockFetchGoogleHealthDailyMetrics = fetchGoogleHealthDailyMetrics as jest.Mock;
 const mockSaveGoogleHealthDailyMetrics = saveGoogleHealthDailyMetrics as jest.Mock;
+const mockSaveGoogleHealthWeightMetrics = saveGoogleHealthWeightMetrics as jest.Mock;
 const mockRevalidate = revalidateAfterDailyLogMutation as jest.Mock;
 
 function makeRequest(args?: {
@@ -63,6 +69,35 @@ function makeRequest(args?: {
   });
 }
 
+function makeWeightResult(overrides?: Record<string, unknown>) {
+  return {
+    ok: true,
+    dataType: "weight",
+    pageCount: 1,
+    dataPoints: [],
+    nextPageToken: null,
+    weightMetrics: {
+      metrics: [],
+      skipped: [],
+    },
+    ...overrides,
+  };
+}
+
+function makeWeightSaveResult(overrides?: Record<string, unknown>) {
+  return {
+    ok: true,
+    syncedCount: 0,
+    createdCount: 0,
+    updatedCount: 0,
+    skippedCount: 0,
+    createdDates: [],
+    updatedDates: [],
+    skipped: [],
+    ...overrides,
+  };
+}
+
 describe("POST /api/google-health/daily-metrics", () => {
   let consoleInfoSpy: jest.SpyInstance;
   let consoleWarnSpy: jest.SpyInstance;
@@ -76,6 +111,7 @@ describe("POST /api/google-health/daily-metrics", () => {
     mockMarkConnectionSynced.mockReset();
     mockFetchGoogleHealthDailyMetrics.mockReset();
     mockSaveGoogleHealthDailyMetrics.mockReset();
+    mockSaveGoogleHealthWeightMetrics.mockReset();
     mockRevalidate.mockReset();
     consoleInfoSpy = jest.spyOn(console, "info").mockImplementation(() => {});
     consoleWarnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
@@ -159,6 +195,24 @@ describe("POST /api/google-health/daily-metrics", () => {
         rhrBpm: 45,
       },
     ];
+    const weightMetrics = {
+      metrics: [
+        {
+          date: "2026-06-02",
+          weightKg: 72.5,
+          sampleTime: "2026-06-01T23:00:00.000Z",
+          dataPointName: "weight-1",
+        },
+      ],
+      skipped: [
+        {
+          date: "2026-06-03",
+          reason: "multiple_weight_logs",
+          count: 2,
+          message: "Google Health の体重ログが同日に2件あるためスキップしました。",
+        },
+      ],
+    };
 
     mockGetCurrentUser.mockResolvedValue({ id: "user-id" });
     mockResolveStoredAccessToken.mockResolvedValue({
@@ -179,8 +233,18 @@ describe("POST /api/google-health/daily-metrics", () => {
         source: "reconcile",
         attempts: [{ source: "reconcile", ok: true, status: 200 }],
       },
+      weightResult: makeWeightResult({ weightMetrics }),
+      weightMetrics,
       dailyMetrics,
     });
+    mockSaveGoogleHealthWeightMetrics.mockResolvedValue(makeWeightSaveResult({
+      syncedCount: 1,
+      createdCount: 0,
+      updatedCount: 1,
+      skippedCount: 1,
+      updatedDates: ["2026-06-02"],
+      skipped: weightMetrics.skipped,
+    }));
     mockSaveGoogleHealthDailyMetrics.mockResolvedValue({
       ok: true,
       savedCount: 1,
@@ -210,6 +274,16 @@ describe("POST /api/google-health/daily-metrics", () => {
       metrics: dailyMetrics,
       stepsSource: "reconcile",
     });
+    expect(mockSaveGoogleHealthWeightMetrics).toHaveBeenCalledWith(supabase, {
+      userId: "user-id",
+      metrics: weightMetrics.metrics,
+      skipped: weightMetrics.skipped,
+    });
+    const weightSaveCallOrder = mockSaveGoogleHealthWeightMetrics.mock.invocationCallOrder[0];
+    const dailyMetricsSaveCallOrder = mockSaveGoogleHealthDailyMetrics.mock.invocationCallOrder[0];
+    expect(weightSaveCallOrder).toBeDefined();
+    expect(dailyMetricsSaveCallOrder).toBeDefined();
+    expect(weightSaveCallOrder!).toBeLessThan(dailyMetricsSaveCallOrder!);
     expect(mockMarkConnectionSynced).toHaveBeenCalledWith({ userId: "user-id" });
     expect(mockRevalidate).toHaveBeenCalledTimes(1);
     expect(body).toEqual({
@@ -227,6 +301,15 @@ describe("POST /api/google-health/daily-metrics", () => {
       skippedCount: 0,
       savedDates: ["2026-06-02"],
       skippedDates: [],
+      weightSync: {
+        syncedCount: 1,
+        createdCount: 0,
+        updatedCount: 1,
+        skippedCount: 1,
+        createdDates: [],
+        updatedDates: ["2026-06-02"],
+        skipped: weightMetrics.skipped,
+      },
     });
   });
 
@@ -277,8 +360,14 @@ describe("POST /api/google-health/daily-metrics", () => {
         source: "dailyRollUp",
         attempts: stepsAttempts,
       },
+      weightResult: makeWeightResult(),
+      weightMetrics: {
+        metrics: [],
+        skipped: [],
+      },
       dailyMetrics,
     });
+    mockSaveGoogleHealthWeightMetrics.mockResolvedValue(makeWeightSaveResult());
     mockSaveGoogleHealthDailyMetrics.mockResolvedValue({
       ok: true,
       savedCount: 1,
@@ -306,6 +395,15 @@ describe("POST /api/google-health/daily-metrics", () => {
       stepsFallbackUsed: true,
       stepsAttempts,
       emptyMetricCount: 1,
+      weightSync: {
+        syncedCount: 0,
+        createdCount: 0,
+        updatedCount: 0,
+        skippedCount: 0,
+        createdDates: [],
+        updatedDates: [],
+        skipped: [],
+      },
     }));
   });
 
@@ -423,6 +521,140 @@ describe("POST /api/google-health/daily-metrics", () => {
     expect(mockSaveGoogleHealthDailyMetrics).not.toHaveBeenCalled();
   });
 
+  it("体重取得が失敗した場合は保存しない", async () => {
+    mockGetCurrentUser.mockResolvedValue({ id: "user-id" });
+    mockResolveStoredAccessToken.mockResolvedValue({
+      ok: true,
+      accessToken: "stored-google-token",
+      refreshed: false,
+      status: "connected",
+    });
+    mockFetchGoogleHealthDailyMetrics.mockResolvedValue({
+      sourceResults: [
+        { ok: true, key: "sleep", dataPoints: [] },
+        { ok: true, key: "heartRateVariability", dataPoints: [] },
+        { ok: true, key: "restingHeartRate", dataPoints: [] },
+      ],
+      stepsResult: {
+        ok: true,
+        source: "reconcile",
+        attempts: [{ source: "reconcile", ok: true, status: 200 }],
+      },
+      weightResult: {
+        ok: false,
+        dataType: "weight",
+        status: 403,
+        message: "Required OAuth scope(s) are missing for this operation.",
+      },
+      weightMetrics: {
+        metrics: [],
+        skipped: [],
+      },
+      dailyMetrics: [],
+    });
+
+    const response = await POST(makeRequest({
+      start: "2026-06-02",
+      end: "2026-06-02",
+    }));
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(mockMarkConnectionError).toHaveBeenCalledWith({
+      userId: "user-id",
+      code: "google_health_weight_api_forbidden",
+      message: "Required OAuth scope(s) are missing for this operation.",
+    });
+    expect(body).toEqual({
+      error: "Google Health 体重ログの取得に失敗しました。",
+      status: "google_health_api_error",
+      code: "google_health_weight_api_forbidden",
+      weightResult: {
+        dataType: "weight",
+        status: 403,
+        message: "Required OAuth scope(s) are missing for this operation.",
+      },
+    });
+    expect(mockCreateClient).not.toHaveBeenCalled();
+    expect(mockSaveGoogleHealthWeightMetrics).not.toHaveBeenCalled();
+    expect(mockSaveGoogleHealthDailyMetrics).not.toHaveBeenCalled();
+  });
+
+  it("体重保存に失敗した場合は日次メトリクスを保存しない", async () => {
+    const supabase = { from: jest.fn() };
+
+    mockGetCurrentUser.mockResolvedValue({ id: "user-id" });
+    mockResolveStoredAccessToken.mockResolvedValue({
+      ok: true,
+      accessToken: "stored-google-token",
+      refreshed: false,
+      status: "connected",
+    });
+    mockCreateClient.mockResolvedValue(supabase);
+    mockFetchGoogleHealthDailyMetrics.mockResolvedValue({
+      sourceResults: [
+        { ok: true, key: "sleep", dataPoints: [] },
+        { ok: true, key: "heartRateVariability", dataPoints: [] },
+        { ok: true, key: "restingHeartRate", dataPoints: [] },
+      ],
+      stepsResult: {
+        ok: true,
+        source: "reconcile",
+        attempts: [{ source: "reconcile", ok: true, status: 200 }],
+      },
+      weightResult: makeWeightResult({
+        weightMetrics: {
+          metrics: [
+            {
+              date: "2026-06-02",
+              weightKg: 72.5,
+              sampleTime: null,
+              dataPointName: null,
+            },
+          ],
+          skipped: [],
+        },
+      }),
+      weightMetrics: {
+        metrics: [
+          {
+            date: "2026-06-02",
+            weightKg: 72.5,
+            sampleTime: null,
+            dataPointName: null,
+          },
+        ],
+        skipped: [],
+      },
+      dailyMetrics: [],
+    });
+    mockSaveGoogleHealthWeightMetrics.mockResolvedValue({
+      ok: false,
+      message: "Google Health 体重ログの保存に失敗しました: duplicate key",
+    });
+
+    const response = await POST(makeRequest({
+      start: "2026-06-02",
+      end: "2026-06-02",
+    }));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(mockMarkConnectionError).toHaveBeenCalledWith({
+      userId: "user-id",
+      code: "google_health_weight_save_failed",
+      message: "Google Health 体重ログの保存に失敗しました: duplicate key",
+    });
+    expect(body).toEqual({
+      error: "Google Health 体重ログの保存に失敗しました: duplicate key",
+      status: "error",
+      code: "google_health_weight_save_failed",
+    });
+    expect(mockSaveGoogleHealthDailyMetrics).not.toHaveBeenCalled();
+    expect(mockMarkConnectionSynced).not.toHaveBeenCalled();
+    expect(mockRevalidate).not.toHaveBeenCalled();
+  });
+
   it("保存に失敗した場合はconnection errorを更新してsanitized 500を返す", async () => {
     const supabase = { from: jest.fn() };
 
@@ -445,8 +677,14 @@ describe("POST /api/google-health/daily-metrics", () => {
         source: "reconcile",
         attempts: [{ source: "reconcile", ok: true, status: 200 }],
       },
+      weightResult: makeWeightResult(),
+      weightMetrics: {
+        metrics: [],
+        skipped: [],
+      },
       dailyMetrics: [],
     });
+    mockSaveGoogleHealthWeightMetrics.mockResolvedValue(makeWeightSaveResult());
     mockSaveGoogleHealthDailyMetrics.mockResolvedValue({
       ok: false,
       message: "Google Health 日次メトリクスの保存に失敗しました: duplicate key",
@@ -469,6 +707,7 @@ describe("POST /api/google-health/daily-metrics", () => {
       status: "error",
       code: "google_health_daily_metrics_save_failed",
     });
+    expect(mockSaveGoogleHealthWeightMetrics).toHaveBeenCalled();
     expect(mockMarkConnectionSynced).not.toHaveBeenCalled();
     expect(mockRevalidate).not.toHaveBeenCalled();
   });
@@ -495,8 +734,14 @@ describe("POST /api/google-health/daily-metrics", () => {
         source: "reconcile",
         attempts: [{ source: "reconcile", ok: true, status: 200 }],
       },
+      weightResult: makeWeightResult(),
+      weightMetrics: {
+        metrics: [],
+        skipped: [],
+      },
       dailyMetrics: [],
     });
+    mockSaveGoogleHealthWeightMetrics.mockResolvedValue(makeWeightSaveResult());
     mockSaveGoogleHealthDailyMetrics.mockResolvedValue({
       ok: true,
       savedCount: 0,
