@@ -279,9 +279,11 @@ describe("POST /api/google-health/daily-metrics", () => {
       metrics: weightMetrics.metrics,
       skipped: weightMetrics.skipped,
     });
-    expect(mockSaveGoogleHealthWeightMetrics.mock.invocationCallOrder[0]).toBeLessThan(
-      mockSaveGoogleHealthDailyMetrics.mock.invocationCallOrder[0],
-    );
+    const weightSaveCallOrder = mockSaveGoogleHealthWeightMetrics.mock.invocationCallOrder[0];
+    const dailyMetricsSaveCallOrder = mockSaveGoogleHealthDailyMetrics.mock.invocationCallOrder[0];
+    expect(weightSaveCallOrder).toBeDefined();
+    expect(dailyMetricsSaveCallOrder).toBeDefined();
+    expect(weightSaveCallOrder!).toBeLessThan(dailyMetricsSaveCallOrder!);
     expect(mockMarkConnectionSynced).toHaveBeenCalledWith({ userId: "user-id" });
     expect(mockRevalidate).toHaveBeenCalledTimes(1);
     expect(body).toEqual({
