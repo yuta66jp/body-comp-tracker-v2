@@ -154,6 +154,7 @@ body-comp-tracker-v2/
   - `is_cheat_day` / `is_refeed_day` / `is_eating_out` / `is_travel_day` / `is_tanning_day` / `is_posing_day` は
     `BOOLEAN NOT NULL DEFAULT FALSE`。特殊日フラグ。`dayTags.ts` の `DAY_TAGS` / `DAY_TAG_LABELS` / `DAY_TAG_BADGE_COLORS` が
     canonical 定義源。新フラグ追加時はこのファイルと migration・RPC・CSV・型定義・テスト fixture を同時更新する
+  - `calories` / `protein` / `fat` / `carbs` は食事明細 (`meal_items`) から同期される projection 値。既存画面・分析処理の互換性維持のため残す
   - `work_mode` の DB CHECK 制約は `off/office/remote/active/travel/other` の 6 値を許容するが、
     フロントエンド（`src/lib/utils/trainingType.ts`）では `off/office/remote` の 3 値のみ定義している。
     `active/travel/other` はフロント UI・CSV import・表示整形で現状扱われない（将来拡張余地）
@@ -162,6 +163,10 @@ body-comp-tracker-v2/
     残っている場合があるため、最新 migration を参照すること（#442 / #526 / #529 で発生した regression）**
 - `food_master` — name(PK), protein, fat, carbs, calories, category
 - `menu_master` — name(PK), recipe(JSONB)
+- `meal_entries` — id(UUID PK), user_id, log_date, meal_type, title, note, created_at, updated_at
+  - 1行 = 1食事単位。`meal_type` は `meal_1` / `meal_2` / `meal_3` / `meal_4` / `other`
+- `meal_items` — id(UUID PK), meal_entry_id, food_name, amount_g, calories_kcal, protein_g, fat_g, carbs_g, source_type, source_name
+  - 1行 = 1食品明細。食事記録の source of truth。INSERT/UPDATE/DELETE 後に `daily_logs` のカロリー/PFC projection を再計算する
 - `settings` — key(PK), value_num, value_str
 - `predictions` — id, ds(DATE), yhat(FLOAT), model_version(TEXT), created_at
 - `analytics_cache` — metric_type(PK), payload(JSONB), updated_at
@@ -197,7 +202,7 @@ body-comp-tracker-v2/
 ### RLS ポリシーの方針
 - 全テーブルに `ENABLE ROW LEVEL SECURITY` を適用する
 - anon ロールにはアプリデータの SELECT / INSERT / UPDATE / DELETE を許可しない
-- `daily_logs` / `sleep_sessions` / `settings` / `food_master` / `menu_master` は authenticated user の `user_id = auth.uid()` 行だけを許可する
+- `daily_logs` / `sleep_sessions` / `settings` / `food_master` / `menu_master` / `meal_entries` / `meal_items` は authenticated user の `user_id = auth.uid()` 行だけを許可する
 - `predictions` / `analytics_cache` / `career_logs` / `forecast_backtest_*` は authenticated SELECT のみ。書き込みは service_role の ML / analytics バッチが担当する
 - ポリシーはすべて `supabase/migrations/` で管理し、手動 Console 操作で追加しない
 

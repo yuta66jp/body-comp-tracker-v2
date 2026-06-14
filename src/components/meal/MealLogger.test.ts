@@ -1,4 +1,5 @@
 import {
+  buildMealItemInputs,
   buildNoteSaveValue,
   computeHasContent,
   computeHasDailyLogChanges,
@@ -61,8 +62,8 @@ describe("computeHasContent", () => {
     expect(computeHasContent({ ...base, note: null, noteTouched: true })).toBe(true);
   });
 
-  it("cartEverHadItems=true（カートを追加後に空にした）のとき true", () => {
-    expect(computeHasContent({ ...base, cartEverHadItems: true })).toBe(true);
+  it("cartEverHadItems=true でもカートが空なら保存対象なしとして false", () => {
+    expect(computeHasContent({ ...base, cartEverHadItems: true })).toBe(false);
   });
 
   // ── 特殊日タグ ──
@@ -142,13 +143,13 @@ describe("computeHasDailyLogChanges", () => {
     expect(computeHasDailyLogChanges({ ...base, weight: "70.0", weightTouched: true })).toBe(true);
   });
 
-  it("cartItems に食品あり → true", () => {
+  it("cartItems に食品があっても daily_logs 変更ではないため false", () => {
     const item = { kind: "regular" as const, food: { id: "test-id", name: "chicken", calories: 165, protein: 31, fat: 3.6, carbs: 0, category: null, created_at: null }, grams: 100 };
-    expect(computeHasDailyLogChanges({ ...base, cartItems: [item] })).toBe(true);
+    expect(computeHasDailyLogChanges({ ...base, cartItems: [item] })).toBe(false);
   });
 
-  it("cartEverHadItems=true → true (カートを追加後に空にした場合も null 送信が必要)", () => {
-    expect(computeHasDailyLogChanges({ ...base, cartEverHadItems: true })).toBe(true);
+  it("cartEverHadItems=true → false (明細削除は保存済み明細側で扱う)", () => {
+    expect(computeHasDailyLogChanges({ ...base, cartEverHadItems: true })).toBe(false);
   });
 
   it("noteTouched=true → true", () => {
@@ -201,6 +202,61 @@ describe("buildNoteSaveValue", () => {
 
   it("削除予定状態の場合は null を返す", () => {
     expect(buildNoteSaveValue(null, true)).toBeNull();
+  });
+});
+
+describe("buildMealItemInputs", () => {
+  it("food_master 由来のカート食品を保存用明細へ変換する", () => {
+    const item = {
+      kind: "regular" as const,
+      food: { id: "food-id", name: "chicken", calories: 165, protein: 31, fat: 3.6, carbs: 0, category: null, created_at: null },
+      grams: 150,
+    };
+
+    expect(buildMealItemInputs([item])).toEqual([
+      {
+        source_type: "food_master",
+        source_name: "chicken",
+        food_name: "chicken",
+        amount_g: 150,
+        calories_kcal: 248,
+        protein_g: 47,
+        fat_g: 5,
+        carbs_g: 0,
+        calories_per_100g: 165,
+        protein_per_100g: 31,
+        fat_per_100g: 3.6,
+        carbs_per_100g: 0,
+      },
+    ]);
+  });
+
+  it("一時食品は入力済み栄養値をそのまま保存用明細へ変換する", () => {
+    const item = {
+      kind: "temp" as const,
+      food: {
+        tempId: "temp-1",
+        name: "外食メニュー",
+        grams: 0,
+        calories: 700,
+        protein: 35,
+        fat: 20,
+        carbs: 80,
+      },
+    };
+
+    expect(buildMealItemInputs([item])).toEqual([
+      {
+        source_type: "temp",
+        source_name: "外食メニュー",
+        food_name: "外食メニュー",
+        amount_g: 0,
+        calories_kcal: 700,
+        protein_g: 35,
+        fat_g: 20,
+        carbs_g: 80,
+      },
+    ]);
   });
 });
 
