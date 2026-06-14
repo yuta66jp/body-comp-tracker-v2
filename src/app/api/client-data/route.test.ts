@@ -108,53 +108,6 @@ describe("GET /api/client-data", () => {
     expect(response.status).toBe(400);
   });
 
-  it("fetches meal entries with items for a date", async () => {
-    mockGetCurrentUser.mockResolvedValue({ id: "user-id", email: "owner@example.com" });
-
-    const entriesOrder = jest.fn().mockReturnValue(queryResult([
-      { id: "entry-1", user_id: "user-id", log_date: "2024-01-01", meal_type: "meal_1" },
-    ]));
-    const entriesEqLogDate = jest.fn().mockReturnValue({ order: entriesOrder });
-    const entriesEqUser = jest.fn().mockReturnValue({ eq: entriesEqLogDate });
-    const entriesSelect = jest.fn().mockReturnValue({ eq: entriesEqUser });
-
-    const itemsOrder = jest.fn().mockReturnValue(queryResult([
-      { id: "item-1", user_id: "user-id", meal_entry_id: "entry-1", food_name: "chicken", item_order: 0 },
-    ]));
-    const itemsIn = jest.fn().mockReturnValue({ order: itemsOrder });
-    const itemsEq = jest.fn().mockReturnValue({ in: itemsIn });
-    const itemsSelect = jest.fn().mockReturnValue({ eq: itemsEq });
-
-    const from = jest.fn((table: string) => {
-      if (table === "meal_entries") return { select: entriesSelect };
-      if (table === "meal_items") return { select: itemsSelect };
-      return { select: jest.fn() };
-    });
-    mockCreateClient.mockResolvedValue({ from });
-
-    const response = await GET(makeRequest({ resource: "meal_entries", date: "2024-01-01" }));
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(from).toHaveBeenCalledWith("meal_entries");
-    expect(from).toHaveBeenCalledWith("meal_items");
-    expect(entriesEqUser).toHaveBeenCalledWith("user_id", "user-id");
-    expect(entriesEqLogDate).toHaveBeenCalledWith("log_date", "2024-01-01");
-    expect(itemsEq).toHaveBeenCalledWith("user_id", "user-id");
-    expect(itemsIn).toHaveBeenCalledWith("meal_entry_id", ["entry-1"]);
-    expect(body.data).toEqual([
-      {
-        id: "entry-1",
-        user_id: "user-id",
-        log_date: "2024-01-01",
-        meal_type: "meal_1",
-        items: [
-          { id: "item-1", user_id: "user-id", meal_entry_id: "entry-1", food_name: "chicken", item_order: 0 },
-        ],
-      },
-    ]);
-  });
-
   it("validates date range for daily_log_dates", async () => {
     mockGetCurrentUser.mockResolvedValue({ id: "user-id", email: "owner@example.com" });
 

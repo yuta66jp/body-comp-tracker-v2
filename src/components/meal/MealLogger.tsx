@@ -4,14 +4,10 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { Loader2, PenLine, X, Undo2, ChevronDown, Plus } from "lucide-react";
 import { Toast } from "@/components/ui/Toast";
 import { saveDailyLog } from "@/app/actions/saveDailyLog";
-import { addMealEntry } from "@/app/actions/mealEntries";
 import { FoodPicker } from "./FoodPicker";
-import { Cart } from "./Cart";
+import { Cart, calcCartTotals } from "./Cart";
 import type { CartItem, TempFoodItem } from "./Cart";
-import { SavedMeals } from "./SavedMeals";
-import { MEAL_TYPE_LABELS, MEAL_TYPES } from "@/lib/domain/meals";
-import type { SaveMealItemInput } from "@/lib/domain/mealEntryPayload";
-import type { FoodMaster, DailyLog, MealType } from "@/lib/supabase/types";
+import type { FoodMaster, DailyLog } from "@/lib/supabase/types";
 import { toJstDateStr } from "@/lib/utils/date";
 import {
   type DayTag,
@@ -29,7 +25,6 @@ import {
   type WorkMode,
 } from "@/lib/utils/trainingType";
 import { useDailyLogByDate, useDailyLogs } from "@/lib/hooks/useDailyLogs";
-import { useMealEntriesByDate } from "@/lib/hooks/useMealEntries";
 import { parseStrictNumber } from "@/lib/utils/parseNumber";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -43,7 +38,7 @@ export interface HasContentInput {
   weight: string | null;          // null = 明示的クリア予定
   weightTouched: boolean;         // ユーザーが weight を操作したか（hydrate のみでは false）
   cartItems: CartItem[];
-  cartEverHadItems: boolean;      // hydrate 上書き防止用: カートに一度でもアイテムが追加されたか
+  cartEverHadItems: boolean;      // カートに一度でもアイテムが追加されたか
   note: string | null;            // null = 明示的クリア予定
   noteTouched: boolean;           // ユーザーが note を操作したか
   touchedTags: Set<DayTag>;
@@ -59,6 +54,7 @@ export function computeHasContent(input: HasContentInput): boolean {
     // 保存ボタンが有効にならず、不要な更新も送信されない。
     input.weightTouched ||
     input.cartItems.length > 0 ||
+    input.cartEverHadItems ||       // カートを空にした場合も null 送信のため有効化
     input.noteTouched ||
     input.touchedTags.size > 0 ||
     input.hadBowelMovementTouched || // touched なら null 送信も含め有効化
@@ -73,52 +69,14 @@ export function computeHasContent(input: HasContentInput): boolean {
 export function computeHasDailyLogChanges(input: HasContentInput): boolean {
   return (
     input.weightTouched ||
+    input.cartItems.length > 0 ||
+    input.cartEverHadItems ||
     input.noteTouched ||
     input.touchedTags.size > 0 ||
     input.hadBowelMovementTouched ||
     input.trainingTypeTouched ||
     input.workModeTouched
   );
-}
-
-function calcFoodNutrient(
-  food: FoodMaster,
-  grams: number,
-  key: keyof Pick<FoodMaster, "calories" | "protein" | "fat" | "carbs">
-): number {
-  return Math.round(((food[key] ?? 0) * grams) / 100);
-}
-
-export function buildMealItemInputs(cartItems: CartItem[]): SaveMealItemInput[] {
-  return cartItems.map((item) => {
-    if (item.kind === "regular") {
-      return {
-        source_type: "food_master",
-        source_name: item.food.name,
-        food_name: item.food.name,
-        amount_g: item.grams,
-        calories_kcal: calcFoodNutrient(item.food, item.grams, "calories"),
-        protein_g: calcFoodNutrient(item.food, item.grams, "protein"),
-        fat_g: calcFoodNutrient(item.food, item.grams, "fat"),
-        carbs_g: calcFoodNutrient(item.food, item.grams, "carbs"),
-        calories_per_100g: item.food.calories,
-        protein_per_100g: item.food.protein,
-        fat_per_100g: item.food.fat,
-        carbs_per_100g: item.food.carbs,
-      };
-    }
-
-    return {
-      source_type: "temp",
-      source_name: item.food.name,
-      food_name: item.food.name,
-      amount_g: item.food.grams,
-      calories_kcal: item.food.calories,
-      protein_g: item.food.protein,
-      fat_g: item.food.fat,
-      carbs_g: item.food.carbs,
-    };
-  });
 }
 
 export function hasDailyLogForDate(
@@ -136,7 +94,7 @@ export function hasDailyLogForDate(
 }
 
 function formIsPristine(input: HasContentInput): boolean {
-  return !computeHasContent(input) && !input.cartEverHadItems;
+  return !computeHasContent(input);
 }
 
 /**
@@ -184,7 +142,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
   const [note, setNote] = useState<string | null>("");
   const [noteTouched, setNoteTouched] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  // カートに一度でもアイテムが追加されたか（SWR hydrate で入力中状態を上書きしないためのフラグ）
+  // カートに一度でもアイテムが追加されたか（空カートでも null 送信させるためのフラグ）
   const [cartEverHadItems, setCartEverHadItems] = useState(false);
   const [tags, setTags] = useState<ReturnType<typeof emptyTagState>>(emptyTagState);
   // 明示的にトグルされたタグのみ追跡する（未操作タグは undefined として送り既存値を保持）
@@ -206,7 +164,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
 
   // 食品を追加セクションの開閉状態（初期: 非表示）
   const [foodPickerOpen, setFoodPickerOpen] = useState(false);
-  const [mealType, setMealType] = useState<MealType>("meal_1");
 
   const cachedDailyLog = useMemo(
     () => logs?.find((l) => l.log_date === date) ?? null,
@@ -217,11 +174,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     data: fetchedDailyLog,
     isLoading: isDailyLogByDateLoading,
   } = useDailyLogByDate(date, shouldFetchDailyLogByDate);
-  const {
-    data: mealEntries,
-    isLoading: isMealEntriesLoading,
-    mutate: mutateMealEntries,
-  } = useMealEntriesByDate(date, date !== "");
 
   /**
    * 日付変更時にフォームを hydrate または空リセットする。
@@ -240,10 +192,9 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     setWorkModeTouched(false);
     setTouchedTags(new Set());
 
-    // カートは「これから追加する食事」なので日付変更時にリセット
+    // カートはマクロ値から復元不可のためリセット
     setCartItems([]);
     setCartEverHadItems(false);
-    setMealType("meal_1");
 
     if (existingLog) {
       // 既存値をフォームへ表示（touched は立てない）
@@ -408,9 +359,10 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
         note, noteTouched, touchedTags,
         hadBowelMovementTouched, trainingTypeTouched, workModeTouched,
       });
-      const mealItemsToSave = buildMealItemInputs(cartItems);
 
       if (hasDailyLogChanges) {
+        const totals = calcCartTotals(cartItems);
+
         // 明示的にトグルされたタグのみペイロードに含める
         const tagPayload: Partial<Record<DayTag, boolean>> = {};
         for (const tag of touchedTags) {
@@ -424,6 +376,11 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
           weight:   weightTouched
             ? (weight === null   ? null   : parseStrictNumber(weight)   ?? undefined)
             : undefined,
+          // カートに一度でも追加後に空にした → null 送信（マクロをクリア）
+          calories: cartItems.length > 0 ? totals.calories : (cartEverHadItems ? null : undefined),
+          protein:  cartItems.length > 0 ? totals.protein  : (cartEverHadItems ? null : undefined),
+          fat:      cartItems.length > 0 ? totals.fat      : (cartEverHadItems ? null : undefined),
+          carbs:    cartItems.length > 0 ? totals.carbs    : (cartEverHadItems ? null : undefined),
           note:     buildNoteSaveValue(note, noteTouched),
           ...tagPayload,
           // ルール: touched=true → hadBowelMovement の値をそのまま送信
@@ -438,22 +395,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
 
         if (!result.ok) {
           console.error("[MealLogger] save error:", result.message);
-          setErrorMessage(result.message);
-          setStatus("error");
-          setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
-          return;
-        }
-      }
-
-      if (mealItemsToSave.length > 0) {
-        const result = await addMealEntry({
-          log_date: date,
-          meal_type: mealType,
-          items: mealItemsToSave,
-        });
-
-        if (!result.ok) {
-          console.error("[MealLogger] meal save error:", result.message);
           setErrorMessage(result.message);
           setStatus("error");
           setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
@@ -479,10 +420,8 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       setTrainingTypeTouched(false);
       setWorkMode(null);
       setWorkModeTouched(false);
-      setMealType("meal_1");
       // SWR キャッシュを更新して次回 hydrate に最新ログを反映させる
       void mutateLogs();
-      void mutateMealEntries();
       setTimeout(() => setStatus("idle"), 2000);
       // 保存成功コールバック: Toast が少し見えてから modal / sheet を閉じる
       if (onSaveSuccess) setTimeout(onSaveSuccess, 800);
@@ -629,25 +568,19 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
         </div>
       </div>
 
-      {/* 保存済み食事明細 */}
-      <div className="min-w-0">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">保存済み食事</p>
-        <SavedMeals
-          entries={mealEntries}
-          isLoading={isMealEntriesLoading}
-          onChanged={() => {
-            void mutateMealEntries();
-            void mutateLogs();
-          }}
-        />
-        {!isMealEntriesLoading && mealEntries?.length === 0 && hydratedLog && (hydratedLog.calories !== null || hydratedLog.protein !== null) && (
-          <div className="mt-2 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-400">
-            <span className="font-semibold">記録済みマクロ:</span>{" "}
-            <span>{hydratedLog.calories ?? 0} kcal / P {hydratedLog.protein ?? 0}g F {hydratedLog.fat ?? 0}g C {hydratedLog.carbs ?? 0}g</span>
-            <div className="mt-0.5 text-amber-600">明細はまだ作成されていません。</div>
+      {/* 既存ログのマクロ表示（カートで復元不可なため参照用に表示） */}
+      {hydratedLog && (hydratedLog.calories !== null || hydratedLog.protein !== null) && (
+        <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-400">
+          <span className="font-semibold">記録済みマクロ:</span>{" "}
+          <div>
+            {hydratedLog.calories !== null && <span>{hydratedLog.calories} kcal</span>}
+            {hydratedLog.protein  !== null && <span> / P {hydratedLog.protein}g</span>}
+            {hydratedLog.fat      !== null && <span> / F {hydratedLog.fat}g</span>}
+            {hydratedLog.carbs    !== null && <span> / C {hydratedLog.carbs}g</span>}
           </div>
-        )}
-      </div>
+          <div className="mt-0.5 text-amber-600">（更新する場合はカートから追加）</div>
+        </div>
+      )}
 
       {/* 特殊日タグ (is_cheat_day / is_refeed_day / is_eating_out / is_travel_day) */}
       <div className="min-w-0">
@@ -766,26 +699,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
 
         {foodPickerOpen && (
           <div className="flex flex-col gap-3">
-            <div>
-              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">追加先</p>
-              <div className="grid grid-cols-5 gap-1.5">
-                {MEAL_TYPES.map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    aria-pressed={mealType === type}
-                    onClick={() => setMealType(type)}
-                    className={`rounded-lg border px-2 py-2 text-xs font-semibold transition-colors ${
-                      mealType === type
-                        ? "border-blue-500 bg-blue-600 text-white"
-                        : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                    }`}
-                  >
-                    {MEAL_TYPE_LABELS[type]}
-                  </button>
-                ))}
-              </div>
-            </div>
             <FoodPicker onAdd={addFood} onAddSet={addFromMenu} onAddTemp={addTempFood} />
             {cartItems.length > 0 && (
               <div>

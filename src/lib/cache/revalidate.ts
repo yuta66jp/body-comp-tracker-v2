@@ -14,7 +14,7 @@
  *
  * ## ページ依存マップ (更新種別 → 影響ページ)
  *
- * daily_logs / meal_entries / meal_items 更新:
+ * daily_logs 更新:
  *   /             fetchDashboardDailyLogs / fetchEnrichedLogs
  *   /history      fetchWeightLogs
  *   /macro        fetchMacroDailyLogs
