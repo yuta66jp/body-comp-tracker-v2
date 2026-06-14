@@ -449,118 +449,6 @@ export type Database = {
           },
         ]
       }
-      meal_entries: {
-        Row: {
-          created_at: string
-          id: string
-          log_date: string
-          meal_type: string
-          note: string | null
-          title: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          log_date: string
-          meal_type: string
-          note?: string | null
-          title?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          log_date?: string
-          meal_type?: string
-          note?: string | null
-          title?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_meal_entries_daily_logs"
-            columns: ["user_id", "log_date"]
-            isOneToOne: false
-            referencedRelation: "daily_logs"
-            referencedColumns: ["user_id", "log_date"]
-          },
-        ]
-      }
-      meal_items: {
-        Row: {
-          amount_g: number | null
-          calories_kcal: number | null
-          calories_per_100g: number | null
-          carbs_g: number | null
-          carbs_per_100g: number | null
-          created_at: string
-          fat_g: number | null
-          fat_per_100g: number | null
-          food_name: string
-          id: string
-          item_order: number
-          meal_entry_id: string
-          protein_g: number | null
-          protein_per_100g: number | null
-          source_name: string | null
-          source_type: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          amount_g?: number | null
-          calories_kcal?: number | null
-          calories_per_100g?: number | null
-          carbs_g?: number | null
-          carbs_per_100g?: number | null
-          created_at?: string
-          fat_g?: number | null
-          fat_per_100g?: number | null
-          food_name: string
-          id?: string
-          item_order?: number
-          meal_entry_id: string
-          protein_g?: number | null
-          protein_per_100g?: number | null
-          source_name?: string | null
-          source_type: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          amount_g?: number | null
-          calories_kcal?: number | null
-          calories_per_100g?: number | null
-          carbs_g?: number | null
-          carbs_per_100g?: number | null
-          created_at?: string
-          fat_g?: number | null
-          fat_per_100g?: number | null
-          food_name?: string
-          id?: string
-          item_order?: number
-          meal_entry_id?: string
-          protein_g?: number | null
-          protein_per_100g?: number | null
-          source_name?: string | null
-          source_type?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_meal_items_meal_entries"
-            columns: ["meal_entry_id", "user_id"]
-            isOneToOne: false
-            referencedRelation: "meal_entries"
-            referencedColumns: ["id", "user_id"]
-          },
-        ]
-      }
       menu_master: {
         Row: {
           created_at: string | null
@@ -829,19 +717,10 @@ export type GoogleHealthConnectionStatus = Database["private"]["Enums"]["google_
 
 export type FoodMaster  = OptionalUserId<Database["public"]["Tables"]["food_master"]["Row"]>;
 export type MenuMaster  = OptionalUserId<Database["public"]["Tables"]["menu_master"]["Row"]>;
-export type MealEntry   = Database["public"]["Tables"]["meal_entries"]["Row"];
-export type MealItem    = Database["public"]["Tables"]["meal_items"]["Row"];
 export type Setting     = OptionalUserId<Database["public"]["Tables"]["settings"]["Row"]>;
 export type Prediction  = Database["public"]["Tables"]["predictions"]["Row"];
 export type AnalyticsCache = Database["public"]["Tables"]["analytics_cache"]["Row"];
 export type CareerLog   = Database["public"]["Tables"]["career_logs"]["Row"];
-
-export type MealType = "meal_1" | "meal_2" | "meal_3" | "meal_4" | "other";
-export type MealItemSourceType = "food_master" | "menu_master" | "temp" | "manual" | "legacy_total";
-
-export type MealEntryWithItems = MealEntry & {
-  items: MealItem[];
-};
 
 /** menu_master.recipe JSONB の要素型 (旧版: {name, amount}) */
 export interface RecipeItem {
