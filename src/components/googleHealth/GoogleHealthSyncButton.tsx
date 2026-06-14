@@ -206,9 +206,9 @@ export function GoogleHealthSyncButton({ initialStatus }: GoogleHealthSyncButton
           type="button"
           onClick={syncNow}
           disabled={syncing}
-          className={`${buttonClassName} border-blue-500 bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md dark:border-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400`}
+          className={`${buttonClassName} border-slate-100 bg-white text-slate-700 hover:bg-slate-50 hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:shadow-none dark:hover:bg-slate-800/60`}
         >
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white/15">
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
             {syncing ? (
               <Loader2 size={15} className="animate-spin" aria-hidden="true" />
             ) : (

@@ -110,7 +110,11 @@ describe("GoogleHealthSyncButton", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Google Health 同期" }));
+    const syncButton = screen.getByRole("button", { name: "Google Health 同期" });
+    expect(syncButton).toHaveClass("bg-white", "border-slate-100", "text-slate-700");
+    expect(syncButton).not.toHaveClass("bg-blue-600");
+
+    fireEvent.click(syncButton);
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/google-health/daily-metrics?start=2026-06-01&end=2026-06-07",
