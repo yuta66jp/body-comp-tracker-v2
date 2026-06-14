@@ -9,15 +9,17 @@
  *   - メインコンテンツ列が常に full-width になりダッシュボードが広く使えるようになる
  */
 
-import { MobileMealLoggerSheet } from "./MobileMealLoggerSheet";
+import type { GoogleHealthStatusSnapshot } from "@/lib/googleHealth/status";
+import { DashboardQuickActions } from "./DashboardQuickActions";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
   /** 左右カラムの上に全幅で表示するコンテンツ（シーズンバッジ・エラーバナーなど） */
   header?: React.ReactNode;
+  googleHealthStatus: GoogleHealthStatusSnapshot;
 }
 
-export function DashboardLayout({ children, header }: DashboardLayoutProps) {
+export function DashboardLayout({ children, header, googleHealthStatus }: DashboardLayoutProps) {
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 py-6 gap-2 dark:bg-slate-950">
       {/* 全幅ヘッダー（シーズンバッジ・エラーバナーなど） */}
@@ -25,8 +27,8 @@ export function DashboardLayout({ children, header }: DashboardLayoutProps) {
 
       {/* メインコンテンツ（full-width） */}
       <main className="flex flex-col gap-6">
-        {/* 記録ボタン: タップ/クリックで MealLogger を modal / bottom sheet で開く */}
-        <MobileMealLoggerSheet />
+        {/* 記録・Google Health 同期の主要アクション */}
+        <DashboardQuickActions googleHealthStatus={googleHealthStatus} />
 
         {children}
       </main>

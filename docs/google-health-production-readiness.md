@@ -162,7 +162,7 @@ Google Cloud Billing を有効化している場合は Budget alert を設定す
 - [ ] Google Health API の pricing / billing 表示が Cloud Console 側に出るか確認している。
 - [ ] 本番で `/api/google-health/oauth/start` から連携できる。
 - [ ] 本番の設定画面で Google Health 連携状態が `connected` になる。
-- [ ] 本番の同期ボタンで `google_health_daily_metrics` に日次データが保存される。
+- [ ] 本番のダッシュボード同期ボタンで `google_health_daily_metrics` に日次データが保存される。
 - [ ] Cloud Logging / Vercel logs に token や個人データの詳細が出ていない。
 
 ## 参考

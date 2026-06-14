@@ -27,6 +27,12 @@ import { fetchEnrichedLogs } from "@/lib/queries/analytics";
 import { mapToAppSettings } from "@/lib/domain/settings";
 import type { DashboardDailyLog, CareerLog } from "@/lib/supabase/types";
 import type { MonthStats } from "@/components/history/SeasonSummary";
+import {
+  buildGoogleHealthNotConnectedStatus,
+  buildGoogleHealthStatusError,
+  getGoogleHealthStatusForUser,
+} from "@/lib/googleHealth/status";
+import { getCurrentUser } from "@/lib/supabase/server";
 
 /** career_logs から日付→シーズン名のマップを構築 */
 function buildSeasonMap(careerLogs: Pick<CareerLog, "log_date" | "season" | "target_date">[]): Map<string, string> {
@@ -90,17 +96,28 @@ function buildMonthStats(logs: DashboardDailyLog[], months = 3): MonthStats[] {
     });
 }
 
+async function fetchGoogleHealthStatusForDashboard() {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return buildGoogleHealthNotConnectedStatus();
+    return await getGoogleHealthStatusForUser(user.id);
+  } catch {
+    return buildGoogleHealthStatusError("google_health_connection_status_lookup_failed");
+  }
+}
+
 export default async function DashboardPage() {
   // 基準日を最初に確定し、以降の全計算・クエリ範囲で共有する。
   // revalidate = 0 によりキャッシュなしでレンダリングされるため、
   // toJstDateStr() は常に JST 当日を返す。
   const today = toJstDateStr();
 
-  const [logsResult, predictions, settingsResult, careerLogs] = await Promise.all([
+  const [logsResult, predictions, settingsResult, careerLogs, googleHealthStatus] = await Promise.all([
     fetchDashboardDailyLogs(),
     fetchPredictions(),
     fetchSettings(),
     fetchCareerLogsForDashboard(),
+    fetchGoogleHealthStatusForDashboard(),
   ]);
 
   // QueryResult を展開。エラー時はフォールバック値で graceful degradation を維持する。
@@ -261,6 +278,7 @@ export default async function DashboardPage() {
 
   return (
     <DashboardLayout
+      googleHealthStatus={googleHealthStatus}
       header={
         <>
           {/* Read error banners — graceful degradation: コンテンツはブロックしない */}

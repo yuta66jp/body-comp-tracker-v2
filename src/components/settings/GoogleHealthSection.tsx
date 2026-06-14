@@ -14,41 +14,12 @@ import type {
   GoogleHealthStatusApiResponse,
   GoogleHealthStatusSnapshot,
 } from "@/lib/googleHealth/status";
-import { addDaysStr, toJstDateStr } from "@/lib/utils/date";
 
 type GoogleHealthSectionProps = {
   initialStatus: GoogleHealthStatusSnapshot;
 };
 
-type ActionPhase = "idle" | "refreshing" | "syncing" | "disconnecting";
-
-type GoogleHealthSyncSuccessResponse = {
-  ok: true;
-  savedCount: number;
-  skippedCount: number;
-  savedDates: string[];
-  skippedDates: string[];
-  weightSync?: {
-    syncedCount: number;
-    createdCount: number;
-    updatedCount: number;
-    skippedCount: number;
-    createdDates: string[];
-    updatedDates: string[];
-    skipped: Array<{
-      date: string | null;
-      reason: string;
-      count?: number;
-      message: string;
-    }>;
-  };
-};
-
-type GoogleHealthSyncErrorResponse = {
-  error?: string;
-  status?: string;
-  missingScopes?: string[];
-};
+type ActionPhase = "idle" | "refreshing" | "disconnecting";
 
 const STATUS_LABELS: Record<GoogleHealthStatusSnapshot["status"], {
   label: string;
@@ -90,13 +61,6 @@ const STATUS_LABELS: Record<GoogleHealthStatusSnapshot["status"], {
 
 const CONNECT_URL = "/api/google-health/oauth/start";
 const REAUTHORIZE_URL = "/api/google-health/oauth/start?prompt=consent";
-const GOOGLE_HEALTH_VISIBLE_STATUSES = new Set<GoogleHealthStatusSnapshot["status"]>([
-  "not_connected",
-  "connected",
-  "scope_missing",
-  "reauthorization_required",
-  "error",
-]);
 
 function getScopeLabel(scope: string): string {
   if (scope.includes("activity_and_fitness")) return "歩数・活動";
@@ -156,57 +120,6 @@ function snapshotFromApiResponse(
   return snapshot;
 }
 
-function isVisibleStatus(value: unknown): value is GoogleHealthStatusSnapshot["status"] {
-  return typeof value === "string" && GOOGLE_HEALTH_VISIBLE_STATUSES.has(value as GoogleHealthStatusSnapshot["status"]);
-}
-
-function isSyncSuccessResponse(value: GoogleHealthSyncSuccessResponse | GoogleHealthSyncErrorResponse): value is GoogleHealthSyncSuccessResponse {
-  return "ok" in value && value.ok === true;
-}
-
-function buildDefaultSyncRange(): { start: string; end: string } {
-  const end = toJstDateStr();
-  return {
-    start: addDaysStr(end, -6) ?? end,
-    end,
-  };
-}
-
-function buildSyncUrl(): string {
-  const range = buildDefaultSyncRange();
-  const params = new URLSearchParams(range);
-  return `/api/google-health/daily-metrics?${params.toString()}`;
-}
-
-function buildSyncSuccessMessage(result: GoogleHealthSyncSuccessResponse): string {
-  const base = `同期しました。保存: ${result.savedCount.toLocaleString()}日 / スキップ: ${result.skippedCount.toLocaleString()}日`;
-  const weightSync = result.weightSync;
-  if (!weightSync) return base;
-
-  const weightSummary =
-    `体重: 作成 ${weightSync.createdCount.toLocaleString()}日 / ` +
-    `更新 ${weightSync.updatedCount.toLocaleString()}日 / ` +
-    `スキップ ${weightSync.skippedCount.toLocaleString()}日`;
-  const skippedSummary = weightSync.skipped
-    .slice(0, 3)
-    .map((item) => `${item.date ?? "日付不明"}: ${item.message}`)
-    .join(" / ");
-
-  return skippedSummary
-    ? `${base} / ${weightSummary}（${skippedSummary}）`
-    : `${base} / ${weightSummary}`;
-}
-
-function buildSyncErrorMessage(result: GoogleHealthSyncErrorResponse): string {
-  if (result.status === "scope_missing" || result.status === "reauthorization_required") {
-    return "Google Health の再認可が必要です。";
-  }
-  if (result.status === "not_connected") {
-    return "Google Health 連携が必要です。";
-  }
-  return "Google Health 同期に失敗しました。";
-}
-
 export function GoogleHealthSection({ initialStatus }: GoogleHealthSectionProps) {
   const [status, setStatus] = useState<GoogleHealthStatusSnapshot>(initialStatus);
   const [phase, setPhase] = useState<ActionPhase>("idle");
@@ -244,57 +157,6 @@ export function GoogleHealthSection({ initialStatus }: GoogleHealthSectionProps)
     }
   }
 
-  function applySyncErrorStatus(result: GoogleHealthSyncErrorResponse) {
-    if (!isVisibleStatus(result.status)) return;
-
-    setStatus((current) => ({
-      ...current,
-      status: result.status as GoogleHealthStatusSnapshot["status"],
-      missingScopes: result.missingScopes ?? current.missingScopes,
-      lastErrorCode: result.status ?? current.lastErrorCode,
-    }));
-  }
-
-  async function syncNow() {
-    if (status.status !== "connected") return;
-
-    setPhase("syncing");
-    setMessage(null);
-    setErrorMessage(null);
-
-    try {
-      const response = await fetch(buildSyncUrl(), { method: "POST" });
-      const contentType = response.headers.get("content-type") ?? "";
-      if (!contentType.includes("application/json")) {
-        throw new Error("unexpected_response");
-      }
-      const body = await response.json() as GoogleHealthSyncSuccessResponse | GoogleHealthSyncErrorResponse;
-
-      if (!response.ok || !isSyncSuccessResponse(body)) {
-        const errorBody = isSyncSuccessResponse(body) ? {} : body;
-        applySyncErrorStatus(errorBody);
-        setErrorMessage(buildSyncErrorMessage(errorBody));
-        return;
-      }
-
-      let statusRefreshFailed = false;
-      try {
-        setStatus(await fetchStatusSnapshot());
-      } catch {
-        statusRefreshFailed = true;
-      }
-
-      setMessage(buildSyncSuccessMessage(body));
-      if (statusRefreshFailed) {
-        setErrorMessage("同期は完了しましたが、最終同期の再取得に失敗しました。");
-      }
-    } catch {
-      setErrorMessage("Google Health 同期に失敗しました。");
-    } finally {
-      setPhase("idle");
-    }
-  }
-
   async function disconnect() {
     if (!window.confirm("Google Health 連携を解除しますか？保存済みの日次データは削除されません。")) {
       return;
@@ -322,12 +184,12 @@ export function GoogleHealthSection({ initialStatus }: GoogleHealthSectionProps)
     status.status === "not_connected"
       ? {
           href: CONNECT_URL,
-          label: "Google Health と同期",
+          label: "Google Health と接続",
         }
       : status.status === "scope_missing" || status.status === "reauthorization_required"
         ? {
             href: REAUTHORIZE_URL,
-            label: "再認可して同期",
+            label: "再認可する",
           }
         : null;
 
@@ -354,21 +216,6 @@ export function GoogleHealthSection({ initialStatus }: GoogleHealthSectionProps)
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {status.status === "connected" && (
-            <button
-              type="button"
-              onClick={syncNow}
-              disabled={isWorking}
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-500 dark:hover:bg-blue-400"
-            >
-              {phase === "syncing" ? (
-                <Loader2 size={15} className="animate-spin" aria-hidden="true" />
-              ) : (
-                <RefreshCw size={15} aria-hidden="true" />
-              )}
-              {phase === "syncing" ? "同期中..." : "今すぐ同期"}
-            </button>
-          )}
           {primaryAction && (
             <a
               href={primaryAction.href}
