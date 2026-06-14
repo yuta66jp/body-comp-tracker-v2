@@ -1,6 +1,7 @@
 import {
   buildMealItemInputs,
   buildNoteSaveValue,
+  calcMealEntriesTotals,
   computeHasContent,
   computeHasDailyLogChanges,
   hasDailyLogForDate,
@@ -257,6 +258,83 @@ describe("buildMealItemInputs", () => {
         carbs_g: 80,
       },
     ]);
+  });
+});
+
+describe("calcMealEntriesTotals", () => {
+  it("保存済み食事明細のカロリー/PFCと品数を合計する", () => {
+    const entries = [
+      {
+        id: "entry-1",
+        user_id: "user-1",
+        log_date: "2026-06-14",
+        meal_type: "meal_1",
+        title: null,
+        note: null,
+        created_at: "2026-06-14T00:00:00Z",
+        updated_at: "2026-06-14T00:00:00Z",
+        items: [
+          {
+            id: "item-1",
+            user_id: "user-1",
+            meal_entry_id: "entry-1",
+            item_order: 0,
+            source_type: "food_master",
+            source_name: "chicken",
+            food_name: "chicken",
+            amount_g: 100,
+            calories_kcal: 165,
+            protein_g: 31,
+            fat_g: 4,
+            carbs_g: 0,
+            calories_per_100g: 165,
+            protein_per_100g: 31,
+            fat_per_100g: 4,
+            carbs_per_100g: 0,
+            created_at: "2026-06-14T00:00:00Z",
+            updated_at: "2026-06-14T00:00:00Z",
+          },
+          {
+            id: "item-2",
+            user_id: "user-1",
+            meal_entry_id: "entry-1",
+            item_order: 1,
+            source_type: "temp",
+            source_name: "外食メニュー",
+            food_name: "外食メニュー",
+            amount_g: null,
+            calories_kcal: 500,
+            protein_g: 20,
+            fat_g: 15,
+            carbs_g: 60,
+            calories_per_100g: null,
+            protein_per_100g: null,
+            fat_per_100g: null,
+            carbs_per_100g: null,
+            created_at: "2026-06-14T00:00:00Z",
+            updated_at: "2026-06-14T00:00:00Z",
+          },
+        ],
+      },
+    ];
+
+    expect(calcMealEntriesTotals(entries)).toEqual({
+      calories: 665,
+      protein: 51,
+      fat: 19,
+      carbs: 60,
+      itemCount: 2,
+    });
+  });
+
+  it("明細がない場合は0を返す", () => {
+    expect(calcMealEntriesTotals(undefined)).toEqual({
+      calories: 0,
+      protein: 0,
+      fat: 0,
+      carbs: 0,
+      itemCount: 0,
+    });
   });
 });
 

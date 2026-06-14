@@ -1,17 +1,17 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Loader2, PenLine, X, Undo2, ChevronDown, Plus } from "lucide-react";
+import { Loader2, PenLine, X, Undo2, ChevronDown } from "lucide-react";
 import { Toast } from "@/components/ui/Toast";
 import { saveDailyLog } from "@/app/actions/saveDailyLog";
 import { addMealEntry } from "@/app/actions/mealEntries";
 import { FoodPicker } from "./FoodPicker";
-import { Cart } from "./Cart";
+import { Cart, calcCartTotals } from "./Cart";
 import type { CartItem, TempFoodItem } from "./Cart";
 import { SavedMeals } from "./SavedMeals";
 import { MEAL_TYPE_LABELS, MEAL_TYPES } from "@/lib/domain/meals";
 import type { SaveMealItemInput } from "@/lib/domain/mealEntryPayload";
-import type { FoodMaster, DailyLog, MealType } from "@/lib/supabase/types";
+import type { FoodMaster, DailyLog, MealEntryWithItems, MealType } from "@/lib/supabase/types";
 import { toJstDateStr } from "@/lib/utils/date";
 import {
   type DayTag,
@@ -155,6 +155,70 @@ export function buildNoteSaveValue(
   return note;
 }
 
+export type NutritionTotals = {
+  calories: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+  itemCount: number;
+};
+
+const emptyNutritionTotals = (): NutritionTotals => ({
+  calories: 0,
+  protein: 0,
+  fat: 0,
+  carbs: 0,
+  itemCount: 0,
+});
+
+export function calcMealEntriesTotals(entries: MealEntryWithItems[] | undefined): NutritionTotals {
+  return (entries ?? []).reduce<NutritionTotals>((entryAcc, entry) => {
+    return entry.items.reduce<NutritionTotals>(
+      (itemAcc, item) => ({
+        calories: itemAcc.calories + (item.calories_kcal ?? 0),
+        protein: itemAcc.protein + (item.protein_g ?? 0),
+        fat: itemAcc.fat + (item.fat_g ?? 0),
+        carbs: itemAcc.carbs + (item.carbs_g ?? 0),
+        itemCount: itemAcc.itemCount + 1,
+      }),
+      entryAcc
+    );
+  }, emptyNutritionTotals());
+}
+
+function calcDailyLogTotals(log: DailyLog | null): NutritionTotals {
+  if (!log) return emptyNutritionTotals();
+  return {
+    calories: log.calories ?? 0,
+    protein: log.protein ?? 0,
+    fat: log.fat ?? 0,
+    carbs: log.carbs ?? 0,
+    itemCount: 0,
+  };
+}
+
+function addNutritionTotals(left: NutritionTotals, right: NutritionTotals): NutritionTotals {
+  return {
+    calories: left.calories + right.calories,
+    protein: left.protein + right.protein,
+    fat: left.fat + right.fat,
+    carbs: left.carbs + right.carbs,
+    itemCount: left.itemCount + right.itemCount,
+  };
+}
+
+function cartTotalsToNutrition(cartItems: CartItem[]): NutritionTotals {
+  const totals = calcCartTotals(cartItems);
+  return {
+    ...totals,
+    itemCount: cartItems.length,
+  };
+}
+
+function formatNutritionValue(value: number): string {
+  return Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { maximumFractionDigits: 1 });
+}
+
 interface MealLoggerProps {
   sidebar?: boolean; // サイドバーモード: 常時展開・縦レイアウト
   /** サイドバーモード時のみ有効。false にすると内部ヘッダー行を非表示にする */
@@ -204,9 +268,8 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
   const [workMode, setWorkMode] = useState<WorkMode | null>(null);
   const [workModeTouched, setWorkModeTouched] = useState(false);
 
-  // 食品を追加セクションの開閉状態（初期: 非表示）
-  const [foodPickerOpen, setFoodPickerOpen] = useState(false);
-  const [mealType, setMealType] = useState<MealType>("meal_1");
+  // MEAL アコーディオンの開閉状態（null = 初期表示・日付変更後・保存後は全て閉じる）
+  const [activeMealType, setActiveMealType] = useState<MealType | null>(null);
 
   const cachedDailyLog = useMemo(
     () => logs?.find((l) => l.log_date === date) ?? null,
@@ -243,7 +306,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     // カートは「これから追加する食事」なので日付変更時にリセット
     setCartItems([]);
     setCartEverHadItems(false);
-    setMealType("meal_1");
+    setActiveMealType(null);
 
     if (existingLog) {
       // 既存値をフォームへ表示（touched は立てない）
@@ -396,6 +459,12 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     setCartItems((prev) => [...prev, { kind: "temp" as const, food }]);
   }
 
+  function toggleMealAccordion(type: MealType) {
+    setCartItems([]);
+    setCartEverHadItems(false);
+    setActiveMealType((prev) => (prev === type ? null : type));
+  }
+
   async function handleSave() {
     // 二重送信ガード: saving 中は呼び出し元（ボタン以外の経路含む）からの再起動を防ぐ
     if (status === "saving") return;
@@ -446,9 +515,16 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       }
 
       if (mealItemsToSave.length > 0) {
+        if (!activeMealType) {
+          setErrorMessage("追加先のMEALを開いてから保存してください");
+          setStatus("error");
+          setTimeout(() => { setStatus("idle"); setErrorMessage(""); }, 5000);
+          return;
+        }
+
         const result = await addMealEntry({
           log_date: date,
-          meal_type: mealType,
+          meal_type: activeMealType,
           items: mealItemsToSave,
         });
 
@@ -479,7 +555,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       setTrainingTypeTouched(false);
       setWorkMode(null);
       setWorkModeTouched(false);
-      setMealType("meal_1");
+      setActiveMealType(null);
       // SWR キャッシュを更新して次回 hydrate に最新ログを反映させる
       void mutateLogs();
       void mutateMealEntries();
@@ -501,6 +577,30 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     note, noteTouched, touchedTags,
     hadBowelMovementTouched, trainingTypeTouched, workModeTouched,
   });
+
+  const mealEntriesByType = useMemo(() => {
+    const map = new Map<MealType, MealEntryWithItems[]>();
+    for (const type of MEAL_TYPES) {
+      map.set(type, (mealEntries ?? []).filter((entry) => entry.meal_type === type));
+    }
+    return map;
+  }, [mealEntries]);
+
+  const savedDailyTotals = useMemo(() => calcMealEntriesTotals(mealEntries), [mealEntries]);
+  const cartTotals = useMemo(() => cartTotalsToNutrition(cartItems), [cartItems]);
+  const legacyDailyTotals = calcDailyLogTotals(hydratedLog);
+  const dailyTotalsBase = savedDailyTotals.itemCount > 0 ? savedDailyTotals : legacyDailyTotals;
+  const displayedDailyTotals = cartItems.length > 0
+    ? addNutritionTotals(dailyTotalsBase, cartTotals)
+    : dailyTotalsBase;
+  const isLegacyDailyTotals =
+    savedDailyTotals.itemCount === 0 &&
+    hydratedLog !== null &&
+    (hydratedLog.calories !== null ||
+      hydratedLog.protein !== null ||
+      hydratedLog.fat !== null ||
+      hydratedLog.carbs !== null);
+  const includesDraftCartTotals = cartItems.length > 0;
 
   const inputCls =
     "w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800 dark:focus:border-blue-500 dark:focus:ring-blue-900/40";
@@ -629,26 +729,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
         </div>
       </div>
 
-      {/* 保存済み食事明細 */}
-      <div className="min-w-0">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">保存済み食事</p>
-        <SavedMeals
-          entries={mealEntries}
-          isLoading={isMealEntriesLoading}
-          onChanged={() => {
-            void mutateMealEntries();
-            void mutateLogs();
-          }}
-        />
-        {!isMealEntriesLoading && mealEntries?.length === 0 && hydratedLog && (hydratedLog.calories !== null || hydratedLog.protein !== null) && (
-          <div className="mt-2 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-400">
-            <span className="font-semibold">記録済みマクロ:</span>{" "}
-            <span>{hydratedLog.calories ?? 0} kcal / P {hydratedLog.protein ?? 0}g F {hydratedLog.fat ?? 0}g C {hydratedLog.carbs ?? 0}g</span>
-            <div className="mt-0.5 text-amber-600">明細はまだ作成されていません。</div>
-          </div>
-        )}
-      </div>
-
       {/* 特殊日タグ (is_cheat_day / is_refeed_day / is_eating_out / is_travel_day) */}
       <div className="min-w-0">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">特殊日</p>
@@ -742,67 +822,120 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
         </div>
       </div>
 
-      {/* 食品を追加（開閉式） */}
+      {/* 1日のカロリー/PFCサマリー */}
+      <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 dark:border-slate-700 dark:bg-slate-800/60">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">1日のサマリー</p>
+          {(isLegacyDailyTotals || includesDraftCartTotals) && (
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-400 dark:bg-slate-900 dark:text-slate-500">
+              {includesDraftCartTotals ? "入力中含む" : "既存マクロ"}
+            </span>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="rounded-lg bg-white px-3 py-2 dark:bg-slate-900">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">カロリー</p>
+            <p className="mt-1 text-lg font-semibold text-slate-800 dark:text-slate-100">
+              {formatNutritionValue(displayedDailyTotals.calories)}
+              <span className="ml-1 text-xs font-medium text-slate-400">kcal</span>
+            </p>
+          </div>
+          <div className="rounded-lg bg-white px-3 py-2 dark:bg-slate-900">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">P</p>
+            <p className="mt-1 text-lg font-semibold text-slate-800 dark:text-slate-100">
+              {formatNutritionValue(displayedDailyTotals.protein)}
+              <span className="ml-1 text-xs font-medium text-slate-400">g</span>
+            </p>
+          </div>
+          <div className="rounded-lg bg-white px-3 py-2 dark:bg-slate-900">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">F</p>
+            <p className="mt-1 text-lg font-semibold text-slate-800 dark:text-slate-100">
+              {formatNutritionValue(displayedDailyTotals.fat)}
+              <span className="ml-1 text-xs font-medium text-slate-400">g</span>
+            </p>
+          </div>
+          <div className="rounded-lg bg-white px-3 py-2 dark:bg-slate-900">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">C</p>
+            <p className="mt-1 text-lg font-semibold text-slate-800 dark:text-slate-100">
+              {formatNutritionValue(displayedDailyTotals.carbs)}
+              <span className="ml-1 text-xs font-medium text-slate-400">g</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* MEAL 1〜4 / Other アコーディオン */}
       <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={() => setFoodPickerOpen((v) => !v)}
-          className="flex w-full items-center justify-between rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2.5 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/60 dark:hover:bg-slate-700/60"
-        >
-          <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            <Plus size={13} />
-            食品を追加
-            {cartItems.length > 0 && !foodPickerOpen && (
-              <span className="ml-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
-                {cartItems.length}品
-              </span>
-            )}
-          </span>
-          <ChevronDown
-            size={15}
-            className={`text-slate-400 transition-transform duration-200 dark:text-slate-500 ${foodPickerOpen ? "rotate-180" : ""}`}
-          />
-        </button>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">食事</p>
+        {MEAL_TYPES.map((type) => {
+          const entriesForType = mealEntriesByType.get(type) ?? [];
+          const savedMealTotals = calcMealEntriesTotals(entriesForType);
+          const isActive = activeMealType === type;
+          const isMealEntriesPending = isMealEntriesLoading && mealEntries === undefined;
+          const displayedMealTotals = isActive && cartItems.length > 0
+            ? addNutritionTotals(savedMealTotals, cartTotals)
+            : savedMealTotals;
 
-        {foodPickerOpen && (
-          <div className="flex flex-col gap-3">
-            <div>
-              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">追加先</p>
-              <div className="grid grid-cols-5 gap-1.5">
-                {MEAL_TYPES.map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    aria-pressed={mealType === type}
-                    onClick={() => setMealType(type)}
-                    className={`rounded-lg border px-2 py-2 text-xs font-semibold transition-colors ${
-                      mealType === type
-                        ? "border-blue-500 bg-blue-600 text-white"
-                        : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                    }`}
-                  >
+          return (
+            <div key={type} className="overflow-hidden rounded-xl border border-slate-100 bg-white dark:border-slate-700 dark:bg-slate-900">
+              <button
+                type="button"
+                onClick={() => toggleMealAccordion(type)}
+                aria-expanded={isActive}
+                className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">
                     {MEAL_TYPE_LABELS[type]}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <FoodPicker onAdd={addFood} onAddSet={addFromMenu} onAddTemp={addTempFood} />
-            {cartItems.length > 0 && (
-              <div>
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">カート</p>
-                <Cart items={cartItems} onChange={setCartItems} />
-              </div>
-            )}
-          </div>
-        )}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-slate-400">
+                    {isMealEntriesPending
+                      ? "読み込み中..."
+                      : displayedMealTotals.itemCount > 0
+                      ? `${displayedMealTotals.itemCount}品 / ${formatNutritionValue(displayedMealTotals.calories)} kcal`
+                      : "食品なし"}
+                  </span>
+                </span>
+                <span className="flex shrink-0 items-center gap-2 text-xs text-slate-400">
+                  <span className="hidden sm:inline">
+                    P {formatNutritionValue(displayedMealTotals.protein)}g / F {formatNutritionValue(displayedMealTotals.fat)}g / C {formatNutritionValue(displayedMealTotals.carbs)}g
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform duration-200 ${isActive ? "rotate-180" : ""}`}
+                  />
+                </span>
+              </button>
 
-        {/* カート（閉じているときも品数があれば表示） */}
-        {!foodPickerOpen && cartItems.length > 0 && (
-          <div>
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">カート</p>
-            <Cart items={cartItems} onChange={setCartItems} />
-          </div>
-        )}
+              {isActive && (
+                <div className="flex flex-col gap-3 border-t border-slate-100 px-3 py-3 dark:border-slate-700">
+                  <div>
+                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">保存済み</p>
+                    <SavedMeals
+                      entries={mealEntries === undefined ? undefined : entriesForType}
+                      isLoading={isMealEntriesLoading}
+                      onChanged={() => {
+                        void mutateMealEntries();
+                        void mutateLogs();
+                      }}
+                    />
+                  </div>
+                  <FoodPicker onAdd={addFood} onAddSet={addFromMenu} onAddTemp={addTempFood} />
+                  {cartItems.length > 0 && (
+                    <div>
+                      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">カート</p>
+                      <Cart items={cartItems} onChange={setCartItems} />
+                    </div>
+                  )}
+                  <div className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                    <span className="font-semibold">MEAL小計:</span>{" "}
+                    {formatNutritionValue(displayedMealTotals.calories)} kcal / P {formatNutritionValue(displayedMealTotals.protein)}g F {formatNutritionValue(displayedMealTotals.fat)}g C {formatNutritionValue(displayedMealTotals.carbs)}g
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* 保存ボタン */}

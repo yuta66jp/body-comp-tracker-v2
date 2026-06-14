@@ -3,8 +3,7 @@
 import { useMemo, useState } from "react";
 import { Save, Trash2 } from "lucide-react";
 import { deleteMealItem, updateMealItem } from "@/app/actions/mealEntries";
-import { MEAL_TYPE_LABELS } from "@/lib/domain/meals";
-import type { MealEntryWithItems, MealItem, MealType } from "@/lib/supabase/types";
+import type { MealEntryWithItems, MealItem } from "@/lib/supabase/types";
 
 type EditState = {
   amount_g: string;
@@ -41,25 +40,13 @@ function parseNullableNonNegative(raw: string): number | null | typeof Number.Na
   return parsed;
 }
 
-function calcEntryTotals(entry: MealEntryWithItems) {
-  return entry.items.reduce(
-    (acc, item) => ({
-      calories: acc.calories + (item.calories_kcal ?? 0),
-      protein: acc.protein + (item.protein_g ?? 0),
-      fat: acc.fat + (item.fat_g ?? 0),
-      carbs: acc.carbs + (item.carbs_g ?? 0),
-    }),
-    { calories: 0, protein: 0, fat: 0, carbs: 0 }
-  );
-}
-
 export function SavedMeals({ entries, isLoading, onChanged }: SavedMealsProps) {
   const [edits, setEdits] = useState<Record<string, EditState>>({});
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
-  const visibleEntries = useMemo(
-    () => (entries ?? []).filter((entry) => entry.items.length > 0),
+  const visibleItems = useMemo(
+    () => (entries ?? []).flatMap((entry) => entry.items),
     [entries]
   );
 
@@ -152,8 +139,8 @@ export function SavedMeals({ entries, isLoading, onChanged }: SavedMealsProps) {
     return <p className="py-2 text-sm text-slate-400">保存済みの食事を読み込み中...</p>;
   }
 
-  if (visibleEntries.length === 0) {
-    return <p className="py-2 text-sm text-slate-400">保存済みの食事明細はありません</p>;
+  if (visibleItems.length === 0) {
+    return <p className="py-2 text-sm text-slate-400">食品なし</p>;
   }
 
   return (
@@ -164,124 +151,104 @@ export function SavedMeals({ entries, isLoading, onChanged }: SavedMealsProps) {
         </p>
       )}
 
-      {visibleEntries.map((entry) => {
-        const totals = calcEntryTotals(entry);
-        const mealType = entry.meal_type as MealType;
-        return (
-          <section key={entry.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-slate-700 dark:text-slate-100">
-                  {MEAL_TYPE_LABELS[mealType] ?? entry.meal_type}
-                  {entry.title && <span className="ml-2 text-xs font-normal text-slate-400">{entry.title}</span>}
-                </p>
-                <p className="text-xs text-slate-400">
-                  {Math.round(totals.calories)} kcal / P {Math.round(totals.protein)}g F {Math.round(totals.fat)}g C {Math.round(totals.carbs)}g
-                </p>
+      <ul className="flex flex-col gap-2">
+        {visibleItems.map((item) => {
+          const edit = getEdit(item);
+          const busy = busyItemId === item.id;
+          return (
+            <li key={item.id} className="rounded-lg border border-slate-100 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{item.food_name}</p>
+                  <p className="text-xs text-slate-400">
+                    {item.source_type === "legacy_total" ? "既存記録" : item.source_name ?? item.source_type}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleUpdate(item)}
+                    disabled={busy}
+                    aria-label={`${item.food_name}を更新`}
+                    title="明細を更新"
+                    className="rounded-md p-2 text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600 disabled:opacity-50 dark:hover:bg-blue-900/30 dark:hover:text-blue-300"
+                  >
+                    <Save size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(item)}
+                    disabled={busy}
+                    aria-label={`${item.food_name}を削除`}
+                    title="明細を削除"
+                    className="rounded-md p-2 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-900/30 dark:hover:text-rose-300"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <ul className="flex flex-col gap-2">
-              {entry.items.map((item) => {
-                const edit = getEdit(item);
-                const busy = busyItemId === item.id;
-                return (
-                  <li key={item.id} className="rounded-lg border border-slate-100 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{item.food_name}</p>
-                        <p className="text-xs text-slate-400">
-                          {item.source_type === "legacy_total" ? "既存記録" : item.source_name ?? item.source_type}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handleUpdate(item)}
-                          disabled={busy}
-                          aria-label={`${item.food_name}を更新`}
-                          title="明細を更新"
-                          className="rounded-md p-2 text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600 disabled:opacity-50 dark:hover:bg-blue-900/30 dark:hover:text-blue-300"
-                        >
-                          <Save size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item)}
-                          disabled={busy}
-                          aria-label={`${item.food_name}を削除`}
-                          title="明細を削除"
-                          className="rounded-md p-2 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-900/30 dark:hover:text-rose-300"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-5 gap-1.5">
-                      <label className="min-w-0">
-                        <span className="mb-1 block text-[10px] text-slate-400">g</span>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          min={0}
-                          value={edit.amount_g}
-                          onChange={(e) => setEditField(item, "amount_g", e.target.value)}
-                          className={inputCls}
-                        />
-                      </label>
-                      <label className="min-w-0">
-                        <span className="mb-1 block text-[10px] text-slate-400">kcal</span>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          min={0}
-                          value={edit.calories_kcal}
-                          onChange={(e) => setEditField(item, "calories_kcal", e.target.value)}
-                          className={inputCls}
-                        />
-                      </label>
-                      <label className="min-w-0">
-                        <span className="mb-1 block text-[10px] text-slate-400">P</span>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          min={0}
-                          value={edit.protein_g}
-                          onChange={(e) => setEditField(item, "protein_g", e.target.value)}
-                          className={inputCls}
-                        />
-                      </label>
-                      <label className="min-w-0">
-                        <span className="mb-1 block text-[10px] text-slate-400">F</span>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          min={0}
-                          value={edit.fat_g}
-                          onChange={(e) => setEditField(item, "fat_g", e.target.value)}
-                          className={inputCls}
-                        />
-                      </label>
-                      <label className="min-w-0">
-                        <span className="mb-1 block text-[10px] text-slate-400">C</span>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          min={0}
-                          value={edit.carbs_g}
-                          onChange={(e) => setEditField(item, "carbs_g", e.target.value)}
-                          className={inputCls}
-                        />
-                      </label>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        );
-      })}
+              <div className="grid grid-cols-5 gap-1.5">
+                <label className="min-w-0">
+                  <span className="mb-1 block text-[10px] text-slate-400">g</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    value={edit.amount_g}
+                    onChange={(e) => setEditField(item, "amount_g", e.target.value)}
+                    className={inputCls}
+                  />
+                </label>
+                <label className="min-w-0">
+                  <span className="mb-1 block text-[10px] text-slate-400">kcal</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    value={edit.calories_kcal}
+                    onChange={(e) => setEditField(item, "calories_kcal", e.target.value)}
+                    className={inputCls}
+                  />
+                </label>
+                <label className="min-w-0">
+                  <span className="mb-1 block text-[10px] text-slate-400">P</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    value={edit.protein_g}
+                    onChange={(e) => setEditField(item, "protein_g", e.target.value)}
+                    className={inputCls}
+                  />
+                </label>
+                <label className="min-w-0">
+                  <span className="mb-1 block text-[10px] text-slate-400">F</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    value={edit.fat_g}
+                    onChange={(e) => setEditField(item, "fat_g", e.target.value)}
+                    className={inputCls}
+                  />
+                </label>
+                <label className="min-w-0">
+                  <span className="mb-1 block text-[10px] text-slate-400">C</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    value={edit.carbs_g}
+                    onChange={(e) => setEditField(item, "carbs_g", e.target.value)}
+                    className={inputCls}
+                  />
+                </label>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
