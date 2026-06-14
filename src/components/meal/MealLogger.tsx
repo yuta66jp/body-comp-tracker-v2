@@ -910,6 +910,16 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
               {isActive && (
                 <div className="flex flex-col gap-3 border-t border-slate-100 px-3 py-3 dark:border-slate-700">
                   <div>
+                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">食品追加</p>
+                    <FoodPicker onAdd={addFood} onAddSet={addFromMenu} onAddTemp={addTempFood} />
+                  </div>
+                  {cartItems.length > 0 && (
+                    <div>
+                      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">カート</p>
+                      <Cart items={cartItems} onChange={setCartItems} />
+                    </div>
+                  )}
+                  <div>
                     <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">保存済み</p>
                     <SavedMeals
                       entries={mealEntries === undefined ? undefined : entriesForType}
@@ -920,13 +930,6 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
                       }}
                     />
                   </div>
-                  <FoodPicker onAdd={addFood} onAddSet={addFromMenu} onAddTemp={addTempFood} />
-                  {cartItems.length > 0 && (
-                    <div>
-                      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">カート</p>
-                      <Cart items={cartItems} onChange={setCartItems} />
-                    </div>
-                  )}
                   <div className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
                     <span className="font-semibold">MEAL小計:</span>{" "}
                     {formatNutritionValue(displayedMealTotals.calories)} kcal / P {formatNutritionValue(displayedMealTotals.protein)}g F {formatNutritionValue(displayedMealTotals.fat)}g C {formatNutritionValue(displayedMealTotals.carbs)}g

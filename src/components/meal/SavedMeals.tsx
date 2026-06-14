@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Save, Trash2 } from "lucide-react";
+import { RefreshCw, Trash2 } from "lucide-react";
 import { deleteMealItem, updateMealItem } from "@/app/actions/mealEntries";
 import type { MealEntryWithItems, MealItem } from "@/lib/supabase/types";
 
@@ -38,6 +38,23 @@ function parseNullableNonNegative(raw: string): number | null | typeof Number.Na
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed < 0) return Number.NaN;
   return parsed;
+}
+
+function getSourceLabel(item: MealItem): string | null {
+  if (item.source_name && item.source_name !== item.food_name) return item.source_name;
+
+  switch (item.source_type) {
+    case "legacy_total":
+      return "既存記録";
+    case "temp":
+      return "一時食品";
+    case "manual":
+      return "手入力";
+    case "menu_master":
+      return "メニュー";
+    default:
+      return null;
+  }
 }
 
 export function SavedMeals({ entries, isLoading, onChanged }: SavedMealsProps) {
@@ -155,14 +172,13 @@ export function SavedMeals({ entries, isLoading, onChanged }: SavedMealsProps) {
         {visibleItems.map((item) => {
           const edit = getEdit(item);
           const busy = busyItemId === item.id;
+          const sourceLabel = getSourceLabel(item);
           return (
             <li key={item.id} className="rounded-lg border border-slate-100 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{item.food_name}</p>
-                  <p className="text-xs text-slate-400">
-                    {item.source_type === "legacy_total" ? "既存記録" : item.source_name ?? item.source_type}
-                  </p>
+                  {sourceLabel && <p className="text-xs text-slate-400">{sourceLabel}</p>}
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <button
@@ -173,7 +189,7 @@ export function SavedMeals({ entries, isLoading, onChanged }: SavedMealsProps) {
                     title="明細を更新"
                     className="rounded-md p-2 text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600 disabled:opacity-50 dark:hover:bg-blue-900/30 dark:hover:text-blue-300"
                   >
-                    <Save size={15} />
+                    <RefreshCw size={15} className={busy ? "animate-spin" : ""} />
                   </button>
                   <button
                     type="button"
