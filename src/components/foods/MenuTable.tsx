@@ -19,11 +19,25 @@ interface EditingMenu {
   items: RecipeItem[];
 }
 
+function calcRecipeItemKcal(item: RecipeItem, foodMap: Map<string, FoodMaster>): number {
+  const food = foodMap.get(item.name);
+  return food ? Math.round(((food.calories ?? 0) * item.amount) / 100) : 0;
+}
+
 function calcRecipeKcal(items: RecipeItem[], foodMap: Map<string, FoodMaster>) {
   return items.reduce((sum, ri) => {
-    const f = foodMap.get(ri.name);
-    return sum + (f ? Math.round(((f.calories ?? 0) * ri.amount) / 100) : 0);
+    return sum + calcRecipeItemKcal(ri, foodMap);
   }, 0);
+}
+
+export function sortRecipeItemsByCalories(items: RecipeItem[], foodMap: Map<string, FoodMaster>): RecipeItem[] {
+  return items
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const calorieDifference = calcRecipeItemKcal(b.item, foodMap) - calcRecipeItemKcal(a.item, foodMap);
+      return calorieDifference || a.index - b.index;
+    })
+    .map(({ item }) => item);
 }
 
 export function MenuTable({ initialMenus, foods }: MenuTableProps) {
@@ -246,35 +260,26 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
           {/* レシピ一覧（カロリー降順で表示）*/}
           {editing.items.length > 0 && (
             <ul className="rounded-lg border border-gray-100 bg-white divide-y divide-gray-50 dark:border-slate-700 dark:bg-slate-900 dark:divide-slate-700/60">
-              {[...editing.items]
-                .sort((a, b) => {
-                  const fa = foodMap.get(a.name);
-                  const fb = foodMap.get(b.name);
-                  const ka = fa ? Math.round(((fa.calories ?? 0) * a.amount) / 100) : 0;
-                  const kb = fb ? Math.round(((fb.calories ?? 0) * b.amount) / 100) : 0;
-                  return kb - ka;
-                })
-                .map((ri) => {
-                  const food = foodMap.get(ri.name);
-                  const kcal = food ? Math.round(((food.calories ?? 0) * ri.amount) / 100) : 0;
-                  // 削除は元の items 配列のインデックスで行う
-                  const originalIdx = editing.items.findIndex((i) => i.name === ri.name);
-                  return (
-                    <li key={ri.name} className="flex items-center justify-between px-3 py-2 text-sm">
-                      <span className="text-gray-800 dark:text-slate-200">{ri.name}</span>
-                      <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-slate-500">
-                        <span>{ri.amount}g</span>
-                        <span className="text-gray-600 font-medium dark:text-slate-300">{kcal} kcal</span>
-                        <button
-                          onClick={() => setConfirmRemoveItem({ idx: originalIdx, name: ri.name })}
-                          className="text-gray-300 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400"
-                          aria-label={`${ri.name}を削除`}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </li>
-                  );
+              {sortRecipeItemsByCalories(editing.items, foodMap).map((ri) => {
+                const kcal = calcRecipeItemKcal(ri, foodMap);
+                // 削除は元の items 配列のインデックスで行う
+                const originalIdx = editing.items.findIndex((i) => i.name === ri.name);
+                return (
+                  <li key={ri.name} className="flex items-center justify-between px-3 py-2 text-sm">
+                    <span className="text-gray-800 dark:text-slate-200">{ri.name}</span>
+                    <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-slate-500">
+                      <span>{ri.amount}g</span>
+                      <span className="text-gray-600 font-medium dark:text-slate-300">{kcal} kcal</span>
+                      <button
+                        onClick={() => setConfirmRemoveItem({ idx: originalIdx, name: ri.name })}
+                        className="text-gray-300 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400"
+                        aria-label={`${ri.name}を削除`}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </li>
+                );
                 })}
               <li className="px-3 py-2 text-right text-xs font-semibold text-gray-700 dark:text-slate-300">
                 計 {calcRecipeKcal(editing.items, foodMap)} kcal
@@ -351,9 +356,8 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
                   {/* 展開: 食材リスト */}
                   {isOpen && (
                     <div className="border-t border-slate-50 bg-slate-50 px-4 py-3 space-y-1.5 dark:border-slate-700/60 dark:bg-slate-800/60">
-                      {menu.recipe.map((ri) => {
-                        const food = foodMap.get(ri.name);
-                        const itemKcal = food ? Math.round(((food.calories ?? 0) * ri.amount) / 100) : 0;
+                      {sortRecipeItemsByCalories(menu.recipe, foodMap).map((ri) => {
+                        const itemKcal = calcRecipeItemKcal(ri, foodMap);
                         return (
                           <div key={`${ri.name}-${ri.amount}`} className="flex justify-between text-xs text-slate-600 dark:text-slate-300">
                             <span>{ri.name}</span>
@@ -403,9 +407,8 @@ export function MenuTable({ initialMenus, foods }: MenuTableProps) {
                   </div>
                   {isOpen && (
                     <ul className="border-t border-gray-50 bg-gray-50 px-6 py-2 space-y-1 dark:border-slate-700/60 dark:bg-slate-800/60">
-                      {menu.recipe.map((ri) => {
-                        const food = foodMap.get(ri.name);
-                        const itemKcal = food ? Math.round(((food.calories ?? 0) * ri.amount) / 100) : 0;
+                      {sortRecipeItemsByCalories(menu.recipe, foodMap).map((ri) => {
+                        const itemKcal = calcRecipeItemKcal(ri, foodMap);
                         return (
                           <li key={`${ri.name}-${ri.amount}`} className="flex justify-between text-xs text-gray-600 dark:text-slate-300">
                             <span>{ri.name}</span>
