@@ -35,8 +35,8 @@ jest.mock("lucide-react", () => ({
 }));
 
 import { insertMenu, updateMenu, deleteMenu } from "@/app/actions/foods";
-import { MenuTable } from "@/components/foods/MenuTable";
-import type { FoodMaster } from "@/lib/supabase/types";
+import { MenuTable, sortRecipeItemsByCalories } from "@/components/foods/MenuTable";
+import type { FoodMaster, RecipeItem } from "@/lib/supabase/types";
 import type { MenuEntry } from "@/lib/hooks/useMenuList";
 
 const mockInsertMenu = insertMenu as jest.MockedFunction<typeof insertMenu>;
@@ -62,6 +62,57 @@ const FOODS: FoodMaster[] = [
 const INITIAL_MENUS: MenuEntry[] = [
   { name: "鶏飯セット", recipe: [{ name: "鶏むね肉", amount: 200 }, { name: "白米", amount: 150 }] },
 ];
+
+describe("sortRecipeItemsByCalories", () => {
+  it("セット内の量を反映した合計カロリーの降順で並べる", () => {
+    const foods = [
+      makeFoodMaster("低カロリー食品", 100),
+      makeFoodMaster("高カロリー食品", 200),
+      makeFoodMaster("中カロリー食品", 150),
+    ];
+    const items: RecipeItem[] = [
+      { name: "低カロリー食品", amount: 100 },
+      { name: "高カロリー食品", amount: 250 },
+      { name: "中カロリー食品", amount: 200 },
+    ];
+
+    expect(sortRecipeItemsByCalories(items, new Map(foods.map((food) => [food.name, food])))).toEqual([
+      { name: "高カロリー食品", amount: 250 },
+      { name: "中カロリー食品", amount: 200 },
+      { name: "低カロリー食品", amount: 100 },
+    ]);
+    expect(items).toEqual([
+      { name: "低カロリー食品", amount: 100 },
+      { name: "高カロリー食品", amount: 250 },
+      { name: "中カロリー食品", amount: 200 },
+    ]);
+  });
+
+  it("同一カロリーの食品はセットへの登録順を維持する", () => {
+    const foods = [
+      makeFoodMaster("先に登録した食品", 200),
+      makeFoodMaster("次に登録した食品", 100),
+    ];
+    const items: RecipeItem[] = [
+      { name: "先に登録した食品", amount: 100 },
+      { name: "次に登録した食品", amount: 200 },
+    ];
+
+    expect(sortRecipeItemsByCalories(items, new Map(foods.map((food) => [food.name, food])))).toEqual(items);
+  });
+});
+
+describe("MenuTable — セットメニュー詳細", () => {
+  it("展開時に食品を合計カロリーの高い順で表示する", () => {
+    render(<MenuTable initialMenus={INITIAL_MENUS} foods={FOODS} />);
+
+    fireEvent.click(screen.getAllByText("鶏飯セット")[0]!);
+
+    const [chicken] = screen.getAllByText("鶏むね肉");
+    const [rice] = screen.getAllByText("白米");
+    expect(rice!.compareDocumentPosition(chicken!) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+});
 
 // ─── シナリオ 1: 初期データ表示 ────────────────────────────────────────────
 
