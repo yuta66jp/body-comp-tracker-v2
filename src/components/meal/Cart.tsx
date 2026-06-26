@@ -38,6 +38,31 @@ function calcNutrient(food: FoodMaster, grams: number, key: keyof Pick<FoodMaste
   return Math.round(((food[key] ?? 0) * grams) / 100);
 }
 
+export function calcCartItemCalories(item: CartItem): number {
+  if (item.kind === "regular") {
+    return calcNutrient(item.food, item.grams, "calories");
+  }
+  return item.food.calories;
+}
+
+interface IndexedCartItem {
+  item: CartItem;
+  index: number;
+}
+
+function sortCartItemEntriesByCalories(items: CartItem[]): IndexedCartItem[] {
+  return items
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const calorieDifference = calcCartItemCalories(b.item) - calcCartItemCalories(a.item);
+      return calorieDifference || a.index - b.index;
+    });
+}
+
+export function sortCartItemsByCalories(items: CartItem[]): CartItem[] {
+  return sortCartItemEntriesByCalories(items).map(({ item }) => item);
+}
+
 export function calcCartTotals(items: CartItem[]) {
   return items.reduce(
     (acc, item) => {
@@ -81,6 +106,7 @@ export function normalizeGrams(raw: string, fallback: number): number {
 
 export function Cart({ items, onChange }: CartProps) {
   const totals = calcCartTotals(items);
+  const sortedItems = sortCartItemEntriesByCalories(items);
 
   // 編集中の grams を string で一時保持する（food.name → string）。
   // キーに index ではなく food.name（通常食品は cart 内で一意）を使うことで、
@@ -135,7 +161,7 @@ export function Cart({ items, onChange }: CartProps) {
   return (
     <div className="flex flex-col gap-3">
       <ul className="flex flex-col gap-2">
-        {items.map((item, i) => {
+        {sortedItems.map(({ item, index }) => {
           if (item.kind === "regular") {
             return (
               <li key={`regular-${item.food.name}`} className="flex items-center gap-2 rounded-lg border border-gray-100 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
@@ -156,13 +182,13 @@ export function Cart({ items, onChange }: CartProps) {
                     max={9999}
                     value={item.food.name in editingGrams ? editingGrams[item.food.name] : item.grams}
                     onChange={(e) => handleGramsChange(item.food.name, e.target.value)}
-                    onBlur={() => handleGramsBlur(i, item.food.name)}
+                    onBlur={() => handleGramsBlur(index, item.food.name)}
                     className="w-20 rounded border border-gray-200 px-2 py-2.5 text-right text-sm outline-none focus:border-blue-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                   />
                   <span className="text-xs text-gray-400">g</span>
                 </div>
                 <button
-                  onClick={() => remove(i)}
+                  onClick={() => remove(index)}
                   className="ml-1 p-2 text-gray-300 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400"
                   aria-label="削除"
                 >
@@ -188,7 +214,7 @@ export function Cart({ items, onChange }: CartProps) {
                   </p>
                 </div>
                 <button
-                  onClick={() => remove(i)}
+                  onClick={() => remove(index)}
                   className="ml-1 p-2 text-gray-300 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400"
                   aria-label="削除"
                 >
