@@ -110,7 +110,9 @@ export type Database = {
           log_date: string
           note: string | null
           season: string
+          season_id: number
           target_date: string
+          user_id: string
           weight: number
         }
         Insert: {
@@ -118,7 +120,9 @@ export type Database = {
           log_date: string
           note?: string | null
           season: string
+          season_id: number
           target_date: string
+          user_id: string
           weight: number
         }
         Update: {
@@ -126,10 +130,20 @@ export type Database = {
           log_date?: string
           note?: string | null
           season?: string
+          season_id?: number
           target_date?: string
+          user_id?: string
           weight?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "career_logs_season_owner_fkey"
+            columns: ["season_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
       }
       daily_logs: {
         Row: {
@@ -149,6 +163,7 @@ export type Database = {
           log_date: string
           note: string | null
           protein: number | null
+          season_id: number | null
           training_type: string | null
           updated_at: string
           user_id: string | null
@@ -172,6 +187,7 @@ export type Database = {
           log_date: string
           note?: string | null
           protein?: number | null
+          season_id?: number | null
           training_type?: string | null
           updated_at?: string
           user_id?: string | null
@@ -195,13 +211,22 @@ export type Database = {
           log_date?: string
           note?: string | null
           protein?: number | null
+          season_id?: number | null
           training_type?: string | null
           updated_at?: string
           user_id?: string | null
           weight?: number
           work_mode?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "daily_logs_season_owner_fkey"
+            columns: ["season_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
       }
       food_master: {
         Row: {
@@ -521,11 +546,72 @@ export type Database = {
         }
         Relationships: []
       }
+      seasons: {
+        Row: {
+          created_at: string
+          end_date: string | null
+          end_weight: number | null
+          id: number
+          monthly_plan_overrides: Json
+          monthly_plan_start_month: string | null
+          monthly_plan_start_weight: number | null
+          name: string
+          phase: string
+          start_date: string
+          start_weight: number
+          status: string
+          target_date: string
+          target_weight: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          end_date?: string | null
+          end_weight?: number | null
+          id?: number
+          monthly_plan_overrides?: Json
+          monthly_plan_start_month?: string | null
+          monthly_plan_start_weight?: number | null
+          name: string
+          phase: string
+          start_date: string
+          start_weight: number
+          status?: string
+          target_date: string
+          target_weight?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string | null
+          end_weight?: number | null
+          id?: number
+          monthly_plan_overrides?: Json
+          monthly_plan_start_month?: string | null
+          monthly_plan_start_weight?: number | null
+          name?: string
+          phase?: string
+          start_date?: string
+          start_weight?: number
+          status?: string
+          target_date?: string
+          target_weight?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      resolve_season_id: {
+        Args: { p_log_date: string; p_user_id: string }
+        Returns: number
+      }
       save_daily_log_partial: {
         Args: { p_fields: Json; p_log_date: string }
         Returns: undefined
@@ -678,7 +764,10 @@ export const Constants = {
 type OptionalUserId<Row extends { user_id: string | null }> =
   Omit<Row, "user_id"> & { user_id?: string | null };
 
-export type DailyLog = OptionalUserId<Database["public"]["Tables"]["daily_logs"]["Row"]>;
+type DailyLogRow = Database["public"]["Tables"]["daily_logs"]["Row"];
+export type DailyLog = Omit<OptionalUserId<DailyLogRow>, "season_id"> & {
+  season_id?: number | null;
+};
 
 /**
  * Dashboard 専用の daily_logs projection 型。
@@ -718,9 +807,14 @@ export type GoogleHealthConnectionStatus = Database["private"]["Enums"]["google_
 export type FoodMaster  = OptionalUserId<Database["public"]["Tables"]["food_master"]["Row"]>;
 export type MenuMaster  = OptionalUserId<Database["public"]["Tables"]["menu_master"]["Row"]>;
 export type Setting     = OptionalUserId<Database["public"]["Tables"]["settings"]["Row"]>;
+export type SeasonRow   = Database["public"]["Tables"]["seasons"]["Row"];
 export type Prediction  = Database["public"]["Tables"]["predictions"]["Row"];
 export type AnalyticsCache = Database["public"]["Tables"]["analytics_cache"]["Row"];
-export type CareerLog   = Database["public"]["Tables"]["career_logs"]["Row"];
+type CareerLogRow = Database["public"]["Tables"]["career_logs"]["Row"];
+export type CareerLog = Omit<CareerLogRow, "season_id" | "user_id"> & {
+  season_id?: number;
+  user_id?: string;
+};
 
 /** menu_master.recipe JSONB の要素型 (旧版: {name, amount}) */
 export interface RecipeItem {
