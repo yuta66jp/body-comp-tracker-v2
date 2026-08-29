@@ -61,11 +61,9 @@ describe("saveSettings — auth_required", () => {
         "goal_weight",
         "monthly_plan_start_month",
         "monthly_plan_start_weight",
+        "monthly_plan_overrides",
       ])
     );
     expect(records).toEqual(expect.arrayContaining([expect.objectContaining({ key: "age" })]));
-    expect(records).toEqual(
-      expect.arrayContaining([expect.objectContaining({ key: "monthly_plan_overrides" })])
-    );
   });
 });

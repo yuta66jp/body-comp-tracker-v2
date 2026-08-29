@@ -19,8 +19,8 @@ import { calcWeightTrend } from "@/lib/utils/calcTrend";
 import { buildMonthlyGoalPlan } from "@/lib/utils/monthlyGoalPlan";
 import { buildMonthlyGoalSummaryRows, buildMonthlyGoalComparisonRows } from "@/lib/utils/monthlyGoalVisualization";
 import { calcMonthlyBehaviorStats } from "@/lib/utils/calcMonthlyBehaviorStats";
-import { resolveMonthlyPlanHistoryAnchor } from "@/lib/utils/monthlyPlanHistory";
 import { fetchDashboardDailyLogs, fetchPredictions, fetchCareerLogsForDashboard } from "@/lib/queries/dailyLogs";
+import { fetchActiveSeason } from "@/lib/queries/seasons";
 import { fetchGoogleHealthDailyMetricsForRange } from "@/lib/queries/googleHealthDailyMetrics";
 import { fetchSettings } from "@/lib/queries/settings";
 import { fetchEnrichedLogs } from "@/lib/queries/analytics";
@@ -112,17 +112,19 @@ export default async function DashboardPage() {
   // toJstDateStr() は常に JST 当日を返す。
   const today = toJstDateStr();
 
-  const [logsResult, predictions, settingsResult, careerLogs, googleHealthStatus] = await Promise.all([
+  const [logsResult, predictions, settingsResult, careerLogs, activeSeasonResult, googleHealthStatus] = await Promise.all([
     fetchDashboardDailyLogs(),
     fetchPredictions(),
     fetchSettings(),
     fetchCareerLogsForDashboard(),
+    fetchActiveSeason(),
     fetchGoogleHealthStatusForDashboard(),
   ]);
 
   // QueryResult を展開。エラー時はフォールバック値で graceful degradation を維持する。
   const logs = logsResult.kind === "ok" ? logsResult.data : [];
   const settings = settingsResult.kind === "ok" ? settingsResult.data : mapToAppSettings([]);
+  const activeSeason = activeSeasonResult.kind === "ok" ? activeSeasonResult.data : null;
 
   const firstLogDate = logs.at(0)?.log_date ?? null;
   const googleHealthMetricsResult = firstLogDate
@@ -156,9 +158,16 @@ export default async function DashboardPage() {
     .filter((r) => r.tdee_estimated !== null)
     .at(-1)?.tdee_estimated ?? null;
 
-  const goalWeight = settings.targetWeight ?? undefined;
-  const contestDate = settings.contestDate ?? undefined;
-  const currentSeason = settings.currentSeason;
+  const goalWeight = activeSeason?.targetWeight ?? undefined;
+  const contestDate = activeSeason?.targetDate;
+  const currentSeason = activeSeason?.name ?? null;
+  const dashboardSettings = {
+    ...settings,
+    contestDate: contestDate ?? null,
+    currentSeason,
+    currentPhase: activeSeason?.phase ?? null,
+    targetWeight: goalWeight ?? null,
+  };
 
   // シーズン関連データ
   const seasonMap = buildSeasonMap(careerLogs);
@@ -171,7 +180,7 @@ export default async function DashboardPage() {
 
   const qualityReport = calcDataQuality(logs, today);
 
-  const phase = settings.currentPhase ?? "Cut";
+  const phase = activeSeason?.phase ?? "Cut";
 
   const readinessMetrics = calcReadiness(logs, {
     contest_date: contestDate ?? null,
@@ -221,19 +230,16 @@ export default async function DashboardPage() {
 
   // 今月目標進捗の比較値: 最新体重優先 (単日ノイズ込みの実測値で進捗を把握する)
   // GoalNavigator のペース分析 (refWeight) は引き続き 7日平均優先のままとする
-  const comparisonWeight = readinessMetrics.current_weight ?? readinessMetrics.weight_7d_avg;
-  const monthlyPlanHistory = resolveMonthlyPlanHistoryAnchor({
-    explicitStartMonth: settings.monthlyPlanStartMonth,
-    explicitStartWeight: settings.monthlyPlanStartWeight,
-    goalDeadlineDate: contestDate ?? null,
-    overrides: settings.monthlyPlanOverrides,
-    currentWeight: comparisonWeight,
-    today,
-  });
-
+  const activeSeasonLogs = activeSeason
+    ? logs.filter((log) => log.log_date >= activeSeason.startDate)
+    : [];
+  const comparisonWeight =
+    [...activeSeasonLogs].reverse().find((log) => log.weight !== null)?.weight ??
+    activeSeason?.startWeight ??
+    null;
   // 当月最小体重: 今月の実測ログから最小値を導出
   const currentMonthPrefix = today.slice(0, 7);
-  const currentMonthWeights = logs
+  const currentMonthWeights = activeSeasonLogs
     .filter((l) => l.log_date.startsWith(currentMonthPrefix) && l.weight !== null)
     .map((l) => l.weight!);
   const currentMonthMinWeight = currentMonthWeights.length > 0
@@ -242,33 +248,36 @@ export default async function DashboardPage() {
   const monthlyGoalProgress = calcMonthlyGoalProgress({
     contestDate: contestDate ?? null,
     targetWeight: goalWeight ?? null,
-    monthlyPlanStartMonth: monthlyPlanHistory.startMonth,
-    monthlyPlanStartWeight: monthlyPlanHistory.startWeight,
-    monthlyPlanOverrides: settings.monthlyPlanOverrides,
+    monthlyPlanStartMonth: activeSeason?.monthlyPlanStartMonth ?? null,
+    monthlyPlanStartWeight: activeSeason?.monthlyPlanStartWeight ?? null,
+    monthlyPlanOverrides: activeSeason?.monthlyPlanOverrides ?? [],
     comparisonWeight,
     today,
     phase,
   });
 
-  // 月次計画 (#101) を構築して可視化用データを生成する。
-  // comparisonWeight が null (体重記録なし) の場合はプランを構築しない。
+  // 進行中シーズンのsnapshot済み開始情報から月次計画を構築する。
   const monthlyGoalPlan =
-    contestDate && goalWeight !== undefined && monthlyPlanHistory.startWeight !== null
+    activeSeason &&
+    contestDate &&
+    goalWeight !== undefined &&
+    activeSeason.monthlyPlanStartMonth !== null &&
+    activeSeason.monthlyPlanStartWeight !== null
       ? buildMonthlyGoalPlan({
-          currentWeight: monthlyPlanHistory.startWeight,
+          currentWeight: activeSeason.monthlyPlanStartWeight,
           today,
-          planStartMonth: monthlyPlanHistory.startMonth,
+          planStartMonth: activeSeason.monthlyPlanStartMonth,
           finalGoalWeight: goalWeight,
           goalDeadlineDate: contestDate,
           monthlyActuals: [],
-          overrides: settings.monthlyPlanOverrides ?? [],
+          overrides: activeSeason.monthlyPlanOverrides,
         })
       : null;
 
   const monthlyGoalSummaryRows =
     monthlyGoalPlan?.isValid && monthlyGoalPlan.entries.length > 0
       ? buildMonthlyGoalComparisonRows(
-          buildMonthlyGoalSummaryRows(monthlyGoalPlan, logs, today),
+          buildMonthlyGoalSummaryRows(monthlyGoalPlan, activeSeasonLogs, today),
           phase
         )
       : [];
@@ -292,6 +301,11 @@ export default async function DashboardPage() {
               設定データの取得中にエラーが発生しました。一部の表示がデフォルト値になります。
             </StatusNotice>
           )}
+          {activeSeasonResult.kind === "error" && (
+            <StatusNotice status="error">
+              シーズン情報の取得中にエラーが発生しました。月次計画は表示されません。
+            </StatusNotice>
+          )}
           {googleHealthMetricsResult.kind === "error" && (
             <StatusNotice status="caution">
               Google Health データの取得中にエラーが発生しました。日次メトリクス表示は一部欠落します。
@@ -311,7 +325,7 @@ export default async function DashboardPage() {
         </p>
       ) : logs.length > 0 ? (
         <>
-          <KpiCards logs={logs} settings={settings} avgTdee={latestTdee} currentWeight={readinessMetrics.current_weight} currentSeason={currentSeason} goalReachResult={goalReachResult} bufferDays={bufferDays} />
+          <KpiCards logs={logs} settings={dashboardSettings} avgTdee={latestTdee} currentWeight={readinessMetrics.current_weight} currentSeason={currentSeason} goalReachResult={goalReachResult} bufferDays={bufferDays} />
           <GoalNavigator
             metrics={readinessMetrics}
             phase={phase}

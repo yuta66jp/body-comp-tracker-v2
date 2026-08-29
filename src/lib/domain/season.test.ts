@@ -17,6 +17,7 @@ function makeRow(overrides: Partial<SeasonRow> = {}): SeasonRow {
     monthly_plan_start_month: "2026-01",
     monthly_plan_start_weight: 70,
     monthly_plan_overrides: [{ month: "2026-02", targetWeight: 72.5 }],
+    monthly_plan_snapshot: null,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-03-31T00:00:00Z",
     ...overrides,
@@ -51,6 +52,24 @@ describe("mapSeasonRow", () => {
 
     expect(season.monthlyPlanOverrides).toEqual([
       { month: "2026-03", targetWeight: 73 },
+    ]);
+  });
+
+  it("終了時の月次計画snapshotをdomain dataへ変換する", () => {
+    const season = mapSeasonRow(makeRow({
+      monthly_plan_snapshot: [
+        {
+          month: "2026-03",
+          targetWeight: 73,
+          source: "auto_redistributed",
+          requiredDeltaKg: -2,
+          actualWeight: 73.5,
+        },
+      ],
+    }));
+
+    expect(season.monthlyPlanSnapshot).toEqual([
+      expect.objectContaining({ month: "2026-03", actualWeight: 73.5 }),
     ]);
   });
 

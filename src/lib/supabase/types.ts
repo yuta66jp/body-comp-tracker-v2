@@ -553,6 +553,7 @@ export type Database = {
           end_weight: number | null
           id: number
           monthly_plan_overrides: Json
+          monthly_plan_snapshot: Json | null
           monthly_plan_start_month: string | null
           monthly_plan_start_weight: number | null
           name: string
@@ -571,6 +572,7 @@ export type Database = {
           end_weight?: number | null
           id?: number
           monthly_plan_overrides?: Json
+          monthly_plan_snapshot?: Json | null
           monthly_plan_start_month?: string | null
           monthly_plan_start_weight?: number | null
           name: string
@@ -589,6 +591,7 @@ export type Database = {
           end_weight?: number | null
           id?: number
           monthly_plan_overrides?: Json
+          monthly_plan_snapshot?: Json | null
           monthly_plan_start_month?: string | null
           monthly_plan_start_weight?: number | null
           name?: string
@@ -609,7 +612,12 @@ export type Database = {
     }
     Functions: {
       end_active_season: {
-        Args: { p_end_date: string; p_expected_active_season_id: number }
+        Args: {
+          p_end_date: string
+          p_expected_active_season_id: number
+          p_expected_active_season_updated_at: string
+          p_plan_snapshot: Json
+        }
         Returns: number
       }
       resolve_season_id: {
@@ -623,8 +631,10 @@ export type Database = {
       start_or_switch_season: {
         Args: {
           p_expected_active_season_id: number | null
+          p_expected_active_season_updated_at: string | null
           p_name: string
           p_phase: string
+          p_previous_plan_snapshot: Json | null
           p_start_date: string
           p_target_date: string
           p_target_weight: number
@@ -634,8 +644,18 @@ export type Database = {
       update_active_season_goal: {
         Args: {
           p_expected_active_season_id: number
+          p_expected_active_season_updated_at: string
           p_target_date: string
           p_target_weight: number
+        }
+        Returns: number
+      }
+      update_active_season_plan_overrides: {
+        Args: {
+          p_expected_active_season_id: number
+          p_expected_active_season_updated_at: string
+          p_overrides: Json
+          p_reset_all: boolean
         }
         Returns: number
       }

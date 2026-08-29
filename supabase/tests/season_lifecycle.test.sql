@@ -30,17 +30,23 @@ SET LOCAL request.jwt.claim.sub = '74200000-0000-0000-0000-000000000001';
 DO $$
 DECLARE
   v_bulk_id BIGINT;
+  v_bulk_updated_at TIMESTAMPTZ;
   v_cut_id BIGINT;
+  v_cut_updated_at TIMESTAMPTZ;
   v_no_end_weight_id BIGINT;
+  v_no_end_weight_updated_at TIMESTAMPTZ;
 BEGIN
   v_bulk_id := start_or_switch_season(
+    NULL,
     NULL,
     '1900_Bulk',
     'Bulk',
     '1900-01-01',
     '1900-06-30',
-    80
+    80,
+    NULL
   );
+  SELECT updated_at INTO v_bulk_updated_at FROM seasons WHERE id = v_bulk_id;
 
   IF NOT EXISTS (
     SELECT 1 FROM seasons
@@ -65,12 +71,15 @@ BEGIN
 
   v_cut_id := start_or_switch_season(
     v_bulk_id,
+    v_bulk_updated_at,
     '1900_Cut',
     'Cut',
     '1900-04-01',
     '1900-09-30',
-    68
+    68,
+    '[{"month":"1900-01","targetWeight":76,"source":"auto_redistributed","requiredDeltaKg":1,"actualWeight":75},{"month":"1900-06","targetWeight":80,"source":"auto_redistributed","requiredDeltaKg":0.8,"actualWeight":null}]'::JSONB
   );
+  SELECT updated_at INTO v_cut_updated_at FROM seasons WHERE id = v_cut_id;
 
   IF NOT EXISTS (
     SELECT 1 FROM seasons
@@ -78,6 +87,7 @@ BEGIN
       AND status = 'completed'
       AND end_date = '1900-03-31'
       AND end_weight = 76
+      AND monthly_plan_snapshot IS NOT NULL
   ) THEN
     RAISE EXCEPTION 'previous season was not completed on the transition eve';
   END IF;
@@ -100,15 +110,60 @@ BEGIN
     RAISE EXCEPTION 'transition-day log was not reassigned to the next season';
   END IF;
 
+  UPDATE seasons SET target_weight = 67 WHERE id = v_cut_id;
+  IF EXISTS (SELECT 1 FROM seasons WHERE id = v_cut_id AND target_weight = 67) THEN
+    RAISE EXCEPTION 'lifecycle column was directly overwritten';
+  END IF;
+
+  BEGIN
+    PERFORM update_active_season_plan_overrides(
+      v_cut_id,
+      v_cut_updated_at,
+      '[{"month":"1900-04","targetWeight":201}]'::JSONB,
+      FALSE
+    );
+    RAISE EXCEPTION 'invalid plan override unexpectedly succeeded';
+  EXCEPTION
+    WHEN raise_exception THEN
+      IF SQLERRM NOT LIKE '%season_plan_overrides_invalid%' THEN
+        RAISE;
+      END IF;
+  END;
+
+  PERFORM update_active_season_plan_overrides(
+    v_cut_id,
+    v_cut_updated_at,
+    '[]'::JSONB,
+    FALSE
+  );
+  SELECT updated_at INTO v_cut_updated_at FROM seasons WHERE id = v_cut_id;
+
+  BEGIN
+    PERFORM update_active_season_goal(
+      v_cut_id,
+      v_cut_updated_at - INTERVAL '1 second',
+      '1900-10-31',
+      67.5
+    );
+    RAISE EXCEPTION 'stale updated_at unexpectedly changed the active season';
+  EXCEPTION
+    WHEN raise_exception THEN
+      IF SQLERRM NOT LIKE '%active_season_changed%' THEN
+        RAISE;
+      END IF;
+  END;
+
   -- 同じrequestの二重送信は期待したactive idが変わり、transaction全体がno-opになる。
   BEGIN
     PERFORM start_or_switch_season(
       v_bulk_id,
+      v_bulk_updated_at,
       '1900_Cut',
       'Cut',
       '1900-04-01',
       '1900-09-30',
-      68
+      68,
+      '[{"month":"1900-01","targetWeight":76,"source":"auto_redistributed","requiredDeltaKg":1,"actualWeight":75},{"month":"1900-06","targetWeight":80,"source":"auto_redistributed","requiredDeltaKg":0.8,"actualWeight":null}]'::JSONB
     );
     RAISE EXCEPTION 'duplicate transition unexpectedly succeeded';
   EXCEPTION
@@ -124,7 +179,7 @@ BEGIN
   END IF;
 
   BEGIN
-    PERFORM update_active_season_goal(v_bulk_id, '1900-12-31', 66);
+    PERFORM update_active_season_goal(v_bulk_id, v_bulk_updated_at, '1900-12-31', 66);
     RAISE EXCEPTION 'stale goal update unexpectedly changed the next season';
   EXCEPTION
     WHEN raise_exception THEN
@@ -133,7 +188,8 @@ BEGIN
       END IF;
   END;
 
-  PERFORM update_active_season_goal(v_cut_id, '1900-10-31', 67.5);
+  PERFORM update_active_season_goal(v_cut_id, v_cut_updated_at, '1900-10-31', 67.5);
+  SELECT updated_at INTO v_cut_updated_at FROM seasons WHERE id = v_cut_id;
   IF NOT EXISTS (
     SELECT 1 FROM seasons
     WHERE id = v_cut_id
@@ -147,7 +203,12 @@ BEGIN
     RAISE EXCEPTION 'goal update did not update season and settings atomically';
   END IF;
 
-  PERFORM end_active_season(v_cut_id, '1900-05-01');
+  PERFORM end_active_season(
+    v_cut_id,
+    v_cut_updated_at,
+    '1900-05-01',
+    '[{"month":"1900-04","targetWeight":70,"source":"auto_redistributed","requiredDeltaKg":-7,"actualWeight":77},{"month":"1900-10","targetWeight":67.5,"source":"auto_redistributed","requiredDeltaKg":-0.5,"actualWeight":null}]'::JSONB
+  );
   IF EXISTS (SELECT 1 FROM seasons WHERE status = 'active') THEN
     RAISE EXCEPTION 'season remained active after explicit end';
   END IF;
@@ -157,6 +218,7 @@ BEGIN
       AND status = 'completed'
       AND end_date = '1900-05-01'
       AND end_weight = 77
+      AND JSONB_ARRAY_LENGTH(monthly_plan_snapshot) = 2
   ) THEN
     RAISE EXCEPTION 'season end did not preserve the latest end weight';
   END IF;
@@ -168,18 +230,36 @@ BEGIN
     RAISE EXCEPTION 'current settings were not cleared after season end';
   END IF;
 
+  DELETE FROM seasons WHERE id = v_cut_id;
+  IF NOT EXISTS (
+    SELECT 1 FROM seasons
+    WHERE id = v_cut_id
+      AND status = 'completed'
+      AND monthly_plan_snapshot IS NOT NULL
+  ) THEN
+    RAISE EXCEPTION 'completed season snapshot was directly deleted';
+  END IF;
+
   v_no_end_weight_id := start_or_switch_season(
+    NULL,
     NULL,
     '1901_Bulk',
     'Bulk',
     '1901-01-01',
     '1901-06-30',
-    80
+    80,
+    NULL
   );
+  SELECT updated_at INTO v_no_end_weight_updated_at FROM seasons WHERE id = v_no_end_weight_id;
   UPDATE daily_logs
      SET weight = NULL
    WHERE user_id = '74200000-0000-0000-0000-000000000001';
-  PERFORM end_active_season(v_no_end_weight_id, '1901-02-01');
+  PERFORM end_active_season(
+    v_no_end_weight_id,
+    v_no_end_weight_updated_at,
+    '1901-02-01',
+    '[{"month":"1901-01","targetWeight":78,"source":"auto_redistributed","requiredDeltaKg":1,"actualWeight":null},{"month":"1901-06","targetWeight":80,"source":"auto_redistributed","requiredDeltaKg":0.4,"actualWeight":null}]'::JSONB
+  );
   IF NOT EXISTS (
     SELECT 1 FROM seasons
     WHERE id = v_no_end_weight_id
@@ -192,11 +272,13 @@ BEGIN
   BEGIN
     PERFORM start_or_switch_season(
       NULL,
+      NULL,
       '1899_Cut',
       'Cut',
       '1899-01-01',
       '1899-12-31',
-      68
+      68,
+      NULL
     );
     RAISE EXCEPTION 'season without start weight unexpectedly succeeded';
   EXCEPTION
