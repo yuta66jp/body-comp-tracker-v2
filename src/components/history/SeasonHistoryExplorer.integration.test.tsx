@@ -90,6 +90,10 @@ const records = [
   record(season(4, "2024_Bulk", "Bulk", "active")),
 ];
 
+const manyRecords = [1, 2, 3, 4, 5, 6, 7].map((id) =>
+  record(season(id, `202${id}_Cut`, "Cut", id === 7 ? "active" : "completed"))
+);
+
 describe("SeasonHistoryExplorer", () => {
   it("進行中seasonを既定選択し同じBulkだけを比較する", () => {
     render(<SeasonHistoryExplorer records={records} legacyRecords={[]} unassignedLogCount={0} today="2024-03-01" dailyLogs={[]} />);
@@ -100,6 +104,7 @@ describe("SeasonHistoryExplorer", () => {
     expect(table).toHaveTextContent("2023_Bulk,2024_Bulk");
     expect(table).not.toHaveTextContent("Cut");
     expect(screen.getByTestId("days-chart")).toHaveTextContent("目標日");
+    expect(screen.queryByRole("button", { name: /過去のシーズンを表示/ })).not.toBeInTheDocument();
   });
 
   it("Cutを選ぶとCut同士の比較と保存済みsnapshotへ切り替わる", () => {
@@ -161,5 +166,51 @@ describe("SeasonHistoryExplorer", () => {
     expect(screen.getByText("1 件")).toBeInTheDocument();
     expect(screen.getByText(/比較グループと目標達成判定も変わります/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "変更を確定" })).toBeInTheDocument();
+  });
+
+  it("直近4件だけを初期表示し、残りの過去seasonを展開できる", () => {
+    render(
+      <SeasonHistoryExplorer
+        records={manyRecords}
+        legacyRecords={[]}
+        unassignedLogCount={0}
+        today="2027-03-01"
+        dailyLogs={[]}
+      />
+    );
+
+    const seasonSection = screen.getByRole("heading", { name: "シーズン一覧" }).closest("section")!;
+    expect(within(seasonSection).getAllByRole("button", { name: /202\d_Cut/ })).toHaveLength(4);
+    expect(within(seasonSection).queryByRole("button", { name: /2023_Cut/ })).not.toBeInTheDocument();
+
+    fireEvent.click(within(seasonSection).getByRole("button", { name: "過去のシーズンを表示（残り3件）" }));
+
+    expect(within(seasonSection).getAllByRole("button", { name: /202\d_Cut/ })).toHaveLength(7);
+    expect(within(seasonSection).getByRole("button", { name: "過去のシーズンを閉じる" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("過去seasonを選択したまま閉じると選択中カードだけを維持する", () => {
+    render(
+      <SeasonHistoryExplorer
+        records={manyRecords}
+        legacyRecords={[]}
+        unassignedLogCount={0}
+        today="2027-03-01"
+        dailyLogs={[]}
+      />
+    );
+
+    const seasonSection = screen.getByRole("heading", { name: "シーズン一覧" }).closest("section")!;
+    fireEvent.click(within(seasonSection).getByRole("button", { name: "過去のシーズンを表示（残り3件）" }));
+    fireEvent.click(within(seasonSection).getByRole("button", { name: /2021_Cut/ }));
+    fireEvent.click(within(seasonSection).getByRole("button", { name: "過去のシーズンを閉じる" }));
+
+    expect(within(seasonSection).getByText("選択中の過去シーズン")).toBeInTheDocument();
+    expect(within(seasonSection).getAllByRole("button", { name: /202\d_Cut/ })).toHaveLength(5);
+    expect(screen.getByText("2021_Cut の詳細")).toBeInTheDocument();
+
+    fireEvent.click(within(seasonSection).getByRole("button", { name: /2027_Cut/ }));
+    expect(within(seasonSection).queryByText("選択中の過去シーズン")).not.toBeInTheDocument();
+    expect(within(seasonSection).queryByRole("button", { name: /2021_Cut/ })).not.toBeInTheDocument();
   });
 });

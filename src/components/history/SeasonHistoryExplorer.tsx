@@ -54,10 +54,22 @@ export function SeasonHistoryExplorer({
   today,
   dailyLogs,
 }: SeasonHistoryExplorerProps) {
+  const [showOlderSeasons, setShowOlderSeasons] = useState(false);
   const defaultRecord =
     records.find((record) => record.season.status === "active") ?? records.at(-1) ?? null;
   const [selectedId, setSelectedId] = useState<number | null>(defaultRecord?.season.id ?? null);
   const selected = records.find((record) => record.season.id === selectedId) ?? defaultRecord;
+  const sortedRecords = useMemo(
+    () => [...records].sort((a, b) =>
+      b.season.startDate.localeCompare(a.season.startDate) || b.season.id - a.season.id
+    ),
+    [records]
+  );
+  const recentRecords = sortedRecords.slice(0, 4);
+  const olderRecords = sortedRecords.slice(4);
+  const selectedOlderRecord = olderRecords.find(
+    (record) => record.season.id === selected?.season.id
+  ) ?? null;
 
   const comparison = useMemo(() => {
     if (!selected) return null;
@@ -101,6 +113,44 @@ export function SeasonHistoryExplorer({
         ?.season.startDate ?? null
     : null;
 
+  function renderSeasonCard(record: SeasonHistoryRecord) {
+    const isSelected = record.season.id === selected?.season.id;
+    const periodEnd = record.season.endDate ?? "進行中";
+    return (
+      <button
+        key={record.season.id}
+        type="button"
+        aria-pressed={isSelected}
+        onClick={() => setSelectedId(record.season.id)}
+        className={`rounded-xl border p-4 text-left transition-colors ${
+          isSelected
+            ? "border-blue-400 bg-blue-50/70 dark:border-blue-500 dark:bg-blue-950/30"
+            : "border-slate-100 hover:border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+        }`}
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-semibold text-slate-800 dark:text-slate-100">{record.season.name}</span>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${record.season.phase === "Cut" ? "bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"}`}>
+            {record.season.phase}
+          </span>
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+            {record.season.status === "active" ? "進行中" : "終了"}
+          </span>
+        </div>
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+          <div className="col-span-2"><dt className="text-slate-400">期間</dt><dd className="text-slate-600 dark:text-slate-300">{record.season.startDate} 〜 {periodEnd}</dd></div>
+          <div><dt className="text-slate-400">開始体重</dt><dd className="font-medium text-slate-700 dark:text-slate-200">{formatWeight(record.season.startWeight)}</dd></div>
+          <div><dt className="text-slate-400">終了・最新体重</dt><dd className="font-medium text-slate-700 dark:text-slate-200">{formatWeight(record.season.endWeight ?? record.latestWeight)}</dd></div>
+          <div><dt className="text-slate-400">{record.season.phase === "Cut" ? "大会日" : "目標日"}</dt><dd className="text-slate-600 dark:text-slate-300">{record.season.targetDate}</dd></div>
+          <div><dt className="text-slate-400">目標</dt><dd className="text-slate-600 dark:text-slate-300">{formatWeight(record.season.targetWeight)}</dd></div>
+        </dl>
+        <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
+          {goalStatusLabel(record.goalStatus)}
+        </p>
+      </button>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {unassignedLogCount > 0 && (
@@ -121,45 +171,32 @@ export function SeasonHistoryExplorer({
             シーズン履歴がありません。
           </p>
         ) : (
-          <div className="grid gap-3 p-4 md:grid-cols-2">
-            {[...records].reverse().map((record) => {
-              const isSelected = record.season.id === selected?.season.id;
-              const periodEnd = record.season.endDate ?? "進行中";
-              return (
+          <>
+            <div className="grid gap-3 p-4 md:grid-cols-2">
+              {recentRecords.map(renderSeasonCard)}
+              {showOlderSeasons && olderRecords.map(renderSeasonCard)}
+              {!showOlderSeasons && selectedOlderRecord && (
+                <>
+                  <p className="text-xs font-semibold text-slate-400 md:col-span-2">選択中の過去シーズン</p>
+                  {renderSeasonCard(selectedOlderRecord)}
+                </>
+              )}
+            </div>
+            {olderRecords.length > 0 && (
+              <div className="border-t border-slate-100 px-4 py-3 text-center dark:border-slate-700">
                 <button
-                  key={record.season.id}
                   type="button"
-                  aria-pressed={isSelected}
-                  onClick={() => setSelectedId(record.season.id)}
-                  className={`rounded-xl border p-4 text-left transition-colors ${
-                    isSelected
-                      ? "border-blue-400 bg-blue-50/70 dark:border-blue-500 dark:bg-blue-950/30"
-                      : "border-slate-100 hover:border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-                  }`}
+                  aria-expanded={showOlderSeasons}
+                  onClick={() => setShowOlderSeasons((current) => !current)}
+                  className="rounded-lg px-4 py-2 text-sm font-semibold text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/30"
                 >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-slate-800 dark:text-slate-100">{record.season.name}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${record.season.phase === "Cut" ? "bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"}`}>
-                      {record.season.phase}
-                    </span>
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                      {record.season.status === "active" ? "進行中" : "終了"}
-                    </span>
-                  </div>
-                  <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                    <div className="col-span-2"><dt className="text-slate-400">期間</dt><dd className="text-slate-600 dark:text-slate-300">{record.season.startDate} 〜 {periodEnd}</dd></div>
-                    <div><dt className="text-slate-400">開始体重</dt><dd className="font-medium text-slate-700 dark:text-slate-200">{formatWeight(record.season.startWeight)}</dd></div>
-                    <div><dt className="text-slate-400">終了・最新体重</dt><dd className="font-medium text-slate-700 dark:text-slate-200">{formatWeight(record.season.endWeight ?? record.latestWeight)}</dd></div>
-                    <div><dt className="text-slate-400">{record.season.phase === "Cut" ? "大会日" : "目標日"}</dt><dd className="text-slate-600 dark:text-slate-300">{record.season.targetDate}</dd></div>
-                    <div><dt className="text-slate-400">目標</dt><dd className="text-slate-600 dark:text-slate-300">{formatWeight(record.season.targetWeight)}</dd></div>
-                  </dl>
-                  <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    {goalStatusLabel(record.goalStatus)}
-                  </p>
+                  {showOlderSeasons
+                    ? "過去のシーズンを閉じる"
+                    : `過去のシーズンを表示（残り${olderRecords.length}件）`}
                 </button>
-              );
-            })}
-          </div>
+              </div>
+            )}
+          </>
         )}
       </section>
 
