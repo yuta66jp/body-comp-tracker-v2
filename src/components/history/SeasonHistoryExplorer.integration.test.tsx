@@ -29,6 +29,11 @@ jest.mock("./TodayWindowComparison", () => ({
 
 import { SeasonHistoryExplorer } from "./SeasonHistoryExplorer";
 
+jest.mock("next/navigation", () => ({ useRouter: () => ({ refresh: jest.fn() }) }));
+jest.mock("@/app/history/actions", () => ({
+  updateCompletedSeason: jest.fn(async () => ({ ok: true })),
+}));
+
 function season(id: number, name: string, phase: "Cut" | "Bulk", status: "active" | "completed"): Season {
   return {
     id,
@@ -87,7 +92,7 @@ const records = [
 
 describe("SeasonHistoryExplorer", () => {
   it("進行中seasonを既定選択し同じBulkだけを比較する", () => {
-    render(<SeasonHistoryExplorer records={records} legacyRecords={[]} unassignedLogCount={0} today="2024-03-01" />);
+    render(<SeasonHistoryExplorer records={records} legacyRecords={[]} unassignedLogCount={0} today="2024-03-01" dailyLogs={[]} />);
 
     expect(screen.getByRole("heading", { name: "Bulk シーズン比較" })).toBeInTheDocument();
     expect(screen.getByText("2024_Bulk の詳細")).toBeInTheDocument();
@@ -98,7 +103,7 @@ describe("SeasonHistoryExplorer", () => {
   });
 
   it("Cutを選ぶとCut同士の比較と保存済みsnapshotへ切り替わる", () => {
-    render(<SeasonHistoryExplorer records={records} legacyRecords={[]} unassignedLogCount={0} today="2024-03-01" />);
+    render(<SeasonHistoryExplorer records={records} legacyRecords={[]} unassignedLogCount={0} today="2024-03-01" dailyLogs={[]} />);
 
     fireEvent.click(screen.getByRole("button", { name: /2022_Cut/ }));
 
@@ -108,6 +113,7 @@ describe("SeasonHistoryExplorer", () => {
     const table = screen.getByTestId("comparison-table");
     expect(table).toHaveTextContent("2021_Cut,2022_Cut");
     expect(table).not.toHaveTextContent("Bulk");
+    expect(screen.getByRole("button", { name: "シーズン情報を編集" })).toBeInTheDocument();
   });
 
   it("未所属ログ件数とphase不明legacyの扱いを案内する", () => {
@@ -117,6 +123,7 @@ describe("SeasonHistoryExplorer", () => {
         legacyRecords={[{ key: "legacy", name: "Legacy", targetDate: "2020-08-01", startDate: "2020-01-01", endDate: "2020-08-01", startWeight: 75, endWeight: 68, count: 20 }]}
         unassignedLogCount={3}
         today="2024-03-01"
+        dailyLogs={[]}
       />
     );
 
@@ -124,5 +131,35 @@ describe("SeasonHistoryExplorer", () => {
     const legacySection = screen.getByRole("heading", { name: "移行前のキャリア履歴" }).closest("section")!;
     expect(within(legacySection).getByText(/フェーズを推測せず/)).toBeInTheDocument();
     expect(within(legacySection).getByText(/Legacy:/)).toBeInTheDocument();
+  });
+
+  it("終了済みseasonの変更内容と日次ログへの影響を保存前に確認できる", () => {
+    render(
+      <SeasonHistoryExplorer
+        records={records}
+        legacyRecords={[]}
+        unassignedLogCount={1}
+        today="2024-12-31"
+        dailyLogs={[
+          { log_date: "2022-06-29", weight: 68.2, season_id: 2 },
+          { log_date: "2022-06-30", weight: 68, season_id: 2 },
+          { log_date: "2022-07-01", weight: 68.1, season_id: null },
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /2022_Cut/ }));
+    fireEvent.click(screen.getByRole("button", { name: "シーズン情報を編集" }));
+    fireEvent.change(screen.getByLabelText("シーズン名"), { target: { value: "2022_Bulk" } });
+    fireEvent.change(screen.getByLabelText("フェーズ"), { target: { value: "Bulk" } });
+    fireEvent.change(screen.getByLabelText("終了日"), { target: { value: "2022-07-01" } });
+    fireEvent.click(screen.getByRole("button", { name: "変更内容を確認" }));
+
+    expect(screen.getByText("2022_Cut → 2022_Bulk")).toBeInTheDocument();
+    expect(screen.getByText("Cut → Bulk")).toBeInTheDocument();
+    expect(screen.getByText("2022-06-30 → 2022-07-01")).toBeInTheDocument();
+    expect(screen.getByText("1 件")).toBeInTheDocument();
+    expect(screen.getByText(/比較グループと目標達成判定も変わります/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "変更を確定" })).toBeInTheDocument();
   });
 });

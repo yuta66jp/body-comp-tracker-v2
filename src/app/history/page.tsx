@@ -50,6 +50,7 @@ export default async function HistoryPage() {
         legacyRecords={history.legacyRecords}
         unassignedLogCount={history.unassignedLogCount}
         today={today}
+        dailyLogs={dailyLogsResult.kind === "ok" ? dailyLogsResult.data : []}
       />
     </PageShell>
   );

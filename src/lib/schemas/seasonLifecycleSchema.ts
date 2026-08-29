@@ -32,6 +32,14 @@ export interface SeasonPlanOverridesInput {
   resetAll: boolean;
 }
 
+export interface CompletedSeasonEditInput {
+  expectedCompletedSeasonId: number;
+  expectedCompletedSeasonUpdatedAt: string;
+  name: string;
+  phase: string;
+  endDate: string;
+}
+
 export interface SeasonLifecycleValidationError {
   field: string;
   message: string;
@@ -196,6 +204,64 @@ export function parseSeasonEndInput(
   return {
     ok: true,
     data: { endDate, expectedActiveSeasonId, expectedActiveSeasonUpdatedAt },
+  };
+}
+
+export function parseCompletedSeasonEditInput(
+  input: CompletedSeasonEditInput,
+  today: string
+): ValidationResult<{
+  expectedCompletedSeasonId: number;
+  expectedCompletedSeasonUpdatedAt: string;
+  name: string;
+  phase: SeasonPhase;
+  endDate: string;
+}> {
+  const errors: SeasonLifecycleValidationError[] = [];
+  const expectedCompletedSeasonId = validateExpectedSeasonId(
+    input.expectedCompletedSeasonId,
+    false,
+    errors
+  );
+  const expectedCompletedSeasonUpdatedAt = validateExpectedSeasonUpdatedAt(
+    input.expectedCompletedSeasonUpdatedAt,
+    false,
+    errors
+  );
+  const name = input.name.trim();
+  if (name.length === 0 || name.length > 100) {
+    errors.push({ field: "name", message: "1〜100文字で入力してください" });
+  }
+  const phase = input.phase === "Cut" || input.phase === "Bulk"
+    ? input.phase
+    : null;
+  if (phase === null) {
+    errors.push({ field: "phase", message: "CutまたはBulkを選択してください" });
+  }
+  const endDate = validateDate("endDate", input.endDate, "終了日", errors);
+  if (endDate !== null && endDate > today) {
+    errors.push({ field: "endDate", message: "終了日は今日以前にしてください" });
+  }
+
+  if (
+    errors.length > 0 ||
+    expectedCompletedSeasonId === null ||
+    expectedCompletedSeasonUpdatedAt === null ||
+    phase === null ||
+    endDate === null
+  ) {
+    return { ok: false, errors };
+  }
+
+  return {
+    ok: true,
+    data: {
+      expectedCompletedSeasonId,
+      expectedCompletedSeasonUpdatedAt,
+      name,
+      phase,
+      endDate,
+    },
   };
 }
 

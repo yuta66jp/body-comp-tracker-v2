@@ -641,6 +641,16 @@ export type Database = {
         }
         Returns: number
       }
+      update_completed_season: {
+        Args: {
+          p_end_date: string
+          p_expected_completed_season_id: number
+          p_expected_completed_season_updated_at: string
+          p_name: string
+          p_phase: string
+        }
+        Returns: number
+      }
       update_active_season_goal: {
         Args: {
           p_expected_active_season_id: number
