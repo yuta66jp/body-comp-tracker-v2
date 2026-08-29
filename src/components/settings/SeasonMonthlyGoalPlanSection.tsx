@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveSeasonPlanOverrides } from "@/app/settings/seasonActions";
 import { MonthlyGoalPlanSection } from "@/components/settings/MonthlyGoalPlanSection";
@@ -29,16 +29,18 @@ export function SeasonMonthlyGoalPlanSection({
   readError = false,
 }: SeasonMonthlyGoalPlanSectionProps) {
   const router = useRouter();
-  const [overrides, setOverrides] = useState<MonthlyGoalOverride[]>(
-    initialSeason?.monthlyPlanOverrides ?? []
-  );
+  const initialOverrides = initialSeason?.monthlyPlanOverrides ?? [];
+  const initialSignature = overrideSignature(initialOverrides);
+  const [draft, setDraft] = useState(() => ({
+    baseSignature: initialSignature,
+    overrides: initialOverrides,
+  }));
   const [busy, setBusy] = useState(false);
   const [resetConfirming, setResetConfirming] = useState(false);
   const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
-  const initialSignature = useMemo(
-    () => overrideSignature(initialSeason?.monthlyPlanOverrides ?? []),
-    [initialSeason]
-  );
+  const overrides = draft.baseSignature === initialSignature
+    ? draft.overrides
+    : initialOverrides;
   const dirty = overrideSignature(overrides) !== initialSignature;
 
   async function save(nextOverrides: MonthlyGoalOverride[], resetAll: boolean) {
@@ -57,7 +59,7 @@ export function SeasonMonthlyGoalPlanSection({
       setResetConfirming(false);
       return;
     }
-    setOverrides(nextOverrides);
+    setDraft({ baseSignature: initialSignature, overrides: nextOverrides });
     setResetConfirming(false);
     setMessage({
       kind: "success",
@@ -112,7 +114,7 @@ export function SeasonMonthlyGoalPlanSection({
               planStartWeight={initialSeason.monthlyPlanStartWeight}
               overrides={overrides}
               onOverridesChange={(next) => {
-                setOverrides(next);
+                setDraft({ baseSignature: initialSignature, overrides: next });
                 setMessage(null);
               }}
             />

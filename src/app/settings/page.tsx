@@ -77,7 +77,7 @@ export default async function SettingsPage() {
           readError={activeSeasonResult.kind === "error"}
         />
         <SeasonMonthlyGoalPlanSection
-          key={activeSeason ? `${activeSeason.id}:${activeSeason.updatedAt}` : "no-active-season-plan"}
+          key={activeSeason ? String(activeSeason.id) : "no-active-season-plan"}
           initialSeason={activeSeason}
           today={today}
           readError={activeSeasonResult.kind === "error"}
