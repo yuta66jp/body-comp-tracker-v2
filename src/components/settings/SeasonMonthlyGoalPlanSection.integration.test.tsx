@@ -71,6 +71,29 @@ describe("SeasonMonthlyGoalPlanSection", () => {
     expect(mockRefresh).toHaveBeenCalledTimes(1);
   });
 
+  it("同じシーズンの更新後propsを1つのセクションへ同期する", async () => {
+    const { rerender } = render(
+      <SeasonMonthlyGoalPlanSection initialSeason={activeSeason} today="2026-04-01" />
+    );
+
+    rerender(
+      <SeasonMonthlyGoalPlanSection
+        initialSeason={{
+          ...activeSeason,
+          monthlyPlanOverrides: [{ month: "2026-04", targetWeight: 72.5 }],
+          updatedAt: "2026-04-01T01:00:00Z",
+        }}
+        today="2026-04-01"
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("2026年4月 目標体重")).toHaveValue(72.5);
+    });
+    expect(screen.getAllByRole("heading", { name: "月次目標計画" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "手動設定を保存" })).toBeDisabled();
+  });
+
   it("確認後に進行中シーズンのoverrideを全件解除する", async () => {
     render(<SeasonMonthlyGoalPlanSection initialSeason={activeSeason} today="2026-04-01" />);
 
