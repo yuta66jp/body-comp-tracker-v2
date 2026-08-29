@@ -100,6 +100,40 @@ function makeData(overrides: Partial<WeeklyReviewData> = {}): WeeklyReviewData {
 }
 
 describe("WeeklyReviewCard", () => {
+  it("Bulkは月次計画比で超過表示し、Cut固有の%BW基準を表示しない", () => {
+    render(
+      <WeeklyReviewCard
+        data={makeData({
+          weight: {
+            avg: 75.8,
+            prevAvg: 75.4,
+            change: 0.4,
+            trendKgPerWeek: 0.38,
+            bwRatePctPerWeek: -0.5,
+          },
+          bulkPlanPace: {
+            state: "over_pace",
+            actualChangeKg: 0.4,
+            plannedChangeKg: 0.2,
+            paceRatioPct: 200,
+            actualChangePct: 0.53,
+            currentWeightDays: 7,
+            previousWeightDays: 7,
+            monthlyLimitViolations: [],
+          },
+        })}
+        phase="Bulk"
+      />
+    );
+
+    expect(screen.getByText("増量ペース超過")).toBeInTheDocument();
+    expect(screen.getByText("計画ペース")).toBeInTheDocument();
+    expect(screen.getByText("+0.2 kg/週")).toBeInTheDocument();
+    expect(screen.getByText("計画比")).toBeInTheDocument();
+    expect(screen.getByText("200%")).toBeInTheDocument();
+    expect(screen.queryByText(/推奨レンジ 0.5〜1.0% BW\/週/)).not.toBeInTheDocument();
+  });
+
   it("左列にタンパク質 g/kg BW と脂質比を表示し、タンパク質比の独立行を出さない", () => {
     render(<WeeklyReviewCard data={makeData()} phase="Cut" />);
 

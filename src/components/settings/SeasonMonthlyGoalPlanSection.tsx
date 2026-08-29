@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveSeasonPlanOverrides } from "@/app/settings/seasonActions";
 import { MonthlyGoalPlanSection } from "@/components/settings/MonthlyGoalPlanSection";
 import type { Season } from "@/lib/domain/season";
 import type { MonthlyGoalOverride } from "@/lib/utils/monthlyGoalPlan";
+import {
+  MAX_BULK_MONTHLY_GAIN_KG,
+  validateBulkMonthlyPlanLimit,
+} from "@/lib/utils/bulkWeeklyPlanPace";
 
 interface SeasonMonthlyGoalPlanSectionProps {
   initialSeason: Season | null;
@@ -42,6 +46,26 @@ export function SeasonMonthlyGoalPlanSection({
     ? draft.overrides
     : initialOverrides;
   const dirty = overrideSignature(overrides) !== initialSignature;
+  const bulkLimitViolations = useMemo(() => {
+    if (
+      initialSeason?.phase !== "Bulk" ||
+      initialSeason.targetWeight === null ||
+      initialSeason.monthlyPlanStartMonth === null ||
+      initialSeason.monthlyPlanStartWeight === null
+    ) {
+      return [];
+    }
+    return validateBulkMonthlyPlanLimit({
+      phase: initialSeason.phase,
+      startDate: initialSeason.startDate,
+      startWeight: initialSeason.startWeight,
+      targetDate: initialSeason.targetDate,
+      targetWeight: initialSeason.targetWeight,
+      planStartMonth: initialSeason.monthlyPlanStartMonth,
+      planStartWeight: initialSeason.monthlyPlanStartWeight,
+      overrides,
+    });
+  }, [initialSeason, overrides]);
 
   async function save(nextOverrides: MonthlyGoalOverride[], resetAll: boolean) {
     if (!initialSeason) return;
@@ -111,6 +135,7 @@ export function SeasonMonthlyGoalPlanSection({
               currentWeight={initialSeason.monthlyPlanStartWeight}
               today={today}
               planStartMonth={initialSeason.monthlyPlanStartMonth}
+              planStartDate={initialSeason.startDate}
               planStartWeight={initialSeason.monthlyPlanStartWeight}
               overrides={overrides}
               onOverridesChange={(next) => {
@@ -123,7 +148,7 @@ export function SeasonMonthlyGoalPlanSection({
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <button
               type="button"
-              disabled={!dirty || busy}
+              disabled={!dirty || busy || bulkLimitViolations.length > 0}
               onClick={() => void save(overrides, false)}
               className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
             >
@@ -138,6 +163,12 @@ export function SeasonMonthlyGoalPlanSection({
               すべて自動に戻す
             </button>
           </div>
+
+          {bulkLimitViolations.length > 0 && (
+            <p className="mt-3 text-xs text-rose-600 dark:text-rose-300">
+              月+{MAX_BULK_MONTHLY_GAIN_KG.toFixed(1)} kg（端数月は日数按分）の上限を超えるため、手動設定を保存できません。
+            </p>
+          )}
 
           {resetConfirming && (
             <div className="mt-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-700 dark:bg-rose-900/20 dark:text-rose-300">

@@ -19,6 +19,10 @@ import { createClient, requireCurrentUser } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/types";
 import { addDaysStr, toJstDateStr } from "@/lib/utils/date";
 import { buildSeasonMonthlyPlanSnapshot } from "@/lib/utils/seasonMonthlyPlan";
+import {
+  MAX_BULK_MONTHLY_GAIN_KG,
+  validateBulkMonthlyPlanLimit,
+} from "@/lib/utils/bulkWeeklyPlanPace";
 
 export type SeasonLifecycleResult =
   | { ok: true }
@@ -84,6 +88,7 @@ function databaseError(error: { code?: string; message: string }): SeasonLifecyc
 
 interface SnapshotSeasonRow {
   id: number;
+  phase: string;
   start_date: string;
   start_weight: number;
   target_date: string;
@@ -92,6 +97,69 @@ interface SnapshotSeasonRow {
   monthly_plan_start_weight: number | null;
   monthly_plan_overrides: Json;
   updated_at: string;
+}
+
+function bulkLimitValidationResult(
+  field: "targetWeight" | "overrides",
+  months: string[]
+): SeasonLifecycleResult {
+  return validationError([{
+    field,
+    message: `月+${MAX_BULK_MONTHLY_GAIN_KG.toFixed(1)} kg（端数月は日数按分）の上限を超えています: ${months.join("、")}`,
+  }]);
+}
+
+async function validateActiveBulkPlan(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  input: {
+    seasonId: number;
+    expectedUpdatedAt: string;
+    targetDate?: string;
+    targetWeight?: number;
+    overrides?: Array<{ month: string; targetWeight: number }>;
+    field: "targetWeight" | "overrides";
+  }
+): Promise<SeasonLifecycleResult | null> {
+  const { data, error } = await supabase
+    .from("seasons")
+    .select(
+      "id, phase, start_date, start_weight, target_date, target_weight, " +
+      "monthly_plan_start_month, monthly_plan_start_weight, monthly_plan_overrides, updated_at"
+    )
+    .eq("id", input.seasonId)
+    .eq("status", "active")
+    .maybeSingle();
+  if (error) return databaseError(error);
+
+  const season = data as SnapshotSeasonRow | null;
+  if (
+    !season ||
+    new Date(season.updated_at).getTime() !== new Date(input.expectedUpdatedAt).getTime()
+  ) {
+    return databaseError({ message: "active_season_changed" });
+  }
+  if (season.phase !== "Bulk") return null;
+  if (
+    season.target_weight === null ||
+    season.monthly_plan_start_month === null ||
+    season.monthly_plan_start_weight === null
+  ) {
+    return databaseError({ message: "season_plan_snapshot_invalid" });
+  }
+
+  const violations = validateBulkMonthlyPlanLimit({
+    phase: season.phase,
+    startDate: season.start_date,
+    startWeight: season.start_weight,
+    targetDate: input.targetDate ?? season.target_date,
+    targetWeight: input.targetWeight ?? season.target_weight,
+    planStartMonth: season.monthly_plan_start_month,
+    planStartWeight: season.monthly_plan_start_weight,
+    overrides: input.overrides ?? parseOverrides(season.monthly_plan_overrides),
+  });
+  return violations.length > 0
+    ? bulkLimitValidationResult(input.field, violations.map((violation) => violation.month))
+    : null;
 }
 
 function parseOverrides(value: Json): Array<{ month: string; targetWeight: number }> {
@@ -114,7 +182,7 @@ async function preparePlanSnapshot(
     .from("seasons")
     .select(
       "id, start_date, start_weight, target_date, target_weight, " +
-      "monthly_plan_start_month, monthly_plan_start_weight, monthly_plan_overrides, updated_at"
+      "phase, monthly_plan_start_month, monthly_plan_start_weight, monthly_plan_overrides, updated_at"
     )
     .eq("id", seasonId)
     .eq("status", "active")
@@ -152,6 +220,7 @@ async function preparePlanSnapshot(
 
   const snapshot = buildSeasonMonthlyPlanSnapshot(
     {
+      phase: season.phase,
       startDate: season.start_date,
       startWeight: season.start_weight,
       targetDate: season.target_date,
@@ -193,6 +262,33 @@ export async function startOrSwitchSeason(
   if (authError) return authError;
 
   const supabase = await createClient();
+  if (parsed.data.phase === "Bulk") {
+    const { data: startLog, error: startLogError } = await supabase
+      .from("daily_logs")
+      .select("weight")
+      .lte("log_date", parsed.data.startDate)
+      .not("weight", "is", null)
+      .order("log_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (startLogError) return databaseError(startLogError);
+    if (startLog?.weight === null || startLog?.weight === undefined) {
+      return databaseError({ message: "season_start_weight_missing" });
+    }
+    const violations = validateBulkMonthlyPlanLimit({
+      phase: parsed.data.phase,
+      startDate: parsed.data.startDate,
+      startWeight: startLog.weight,
+      targetDate: parsed.data.targetDate,
+      targetWeight: parsed.data.targetWeight,
+    });
+    if (violations.length > 0) {
+      return bulkLimitValidationResult(
+        "targetWeight",
+        violations.map((violation) => violation.month)
+      );
+    }
+  }
   let previousPlanSnapshot: Json | null = null;
   if (
     parsed.data.expectedActiveSeasonId !== null &&
@@ -262,6 +358,14 @@ export async function updateSeasonGoal(
   if (authError) return authError;
 
   const supabase = await createClient();
+  const bulkValidationError = await validateActiveBulkPlan(supabase, {
+    seasonId: parsed.data.expectedActiveSeasonId,
+    expectedUpdatedAt: parsed.data.expectedActiveSeasonUpdatedAt,
+    targetDate: parsed.data.targetDate,
+    targetWeight: parsed.data.targetWeight,
+    field: "targetWeight",
+  });
+  if (bulkValidationError) return bulkValidationError;
   const { error } = await supabase.rpc("update_active_season_goal", {
     p_expected_active_season_id: parsed.data.expectedActiveSeasonId,
     p_expected_active_season_updated_at: parsed.data.expectedActiveSeasonUpdatedAt,
@@ -284,6 +388,13 @@ export async function saveSeasonPlanOverrides(
   if (authError) return authError;
 
   const supabase = await createClient();
+  const bulkValidationError = await validateActiveBulkPlan(supabase, {
+    seasonId: parsed.data.expectedActiveSeasonId,
+    expectedUpdatedAt: parsed.data.expectedActiveSeasonUpdatedAt,
+    overrides: parsed.data.resetAll ? [] : parsed.data.overrides,
+    field: "overrides",
+  });
+  if (bulkValidationError) return bulkValidationError;
   const { error } = await supabase.rpc("update_active_season_plan_overrides", {
     p_expected_active_season_id: parsed.data.expectedActiveSeasonId,
     p_expected_active_season_updated_at: parsed.data.expectedActiveSeasonUpdatedAt,

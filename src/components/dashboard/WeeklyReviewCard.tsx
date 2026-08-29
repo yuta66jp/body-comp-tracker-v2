@@ -35,6 +35,7 @@ import {
   HeartPulse,
 } from "lucide-react";
 import type { WeeklyReviewData, StagnationLevel } from "@/lib/utils/calcWeeklyReview";
+import type { BulkWeeklyPaceState } from "@/lib/utils/bulkWeeklyPlanPace";
 import { DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayTags";
 import { AnalyticsStatusNote } from "@/components/analytics/AnalyticsStatusNote";
 import type { AnalyticsAvailability } from "@/lib/analytics/status";
@@ -161,6 +162,54 @@ const STAGNATION_CONFIG: Record<
   },
 };
 
+const BULK_PACE_CONFIG: Record<
+  BulkWeeklyPaceState,
+  { label: string; color: string; bg: string; icon: typeof CheckCircle2 }
+> = {
+  on_plan: {
+    label: "計画内",
+    color: "text-emerald-600 dark:text-emerald-400",
+    bg: "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-700/50",
+    icon: CheckCircle2,
+  },
+  slow: {
+    label: "増量ペースが緩め",
+    color: "text-amber-700 dark:text-amber-400",
+    bg: "bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-700/50",
+    icon: CircleDot,
+  },
+  slightly_fast: {
+    label: "やや速い",
+    color: "text-amber-700 dark:text-amber-400",
+    bg: "bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-700/50",
+    icon: CircleDot,
+  },
+  over_pace: {
+    label: "増量ペース超過",
+    color: "text-rose-700 dark:text-rose-400",
+    bg: "bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-700/50",
+    icon: AlertTriangle,
+  },
+  wrong_direction: {
+    label: "増量方向外",
+    color: "text-rose-700 dark:text-rose-400",
+    bg: "bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-700/50",
+    icon: AlertTriangle,
+  },
+  data_insufficient: {
+    label: "データ不足",
+    color: "text-slate-500 dark:text-slate-400",
+    bg: "bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-600",
+    icon: HelpCircle,
+  },
+  plan_check: {
+    label: "月次計画を確認",
+    color: "text-rose-700 dark:text-rose-400",
+    bg: "bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-700/50",
+    icon: AlertTriangle,
+  },
+};
+
 // ─── ヘルパー ────────────────────────────────────────────────────────────────
 
 function fmt1(v: number | null): string {
@@ -223,7 +272,10 @@ function StatRow({
 
 export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
   const isCut = phase !== "Bulk";
-  const stCfg = STAGNATION_CONFIG[data.stagnation.level];
+  const bulkPlanPace = isCut ? null : data.bulkPlanPace ?? null;
+  const stCfg = bulkPlanPace
+    ? BULK_PACE_CONFIG[bulkPlanPace.state]
+    : STAGNATION_CONFIG[data.stagnation.level];
   const StIcon = stCfg.icon;
 
   const { weight, nutrition, tdee, sleep, quality } = data;
@@ -242,7 +294,9 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
       : TrendingUp;
 
   const trendColor =
-    weight.trendKgPerWeek === null
+    bulkPlanPace
+      ? stCfg.color
+      : weight.trendKgPerWeek === null
       ? "text-slate-400"
       : (isCut ? weight.trendKgPerWeek < 0 : weight.trendKgPerWeek > 0)
       ? "text-emerald-600"
@@ -260,6 +314,8 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
         : "text-amber-600"
       : isCut
       ? "text-rose-600"
+      : bulkPlanPace?.state === "over_pace"
+      ? "text-amber-600"
       : "text-emerald-600";
 
   return (
@@ -292,9 +348,17 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
               <StatRow label="今週平均" value={fmt1(weight.avg)} unit="kg" />
               <StatRow
                 label="前週比"
-                value={`${fmtSigned1(weight.change)} kg`}
+                value={`${fmtSigned1(bulkPlanPace?.actualChangeKg ?? weight.change)} kg`}
+                sub={
+                  bulkPlanPace?.actualChangePct !== null &&
+                  bulkPlanPace?.actualChangePct !== undefined
+                    ? `(${bulkPlanPace.actualChangePct > 0 ? "+" : ""}${bulkPlanPace.actualChangePct.toFixed(2)}% BW)`
+                    : undefined
+                }
                 valueColor={
-                  weight.change === null
+                  bulkPlanPace
+                    ? stCfg.color
+                    : weight.change === null
                     ? "text-slate-400"
                     : (isCut ? weight.change < -0.05 : weight.change > 0.05)
                     ? "text-emerald-600"
@@ -303,8 +367,24 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
                     : "text-slate-500"
                 }
               />
+              {bulkPlanPace?.plannedChangeKg !== null &&
+                bulkPlanPace?.plannedChangeKg !== undefined && (
+                  <StatRow
+                    label="計画ペース"
+                    value={`${fmtSigned1(bulkPlanPace.plannedChangeKg)} kg/週`}
+                    valueColor="text-slate-700 dark:text-slate-300"
+                  />
+                )}
+              {bulkPlanPace?.paceRatioPct !== null &&
+                bulkPlanPace?.paceRatioPct !== undefined && (
+                  <StatRow
+                    label="計画比"
+                    value={`${Math.round(bulkPlanPace.paceRatioPct)}%`}
+                    valueColor={stCfg.color}
+                  />
+                )}
               {/* %BW/週 + ペースステータス */}
-              {(() => {
+              {isCut && (() => {
                 const bwRate = weight.bwRatePctPerWeek;
                 if (bwRate === null) return null;
                 const status = calcBwRateStatus(bwRate);
@@ -522,7 +602,11 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
 
       {/* ── フッター ── */}
       <div className="flex items-center justify-between border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
-        <span>%BW/週 = 14日線形回帰÷7日平均体重 / GoalNavigator の必要ペースは絶対量（kg/2週）/ 直近7暦日ローリング集計 / あくまで推定値</span>
+        <span>
+          {isCut
+            ? "%BW/週 = 14日線形回帰÷7日平均体重 / GoalNavigator の必要ペースは絶対量（kg/2週）/ 直近7暦日ローリング集計 / あくまで推定値"
+            : "Bulkの判定は月次計画上の前週比と実績前週比を比較 / 各7日窓で体重記録5日以上が必要 / あくまで推定値"}
+        </span>
         <span className={`font-semibold ${qualityScoreColor(quality.score)}`}>
           品質 {quality.score}/100
         </span>

@@ -19,6 +19,7 @@ import type { DashboardDailyLog } from "@/lib/supabase/types";
 import type { GoogleHealthDailyMetricForDisplay } from "@/lib/googleHealth/displayMetrics";
 import type { ReadinessMetrics } from "./calcReadiness";
 import type { DataQualityReport } from "./calcDataQuality";
+import type { BulkWeeklyPlanPace } from "./bulkWeeklyPlanPace";
 import { addDaysStr, dateRangeStr, toJstDateStr } from "./date";
 import { DAY_TAG_LABELS } from "./dayTags";
 import {
@@ -173,6 +174,8 @@ export interface WeeklyReviewData {
     caloriesMissingDays: number;
   };
   stagnation: StagnationResult;
+  /** Bulk期の月次計画由来ペース。Cutまたは計画なしではnull。 */
+  bulkPlanPace?: BulkWeeklyPlanPace | null;
   specialDays: SpecialDaySummary;
   /** ルールベースの日本語所見 (箇条書き) */
   findings: string[];
@@ -584,9 +587,16 @@ export function calcWeeklyReview(
     phase?: string;
     today?: string;
     googleHealthMetrics?: GoogleHealthDailyMetricForDisplay[];
+    bulkPlanPace?: BulkWeeklyPlanPace | null;
   } = {}
 ): WeeklyReviewData {
-  const { avgTdee14d, phase = "Cut", today, googleHealthMetrics = [] } = options;
+  const {
+    avgTdee14d,
+    phase = "Cut",
+    today,
+    googleHealthMetrics = [],
+    bulkPlanPace = null,
+  } = options;
   const todayStr = today ?? toJstDateStr(new Date());
 
   // ── 7 暦日リスト ──
@@ -795,6 +805,7 @@ export function calcWeeklyReview(
     cardio,
     quality,
     stagnation,
+    bulkPlanPace,
     specialDays,
     findings,
   };

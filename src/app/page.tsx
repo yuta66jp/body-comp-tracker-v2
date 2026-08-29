@@ -13,6 +13,7 @@ import { WeeklyReviewCard } from "@/components/dashboard/WeeklyReviewCard";
 import { calcDataQuality } from "@/lib/utils/calcDataQuality";
 import { calcReadiness, calcGoalReachDate } from "@/lib/utils/calcReadiness";
 import { calcWeeklyReview } from "@/lib/utils/calcWeeklyReview";
+import { calcBulkWeeklyPlanPace } from "@/lib/utils/bulkWeeklyPlanPace";
 import { calcMonthlyGoalProgress } from "@/lib/utils/calcMonthlyGoalProgress";
 import { toJstDateStr, addDaysStr, dateRangeStr, calcDaysLeft } from "@/lib/utils/date";
 import { calcWeightTrend } from "@/lib/utils/calcTrend";
@@ -181,6 +182,9 @@ export default async function DashboardPage() {
   const qualityReport = calcDataQuality(logs, today);
 
   const phase = activeSeason?.phase ?? "Cut";
+  const activeSeasonLogs = activeSeason
+    ? logs.filter((log) => log.log_date >= activeSeason.startDate)
+    : [];
 
   const readinessMetrics = calcReadiness(logs, {
     contest_date: contestDate ?? null,
@@ -222,17 +226,8 @@ export default async function DashboardPage() {
     return vals.length >= 7 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
   })();
 
-  const weeklyReview = calcWeeklyReview(logs, readinessMetrics, qualityReport, {
-    avgTdee14d,
-    phase,
-    googleHealthMetrics,
-  });
-
   // 今月目標進捗の比較値: 最新体重優先 (単日ノイズ込みの実測値で進捗を把握する)
   // GoalNavigator のペース分析 (refWeight) は引き続き 7日平均優先のままとする
-  const activeSeasonLogs = activeSeason
-    ? logs.filter((log) => log.log_date >= activeSeason.startDate)
-    : [];
   const comparisonWeight =
     [...activeSeasonLogs].reverse().find((log) => log.weight !== null)?.weight ??
     activeSeason?.startWeight ??
@@ -249,6 +244,7 @@ export default async function DashboardPage() {
     contestDate: contestDate ?? null,
     targetWeight: goalWeight ?? null,
     monthlyPlanStartMonth: activeSeason?.monthlyPlanStartMonth ?? null,
+    monthlyPlanStartDate: activeSeason?.startDate ?? null,
     monthlyPlanStartWeight: activeSeason?.monthlyPlanStartWeight ?? null,
     monthlyPlanOverrides: activeSeason?.monthlyPlanOverrides ?? [],
     comparisonWeight,
@@ -267,12 +263,56 @@ export default async function DashboardPage() {
           currentWeight: activeSeason.monthlyPlanStartWeight,
           today,
           planStartMonth: activeSeason.monthlyPlanStartMonth,
+          planStartDate: activeSeason.startDate,
+          phase: activeSeason.phase,
           finalGoalWeight: goalWeight,
           goalDeadlineDate: contestDate,
           monthlyActuals: [],
           overrides: activeSeason.monthlyPlanOverrides,
         })
       : null;
+
+  // Bulkの週次評価は進行中シーズン内のログと月次計画だけを使う。
+  // Cutから切り替えた直後に過去シーズンの減量ログを混ぜない。
+  const weeklyLogs = phase === "Bulk" ? activeSeasonLogs : logs;
+  const weeklyReadinessMetrics = phase === "Bulk"
+    ? calcReadiness(
+        weeklyLogs,
+        {
+          contest_date: contestDate ?? null,
+          goal_weight: goalWeight ?? null,
+        },
+        today
+      )
+    : readinessMetrics;
+  const weeklyQualityReport = phase === "Bulk"
+    ? calcDataQuality(weeklyLogs, today)
+    : qualityReport;
+  const bulkPlanPace =
+    phase === "Bulk" &&
+    activeSeason &&
+    monthlyGoalPlan?.isValid &&
+    monthlyGoalPlan.entries.length > 0
+      ? calcBulkWeeklyPlanPace({
+          startDate: activeSeason.startDate,
+          startWeight: activeSeason.monthlyPlanStartWeight!,
+          targetDate: activeSeason.targetDate,
+          entries: monthlyGoalPlan.entries,
+          logs: activeSeasonLogs,
+          today,
+        })
+      : null;
+  const weeklyReview = calcWeeklyReview(
+    weeklyLogs,
+    weeklyReadinessMetrics,
+    weeklyQualityReport,
+    {
+      avgTdee14d,
+      phase,
+      googleHealthMetrics,
+      bulkPlanPace,
+    }
+  );
 
   const monthlyGoalSummaryRows =
     monthlyGoalPlan?.isValid && monthlyGoalPlan.entries.length > 0

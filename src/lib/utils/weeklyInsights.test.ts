@@ -16,6 +16,7 @@ import {
   extractTdeeComparisonNote,
 } from "./weeklyInsights";
 import type { WeeklyReviewData, StagnationResult } from "./calcWeeklyReview";
+import type { BulkWeeklyPlanPace } from "./bulkWeeklyPlanPace";
 
 // ── テストヘルパー ─────────────────────────────────────────────────────────────
 
@@ -123,6 +124,22 @@ function makeHrvData(deviationPct: number | null): WeeklyReviewData["cardio"] {
   };
 }
 
+function makeBulkPace(
+  overrides: Partial<BulkWeeklyPlanPace> = {}
+): BulkWeeklyPlanPace {
+  return {
+    state: "on_plan",
+    actualChangeKg: 0.23,
+    plannedChangeKg: 0.22,
+    paceRatioPct: 105,
+    actualChangePct: 0.33,
+    currentWeightDays: 7,
+    previousWeightDays: 7,
+    monthlyLimitViolations: [],
+    ...overrides,
+  };
+}
+
 // ── deriveWeeklyInsightItems ───────────────────────────────────────────────────
 
 describe("deriveWeeklyInsightItems", () => {
@@ -183,6 +200,38 @@ describe("deriveWeeklyInsightItems", () => {
       });
       const items = deriveWeeklyInsightItems(data, "Bulk");
       expect(items[0]!.detail).toContain("順調に増量中");
+    });
+
+    it("Bulkの月次計画ペース超過を最優先のalertとして表示する", () => {
+      const data = makeData({
+        bulkPlanPace: makeBulkPace({
+          state: "over_pace",
+          actualChangeKg: 0.4,
+          plannedChangeKg: 0.2,
+          paceRatioPct: 200,
+        }),
+      });
+      const items = deriveWeeklyInsightItems(data, "Bulk");
+      expect(items[0]).toMatchObject({ status: "alert" });
+      expect(items[0]!.title).toContain("計画 +0.20 kg");
+      expect(items[0]!.detail).toContain("増量ペース超過");
+      expect(items[0]!.detail).toContain("計画比 200%");
+    });
+
+    it("Bulkの記録不足は各7日窓の必要日数を案内する", () => {
+      const data = makeData({
+        bulkPlanPace: makeBulkPace({
+          state: "data_insufficient",
+          actualChangeKg: null,
+          plannedChangeKg: null,
+          paceRatioPct: null,
+          currentWeightDays: 4,
+          previousWeightDays: 3,
+        }),
+      });
+      const items = deriveWeeklyInsightItems(data, "Bulk");
+      expect(items[0]).toMatchObject({ status: "neutral" });
+      expect(items[0]!.detail).toContain("今週 4日 / 前週 3日");
     });
 
     it("weight.avg が null のとき title に『体重データ不足』", () => {
@@ -279,6 +328,16 @@ describe("deriveWeeklyInsightItems", () => {
       const data = makeData({ tdee: { avgEstimated: 2000, balancePerDay: 300 } });
       const items = deriveWeeklyInsightItems(data, "Bulk");
       expect(items[1]!.status).toBe("ok");
+    });
+
+    it("計画ペース超過中の余剰 + Bulk → status caution", () => {
+      const data = makeData({
+        bulkPlanPace: makeBulkPace({ state: "over_pace" }),
+        tdee: { avgEstimated: 2000, balancePerDay: 300 },
+      });
+      const items = deriveWeeklyInsightItems(data, "Bulk");
+      expect(items[1]!.status).toBe("caution");
+      expect(items[1]!.detail).toContain("余剰量を確認");
     });
 
     it("|balance| < 100 → status neutral、title に『概ね均衡』", () => {

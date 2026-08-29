@@ -16,6 +16,10 @@ import {
 } from "@/lib/schemas/seasonLifecycleSchema";
 import { addDaysStr } from "@/lib/utils/date";
 import { previewSeasonGoalChange } from "@/lib/utils/seasonMonthlyPlan";
+import {
+  MAX_BULK_MONTHLY_GAIN_KG,
+  validateBulkMonthlyPlanLimit,
+} from "@/lib/utils/bulkWeeklyPlanPace";
 
 interface WeightLog {
   log_date: string;
@@ -48,6 +52,10 @@ function formatWeight(weight: number | null): string {
 function errorsToMap(result: SeasonLifecycleResult): FieldErrors {
   if (result.ok || !result.fieldErrors) return {};
   return Object.fromEntries(result.fieldErrors.map((error) => [error.field, error.message]));
+}
+
+function bulkLimitMessage(months: string[]): string {
+  return `月+${MAX_BULK_MONTHLY_GAIN_KG.toFixed(1)} kg（端数月は日数按分）の上限を超えています: ${months.join("、")}`;
 }
 
 export function SeasonLifecycleSection({
@@ -104,6 +112,7 @@ export function SeasonLifecycleSection({
     if (!Number.isFinite(targetWeight)) return null;
     return previewSeasonGoalChange(
       {
+        phase: initialSeason.phase,
         startDate: initialSeason.startDate,
         startWeight: initialSeason.startWeight,
         targetDate: initialSeason.targetDate,
@@ -116,6 +125,44 @@ export function SeasonLifecycleSection({
       targetWeight
     );
   }, [goalInput.targetDate, goalInput.targetWeight, initialSeason]);
+  const startBulkViolations = useMemo(() => {
+    const targetWeight = Number(startInput.targetWeight);
+    if (
+      startInput.phase !== "Bulk" ||
+      startWeight === null ||
+      !startInput.targetDate ||
+      !Number.isFinite(targetWeight)
+    ) {
+      return [];
+    }
+    return validateBulkMonthlyPlanLimit({
+      phase: startInput.phase,
+      startDate: startInput.startDate,
+      startWeight,
+      targetDate: startInput.targetDate,
+      targetWeight,
+    });
+  }, [startInput, startWeight]);
+  const goalBulkViolations = useMemo(() => {
+    const targetWeight = Number(goalInput.targetWeight);
+    if (
+      initialSeason?.phase !== "Bulk" ||
+      goalPreview === null ||
+      !Number.isFinite(targetWeight)
+    ) {
+      return [];
+    }
+    return validateBulkMonthlyPlanLimit({
+      phase: initialSeason.phase,
+      startDate: initialSeason.startDate,
+      startWeight: initialSeason.startWeight,
+      targetDate: goalInput.targetDate,
+      targetWeight,
+      planStartMonth: initialSeason.monthlyPlanStartMonth,
+      planStartWeight: initialSeason.monthlyPlanStartWeight,
+      overrides: goalPreview.retainedOverrides,
+    });
+  }, [goalInput.targetDate, goalInput.targetWeight, goalPreview, initialSeason]);
 
   function changeMode(nextMode: Mode) {
     setMode(nextMode);
@@ -175,6 +222,12 @@ export function SeasonLifecycleSection({
       setMessage({ kind: "error", text: "開始日時点の体重記録がありません。先に体重を記録してください。" });
       return;
     }
+    if (startBulkViolations.length > 0) {
+      setFieldErrors({
+        targetWeight: bulkLimitMessage(startBulkViolations.map((violation) => violation.month)),
+      });
+      return;
+    }
     setFieldErrors({});
     setMessage(null);
     setConfirming(true);
@@ -213,6 +266,12 @@ export function SeasonLifecycleSection({
     }
     if (goalPreview === null) {
       setMessage({ kind: "error", text: "月次計画を再計算できません。画面を再読み込みしてください。" });
+      return;
+    }
+    if (goalBulkViolations.length > 0) {
+      setFieldErrors({
+        targetWeight: bulkLimitMessage(goalBulkViolations.map((violation) => violation.month)),
+      });
       return;
     }
     setFieldErrors({});
@@ -301,6 +360,11 @@ export function SeasonLifecycleSection({
                 <input aria-label="新しい目標体重" type="number" min="20" max="200" step="0.1" className={inputClass} value={startInput.targetWeight} onChange={(event) => setStartInput({ ...startInput, targetWeight: event.target.value })} />
               </LifecycleField>
               <p className="text-xs text-slate-500 sm:col-span-2 lg:col-span-5">開始体重: <strong>{formatWeight(startWeight)}</strong>（開始日時点の最新記録）</p>
+              {startBulkViolations.length > 0 && (
+                <p className="text-xs text-rose-600 sm:col-span-2 lg:col-span-5">
+                  {bulkLimitMessage(startBulkViolations.map((violation) => violation.month))}
+                </p>
+              )}
               <div className="flex gap-2 sm:col-span-2 lg:col-span-5">
                 <button type="button" onClick={confirmStart} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white">内容を確認</button>
                 <button type="button" onClick={() => changeMode(null)} className="rounded-xl px-4 py-2 text-sm text-slate-500">キャンセル</button>
@@ -356,6 +420,11 @@ export function SeasonLifecycleSection({
                 <LifecycleField label="目標日" error={fieldErrors.targetDate}><input aria-label="変更後の目標日" type="date" min={initialSeason.startDate} className={inputClass} value={goalInput.targetDate} onChange={(event) => setGoalInput({ ...goalInput, targetDate: event.target.value })} /></LifecycleField>
                 <LifecycleField label="目標体重 (kg)" error={fieldErrors.targetWeight}><input aria-label="変更後の目標体重" type="number" min="20" max="200" step="0.1" className={inputClass} value={goalInput.targetWeight} onChange={(event) => setGoalInput({ ...goalInput, targetWeight: event.target.value })} /></LifecycleField>
               </div>
+              {goalBulkViolations.length > 0 && (
+                <p className="mt-3 text-xs text-rose-600">
+                  {bulkLimitMessage(goalBulkViolations.map((violation) => violation.month))}
+                </p>
+              )}
               <div className="mt-4 flex gap-2"><button type="button" disabled={busy} onClick={confirmGoal} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">変更内容を確認</button><button type="button" onClick={() => changeMode(null)} className="rounded-xl px-4 py-2 text-sm text-slate-500">キャンセル</button></div>
             </>
           ) : (
