@@ -26,7 +26,7 @@
  * | fetchMacroDailyLogs(days)   | 6列・DESC LIMIT days         | Macro 専用 (#166)                    | QueryResult |
  * | fetchTdeeDailyLogs(limit)   | 3列・DESC LIMIT limit        | TDEE raw fallback 専用 (#166)        | QueryResult |
  * | fetchLatestUpdatedAt()      | updated_at 1行               | TDEE stale 判定用                    | ベストエフォート |
- * | fetchWeightLogs()           | log_date, weight             | History ページ補助                   | ベストエフォート |
+ * | fetchSeasonHistoryDailyLogs() | log_date, weight, season_id | History ページのシーズン所属判定     | QueryResult |
  * | fetchDailyLogsForSettings() | log_date, weight, calories   | Settings DataQuality 計算            | QueryResult |
  *
  * 詳細: docs/daily-logs-read-inventory.md
@@ -194,28 +194,37 @@ export async function fetchLatestUpdatedAt(): Promise<string | null> {
   return row?.updated_at ?? null;
 }
 
+export type SeasonHistoryDailyLog = Pick<
+  DailyLog,
+  "log_date" | "weight" | "season_id"
+>;
+
 /**
- * daily_logs から log_date と weight のみを取得する。
+ * History ページ専用: season所属を含む全日次ログを取得する。
  *
- * 利用画面: History ページ専用（currentLogs → currentAsCareer 変換用補助クエリ）。
- * 他画面への流用禁止（用途が混在するとクエリ責務が不明確になる）。
- * weight が null のレコードは除外する。
- *
- * フォールバック: エラー時は空配列を返す（ベストエフォート）。
- * 補助的データのため空配列でも history ページの主要機能は維持される。
+ * season_id が null の行も取得し、履歴画面で未所属件数を案内する。
+ * current settings のシーズン名を後付けする用途には使用しない。
  */
-export async function fetchWeightLogs(): Promise<Pick<DailyLog, "log_date" | "weight">[]> {
+export async function fetchSeasonHistoryDailyLogs(): Promise<
+  QueryResult<SeasonHistoryDailyLog[]>
+> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("daily_logs")
-    .select("log_date, weight")
-    .not("weight", "is", null)
+    .select("log_date, weight, season_id")
     .order("log_date", { ascending: true });
+
   if (error) {
-    console.error("daily_logs (weight only) fetch error:", error.message);
-    return [];
+    console.error("[fetchSeasonHistoryDailyLogs] daily_logs fetch error:", error.message, {
+      code: error.code,
+    });
+    return { kind: "error", message: error.message };
   }
-  return (data as Pick<DailyLog, "log_date" | "weight">[]) ?? [];
+
+  return {
+    kind: "ok",
+    data: (data as SeasonHistoryDailyLog[] | null) ?? [],
+  };
 }
 
 /**

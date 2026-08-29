@@ -12,6 +12,7 @@
  *   - fetchDashboardDailyLogs   (daily_logs 16列 — Dashboard 専用)
  *   - fetchMacroDailyLogs       (daily_logs 6列 LIMIT 60 — Macro 専用)
  *   - fetchTdeeDailyLogs        (daily_logs 3列 LIMIT 180 — TDEE 専用)
+ *   - fetchSeasonHistoryDailyLogs (daily_logs — season履歴ページ用)
  *   - fetchDailyLogsForSettings (daily_logs — settings ページ用)
  *   - fetchCareerLogs           (career_logs — history ページ主データ)
  *   - fetchSettings             (settings → AppSettings 変換)
@@ -22,7 +23,7 @@
  *   - fetchMetrics              (forecast_backtest_metrics — 予測精度ページ主データ)
  *
  * ベストエフォート (空配列フォールバックで graceful degradation が成立する補助クエリ):
- *   - fetchWeightLogs / fetchCareerLogsForDashboard / fetchPredictions
+ *   - fetchCareerLogsForDashboard / fetchPredictions
  *   - fetchMacroTargets
  *   各関数の JSDoc に意図を明記している。
  *

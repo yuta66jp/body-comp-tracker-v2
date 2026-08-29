@@ -26,6 +26,17 @@ describe("calcSeasonMeta", () => {
     expect(meta!.peakDate).toBe("2025-11-01");
   });
 
+  it("Bulkではシーズン最大体重を比較値として特定する", () => {
+    const logs = [
+      makeLog("2025-09-01", 70.0),
+      makeLog("2025-10-01", 72.0),
+      makeLog("2025-11-01", 71.5),
+    ];
+    const [meta] = calcSeasonMeta(logs, "Bulk");
+    expect(meta!.peakWeight).toBe(72.0);
+    expect(meta!.peakDate).toBe("2025-10-01");
+  });
+
   it("日付範囲（startDate / endDate）が正しい", () => {
     const logs = [
       makeLog("2025-09-01", 70.0),

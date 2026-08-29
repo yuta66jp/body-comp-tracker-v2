@@ -1,8 +1,8 @@
 /**
  * TodayWindowComparison — 今日基準 近傍ウィンドウ体重比較
  *
- * 現在シーズンの「今日の大会基準日数」と同じ時期 (±windowDays日) に
- * 各シーズンがどの体重だったかを比較する。
+ * 進行中の選択シーズンにおける「今日の目標日基準日数」と同じ時期 (±windowDays日) に
+ * 同フェーズの各シーズンがどの体重だったかを比較する。
  *
  * D-day 固定マイルストーンとは異なり「今この瞬間」との比較に特化。
  *
@@ -21,6 +21,7 @@ interface TodayWindowComparisonProps {
   todayDaysOut: number;
   windowDays?: number;
   isCut?: boolean;
+  deadlineLabel?: "大会日" | "目標日";
 }
 
 // ─── ヘルパー ────────────────────────────────────────────────────────────────
@@ -85,13 +86,13 @@ function generateFinding(
   if (!current || current.avgWeight === null) return null;
 
   // 最新の過去シーズン (データあり) を探す
-  const pastWithData = entries
-    .filter((e) => e.season !== currentSeason && e.avgWeight !== null)
-    .sort((a, b) => b.season.localeCompare(a.season));
+  const pastWithData = entries.filter(
+    (e) => e.season !== currentSeason && e.avgWeight !== null
+  );
 
   if (pastWithData.length === 0) return null;
 
-  const prev = pastWithData[0]!;
+  const prev = pastWithData.at(-1)!;
   const diff = current.avgWeight - prev.avgWeight!;
   const direction = isCut
     ? diff < -0.05 ? "先行" : diff > 0.05 ? "遅れ" : "同ペース"
@@ -109,13 +110,14 @@ export function TodayWindowComparison({
   todayDaysOut,
   windowDays = 7,
   isCut = true,
+  deadlineLabel = "大会日",
 }: TodayWindowComparisonProps) {
   const pastEntries = entries.filter((e) => e.season !== currentSeason);
   const currentEntry = entries.find((e) => e.season === currentSeason) ?? null;
   const daysLabel =
     todayDaysOut === 0
-      ? "大会日"
-      : `大会 ${Math.abs(todayDaysOut)} 日前`;
+      ? deadlineLabel
+      : `${deadlineLabel} ${Math.abs(todayDaysOut)} 日前`;
 
   // 過去シーズンなし
   if (pastEntries.length === 0) {
@@ -131,8 +133,8 @@ export function TodayWindowComparison({
 
   const finding = generateFinding(entries, currentSeason, isCut);
 
-  // 全シーズンを古い順にソート (Season Low と表示順を統一、今季は末尾に自然に含まれる)
-  const sortedEntries = [...entries].sort((a, b) => a.season.localeCompare(b.season));
+  // 呼び出し元のseason開始日順を維持する。
+  const sortedEntries = entries;
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
@@ -155,7 +157,7 @@ export function TodayWindowComparison({
         {currentEntry && (
           <div className="py-3">
             <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-red-400">
-              今季 · {currentSeason}
+              選択中 · {currentSeason}
             </div>
             <div className="mt-1 flex items-baseline gap-1">
               <span className="text-2xl font-bold text-red-500">
@@ -211,7 +213,7 @@ export function TodayWindowComparison({
               <th className="px-4 py-2.5 text-left">シーズン</th>
               <th className="px-4 py-2.5 text-right">件数</th>
               <th className="px-4 py-2.5 text-right">平均体重</th>
-              <th className="px-4 py-2.5 text-right">差（今季 − 過去）</th>
+              <th className="px-4 py-2.5 text-right">差（選択中 − 比較先）</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50 dark:divide-slate-700/60">
@@ -232,7 +234,7 @@ export function TodayWindowComparison({
                         <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-600 dark:bg-red-900/30 dark:text-red-400">
                           {entry.season}
                         </span>
-                        <span className="ml-2 text-[10px] font-normal text-slate-400 dark:text-slate-500">今季</span>
+                        <span className="ml-2 text-[10px] font-normal text-slate-400 dark:text-slate-500">選択中</span>
                       </>
                     ) : (
                       <span className="text-slate-600 dark:text-slate-300">{entry.season}</span>
@@ -295,11 +297,11 @@ export function TodayWindowComparison({
       <div className="flex flex-wrap items-center gap-4 border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
         <span className="flex items-center gap-1">
           <TrendingDown size={11} className="text-emerald-600" />
-          {isCut ? "今季が前回より軽い（先行）" : "今季が前回より重い（先行）"}
+          {isCut ? "選択中が比較先より軽い（先行）" : "選択中が比較先より重い（先行）"}
         </span>
         <span className="flex items-center gap-1">
           <TrendingUp size={11} className="text-amber-600" />
-          {isCut ? "今季が前回より重い（遅れ）" : "今季が前回より軽い（遅れ）"}
+          {isCut ? "選択中が比較先より重い（遅れ）" : "選択中が比較先より軽い（遅れ）"}
         </span>
         <span className="ml-auto text-slate-300 dark:text-slate-600">ウィンドウ ±{windowDays}日</span>
       </div>

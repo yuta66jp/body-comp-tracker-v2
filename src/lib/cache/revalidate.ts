@@ -16,14 +16,14 @@
  *
  * daily_logs 更新:
  *   /             fetchDashboardDailyLogs / fetchEnrichedLogs
- *   /history      fetchWeightLogs
+ *   /history      fetchSeasonHistoryDailyLogs
  *   /macro        fetchMacroDailyLogs
  *   /tdee         fetchTdeeDailyLogs / fetchLatestUpdatedAt / fetchEnrichedLogs
  *   /settings     fetchDailyLogsForSettings (データ品質セクション)
  *
  * settings 更新:
  *   /             fetchSettings
- *   /history      fetchSettings
+ *   /history      season lifecycle RPC経由のseasons更新時のみ影響
  *   /macro        fetchSettings / fetchMacroTargets
  *   /tdee         fetchSettings
  *   /settings     fetchSettingsRows

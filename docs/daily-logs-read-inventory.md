@@ -77,7 +77,7 @@ Dashboard は 18列中 16列を使用しており全列に近い。ただし:
 | `fetchMacroDailyLogs(days)` | `daily_logs` | 6列（log_date/weight/calories/protein/fat/carbs） | なし | log_date DESC LIMIT days | `QueryResult<MacroDailyLog[]>` | error banner 表示・早期 return |
 | `fetchTdeeDailyLogs(limit=180)` | `daily_logs` | 3列（log_date/weight/calories） | なし | log_date DESC LIMIT 180 | `QueryResult<TdeeDailyLog[]>` | error banner 表示、空配列フォールバック |
 | `fetchLatestUpdatedAt()` | `daily_logs` | updated_at | なし | updated_at DESC LIMIT 1 | `string \| null` | null（ベストエフォート） |
-| `fetchWeightLogs()` | `daily_logs` | log_date, weight | weight NOT NULL | log_date ASC | `Pick<DailyLog, "log_date"\|"weight">[]` | 空配列（ベストエフォート） |
+| `fetchSeasonHistoryDailyLogs()` | `daily_logs` | log_date, weight, season_id | なし | log_date ASC | `QueryResult<SeasonHistoryDailyLog[]>` | error banner + career_logs fallback |
 | `fetchDailyLogsForSettings()` | `daily_logs` | log_date, weight, calories | なし | log_date ASC | `QueryResult<DataQualityLog[]>` | error banner 表示、空配列フォールバック |
 | `fetchCareerLogs()` | `career_logs` | `*` (全列) | なし | log_date ASC | `QueryResult<CareerLog[]>` | error banner 表示、空配列フォールバック |
 | `fetchCareerLogsForDashboard()` | `career_logs` | log_date, season, target_date | なし | log_date ASC | `Pick<CareerLog, ...>[]` | 空配列（ベストエフォート） |
@@ -239,17 +239,17 @@ anon key ではなく service_role key を使用し、JS の query layer と完�
 
 ### 2-4. History (`src/app/history/page.tsx`)
 
-**使用クエリ:** `fetchWeightLogs()` (log_date + weight のみ)
+**使用クエリ:** `fetchSeasonHistoryDailyLogs()` (log_date + weight + season_id)
 
-**実際に参照する列:** log_date, weight
+**実際に参照する列:** log_date, weight, season_id
 
 **必要期間:** 全期間（大会日からの days-out グラフ・シーズン比較で全履歴が必要）
 
 **sort:** log_date ASC
 
-**error fallback:** ベストエフォート（空配列 → currentLogs が空になり currentAsCareer も空。グラフは career_logs のみで表示）
+**error fallback:** QueryResult → error banner を表示し、利用可能な終了済み `career_logs` へフォールバック
 
-**備考:** `fetchCareerLogs()` が主データ（QueryResult）。`fetchWeightLogs()` は現在シーズンの日次体重を career_logs 形式に変換するための補助クエリ。ページ主機能のブロックは不要。
+**備考:** `seasons` を期間・phase・名称の正本とする。同一 season に `daily_logs` と `career_logs` がある場合は `daily_logs.season_id` を優先し、二重計上しない。`daily_logs` がない終了済み season だけ `career_logs` をフォールバックとして使う。seasonへ安全に対応付けできない legacy 行は phase を推測せず比較対象外として案内する。
 
 ---
 
@@ -320,11 +320,11 @@ Macro ページの stale 判定を廃止・簡略化する必要がある。
 
 ## 5. 既存軽量クエリの位置づけ整理
 
-### `fetchWeightLogs()`
-- **現在の用途:** History ページ専用（currentAsCareer 変換）
-- **取得列:** log_date, weight（最小限）
-- **フォールバック:** ベストエフォート（空配列）
-- **位置づけ:** History 向け軽量クエリとして正当。他画面に流用しない。
+### `fetchSeasonHistoryDailyLogs()`
+- **現在の用途:** History ページ専用（season_idによる不変な所属系列と未所属件数）
+- **取得列:** log_date, weight, season_id
+- **フォールバック:** QueryResult（エラー時は利用可能なcareer_logsを表示）
+- **位置づけ:** History 向けseason-aware query。他画面に流用しない。
 
 ### `fetchDailyLogsForSettings()`
 - **現在の用途:** Settings ページ専用（DataQuality 計算 + currentWeight 取得）
@@ -386,7 +386,7 @@ Dashboard は全期間・全列が正当な要件のため `fetchDailyLogs()` �
 | クエリ | 現状 | 評価 |
 |---|---|---|
 | `fetchDailyLogs()` | QueryResult | 適切（主データ、エラー時に空描画になると判断困難） |
-| `fetchWeightLogs()` | ベストエフォート | 適切（History の補助データ、空でも主機能は成立） |
+| `fetchSeasonHistoryDailyLogs()` | QueryResult | 適切（所属ログと未所属件数を区別する主データ） |
 | `fetchDailyLogsForSettings()` | QueryResult | 適切（DataQuality は主表示、エラー表示が必要） |
 | `fetchCareerLogs()` | QueryResult | 適切（History の主データ） |
 | `fetchCareerLogsForDashboard()` | ベストエフォート | 適切（シーズンバッジは補助表示） |

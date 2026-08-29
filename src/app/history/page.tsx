@@ -1,193 +1,56 @@
+import { SeasonHistoryExplorer } from "@/components/history/SeasonHistoryExplorer";
 import { StatusNotice } from "@/components/ui/StatusNotice";
-import { DaysOutChart } from "@/components/history/DaysOutChart";
-import { SeasonLowChart } from "@/components/history/SeasonLowChart";
-import { SeasonComparisonTable } from "@/components/history/SeasonComparisonTable";
-import { SeasonComparisonAccordion } from "@/components/history/SeasonComparisonAccordion";
-import { TodayWindowComparison } from "@/components/history/TodayWindowComparison";
-import {
-  calcSeasonMeta,
-  buildDaysOutSeries,
-  buildDaysOutChartData,
-  buildMilestoneRows,
-  buildTodayWindowEntries,
-  calcTodayDaysOut,
-} from "@/lib/utils/calcSeason";
-import { toJstDateStr } from "@/lib/utils/date";
-import { fetchCareerLogs, fetchWeightLogs } from "@/lib/queries/dailyLogs";
-import { fetchSettings } from "@/lib/queries/settings";
-import { mapToAppSettings } from "@/lib/domain/settings";
-import type { CareerLog } from "@/lib/supabase/types";
 import { PageShell } from "@/components/ui/PageShell";
+import { fetchCareerLogs, fetchSeasonHistoryDailyLogs } from "@/lib/queries/dailyLogs";
+import { fetchSeasons } from "@/lib/queries/seasons";
+import { buildSeasonHistoryData } from "@/lib/utils/seasonHistory";
+import { toJstDateStr } from "@/lib/utils/date";
 
-/** 比較するマイルストーン (大会日からの日数) */
-const MILESTONES = [-180, -120, -90, -60, -30, -14];
-
-export const revalidate = 3600;
+// 進行中シーズンの日次ログを現在値として扱うため、毎回最新状態を取得する。
+export const revalidate = 0;
 
 export default async function HistoryPage() {
-  const [careerLogsResult, currentLogs, settingsResult] = await Promise.all([
+  const [seasonsResult, dailyLogsResult, careerLogsResult] = await Promise.all([
+    fetchSeasons(),
+    fetchSeasonHistoryDailyLogs(),
     fetchCareerLogs(),
-    fetchWeightLogs(),
-    fetchSettings(),
   ]);
 
-  // QueryResult を展開。エラー時はフォールバック値で graceful degradation を維持する。
-  const careerLogs = careerLogsResult.kind === "ok" ? careerLogsResult.data : [];
-  const settings = settingsResult.kind === "ok" ? settingsResult.data : mapToAppSettings([]);
-
-  const contestDate = settings.contestDate ?? toJstDateStr();
-
-  const currentSeasonLabel = settings.currentSeason
-    ? settings.currentSeason
-    : `${currentLogs.at(-1)?.log_date.slice(0, 4) ?? toJstDateStr().slice(0, 4)}_Current`;
-
-  const seasonMeta = calcSeasonMeta(careerLogs);
-
-  const isCut = settings.currentPhase !== "Bulk";
-  const deadlineLabel = isCut ? "大会日" : "目標日";
-
-  // 現在シーズンのログを career_logs 形式に変換して比較に追加
-  const currentAsCareer: CareerLog[] = currentLogs
-    .filter((d) => d.weight !== null)
-    .map((d) => ({
-      id: 0,
-      log_date: d.log_date,
-      weight: d.weight!,
-      season: currentSeasonLabel,
-      target_date: contestDate,
-      note: null,
-    }));
-
-  // Bulk フェーズ時は現在シーズンを比較系列に含めない（参照モード）
-  const allCareerLogs = isCut
-    ? [...careerLogs, ...currentAsCareer]
-    : [...careerLogs];
-  const allSeasonMeta = calcSeasonMeta(allCareerLogs);
-  const seriesMap = buildDaysOutSeries(allCareerLogs);
-  const daysOutData = buildDaysOutChartData(seriesMap, -300, 0);
-  // 古いシーズンから新しいシーズンへ昇順に統一 (Season Low・Today比較・比較テーブルで表示順を揃える)
-  const allSeasons = Array.from(seriesMap.keys()).sort((a, b) => a.localeCompare(b));
-
-  // ── 比較テーブル用データ ──
-  const milestoneRows = buildMilestoneRows(seriesMap, MILESTONES);
-
-  // 今日の daysOut と 今日基準近傍比較データ
-  const todayStr = toJstDateStr();
-  const todayDaysOut = calcTodayDaysOut(todayStr, contestDate);
-  const todayWindowEntries =
-    todayDaysOut !== null
-      ? buildTodayWindowEntries(seriesMap, todayDaysOut, 7)
-      : [];
+  const today = toJstDateStr();
+  const history = buildSeasonHistoryData(
+    seasonsResult.kind === "ok" ? seasonsResult.data : [],
+    dailyLogsResult.kind === "ok" ? dailyLogsResult.data : [],
+    careerLogsResult.kind === "ok" ? careerLogsResult.data : [],
+    today
+  );
 
   return (
     <PageShell title="履歴">
 
-      {/* Read error banners — graceful degradation: コンテンツはブロックしない */}
-      {careerLogsResult.kind === "error" && (
-        <StatusNotice status="error" className="mb-4">
-          キャリアデータの取得中にエラーが発生しました。ページを再読み込みしてください。
-        </StatusNotice>
-      )}
-      {settingsResult.kind === "error" && (
-        <StatusNotice status="error" className="mb-4">
-          {`設定データの取得中にエラーが発生しました。${deadlineLabel}・シーズン名がデフォルト値になります。`}
-        </StatusNotice>
-      )}
-
-      {/* Bulk 参照モード注記 */}
-      {!isCut && (
-        <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-2.5 text-xs text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/30 dark:text-amber-400">
-          Bulk フェーズ中は参照モードで表示しています。現在シーズンの比較は非表示です。
-        </div>
-      )}
-
-      {/* 現在シーズン情報（読み取り専用・設定ページから変更可能） */}
-      <div className="mb-4 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-        <span>
-          現在シーズン:
-          <span className="ml-1 font-semibold text-blue-600">{currentSeasonLabel}</span>
-        </span>
-        <span>
-          {deadlineLabel}:
-          <span className="ml-1 font-semibold text-red-500">{contestDate}</span>
-        </span>
-        <span className="text-slate-300">
-          {`※ 設定ページの「現在のシーズン」「${deadlineLabel}」で変更できます`}
-        </span>
-      </div>
-
-      <div className="space-y-6">
-        {allCareerLogs.length > 0 ? (
-          <>
-            {/* 今日基準近傍比較 (メイン判断用) — Bulk 時・大会後は非表示
-                todayDaysOut > 0: deadline を超過しているため比較は意味をなさない。
-                todayDaysOut = 0 (deadline 当日) は進行中として表示を維持する。 */}
-            {isCut && todayDaysOut !== null && todayDaysOut <= 0 && (
-              <TodayWindowComparison
-                entries={todayWindowEntries}
-                currentSeason={currentSeasonLabel}
-                todayDaysOut={todayDaysOut}
-                windowDays={7}
-                isCut={isCut}
-              />
-            )}
-
-            {/* days-out グラフ (視覚的確認用) */}
-            <DaysOutChart
-              data={daysOutData}
-              seasons={allSeasons}
-              currentSeason={currentSeasonLabel}
-              todayDaysOut={todayDaysOut}
-            />
-
-            {/* 全シーズン × マイルストーン 比較: モバイルはアコーディオン / md+ はテーブル */}
-            <div className="md:hidden">
-              <SeasonComparisonAccordion
-                milestoneRows={milestoneRows}
-                seasonMeta={allSeasonMeta}
-                seasons={allSeasons}
-                currentSeason={currentSeasonLabel}
-                isCut={isCut}
-                showCurrentSeason={isCut}
-              />
-            </div>
-            <div className="hidden md:block">
-              <SeasonComparisonTable
-                milestoneRows={milestoneRows}
-                seasonMeta={allSeasonMeta}
-                seasons={allSeasons}
-                currentSeason={currentSeasonLabel}
-                isCut={isCut}
-                showCurrentSeason={isCut}
-              />
-            </div>
-
-            {/* 仕上がり体重推移 */}
-            {allSeasonMeta.length > 0 && (
-              <SeasonLowChart seasons={allSeasonMeta} currentSeason={currentSeasonLabel} />
-            )}
-
-            {/* 過去実績データは import_history.py で一括インポートして管理 */}
-            {seasonMeta.length === 0 && (
-              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5 text-sm text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/30 dark:text-amber-400">
-                過去シーズンのデータがありません。
-                <code className="ml-1 font-mono text-xs">
-                  python ml-pipeline/import_history.py /path/to/history.csv
-                </code>
-                を実行してインポートしてください。
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5 text-sm text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/30 dark:text-amber-400">
-            キャリアデータがありません。
-            <code className="ml-1 font-mono text-xs">
-              python ml-pipeline/import_history.py /path/to/history.csv
-            </code>
-            を実行してデータをインポートしてください。
-          </div>
+      <div className="mb-4 space-y-3">
+        {seasonsResult.kind === "error" && (
+          <StatusNotice status="error">
+            シーズン情報を取得できませんでした。移行前のキャリア履歴だけを表示します。
+          </StatusNotice>
+        )}
+        {dailyLogsResult.kind === "error" && (
+          <StatusNotice status="error">
+            日次ログを取得できませんでした。利用可能な終了済みキャリア履歴で表示します。
+          </StatusNotice>
+        )}
+        {careerLogsResult.kind === "error" && (
+          <StatusNotice status="caution">
+            移行前のキャリア履歴を取得できませんでした。シーズン所属の日次ログを優先して表示します。
+          </StatusNotice>
         )}
       </div>
+
+      <SeasonHistoryExplorer
+        records={history.records}
+        legacyRecords={history.legacyRecords}
+        unassignedLogCount={history.unassignedLogCount}
+        today={today}
+      />
     </PageShell>
   );
 }
