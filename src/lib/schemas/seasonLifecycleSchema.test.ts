@@ -1,9 +1,44 @@
 import {
+  parseCompletedSeasonEditInput,
   parseSeasonEndInput,
   parseSeasonGoalInput,
   parseSeasonPlanOverridesInput,
   parseSeasonStartInput,
 } from "./seasonLifecycleSchema";
+
+describe("parseCompletedSeasonEditInput", () => {
+  const valid = {
+    expectedCompletedSeasonId: 10,
+    expectedCompletedSeasonUpdatedAt: "2026-04-01T00:00:00Z",
+    name: " 2025_Cut ",
+    phase: "Cut",
+    endDate: "2026-03-31",
+  };
+
+  it("名称をtrimし、終了済みseasonの編集入力を受け入れる", () => {
+    expect(parseCompletedSeasonEditInput(valid, "2026-04-01")).toEqual({
+      ok: true,
+      data: { ...valid, name: "2025_Cut", phase: "Cut" },
+    });
+  });
+
+  it("不正な識別子・phase・未来日を拒否する", () => {
+    expect(parseCompletedSeasonEditInput({
+      ...valid,
+      expectedCompletedSeasonId: 0,
+      expectedCompletedSeasonUpdatedAt: "invalid",
+      phase: "Maintain",
+      endDate: "2026-04-02",
+    }, "2026-04-01")).toMatchObject({
+      ok: false,
+      errors: expect.arrayContaining([
+        expect.objectContaining({ field: "season" }),
+        expect.objectContaining({ field: "phase" }),
+        expect.objectContaining({ field: "endDate" }),
+      ]),
+    });
+  });
+});
 
 describe("parseSeasonStartInput", () => {
   const valid = {

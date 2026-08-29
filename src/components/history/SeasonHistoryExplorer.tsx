@@ -6,6 +6,8 @@ import { SeasonComparisonAccordion } from "@/components/history/SeasonComparison
 import { SeasonComparisonTable } from "@/components/history/SeasonComparisonTable";
 import { SeasonLowChart } from "@/components/history/SeasonLowChart";
 import { TodayWindowComparison } from "@/components/history/TodayWindowComparison";
+import { CompletedSeasonEditor } from "@/components/history/CompletedSeasonEditor";
+import type { SeasonHistoryDailyLog } from "@/lib/queries/dailyLogs";
 import type {
   LegacySeasonHistoryRecord,
   SeasonHistoryRecord,
@@ -26,6 +28,7 @@ interface SeasonHistoryExplorerProps {
   legacyRecords: LegacySeasonHistoryRecord[];
   unassignedLogCount: number;
   today: string;
+  dailyLogs: SeasonHistoryDailyLog[];
 }
 
 function formatWeight(value: number | null): string {
@@ -49,6 +52,7 @@ export function SeasonHistoryExplorer({
   legacyRecords,
   unassignedLogCount,
   today,
+  dailyLogs,
 }: SeasonHistoryExplorerProps) {
   const defaultRecord =
     records.find((record) => record.season.status === "active") ?? records.at(-1) ?? null;
@@ -90,6 +94,12 @@ export function SeasonHistoryExplorer({
   }, [records, selected, today]);
 
   const deadlineLabel = selected?.season.phase === "Bulk" ? "目標日" : "大会日";
+  const nextSeasonStartDate = selected
+    ? records
+        .filter((record) => record.season.startDate > selected.season.startDate)
+        .sort((a, b) => a.season.startDate.localeCompare(b.season.startDate))[0]
+        ?.season.startDate ?? null
+    : null;
 
   return (
     <div className="space-y-6">
@@ -169,6 +179,16 @@ export function SeasonHistoryExplorer({
               <div><dt className="text-xs text-slate-400">終了</dt><dd className="mt-1 text-slate-700 dark:text-slate-200">{selected.season.endDate ?? "進行中"} / {formatWeight(selected.season.endWeight ?? selected.latestWeight)}</dd></div>
               <div><dt className="text-xs text-slate-400">{deadlineLabel} / 目標</dt><dd className="mt-1 text-slate-700 dark:text-slate-200">{selected.season.targetDate} / {formatWeight(selected.season.targetWeight)}</dd></div>
             </dl>
+
+            {selected.season.status === "completed" && (
+              <CompletedSeasonEditor
+                key={selected.season.id}
+                season={selected.season}
+                dailyLogs={dailyLogs}
+                nextSeasonStartDate={nextSeasonStartDate}
+                today={today}
+              />
+            )}
 
             <div className="border-t border-slate-100 dark:border-slate-700">
               <div className="px-5 py-3">

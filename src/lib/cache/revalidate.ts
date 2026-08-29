@@ -68,6 +68,16 @@ export function revalidateAfterSettingsMutation(): void {
 }
 
 /**
+ * 終了済みseasonの訂正後に呼ぶ。
+ * season情報とdaily_logs.season_idを参照する画面を再検証する。
+ */
+export function revalidateAfterCompletedSeasonMutation(): void {
+  revalidatePath("/");
+  revalidatePath("/history");
+  revalidatePath("/settings");
+}
+
+/**
  * forecast backtest データの更新後に呼ぶ。
  * バックテスト結果を表示するページを再検証する。
  */
