@@ -285,10 +285,22 @@ describe("calcMonthlyGoalProgress — 状態判定 (Bulk)", () => {
     });
   }
 
-  it("achieved: comparisonWeight が目標を上回っている (deltaKg = +0.2 ≥ -0.2)", () => {
+  it("achieved: comparisonWeight が目標の許容範囲上限 (deltaKg = +0.2)", () => {
     // 74.0 - 73.8 = 0.2 → Bulk achieved
     const result = make(74.0);
     expect(result.state).toBe("achieved");
+  });
+
+  it("ahead: comparisonWeight が目標より0.2kg超〜0.5kg先行", () => {
+    // 74.3 - 73.8 = 0.5 → Bulk ahead
+    const result = make(74.3);
+    expect(result.state).toBe("ahead");
+  });
+
+  it("over_pace: comparisonWeight が目標を0.5kg超上回る", () => {
+    // 74.4 - 73.8 = 0.6 → Bulk over_pace
+    const result = make(74.4);
+    expect(result.state).toBe("over_pace");
   });
 
   it("on_track: Bulk でも absPace ≤ 0.5 なら on_track", () => {
@@ -444,6 +456,24 @@ describe("getDashboardMonthlyGoalWarningLabel", () => {
 // ─── calcMonthlyGoalProgress — dashboard warning ─────────────────────────────
 
 describe("calcMonthlyGoalProgress — dashboard warning", () => {
+  it("Bulkの0.5kg超過は計画warningより優先して具体的な超過量を表示", () => {
+    const result = calcMonthlyGoalProgress({
+      contestDate: "2026-07-31",
+      targetWeight: 73.8,
+      monthlyPlanStartMonth: null,
+      monthlyPlanStartWeight: null,
+      monthlyPlanOverrides: null,
+      comparisonWeight: 74.6,
+      today: "2026-07-15",
+      phase: "Bulk",
+    });
+    expect(result.state).toBe("over_pace");
+    expect(result.hasWarnings).toBe(true);
+    expect(result.dashboardWarningLabel).toBe(
+      "⚠ 今月末目標を0.8kg上回っています"
+    );
+  });
+
   it("contestDate が今月末 → DEADLINE_TOO_CLOSE → dashboard warning 表示", () => {
     const result = calcMonthlyGoalProgress({
       contestDate: "2026-07-31",

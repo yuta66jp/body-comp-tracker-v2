@@ -39,6 +39,8 @@ export const MONTHLY_REPLAN_PACE_KG_WEEK: number = MAX_SAFE_MONTHLY_DELTA_KG / 2
  * 今月目標に対する進捗状態。
  *
  * - achieved          : 現在値が今月目標を達成済み (±0.2 kg 許容)
+ * - ahead             : Bulk で目標より 0.2 kg 超〜0.5 kg 先行
+ * - over_pace         : Bulk で目標を 0.5 kg 超過
  * - on_track          : 計画内 (残ペース絶対値 ≤ 0.5 kg/週)
  * - slightly_behind   : やや遅れ (残ペース絶対値 0.5〜1.0 kg/週)
  * - replan_recommended: 再計画推奨 (残ペース絶対値 > 1.0 kg/週 or 残り時間なし)
@@ -46,6 +48,8 @@ export const MONTHLY_REPLAN_PACE_KG_WEEK: number = MAX_SAFE_MONTHLY_DELTA_KG / 2
  */
 export type MonthlyProgressState =
   | "achieved"
+  | "ahead"
+  | "over_pace"
   | "on_track"
   | "slightly_behind"
   | "replan_recommended"
@@ -132,10 +136,15 @@ function calcMonthlyProgressState(
   requiredPaceKgPerWeek: number | null,
   isCut: boolean
 ): MonthlyProgressState {
-  // 達成済み判定: Cut では delta ≤ +0.2 (目標以下 or 誤差範囲内)、Bulk では delta ≥ -0.2
+  // Cut は目標以下を達成済みとする。Bulk は上振れを無制限に達成扱いせず、
+  // 計画値からの乖離量に応じて先行・増量ペース超過を分ける。
   const GOAL_TOLERANCE = 0.2;
-  const isAchieved = isCut ? deltaKg <= GOAL_TOLERANCE : deltaKg >= -GOAL_TOLERANCE;
-  if (isAchieved) return "achieved";
+  if (isCut && deltaKg <= GOAL_TOLERANCE) return "achieved";
+  if (!isCut) {
+    if (deltaKg > 0.5) return "over_pace";
+    if (deltaKg > GOAL_TOLERANCE) return "ahead";
+    if (deltaKg >= -GOAL_TOLERANCE) return "achieved";
+  }
 
   // 残り時間なし (月末当日など)
   if (requiredPaceKgPerWeek === null) return "replan_recommended";
@@ -294,10 +303,10 @@ export function calcMonthlyGoalProgress(input: {
 
   const isCut = phase !== "Bulk";
   const state = calcMonthlyProgressState(deltaKg, requiredPaceKgPerWeek, isCut);
-  const dashboardWarningLabel = getDashboardMonthlyGoalWarningLabel(
-    plan.warnings,
-    today
-  );
+  const dashboardWarningLabel =
+    state === "over_pace"
+      ? `⚠ 今月末目標を${deltaKg.toFixed(1)}kg上回っています`
+      : getDashboardMonthlyGoalWarningLabel(plan.warnings, today);
 
   return {
     hasData: true,
