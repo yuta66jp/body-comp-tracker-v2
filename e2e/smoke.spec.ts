@@ -92,8 +92,8 @@ test("設定ページ: 設定セクションが表示できる", async ({ page }
   // h1 "設定" が表示される
   await expect(page.getByRole("heading", { name: "設定", exact: true })).toBeVisible();
 
-  // 現在の SettingsForm セクション見出しが表示される
-  await expect(page.getByRole("heading", { name: "シーズン・コンテスト", exact: true })).toBeVisible();
+  // フェーズに応じた SettingsForm セクション見出しが表示される
+  await expect(page.getByRole("heading", { name: /^シーズン・(コンテスト|目標)$/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: "目標・身体情報", exact: true })).toBeVisible();
 });
 
