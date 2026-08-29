@@ -15,7 +15,7 @@
  *
  * ## 対象シナリオ
  * 1. 日次ログを 1 件保存できる (MealLogger — 体重のみ)
- * 2. 設定を保存できる (SettingsForm — current_season を更新)
+ * 2. 通常設定を保存できる (SettingsForm — age を更新)
  */
 
 import { test, expect, request as playwrightRequest } from "@playwright/test";
@@ -78,15 +78,15 @@ test.describe("日次ログ保存", () => {
 });
 
 test.describe("設定保存", () => {
-  test("current_season を更新して保存すると「保存しました」が表示される", async ({ page }) => {
+  test("年齢を更新して保存すると「保存しました」が表示される", async ({ page }) => {
     await page.goto("/settings");
 
-    // 「現在のシーズン」は text input (placeholder: "2026_TokyoNovice")
-    const seasonInput = page.getByPlaceholder("2026_TokyoNovice");
-    await expect(seasonInput).toBeVisible();
+    // season lifecycle管理項目は専用RPCで保存するため、通常設定の年齢を確認する。
+    const ageInput = page.getByPlaceholder("30");
+    await expect(ageInput).toBeVisible();
 
     // テスト用の値に書き換える
-    await seasonInput.fill("E2E_Test_Season");
+    await ageInput.fill("31");
 
     // 保存ボタンをクリック
     const saveBtn = page.getByRole("button", { name: "保存" });

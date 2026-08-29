@@ -608,6 +608,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      end_active_season: {
+        Args: { p_end_date: string; p_expected_active_season_id: number }
+        Returns: number
+      }
       resolve_season_id: {
         Args: { p_log_date: string; p_user_id: string }
         Returns: number
@@ -615,6 +619,25 @@ export type Database = {
       save_daily_log_partial: {
         Args: { p_fields: Json; p_log_date: string }
         Returns: undefined
+      }
+      start_or_switch_season: {
+        Args: {
+          p_expected_active_season_id: number | null
+          p_name: string
+          p_phase: string
+          p_start_date: string
+          p_target_date: string
+          p_target_weight: number
+        }
+        Returns: number
+      }
+      update_active_season_goal: {
+        Args: {
+          p_expected_active_season_id: number
+          p_target_date: string
+          p_target_weight: number
+        }
+        Returns: number
       }
     }
     Enums: {
