@@ -85,13 +85,15 @@ export interface MonthlyGoalSummaryRow {
 
 /**
  * 月次計画の進捗状態。
- * - "ahead"    : 計画より先行 (Cut: 体重が目標より軽い / Bulk: 目標より重い)
+ * - "ahead"    : 計画より先行 (Cut: 体重が目標より軽い)
+ * - "over"     : Bulk で体重が目標を超過
  * - "on_track" : 計画内 (±PLAN_GAP_THRESHOLD_KG 以内)
  * - "behind"   : 計画より遅れ
  * - "pending"  : 未確定 (当月 partial / 未来月 / データなし)
  */
 export type MonthlyPlanProgressState =
   | "ahead"
+  | "over"
   | "on_track"
   | "behind"
   | "pending";
@@ -260,7 +262,7 @@ export function buildMonthlyGoalSummaryRows(
  * - diffKg = null / isPartialActual / isFutureMonth → "pending"
  * - |diffKg| <= PLAN_GAP_THRESHOLD_KG → "on_track"
  * - Cut:  diffKg < 0 → "ahead" (目標より軽い), diffKg > 0 → "behind"
- * - Bulk: diffKg > 0 → "ahead" (目標より重い), diffKg < 0 → "behind"
+ * - Bulk: diffKg > 0 → "over" (目標超過), diffKg < 0 → "behind"
  */
 export function classifyMonthlyPlanGap(
   diffKg: number | null,
@@ -270,6 +272,7 @@ export function classifyMonthlyPlanGap(
 ): MonthlyPlanProgressState {
   if (isPartialActual || isFutureMonth || diffKg === null) return "pending";
   if (Math.abs(diffKg) <= PLAN_GAP_THRESHOLD_KG) return "on_track";
+  if (!isCut && diffKg > 0) return "over";
   const isAhead = isCut ? diffKg < 0 : diffKg > 0;
   return isAhead ? "ahead" : "behind";
 }

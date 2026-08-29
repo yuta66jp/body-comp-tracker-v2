@@ -4,19 +4,14 @@ import type { MonthlyGoalComparisonRow, MonthlyPlanProgressState } from "@/lib/u
 
 interface MonthlyGoalTableProps {
   rows: MonthlyGoalComparisonRow[];
-  /** "Cut" | "Bulk" — 差分の色付け方向を決定する */
-  phase: string;
 }
 
-/** 差分 (diffKg) の表示色を phase に応じて返す。
- *  Cut: 正 = 遅れ(rose), 負 = 先行(emerald)
- *  Bulk: 正 = 先行(emerald), 負 = 遅れ(rose)
- */
-function diffColor(diffKg: number | null, isCut: boolean): string {
-  if (diffKg === null) return "text-slate-300";
-  if (Math.abs(diffKg) < 0.05) return "text-slate-500";
-  const isBehind = isCut ? diffKg > 0 : diffKg < 0;
-  return isBehind ? "text-rose-500" : "text-emerald-600";
+/** selector が判定した状態に合わせて差分色を返す。 */
+function diffColor(state: MonthlyPlanProgressState): string {
+  if (state === "pending") return "text-slate-300";
+  if (state === "on_track") return "text-slate-500";
+  if (state === "ahead") return "text-emerald-600";
+  return "text-rose-500";
 }
 
 /** progressState のバッジ表示 */
@@ -38,6 +33,13 @@ function ProgressBadge({ state }: { state: MonthlyPlanProgressState }) {
       </span>
     );
   }
+  if (state === "over") {
+    return (
+      <span className="whitespace-nowrap rounded-full bg-rose-50 px-1.5 py-0.5 text-[9px] font-semibold text-rose-500 dark:bg-rose-900/30 dark:text-rose-400">
+        超過
+      </span>
+    );
+  }
   // "behind"
   return (
     <span className="whitespace-nowrap rounded-full bg-rose-50 px-1.5 py-0.5 text-[9px] font-semibold text-rose-500 dark:bg-rose-900/30 dark:text-rose-400">
@@ -46,10 +48,9 @@ function ProgressBadge({ state }: { state: MonthlyPlanProgressState }) {
   );
 }
 
-export function MonthlyGoalTable({ rows, phase }: MonthlyGoalTableProps) {
+export function MonthlyGoalTable({ rows }: MonthlyGoalTableProps) {
   if (rows.length === 0) return null;
 
-  const isCut = phase !== "Bulk";
   const hasPartial = rows.some((r) => r.isPartialActual);
 
   return (
@@ -111,7 +112,7 @@ export function MonthlyGoalTable({ rows, phase }: MonthlyGoalTableProps) {
                     )}
                   </td>
                   {/* 差分 */}
-                  <td className={`py-2 pr-3 text-right text-xs font-semibold tabular-nums ${diffColor(row.diffKg, isCut)}`}>
+                  <td className={`py-2 pr-3 text-right text-xs font-semibold tabular-nums ${diffColor(row.progressState)}`}>
                     {row.diffKg !== null
                       ? `${row.diffKg > 0 ? "+" : ""}${row.diffKg.toFixed(1)}`
                       : "—"}

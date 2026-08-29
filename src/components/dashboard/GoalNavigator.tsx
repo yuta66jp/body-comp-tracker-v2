@@ -108,6 +108,8 @@ const STATUS_CONFIG = {
 
 const MONTHLY_STATE_CONFIG = {
   achieved:           { label: "今月達成済", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-700/50" },
+  ahead:              { label: "目標より先行", color: "text-amber-600 dark:text-amber-400",     bg: "bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-700/50"         },
+  over_pace:          { label: "増量ペース超過", color: "text-rose-600 dark:text-rose-400",     bg: "bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-700/50"             },
   on_track:           { label: "計画内",     color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-700/50" },
   slightly_behind:    { label: "やや遅れ",   color: "text-amber-600 dark:text-amber-400",     bg: "bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-700/50"         },
   replan_recommended: { label: "再計画推奨", color: "text-rose-600 dark:text-rose-400",       bg: "bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-700/50"             },
@@ -205,6 +207,10 @@ export function GoalNavigator({
   currentMonthMinWeight,
 }: GoalNavigatorProps) {
   const isCut = phase !== "Bulk";
+  const monthlyStateLabel =
+    !isCut && monthlyGoalProgress.state === "achieved"
+      ? "今月目標到達"
+      : MONTHLY_STATE_CONFIG[monthlyGoalProgress.state].label;
 
   // ── 基準体重: 7日平均 優先、なければ単日最新 ──
   const refWeight = metrics.weight_7d_avg ?? metrics.current_weight;
@@ -253,11 +259,21 @@ export function GoalNavigator({
 
   const deadlineLabel = isCut ? "大会日" : "目標日";
 
-  const statusCfg = STATUS_CONFIG[status];
+  const isMonthlyBulkOverPace =
+    !isCut && monthlyGoalProgress.state === "over_pace";
+  const statusCfg = isMonthlyBulkOverPace
+    ? {
+        label: "増量ペース超過",
+        color: "text-rose-600 dark:text-rose-400",
+        bg: "bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-700/50",
+        icon: AlertTriangle,
+      }
+    : STATUS_CONFIG[status];
   const StatusIcon = statusCfg.icon;
   // no_contest / contest_imminent ラベルは phase によって異なるため動的に解決する
-  const statusLabel =
-    status === "no_contest"
+  const statusLabel = isMonthlyBulkOverPace
+    ? statusCfg.label
+    : status === "no_contest"
       ? `${deadlineLabel}未設定`
       : status === "contest_imminent"
       ? `${deadlineLabel}直前`
@@ -495,7 +511,7 @@ export function GoalNavigator({
                   MONTHLY_STATE_CONFIG[monthlyGoalProgress.state].color
                 } ${MONTHLY_STATE_CONFIG[monthlyGoalProgress.state].bg}`}
               >
-                {MONTHLY_STATE_CONFIG[monthlyGoalProgress.state].label}
+                {monthlyStateLabel}
               </span>
             </div>
 
@@ -535,6 +551,10 @@ export function GoalNavigator({
                   className={`font-semibold tabular-nums ${
                     monthlyGoalProgress.state === "achieved"
                       ? "text-emerald-600 dark:text-emerald-400"
+                      : monthlyGoalProgress.state === "ahead"
+                      ? "text-amber-600 dark:text-amber-400"
+                      : monthlyGoalProgress.state === "over_pace"
+                      ? "text-rose-600 dark:text-rose-400"
                       : Math.abs(monthlyGoalProgress.deltaKg) < 0.5
                       ? "text-slate-700 dark:text-slate-300"
                       : isCut && monthlyGoalProgress.deltaKg > 0
@@ -566,7 +586,13 @@ export function GoalNavigator({
 
             {/* 月次計画の注意補足 */}
             {monthlyGoalProgress.dashboardWarningLabel && (
-              <span className="text-[10px] text-amber-600">
+              <span
+                className={`text-[10px] ${
+                  monthlyGoalProgress.state === "over_pace"
+                    ? "text-rose-600 dark:text-rose-400"
+                    : "text-amber-600 dark:text-amber-400"
+                }`}
+              >
                 {monthlyGoalProgress.dashboardWarningLabel}
               </span>
             )}

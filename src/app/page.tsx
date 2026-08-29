@@ -364,7 +364,6 @@ export default async function DashboardPage() {
             seasonMap={seasonMap}
             currentSeason={currentSeason}
             monthlyGoalSummaryRows={monthlyGoalSummaryRows}
-            phase={phase}
             monthlyBehaviorStats={monthlyBehaviorStats}
           />
         </>

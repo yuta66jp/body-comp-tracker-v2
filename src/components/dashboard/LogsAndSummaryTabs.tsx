@@ -21,8 +21,6 @@ interface LogsAndSummaryTabsProps {
   currentSeason?: string | null;
   /** 月次計画 vs 実績の比較行 (buildMonthlyGoalComparisonRows の結果) */
   monthlyGoalSummaryRows?: MonthlyGoalComparisonRow[];
-  /** "Cut" | "Bulk" — MonthlyGoalTable の差分色分けに使用 */
-  phase?: string;
   /** 月別行動・生活集計 (calcMonthlyBehaviorStats の結果) */
   monthlyBehaviorStats?: MonthlyBehaviorStats[];
 }
@@ -35,7 +33,7 @@ const TAB_LABELS: Record<Tab, string> = {
   monthly:  "月別",
 };
 
-export function LogsAndSummaryTabs({ logs, googleHealthMetrics = [], monthStats, seasonMap, currentSeason, monthlyGoalSummaryRows, phase, monthlyBehaviorStats }: LogsAndSummaryTabsProps) {
+export function LogsAndSummaryTabs({ logs, googleHealthMetrics = [], monthStats, seasonMap, currentSeason, monthlyGoalSummaryRows, monthlyBehaviorStats }: LogsAndSummaryTabsProps) {
   const [tab, setTab] = useState<Tab>("logs");
 
   return (
@@ -89,7 +87,7 @@ export function LogsAndSummaryTabs({ logs, googleHealthMetrics = [], monthStats,
             {/* 月次計画 vs 実績 */}
             {monthlyGoalSummaryRows && monthlyGoalSummaryRows.length > 0 && (
               <div className="mt-5">
-                <MonthlyGoalTable rows={monthlyGoalSummaryRows} phase={phase ?? "Cut"} />
+                <MonthlyGoalTable rows={monthlyGoalSummaryRows} />
               </div>
             )}
             {/* 月別行動・生活サマリー（昇順: 古い月から新しい月へ）*/}

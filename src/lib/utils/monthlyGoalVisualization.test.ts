@@ -478,8 +478,8 @@ describe("classifyMonthlyPlanGap", () => {
   });
 
   describe("Bulk フェーズ", () => {
-    it("diffKg = 0.5 → ahead (目標より重い)", () => {
-      expect(classifyMonthlyPlanGap(0.5, false, false, false)).toBe("ahead");
+    it("diffKg = 0.5 → over (目標より重い)", () => {
+      expect(classifyMonthlyPlanGap(0.5, false, false, false)).toBe("over");
     });
     it("diffKg = -0.5 → behind (目標より軽い)", () => {
       expect(classifyMonthlyPlanGap(-0.5, false, false, false)).toBe("behind");
@@ -566,13 +566,13 @@ describe("buildMonthlyGoalComparisonRows — progressState", () => {
     expect(rows[0]!.progressState).toBe("on_track");
   });
 
-  it("Bulk 過去月: 実績 > 目標 → ahead", () => {
-    // diff = 77.0 - 76.5 = 0.5 (目標より重い = Bulk で先行)
+  it("Bulk 過去月: 実績 > 目標 → over", () => {
+    // diff = 77.0 - 76.5 = 0.5 (目標より重い = Bulk で超過)
     const plan = makePlan([entry("2026-07", 76.5, +1.5)]);
     const logs = [log("2026-07-31", 77.0)];
     const summaryRows = buildMonthlyGoalSummaryRows(plan, logs, "2026-08-01");
     const rows = buildMonthlyGoalComparisonRows(summaryRows, "Bulk");
-    expect(rows[0]!.progressState).toBe("ahead");
+    expect(rows[0]!.progressState).toBe("over");
   });
 
   it("Bulk 過去月: 実績 < 目標 → behind", () => {
