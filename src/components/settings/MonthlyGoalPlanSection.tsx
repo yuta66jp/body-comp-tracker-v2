@@ -19,6 +19,10 @@
 import { useState, useMemo, useEffect } from "react";
 import { AlertTriangle, Info } from "lucide-react";
 import { buildMonthlyGoalPlan } from "@/lib/utils/monthlyGoalPlan";
+import {
+  findBulkMonthlyGainLimitViolations,
+  MAX_BULK_MONTHLY_GAIN_KG,
+} from "@/lib/utils/bulkWeeklyPlanPace";
 import { parseStrictNumber } from "@/lib/utils/parseNumber";
 import type {
   MonthlyGoalOverride,
@@ -36,6 +40,7 @@ interface MonthlyGoalPlanSectionProps {
   currentWeight: number | null;
   today: string;
   planStartMonth?: string | null;
+  planStartDate?: string | null;
   planStartWeight?: number | null;
   overrides: MonthlyGoalOverride[];
   onOverridesChange: (overrides: MonthlyGoalOverride[]) => void;
@@ -113,6 +118,7 @@ export function MonthlyGoalPlanSection({
   currentWeight,
   today,
   planStartMonth,
+  planStartDate,
   planStartWeight,
   overrides,
   onOverridesChange,
@@ -149,10 +155,12 @@ export function MonthlyGoalPlanSection({
       currentWeight={currentWeight}
       today={today}
       planStartMonth={planStartMonth}
+      planStartDate={planStartDate}
       planStartWeight={planStartWeight}
       overrides={overrides}
       onOverridesChange={onOverridesChange}
       deadlineLabel={deadlineLabel}
+      phase={phase}
     />
   );
 }
@@ -186,10 +194,12 @@ interface PlanContentProps {
   currentWeight: number;
   today: string;
   planStartMonth?: string | null;
+  planStartDate?: string | null;
   planStartWeight?: number | null;
   overrides: MonthlyGoalOverride[];
   onOverridesChange: (overrides: MonthlyGoalOverride[]) => void;
   deadlineLabel: string;
+  phase?: string;
 }
 
 function PlanContent({
@@ -198,10 +208,12 @@ function PlanContent({
   currentWeight,
   today,
   planStartMonth,
+  planStartDate,
   planStartWeight,
   overrides,
   onOverridesChange,
   deadlineLabel,
+  phase,
 }: PlanContentProps) {
   const ERROR_LABELS = buildErrorLabels(deadlineLabel);
   // プランを overrides + 他パラメータから算出
@@ -212,12 +224,14 @@ function PlanContent({
         currentWeight: planStartWeight ?? currentWeight,
         today,
         planStartMonth,
+        planStartDate,
+        phase,
         finalGoalWeight: goalWeight,
         goalDeadlineDate: contestDate,
         monthlyActuals: [],
         overrides,
       }),
-    [currentWeight, today, goalWeight, contestDate, overrides, planStartMonth, planStartWeight]
+    [currentWeight, today, goalWeight, contestDate, overrides, phase, planStartDate, planStartMonth, planStartWeight]
   );
 
   // plan.entries の month + targetWeight の両方を含む signature を作成する。
@@ -226,6 +240,14 @@ function PlanContent({
   const planSignature = plan.entries
     .map((e) => `${e.month}:${e.targetWeight}`)
     .join(",");
+  const bulkLimitViolations =
+    phase === "Bulk" && planStartDate
+      ? findBulkMonthlyGainLimitViolations({
+          startDate: planStartDate,
+          targetDate: contestDate,
+          entries: plan.entries,
+        })
+      : [];
 
   const [inputValues, setInputValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
@@ -445,6 +467,22 @@ function PlanContent({
             >
               <AlertTriangle size={13} className="mt-0.5 shrink-0" />
               <span>{warningLabel(w, deadlineLabel)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {bulkLimitViolations.length > 0 && (
+        <div className="mt-3 space-y-1.5">
+          {bulkLimitViolations.map((violation) => (
+            <div
+              key={violation.month}
+              className="flex items-start gap-2 rounded-xl border border-rose-100 bg-rose-50 px-4 py-2.5 text-xs text-rose-700 dark:border-rose-700/50 dark:bg-rose-900/30 dark:text-rose-300"
+            >
+              <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+              <span>
+                {fmtMonth(violation.month)} の増量 {violation.plannedDeltaKg.toFixed(1)} kg が上限 {violation.allowedDeltaKg.toFixed(1)} kgを超えています（月+{MAX_BULK_MONTHLY_GAIN_KG.toFixed(1)} kg、端数月は日数按分）。保存できません。
+              </span>
             </div>
           ))}
         </div>

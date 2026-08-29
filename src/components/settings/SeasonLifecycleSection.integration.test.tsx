@@ -31,7 +31,7 @@ const activeSeason: Season = {
   startDate: "2026-03-01",
   startWeight: 75,
   targetDate: "2026-06-30",
-  targetWeight: 80,
+  targetWeight: 79,
   status: "active",
   endDate: null,
   endWeight: null,
@@ -158,18 +158,18 @@ describe("SeasonLifecycleSection", () => {
       target: { value: "2026-07-31" },
     });
     fireEvent.change(screen.getByLabelText("変更後の目標体重"), {
-      target: { value: "81" },
+      target: { value: "80" },
     });
     fireEvent.click(screen.getByRole("button", { name: "変更内容を確認" }));
     expect(screen.getByText("再計算後の月次計画")).toBeInTheDocument();
-    expect(screen.getByText(/2026-07: 81.0 kg/)).toBeInTheDocument();
+    expect(screen.getByText(/2026-07: 80.0 kg/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "目標変更を確定" }));
 
     await waitFor(() => expect(mockGoal).toHaveBeenCalledWith({
       expectedActiveSeasonId: 10,
       expectedActiveSeasonUpdatedAt: activeSeason.updatedAt,
       targetDate: "2026-07-31",
-      targetWeight: "81",
+      targetWeight: "80",
     }));
   });
 
@@ -179,8 +179,9 @@ describe("SeasonLifecycleSection", () => {
         initialSeason={{
           ...activeSeason,
           targetDate: "2026-08-31",
+          targetWeight: 80,
           monthlyPlanOverrides: [
-            { month: "2026-05", targetWeight: 78 },
+            { month: "2026-05", targetWeight: 77 },
             { month: "2026-07", targetWeight: 79 },
           ],
         }}
@@ -192,10 +193,13 @@ describe("SeasonLifecycleSection", () => {
     fireEvent.change(screen.getByLabelText("変更後の目標日"), {
       target: { value: "2026-06-30" },
     });
+    fireEvent.change(screen.getByLabelText("変更後の目標体重"), {
+      target: { value: "78" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "変更内容を確認" }));
 
     expect(screen.getByText(/保存時に解除される手動設定: 2026-07/)).toBeInTheDocument();
-    expect(screen.getByText(/2026-05: 78.0 kg（手動）/)).toBeInTheDocument();
+    expect(screen.getByText(/2026-05: 77.0 kg（手動）/)).toBeInTheDocument();
   });
 
   it("終了時体重なしを警告しつつ終了を許可する", async () => {

@@ -113,4 +113,24 @@ describe("SeasonMonthlyGoalPlanSection", () => {
     render(<SeasonMonthlyGoalPlanSection initialSeason={null} today="2026-04-01" />);
     expect(screen.getByText(/先にシーズンを開始してください/)).toBeInTheDocument();
   });
+
+  it("Bulkの月+1kg上限を超える手動設定は保存できない", () => {
+    const bulkSeason: Season = {
+      ...activeSeason,
+      name: "2026_Bulk",
+      phase: "Bulk",
+      startDate: "2026-03-01",
+      targetWeight: 79,
+      monthlyPlanOverrides: [],
+    };
+    render(<SeasonMonthlyGoalPlanSection initialSeason={bulkSeason} today="2026-04-01" />);
+
+    const input = screen.getByLabelText("2026年4月 目標体重");
+    fireEvent.change(input, { target: { value: "77.5" } });
+    fireEvent.blur(input);
+
+    expect(screen.getByRole("button", { name: "手動設定を保存" })).toBeDisabled();
+    expect(screen.getByText(/上限を超えるため、手動設定を保存できません/)).toBeInTheDocument();
+    expect(mockSave).not.toHaveBeenCalled();
+  });
 });

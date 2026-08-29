@@ -8,6 +8,7 @@ import type {
 } from "@/lib/utils/monthlyGoalPlan";
 
 export interface SeasonMonthlyPlanInput {
+  phase?: string;
   startDate: string;
   startWeight: number;
   targetDate: string;
@@ -46,6 +47,8 @@ export function previewSeasonGoalChange(
     currentWeight: season.planStartWeight,
     today: season.startDate,
     planStartMonth: season.planStartMonth,
+    planStartDate: season.startDate,
+    phase: season.phase,
     finalGoalWeight: targetWeight,
     goalDeadlineDate: targetDate,
     monthlyActuals: [],
@@ -81,6 +84,8 @@ export function buildSeasonMonthlyPlanSnapshot(
     currentWeight: season.planStartWeight,
     today: season.startDate,
     planStartMonth: season.planStartMonth,
+    planStartDate: season.startDate,
+    phase: season.phase,
     finalGoalWeight: season.targetWeight,
     goalDeadlineDate: season.targetDate,
     monthlyActuals: [...latestByMonth.entries()].map(([month, value]) => ({

@@ -90,9 +90,52 @@ export function deriveWeeklyInsightItems(
   const items: InsightItem[] = [];
   const isCut = phase !== "Bulk";
   const { weight, nutrition, tdee, quality, stagnation, specialDays, cardio } = data;
+  const bulkPlanPace = isCut ? null : data.bulkPlanPace ?? null;
 
   // ── 1. 体重トレンド ──────────────────────────────────────────────────────
   {
+    if (bulkPlanPace) {
+      const statusMap = {
+        on_plan: "ok",
+        slow: "caution",
+        slightly_fast: "caution",
+        over_pace: "alert",
+        wrong_direction: "alert",
+        data_insufficient: "neutral",
+        plan_check: "alert",
+      } as const;
+      const stateDetail = {
+        on_plan: "月次計画に沿った増量ペースです",
+        slow: "月次計画より増量ペースが緩めです。来週も同じ傾向なら摂取量を確認してください",
+        slightly_fast: "月次計画より増量ペースがやや速めです。特殊日や水分変動も確認してください",
+        over_pace: "増量ペース超過です。特殊日や水分変動を確認し、14日トレンドも速い場合は摂取量の見直しを検討してください",
+        wrong_direction: "月次計画とは逆に体重が減少しています。記録状況と摂取量を確認してください",
+        data_insufficient: `判定には今週・前週それぞれ5日以上の体重記録が必要です（今週 ${bulkPlanPace.currentWeightDays}日 / 前週 ${bulkPlanPace.previousWeightDays}日）`,
+        plan_check: bulkPlanPace.monthlyLimitViolations.length > 0
+          ? `月+1.0 kg（端数月は日数按分）の上限を超える月次目標があります: ${bulkPlanPace.monthlyLimitViolations.map((violation) => violation.month).join("、")}`
+          : "月次計画の対象期間または目標値を確認してください",
+      } as const;
+
+      const actualPart = bulkPlanPace.actualChangeKg !== null
+        ? ` / 前週比 ${fmtSigned(bulkPlanPace.actualChangeKg, 2)} kg`
+        : "";
+      const plannedPart = bulkPlanPace.plannedChangeKg !== null
+        ? ` / 計画 ${fmtSigned(bulkPlanPace.plannedChangeKg, 2)} kg`
+        : "";
+      const ratioPart = bulkPlanPace.paceRatioPct !== null
+        ? `（計画比 ${Math.round(bulkPlanPace.paceRatioPct)}%）`
+        : "";
+      const title = weight.avg !== null
+        ? `今週平均 ${weight.avg.toFixed(1)} kg${actualPart}${plannedPart}`
+        : "体重データ不足";
+      const detail = `${stateDetail[bulkPlanPace.state]}${ratioPart}`;
+
+      items.push({
+        status: statusMap[bulkPlanPace.state],
+        title,
+        detail,
+      });
+    } else {
     const statusMap: Record<string, InsightStatus> = {
       advancing:         "ok",
       watching:          "caution",
@@ -146,6 +189,7 @@ export function deriveWeeklyInsightItems(
     }
 
     items.push({ status, title, detail });
+    }
   }
 
   // ── 2. エネルギー収支 ────────────────────────────────────────────────────
@@ -167,14 +211,23 @@ export function deriveWeeklyInsightItems(
         title = `収支 ${balStr}（減量方向）`;
       } else {
         // 余剰
-        status = isCut ? "caution" : "ok";
+        status = isCut
+          ? "caution"
+          : bulkPlanPace?.state === "over_pace"
+          ? "caution"
+          : "ok";
         title = `収支 +${fmt0(bal)} kcal/日（増量方向）`;
       }
 
-      const detail =
+      let detail =
         tdee.avgEstimated !== null
           ? `摂取 ${fmt0(nutrition.avgCalories)} kcal / 推定TDEE ${fmt0(tdee.avgEstimated)} kcal（14日平均）`
           : undefined;
+      if (!isCut && bal >= 100 && bulkPlanPace?.state === "over_pace") {
+        detail = detail
+          ? `${detail} / 計画超過が続く場合は余剰量を確認`
+          : "計画超過が続く場合は余剰量を確認";
+      }
 
       items.push({ status, title, detail });
     } else {

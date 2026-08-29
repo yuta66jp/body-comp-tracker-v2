@@ -479,6 +479,24 @@ describe("MonthlyGoalPlanSection — override 解除", () => {
 // ─── シナリオ 6: 警告表示 ───────────────────────────────────────────────────
 
 describe("MonthlyGoalPlanSection — 警告表示", () => {
+  it("Bulkの月+1kg上限超過を保存不可として表示する", () => {
+    render(
+      <MonthlyGoalPlanSection
+        goalWeight={76.2}
+        contestDate="2026-04-30"
+        phase="Bulk"
+        currentWeight={75}
+        today="2026-04-01"
+        planStartMonth="2026-04"
+        planStartDate="2026-04-01"
+        planStartWeight={75}
+        overrides={[]}
+        onOverridesChange={() => {}}
+      />
+    );
+    expect(screen.getByText(/月\+1\.0 kg.*端数月は日数按分/)).toHaveTextContent("保存できません");
+  });
+
   it("DEADLINE_TOO_CLOSE 警告が表示される (今月のみの期間)", () => {
     render(
       <MonthlyGoalPlanSection

@@ -169,6 +169,7 @@ export function buildSeasonHistoryData(
     ) {
       planEntries = buildSeasonMonthlyPlanSnapshot(
         {
+          phase: season.phase,
           startDate: season.startDate,
           startWeight: season.startWeight,
           targetDate: season.targetDate,

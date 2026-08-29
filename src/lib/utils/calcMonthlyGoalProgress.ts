@@ -213,6 +213,7 @@ export function calcMonthlyGoalProgress(input: {
   contestDate: string | null;
   targetWeight: number | null;
   monthlyPlanStartMonth: string | null;
+  monthlyPlanStartDate?: string | null;
   monthlyPlanStartWeight: number | null;
   monthlyPlanOverrides: MonthlyGoalOverride[] | null;
   comparisonWeight: number | null;
@@ -223,6 +224,7 @@ export function calcMonthlyGoalProgress(input: {
     contestDate,
     targetWeight,
     monthlyPlanStartMonth,
+    monthlyPlanStartDate,
     monthlyPlanStartWeight,
     monthlyPlanOverrides,
     comparisonWeight,
@@ -265,6 +267,8 @@ export function calcMonthlyGoalProgress(input: {
     currentWeight: history.startWeight,
     today,
     planStartMonth: history.startMonth,
+    planStartDate: monthlyPlanStartDate,
+    phase,
     finalGoalWeight: targetWeight,
     goalDeadlineDate: contestDate,
     monthlyActuals: [],

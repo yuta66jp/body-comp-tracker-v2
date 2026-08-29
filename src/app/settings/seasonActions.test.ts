@@ -22,6 +22,7 @@ const mockRequireCurrentUser = requireCurrentUser as jest.MockedFunction<typeof 
 const mockRpc = jest.fn();
 const mockSeasonMaybeSingle = jest.fn();
 const mockLogOrder = jest.fn();
+const mockStartLogMaybeSingle = jest.fn();
 const mockFrom = jest.fn((table: string) => {
   if (table === "seasons") {
     return {
@@ -33,6 +34,13 @@ const mockFrom = jest.fn((table: string) => {
   return {
     select: () => ({
       gte: () => ({ lte: () => ({ order: mockLogOrder }) }),
+      lte: () => ({
+        not: () => ({
+          order: () => ({
+            limit: () => ({ maybeSingle: mockStartLogMaybeSingle }),
+          }),
+        }),
+      }),
     }),
   };
 });
@@ -46,6 +54,7 @@ describe("season lifecycle actions", () => {
     mockSeasonMaybeSingle.mockResolvedValue({
       data: {
         id: 1,
+        phase: "Cut",
         start_date: "2026-03-01",
         start_weight: 75,
         target_date: "2026-06-30",
@@ -59,6 +68,10 @@ describe("season lifecycle actions", () => {
     });
     mockLogOrder.mockResolvedValue({
       data: [{ log_date: "2026-04-01", weight: 74 }],
+      error: null,
+    });
+    mockStartLogMaybeSingle.mockResolvedValue({
+      data: { weight: 75 },
       error: null,
     });
     mockCreateClient.mockResolvedValue({ rpc: mockRpc, from: mockFrom } as never);
@@ -125,6 +138,24 @@ describe("season lifecycle actions", () => {
     });
   });
 
+  it("Bulk開始時に月+1kg上限を超える目標はRPC前に拒否する", async () => {
+    const result = await startOrSwitchSeason({
+      expectedActiveSeasonId: null,
+      expectedActiveSeasonUpdatedAt: null,
+      name: "2026_Bulk",
+      phase: "Bulk",
+      startDate: "2026-04-01",
+      targetDate: "2026-05-31",
+      targetWeight: "78",
+    });
+
+    expect(result).toMatchObject({ ok: false, reason: "validation" });
+    expect(result.ok ? [] : result.fieldErrors).toEqual([
+      expect.objectContaining({ field: "targetWeight" }),
+    ]);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
   it("終了と目標変更は専用RPCを呼ぶ", async () => {
     await expect(endSeason({ expectedActiveSeasonId: 1, expectedActiveSeasonUpdatedAt: updatedAt, endDate: "2026-04-01" })).resolves.toEqual({ ok: true });
     expect(mockRpc).toHaveBeenNthCalledWith(1, "end_active_season", {
@@ -162,6 +193,34 @@ describe("season lifecycle actions", () => {
       p_overrides: [{ month: "2026-04", targetWeight: 72 }],
       p_reset_all: false,
     });
+  });
+
+  it("Bulkの手動設定が月+1kg上限を超える場合は保存しない", async () => {
+    mockSeasonMaybeSingle.mockResolvedValue({
+      data: {
+        id: 1,
+        phase: "Bulk",
+        start_date: "2026-03-01",
+        start_weight: 75,
+        target_date: "2026-06-30",
+        target_weight: 79,
+        monthly_plan_start_month: "2026-03",
+        monthly_plan_start_weight: 75,
+        monthly_plan_overrides: [],
+        updated_at: updatedAt,
+      },
+      error: null,
+    });
+
+    const result = await saveSeasonPlanOverrides({
+      expectedActiveSeasonId: 1,
+      expectedActiveSeasonUpdatedAt: updatedAt,
+      overrides: [{ month: "2026-04", targetWeight: 77.5 }],
+      resetAll: false,
+    });
+
+    expect(result).toMatchObject({ ok: false, reason: "validation" });
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it("認証切れはログイン案内を返す", async () => {

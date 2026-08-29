@@ -13,7 +13,9 @@
  * - 履歴 plan では過去月も entries に含み、月次計画 vs 実績の比較に利用する。
  *
  * ## 再配分ルール
- * - override を「アンカー」として扱い、アンカー間を線形補間で均等配分する。
+ * - override を「アンカー」として扱い、アンカー間を線形補間する。
+ * - Bulk は月+1kg上限と整合するよう、開始月・終了月の対象日数を重みにして配分する。
+ *   Cut と日付情報のない既存呼び出しは従来どおり月数で均等配分する。
  * - 最終月は必ず finalGoalWeight (アンカーとして固定)。
  * - 最終月への override は無視し、常に finalGoalWeight を使う。
  *
@@ -107,6 +109,10 @@ export interface MonthlyGoalPlanInput {
   today: string;
   /** 月次計画の開始月 "YYYY-MM"。省略時は today の当月。 */
   planStartMonth?: string | null;
+  /** シーズン開始日。Bulk の端数月を日数按分するときに使用する。 */
+  planStartDate?: string | null;
+  /** "Cut" | "Bulk"。Bulk の自動配分だけを月内日数に合わせる。 */
+  phase?: string;
   /** 最終目標体重 (kg)。settings.targetWeight に対応。 */
   finalGoalWeight: number;
   /** 大会・目標期限 "YYYY-MM-DD"。settings.contestDate に対応。 */
@@ -115,6 +121,24 @@ export interface MonthlyGoalPlanInput {
   monthlyActuals: MonthlyActual[];
   /** ユーザーが手動編集した月次 override リスト。空配列 = 自動均等配分。 */
   overrides: MonthlyGoalOverride[];
+}
+
+function bulkMonthCapacityWeight(
+  month: string,
+  planStartDate: string | null | undefined,
+  goalDeadlineDate: string
+): number {
+  const [year, monthNumber] = month.split("-").map(Number);
+  if (!year || !monthNumber) return 1;
+  const daysInMonth = new Date(year, monthNumber, 0).getDate();
+  const startDay = planStartDate?.slice(0, 7) === month
+    ? Number(planStartDate.slice(8, 10))
+    : 1;
+  const endDay = goalDeadlineDate.slice(0, 7) === month
+    ? Number(goalDeadlineDate.slice(8, 10))
+    : daysInMonth;
+  const eligibleDays = Math.max(0, endDay - startDay + 1);
+  return eligibleDays > 0 ? eligibleDays / daysInMonth : 1;
 }
 
 /** バリデーション/不整合エラーコード (plan が構築不可な状態) */
@@ -303,6 +327,7 @@ export function normalizeMonthlyGoalOverrides(
  * 1. override がある月 → override 値 (source: "manual")
  * 2. 最終月 → finalGoalWeight (source: "auto_redistributed")
  * 3. それ以外 → 直前アンカーから次アンカーへの線形補間 (source: "auto_redistributed")
+ *    Bulk は開始月・終了月の日数を按分し、それ以外は月数で均等配分する。
  *
  * アンカー: [currentWeight (起点), ...overrides..., finalGoalWeight (終点)]
  */
@@ -381,7 +406,23 @@ export function buildMonthlyGoalPlan(
       // 前後アンカー間の線形補間
       const stepInSegment = i - prevAnchor.idx;
       const totalSteps = nextAnchor.idx - prevAnchor.idx;
-      const t = stepInSegment / totalSteps;
+      let t = stepInSegment / totalSteps;
+      if (input.phase === "Bulk") {
+        const segmentWeights = months
+          .slice(prevAnchor.idx + 1, nextAnchor.idx + 1)
+          .map((segmentMonth) =>
+            bulkMonthCapacityWeight(
+              segmentMonth,
+              input.planStartDate,
+              input.goalDeadlineDate
+            )
+          );
+        const totalWeight = segmentWeights.reduce((sum, weight) => sum + weight, 0);
+        const elapsedWeight = segmentWeights
+          .slice(0, stepInSegment)
+          .reduce((sum, weight) => sum + weight, 0);
+        if (totalWeight > 0) t = elapsedWeight / totalWeight;
+      }
       const raw =
         prevAnchor.weight + t * (nextAnchor.weight - prevAnchor.weight);
       targetWeight = Math.round(raw * 10) / 10;
