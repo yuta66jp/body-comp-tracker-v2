@@ -4,9 +4,11 @@ import { ImportSection } from "@/components/settings/ImportSection";
 import { DataQualityPanel } from "@/components/settings/DataQualityPanel";
 import { ThemeSection } from "@/components/settings/ThemeSection";
 import { GoogleHealthSection } from "@/components/settings/GoogleHealthSection";
+import { SeasonLifecycleSection } from "@/components/settings/SeasonLifecycleSection";
 import { calcDataQuality } from "@/lib/utils/calcDataQuality";
 import { fetchSettingsRows } from "@/lib/queries/settings";
 import { fetchDailyLogsForSettings } from "@/lib/queries/dailyLogs";
+import { fetchActiveSeason } from "@/lib/queries/seasons";
 import { toJstDateStr } from "@/lib/utils/date";
 import { PageShell } from "@/components/ui/PageShell";
 import {
@@ -32,15 +34,17 @@ export default async function SettingsPage() {
   const today = toJstDateStr();
   const user = await getCurrentUser();
 
-  const [settingsRowsResult, logsResult, googleHealthStatus] = await Promise.all([
+  const [settingsRowsResult, logsResult, activeSeasonResult, googleHealthStatus] = await Promise.all([
     fetchSettingsRows(),
     fetchDailyLogsForSettings(),
+    fetchActiveSeason(),
     fetchGoogleHealthStatusForSettings(user?.id ?? null),
   ]);
 
   // QueryResult を展開。エラー時はフォールバック値で graceful degradation を維持する。
   const settingsRows = settingsRowsResult.kind === "ok" ? settingsRowsResult.data : [];
   const logs = logsResult.kind === "ok" ? logsResult.data : [];
+  const activeSeason = activeSeasonResult.kind === "ok" ? activeSeasonResult.data : null;
   const qualityReport = calcDataQuality(logs, today);
 
   // 最新の非 null 体重。月次目標計画の起点体重として使用。
@@ -64,11 +68,26 @@ export default async function SettingsPage() {
           ログデータの取得中にエラーが発生しました。データ品質の表示がデフォルト値になります。
         </div>
       )}
+      {activeSeasonResult.kind === "error" && (
+        <div className="mb-5 rounded-2xl border border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700 dark:border-rose-700/50 dark:bg-rose-900/30 dark:text-rose-400">
+          シーズン情報の取得中にエラーが発生しました。再読み込みしてから操作してください。
+        </div>
+      )}
 
       <div className="space-y-6">
         <ThemeSection />
         <GoogleHealthSection initialStatus={googleHealthStatus} />
-        <SettingsForm initialSettings={settingsRows} currentWeight={currentWeight} />
+        <SeasonLifecycleSection
+          initialSeason={activeSeason}
+          weightLogs={logs}
+          today={today}
+          readError={activeSeasonResult.kind === "error"}
+        />
+        <SettingsForm
+          key={activeSeason ? `${activeSeason.id}:${activeSeason.updatedAt}` : "no-active-season"}
+          initialSettings={settingsRows}
+          currentWeight={currentWeight}
+        />
         <DataQualityPanel report={qualityReport} />
 
         {/* データ操作セクション: エクスポート / インポート */}

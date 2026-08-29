@@ -20,6 +20,17 @@ export type SaveSettingsResult =
   | { ok: true }
   | { ok: false; error: string; reason?: "auth_required" };
 
+// #742以降、これらはseason lifecycle RPCだけがsettings mirrorへ書き込む。
+// 通常設定保存から除外し、古いタブや二重送信でcanonical seasonを巻き戻さない。
+const SEASON_MANAGED_SETTING_KEYS = new Set([
+  "current_season",
+  "current_phase",
+  "contest_date",
+  "goal_weight",
+  "monthly_plan_start_month",
+  "monthly_plan_start_weight",
+]);
+
 /**
  * 設定値を検証して Supabase の settings テーブルに upsert する。
  *
@@ -50,7 +61,9 @@ export async function saveSettings(
   }
 
   const supabase = await createClient();
-  const records = parsed.records.map((record) => ({ ...record, user_id: userId }));
+  const records = parsed.records
+    .filter((record) => !SEASON_MANAGED_SETTING_KEYS.has(record.key))
+    .map((record) => ({ ...record, user_id: userId }));
   const { error } = await supabase
     .from("settings")
     .upsert(records as never);

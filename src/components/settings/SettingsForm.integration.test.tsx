@@ -150,7 +150,7 @@ describe("SettingsForm — 保存失敗（バリデーションエラー）", ()
   it("フィールドエラーメッセージが該当フィールドの下に表示される", async () => {
     mockSaveSettings.mockResolvedValue({
       ok: false,
-      error: "入力値が不正です。goal_weight: 正の数値を入力してください, age: 正の整数を入力してください",
+      error: "入力値が不正です。activity_factor: 1.2〜2.5で入力してください, age: 正の整数を入力してください",
     });
 
     render(<SettingsForm initialSettings={emptySettings} />);
@@ -159,7 +159,7 @@ describe("SettingsForm — 保存失敗（バリデーションエラー）", ()
     fireEvent.click(saveButton);
 
     await waitFor(() => {
-      expect(screen.getByText("正の数値を入力してください")).toBeInTheDocument();
+      expect(screen.getByText("1.2〜2.5で入力してください")).toBeInTheDocument();
       expect(screen.getByText("正の整数を入力してください")).toBeInTheDocument();
     });
   });
@@ -323,23 +323,21 @@ describe("SettingsForm — 初期値の反映", () => {
 
     render(<SettingsForm initialSettings={settings} />);
 
-    // goal_weight の input に 60.5 が反映されていることを確認する
-    const goalWeightInput = screen.getByPlaceholderText("58.5") as HTMLInputElement;
-    expect(goalWeightInput.value).toBe("60.5");
+    // season lifecycle管理のgoal_weightは通常設定フォームで直接編集しない
+    expect(screen.queryByPlaceholderText("58.5")).not.toBeInTheDocument();
 
     // age の input に 28 が反映されていることを確認する
     const ageInput = screen.getByPlaceholderText("30") as HTMLInputElement;
     expect(ageInput.value).toBe("28");
   });
 
-  it("initialSettings の文字列フィールドがフォームに反映される", () => {
+  it("season lifecycle管理の文字列フィールドは通常設定フォームに表示しない", () => {
     const settings: Setting[] = [
       { key: "current_season", value_num: null, value_str: "2026_TokyoNovice", updated_at: null },
     ];
 
     render(<SettingsForm initialSettings={settings} />);
 
-    const seasonInput = screen.getByPlaceholderText("2026_TokyoNovice") as HTMLInputElement;
-    expect(seasonInput.value).toBe("2026_TokyoNovice");
+    expect(screen.queryByPlaceholderText("2026_TokyoNovice")).not.toBeInTheDocument();
   });
 });

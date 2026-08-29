@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { Save, CheckCircle2, AlertCircle, Loader2, ChevronDown } from "lucide-react";
 import { saveSettings } from "@/app/settings/actions";
 import type { Setting } from "@/lib/supabase/types";
-import { toJstDateStr, calcDaysLeft } from "@/lib/utils/date";
+import { toJstDateStr } from "@/lib/utils/date";
 import type { MonthlyGoalOverride } from "@/lib/utils/monthlyGoalPlan";
 import { MonthlyGoalPlanSection } from "@/components/settings/MonthlyGoalPlanSection";
 import { resolveMonthlyPlanHistoryAnchor } from "@/lib/utils/monthlyPlanHistory";
@@ -26,10 +26,6 @@ interface FieldMeta {
 }
 
 const FIELDS: Record<string, FieldMeta> = {
-  current_season:    { label: "現在のシーズン", type: "text", placeholder: "2026_TokyoNovice" },
-  current_phase:     { label: "現在のフェーズ", type: "select", options: ["Cut", "Bulk"] },
-  contest_date:      { label: "コンテスト日", type: "date" },
-  goal_weight:       { label: "目標体重", unit: "kg", type: "number", placeholder: "58.5" },
   sex:               { label: "性別", type: "select", options: ["male", "female"], optionLabels: ["男性", "女性"] },
   height_cm:         { label: "身長", unit: "cm", type: "number", placeholder: "170" },
   age:               { label: "年齢", unit: "歳", type: "number", placeholder: "30" },
@@ -44,8 +40,7 @@ const MACRO_TARGET_FIELDS: Record<string, FieldMeta> = {
 };
 
 // セクション別フィールドキー
-const SEASON_FIELD_KEYS = ["current_season", "current_phase", "contest_date"];
-const BODY_FIELD_KEYS = ["goal_weight", "sex", "height_cm", "age", "activity_factor"];
+const BODY_FIELD_KEYS = ["sex", "height_cm", "age", "activity_factor"];
 const MACRO_TARGET_KEYS = Object.keys(MACRO_TARGET_FIELDS);
 
 /** PFC由来kcal = P×4 + F×9 + C×4 。いずれか未入力なら null */
@@ -181,8 +176,8 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  // アコーディオン開閉状態: デフォルトは "season" セクションのみ開く
-  const [openSections, setOpenSections] = useState(() => new Set(["season"]));
+  // シーズン操作は専用セクションへ分離し、通常設定は身体情報を初期表示する。
+  const [openSections, setOpenSections] = useState(() => new Set(["body"]));
 
   function toggleSection(id: string) {
     setOpenSections((prev) => {
@@ -212,12 +207,6 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
   const isBulk = values["current_phase"] === "Bulk";
   const deadlineLabel = isBulk ? "目標日" : "コンテスト日";
 
-  // 終了状態判定: 内部保存キーは contest_date のまま、UI 上は deadline / 大会日 / 目標日として扱う
-  // values["contest_date"] がリアクティブなため、フォーム編集で即時非表示になる
-  const deadlineStr = values["contest_date"] ?? "";
-  const daysLeft = deadlineStr ? calcDaysLeft(today, deadlineStr) : null;
-  const isDeadlineEnded = daysLeft !== null && daysLeft < 0;
-  const seasonSectionTitle = isBulk ? "シーズン・目標" : "シーズン・コンテスト";
   const resolvedMonthlyPlanHistory = useMemo(
     () =>
       resolveMonthlyPlanHistoryAnchor({
@@ -327,101 +316,16 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
     }
   }
 
-  // 移行ガイドのリスト項目: Cut 終了時と Bulk 終了時で内容を分ける
-  const transitionGuideItems = isBulk
-    ? [
-        "目標日を更新",
-        "目標体重を更新",
-        "必要に応じてシーズン名・フェーズを変更",
-        "月次計画のオーバーライドをリセット",
-      ]
-    : [
-        "フェーズを Bulk に変更",
-        "目標日（増量終了日）を設定",
-        "目標体重を増量目標に更新",
-        "シーズン名を更新",
-        "月次計画のオーバーライドをリセット",
-      ];
-
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
-
-      {/* ── フェーズ移行ガイド (deadline 終了時のみ表示) ──
-          表示条件: daysLeft < 0 (deadline 超過)。deadline を更新するとリアクティブに消える。
-          Cut 終了: フェーズ移行ガイド / Bulk 終了: 目標更新ガイド */}
-      {isDeadlineEnded && (
-        <div className="mb-6 rounded-xl border border-amber-100 bg-amber-50 px-5 py-4 dark:border-amber-700/50 dark:bg-amber-900/30">
-          <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-            {isBulk ? "目標更新ガイド" : "フェーズ移行ガイド"}
-          </p>
-          <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-            {isBulk
-              ? "増量期間終了後のため、次の目標設定を案内します。"
-              : "大会終了後のため、次フェーズへの移行準備を案内します。"}
-          </p>
-          <ul className="mt-3 space-y-1.5">
-            {transitionGuideItems.map((item) => (
-              <li key={item} className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400">
-                <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400 dark:bg-amber-500" aria-hidden="true" />
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* ── セクション 1: シーズン・コンテスト (デフォルト展開) ── */}
-      <div>
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">{seasonSectionTitle}</h2>
-            <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{deadlineLabel}・シーズン名・フェーズを設定します</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => toggleSection("season")}
-            aria-expanded={openSections.has("season")}
-            aria-controls="settings-panel-season"
-            aria-label={`${seasonSectionTitle}を${openSections.has("season") ? "閉じる" : "開く"}`}
-            className="sm:hidden ml-3 flex-shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-700 dark:hover:text-slate-300"
-          >
-            <ChevronDown
-              size={16}
-              className={`transition-transform duration-200 ${openSections.has("season") ? "rotate-180" : ""}`}
-            />
-          </button>
-        </div>
-        <div
-          id="settings-panel-season"
-          role="region"
-          className={`mt-4 ${!openSections.has("season") ? "hidden sm:block" : ""}`}
-        >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {SEASON_FIELD_KEYS.map((key) => (
-              <FieldItem
-                key={key}
-
-                meta={
-                  key === "contest_date"
-                    ? { ...FIELDS[key]!, label: deadlineLabel }
-                    : FIELDS[key]!
-                }
-                value={values[key] ?? ""}
-                error={fieldErrors[key]}
-                onChange={(val) => set(key, val)}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ── セクション 2: 目標・身体情報 ── */}
+      {/* ── セクション 1: 目標・身体情報 ── */}
       <FormSection
         id="body"
         title="目標・身体情報"
-        subtitle="目標体重・性別・身長・年齢・活動係数"
+        subtitle="性別・身長・年齢・活動係数"
         isOpen={openSections.has("body")}
         onToggle={() => toggleSection("body")}
+        border={false}
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {BODY_FIELD_KEYS.map((key) => (

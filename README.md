@@ -339,7 +339,7 @@ npx supabase db push
 | `predictions` | `20260308000000_create_predictions_and_analytics_cache.sql` |
 | `analytics_cache` | `20260308000000_create_predictions_and_analytics_cache.sql` |
 | `career_logs` | `20260308000001_create_career_logs.sql` |
-| `seasons` | `20260829000000_create_seasons.sql` + `20260829000001_backfill_seasons.sql` |
+| `seasons` | `20260829000000_create_seasons.sql` + `20260829000001_backfill_seasons.sql` + `20260829000002_create_season_lifecycle_rpcs.sql` |
 | `forecast_backtest_*` | `20260311000000_create_backtest_tables.sql` |
 
 RPC 関数 `save_daily_log_partial` は `20260315000003_fix_save_daily_log_partial_update_first.sql` で確定版が定義される。
