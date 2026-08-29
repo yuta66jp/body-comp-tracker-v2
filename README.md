@@ -133,10 +133,12 @@ ForecastChart（`src/components/charts/ForecastChart.tsx`）は 3 タブ（7日 
 - 読み取りは typed domain model（AppSettings）に変換して利用
 - UI integration test（jsdom）で保存導線・fallback 導線を自動検証
 - **月次目標計画セクション（MonthlyGoalPlanSection）**: `buildMonthlyGoalPlan` を使い、大会日・目標体重から月末目標を自動配分してプレビュー表示
+  - 進行中 `season` の開始日・開始月・開始体重・目標を計画入力として使用する
   - 各月を手動 override すると、その月の目標体重が固定され、残余 kg が後続月に線形再配分される
   - override 済み月には「解除」ボタンを表示。解除すると override 配列から削除され `buildMonthlyGoalPlan` が再計算する
   - override は upsert 方式で管理: 既存 override を上書きし、他月の override を消さない
-  - `monthly_plan_overrides`（JSON 配列）として DB の settings テーブルに保存
+  - `monthly_plan_overrides`（JSON 配列）として進行中 `season` に保存し、終了時は `monthly_plan_snapshot` に固定する
+  - 「すべて自動に戻す」で進行中シーズンの手動 override を全件解除できる
 
 ### fallback 表示
 
@@ -339,7 +341,7 @@ npx supabase db push
 | `predictions` | `20260308000000_create_predictions_and_analytics_cache.sql` |
 | `analytics_cache` | `20260308000000_create_predictions_and_analytics_cache.sql` |
 | `career_logs` | `20260308000001_create_career_logs.sql` |
-| `seasons` | `20260829000000_create_seasons.sql` + `20260829000001_backfill_seasons.sql` + `20260829000002_create_season_lifecycle_rpcs.sql` |
+| `seasons` | `20260829000000_create_seasons.sql` + `20260829000001_backfill_seasons.sql` + `20260829000002_create_season_lifecycle_rpcs.sql` + `20260829000003_add_season_monthly_plan_lifecycle.sql` |
 | `forecast_backtest_*` | `20260311000000_create_backtest_tables.sql` |
 
 RPC 関数 `save_daily_log_partial` は `20260315000003_fix_save_daily_log_partial_update_first.sql` で確定版が定義される。

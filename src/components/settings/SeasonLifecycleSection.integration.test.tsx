@@ -38,6 +38,7 @@ const activeSeason: Season = {
   monthlyPlanStartMonth: "2026-03",
   monthlyPlanStartWeight: 75,
   monthlyPlanOverrides: [],
+  monthlyPlanSnapshot: null,
   createdAt: "2026-03-01T00:00:00Z",
   updatedAt: "2026-03-01T00:00:00Z",
 };
@@ -88,6 +89,7 @@ describe("SeasonLifecycleSection", () => {
     await waitFor(() => {
       expect(mockStart).toHaveBeenCalledWith({
         expectedActiveSeasonId: null,
+        expectedActiveSeasonUpdatedAt: null,
         name: "2026_Cut",
         phase: "Cut",
         startDate: "2026-04-01",
@@ -158,13 +160,42 @@ describe("SeasonLifecycleSection", () => {
     fireEvent.change(screen.getByLabelText("変更後の目標体重"), {
       target: { value: "81" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "目標を更新" }));
+    fireEvent.click(screen.getByRole("button", { name: "変更内容を確認" }));
+    expect(screen.getByText("再計算後の月次計画")).toBeInTheDocument();
+    expect(screen.getByText(/2026-07: 81.0 kg/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "目標変更を確定" }));
 
     await waitFor(() => expect(mockGoal).toHaveBeenCalledWith({
       expectedActiveSeasonId: 10,
+      expectedActiveSeasonUpdatedAt: activeSeason.updatedAt,
       targetDate: "2026-07-31",
       targetWeight: "81",
     }));
+  });
+
+  it("目標変更で範囲外になる手動設定を確定前に表示する", () => {
+    render(
+      <SeasonLifecycleSection
+        initialSeason={{
+          ...activeSeason,
+          targetDate: "2026-08-31",
+          monthlyPlanOverrides: [
+            { month: "2026-05", targetWeight: 78 },
+            { month: "2026-07", targetWeight: 79 },
+          ],
+        }}
+        weightLogs={[]}
+        today="2026-04-01"
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "目標を変更" }));
+    fireEvent.change(screen.getByLabelText("変更後の目標日"), {
+      target: { value: "2026-06-30" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "変更内容を確認" }));
+
+    expect(screen.getByText(/保存時に解除される手動設定: 2026-07/)).toBeInTheDocument();
+    expect(screen.getByText(/2026-05: 78.0 kg（手動）/)).toBeInTheDocument();
   });
 
   it("終了時体重なしを警告しつつ終了を許可する", async () => {
@@ -181,6 +212,7 @@ describe("SeasonLifecycleSection", () => {
     fireEvent.click(screen.getByRole("button", { name: "終了を確定" }));
     await waitFor(() => expect(mockEnd).toHaveBeenCalledWith({
       expectedActiveSeasonId: 10,
+      expectedActiveSeasonUpdatedAt: activeSeason.updatedAt,
       endDate: "2026-04-01",
     }));
   });

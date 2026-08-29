@@ -97,6 +97,7 @@ test("設定ページ: 設定セクションが表示できる", async ({ page }
   await expect(
     page.getByRole("button", { name: /^(シーズンを開始|次のシーズンを開始)$/ })
   ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "月次目標計画", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "目標・身体情報", exact: true })).toBeVisible();
 });
 

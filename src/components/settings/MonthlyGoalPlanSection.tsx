@@ -275,7 +275,7 @@ function PlanContent({
     const raw = inputValues[month] ?? "";
     const parsed = parseStrictNumber(raw);
 
-    if (parsed === null || parsed <= 0 || parsed > 300) {
+    if (parsed === null || parsed < 20 || parsed > 200) {
       // 不正値: 元の plan 値に戻す
       const entry = plan.entries.find((e) => e.month === month);
       if (entry) {
@@ -452,7 +452,7 @@ function PlanContent({
 
       {/* 補足説明 */}
       <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-        過去月は履歴として固定表示し、今月以降のみ編集できます。複数月を手動設定すると各月が anchor として扱われ、間の月が自動配分されます。「解除」で自動に戻せます。設定画面上部の「保存」で確定します。
+        過去月は履歴として固定表示し、今月以降のみ編集できます。複数月を手動設定すると各月が anchor として扱われ、間の月が自動配分されます。「解除」で自動に戻せます。下の「手動設定を保存」で確定します。
       </p>
     </div>
   );

@@ -239,7 +239,7 @@ function validateInput(input: MonthlyGoalPlanInput): MonthlyGoalError[] {
   // currentWeight / finalGoalWeight と同じ範囲制約を適用し、
   // 不正値が計算に混入するのをロジック層で防ぐ。
   const hasInvalidOverride = input.overrides.some(
-    (o) => !isFinite(o.targetWeight) || o.targetWeight <= 0 || o.targetWeight > 300
+    (o) => !isFinite(o.targetWeight) || o.targetWeight < 20 || o.targetWeight > 200
   );
   if (hasInvalidOverride) {
     errors.push({ code: "INVALID_OVERRIDE_WEIGHT" });

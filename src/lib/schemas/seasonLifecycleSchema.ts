@@ -4,6 +4,7 @@ import type { SeasonPhase } from "@/lib/domain/season";
 
 export interface SeasonStartInput {
   expectedActiveSeasonId: number | null;
+  expectedActiveSeasonUpdatedAt: string | null;
   name: string;
   phase: string;
   startDate: string;
@@ -13,13 +14,22 @@ export interface SeasonStartInput {
 
 export interface SeasonEndInput {
   expectedActiveSeasonId: number;
+  expectedActiveSeasonUpdatedAt: string;
   endDate: string;
 }
 
 export interface SeasonGoalInput {
   expectedActiveSeasonId: number;
+  expectedActiveSeasonUpdatedAt: string;
   targetDate: string;
   targetWeight: string;
+}
+
+export interface SeasonPlanOverridesInput {
+  expectedActiveSeasonId: number;
+  expectedActiveSeasonUpdatedAt: string;
+  overrides: Array<{ month: string; targetWeight: number }>;
+  resetAll: boolean;
 }
 
 export interface SeasonLifecycleValidationError {
@@ -38,6 +48,23 @@ function validateExpectedSeasonId(
 ): number | null {
   if (value === null && nullable) return null;
   if (!Number.isSafeInteger(value) || (value ?? 0) <= 0) {
+    errors.push({ field: "season", message: "画面を再読み込みしてください" });
+    return null;
+  }
+  return value;
+}
+
+function validateExpectedSeasonUpdatedAt(
+  value: string | null,
+  nullable: boolean,
+  errors: SeasonLifecycleValidationError[]
+): string | null {
+  if (value === null && nullable) return null;
+  if (
+    typeof value !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}T/.test(value) ||
+    Number.isNaN(Date.parse(value))
+  ) {
     errors.push({ field: "season", message: "画面を再読み込みしてください" });
     return null;
   }
@@ -79,6 +106,7 @@ export function parseSeasonStartInput(
   targetDate: string;
   targetWeight: number;
   expectedActiveSeasonId: number | null;
+  expectedActiveSeasonUpdatedAt: string | null;
 }> {
   const errors: SeasonLifecycleValidationError[] = [];
   const expectedActiveSeasonId = validateExpectedSeasonId(
@@ -86,6 +114,14 @@ export function parseSeasonStartInput(
     true,
     errors
   );
+  const expectedActiveSeasonUpdatedAt = validateExpectedSeasonUpdatedAt(
+    input.expectedActiveSeasonUpdatedAt,
+    true,
+    errors
+  );
+  if ((expectedActiveSeasonId === null) !== (expectedActiveSeasonUpdatedAt === null)) {
+    errors.push({ field: "season", message: "画面を再読み込みしてください" });
+  }
   const name = input.name.trim();
   if (name.length === 0 || name.length > 100) {
     errors.push({ field: "name", message: "1〜100文字で入力してください" });
@@ -114,17 +150,34 @@ export function parseSeasonStartInput(
   }
   return {
     ok: true,
-    data: { name, phase, startDate, targetDate, targetWeight, expectedActiveSeasonId },
+    data: {
+      name,
+      phase,
+      startDate,
+      targetDate,
+      targetWeight,
+      expectedActiveSeasonId,
+      expectedActiveSeasonUpdatedAt,
+    },
   };
 }
 
 export function parseSeasonEndInput(
   input: SeasonEndInput,
   today: string
-): ValidationResult<{ endDate: string; expectedActiveSeasonId: number }> {
+): ValidationResult<{
+  endDate: string;
+  expectedActiveSeasonId: number;
+  expectedActiveSeasonUpdatedAt: string;
+}> {
   const errors: SeasonLifecycleValidationError[] = [];
   const expectedActiveSeasonId = validateExpectedSeasonId(
     input.expectedActiveSeasonId,
+    false,
+    errors
+  );
+  const expectedActiveSeasonUpdatedAt = validateExpectedSeasonUpdatedAt(
+    input.expectedActiveSeasonUpdatedAt,
     false,
     errors
   );
@@ -132,10 +185,18 @@ export function parseSeasonEndInput(
   if (endDate !== null && endDate > today) {
     errors.push({ field: "endDate", message: "終了日は今日以前にしてください" });
   }
-  if (errors.length > 0 || endDate === null || expectedActiveSeasonId === null) {
+  if (
+    errors.length > 0 ||
+    endDate === null ||
+    expectedActiveSeasonId === null ||
+    expectedActiveSeasonUpdatedAt === null
+  ) {
     return { ok: false, errors };
   }
-  return { ok: true, data: { endDate, expectedActiveSeasonId } };
+  return {
+    ok: true,
+    data: { endDate, expectedActiveSeasonId, expectedActiveSeasonUpdatedAt },
+  };
 }
 
 export function parseSeasonGoalInput(
@@ -144,10 +205,16 @@ export function parseSeasonGoalInput(
   targetDate: string;
   targetWeight: number;
   expectedActiveSeasonId: number;
+  expectedActiveSeasonUpdatedAt: string;
 }> {
   const errors: SeasonLifecycleValidationError[] = [];
   const expectedActiveSeasonId = validateExpectedSeasonId(
     input.expectedActiveSeasonId,
+    false,
+    errors
+  );
+  const expectedActiveSeasonUpdatedAt = validateExpectedSeasonUpdatedAt(
+    input.expectedActiveSeasonUpdatedAt,
     false,
     errors
   );
@@ -157,9 +224,71 @@ export function parseSeasonGoalInput(
     errors.length > 0 ||
     targetDate === null ||
     targetWeight === null ||
-    expectedActiveSeasonId === null
+    expectedActiveSeasonId === null ||
+    expectedActiveSeasonUpdatedAt === null
   ) {
     return { ok: false, errors };
   }
-  return { ok: true, data: { targetDate, targetWeight, expectedActiveSeasonId } };
+  return {
+    ok: true,
+    data: {
+      targetDate,
+      targetWeight,
+      expectedActiveSeasonId,
+      expectedActiveSeasonUpdatedAt,
+    },
+  };
+}
+
+export function parseSeasonPlanOverridesInput(
+  input: SeasonPlanOverridesInput
+): ValidationResult<SeasonPlanOverridesInput> {
+  const errors: SeasonLifecycleValidationError[] = [];
+  const expectedActiveSeasonId = validateExpectedSeasonId(
+    input.expectedActiveSeasonId,
+    false,
+    errors
+  );
+  const expectedActiveSeasonUpdatedAt = validateExpectedSeasonUpdatedAt(
+    input.expectedActiveSeasonUpdatedAt,
+    false,
+    errors
+  );
+  const seenMonths = new Set<string>();
+  if (typeof input.resetAll !== "boolean" || (input.resetAll && input.overrides.length > 0)) {
+    errors.push({ field: "overrides", message: "リセット内容を確認してください" });
+  }
+  for (const override of input.overrides) {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(override.month)) {
+      errors.push({ field: "overrides", message: "対象月を確認してください" });
+    }
+    if (
+      !Number.isFinite(override.targetWeight) ||
+      override.targetWeight < 20 ||
+      override.targetWeight > 200
+    ) {
+      errors.push({ field: "overrides", message: "20〜200kgで入力してください" });
+    }
+    if (seenMonths.has(override.month)) {
+      errors.push({ field: "overrides", message: "同じ月を重複して設定できません" });
+    }
+    seenMonths.add(override.month);
+  }
+
+  if (
+    errors.length > 0 ||
+    expectedActiveSeasonId === null ||
+    expectedActiveSeasonUpdatedAt === null
+  ) {
+    return { ok: false, errors };
+  }
+  return {
+    ok: true,
+    data: {
+      expectedActiveSeasonId,
+      expectedActiveSeasonUpdatedAt,
+      overrides: input.overrides,
+      resetAll: input.resetAll,
+    },
+  };
 }

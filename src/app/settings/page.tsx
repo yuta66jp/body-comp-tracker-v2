@@ -5,6 +5,7 @@ import { DataQualityPanel } from "@/components/settings/DataQualityPanel";
 import { ThemeSection } from "@/components/settings/ThemeSection";
 import { GoogleHealthSection } from "@/components/settings/GoogleHealthSection";
 import { SeasonLifecycleSection } from "@/components/settings/SeasonLifecycleSection";
+import { SeasonMonthlyGoalPlanSection } from "@/components/settings/SeasonMonthlyGoalPlanSection";
 import { calcDataQuality } from "@/lib/utils/calcDataQuality";
 import { fetchSettingsRows } from "@/lib/queries/settings";
 import { fetchDailyLogsForSettings } from "@/lib/queries/dailyLogs";
@@ -47,14 +48,6 @@ export default async function SettingsPage() {
   const activeSeason = activeSeasonResult.kind === "ok" ? activeSeasonResult.data : null;
   const qualityReport = calcDataQuality(logs, today);
 
-  // 最新の非 null 体重。月次目標計画の起点体重として使用。
-  // 最新 log_date のレコードに weight がなくても、過去の記録があれば計画 UI が機能する。
-  const currentWeight =
-    [...logs]
-      .sort((a, b) => a.log_date.localeCompare(b.log_date))
-      .findLast((l) => l.weight !== null)
-      ?.weight ?? null;
-
   return (
     <PageShell title="設定">
       {/* Read error banners — graceful degradation: コンテンツはブロックしない */}
@@ -83,10 +76,15 @@ export default async function SettingsPage() {
           today={today}
           readError={activeSeasonResult.kind === "error"}
         />
+        <SeasonMonthlyGoalPlanSection
+          key={activeSeason ? `${activeSeason.id}:${activeSeason.updatedAt}` : "no-active-season-plan"}
+          initialSeason={activeSeason}
+          today={today}
+          readError={activeSeasonResult.kind === "error"}
+        />
         <SettingsForm
           key={activeSeason ? `${activeSeason.id}:${activeSeason.updatedAt}` : "no-active-season"}
           initialSettings={settingsRows}
-          currentWeight={currentWeight}
         />
         <DataQualityPanel report={qualityReport} />
 

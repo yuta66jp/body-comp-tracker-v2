@@ -4,14 +4,9 @@ import { useState, useMemo } from "react";
 import { Save, CheckCircle2, AlertCircle, Loader2, ChevronDown } from "lucide-react";
 import { saveSettings } from "@/app/settings/actions";
 import type { Setting } from "@/lib/supabase/types";
-import { toJstDateStr } from "@/lib/utils/date";
-import type { MonthlyGoalOverride } from "@/lib/utils/monthlyGoalPlan";
-import { MonthlyGoalPlanSection } from "@/components/settings/MonthlyGoalPlanSection";
-import { resolveMonthlyPlanHistoryAnchor } from "@/lib/utils/monthlyPlanHistory";
 
 interface SettingsFormProps {
   initialSettings: Setting[];
-  currentWeight?: number | null;
 }
 
 type FieldType = "number" | "text" | "date" | "select";
@@ -163,7 +158,7 @@ function FieldItem({
 
 // ─── メインコンポーネント ────────────────────────────────────────────────────
 
-export function SettingsForm({ initialSettings, currentWeight = null }: SettingsFormProps) {
+export function SettingsForm({ initialSettings }: SettingsFormProps) {
   const initMap = Object.fromEntries(
     initialSettings.map((s) => [
       s.key,
@@ -187,41 +182,6 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
       return next;
     });
   }
-
-  // 月次目標計画の手動 override リスト。JSON 文字列で DB に保存される。
-  const [monthlyPlanOverrides, setMonthlyPlanOverrides] = useState<MonthlyGoalOverride[]>(() => {
-    const row = initialSettings.find((s) => s.key === "monthly_plan_overrides");
-    if (!row?.value_str) return [];
-    try {
-      const parsed = JSON.parse(row.value_str);
-      return Array.isArray(parsed) ? (parsed as MonthlyGoalOverride[]) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  // 今日の JST 日付 (月次計画の起点として利用)
-  const today = useMemo(() => toJstDateStr(), []);
-
-  // フェーズに応じた deadline 文言 (values はリアクティブなため切り替えが即反映される)
-  const isBulk = values["current_phase"] === "Bulk";
-  const deadlineLabel = isBulk ? "目標日" : "コンテスト日";
-
-  const resolvedMonthlyPlanHistory = useMemo(
-    () =>
-      resolveMonthlyPlanHistoryAnchor({
-        explicitStartMonth: values["monthly_plan_start_month"] || null,
-        explicitStartWeight: (() => {
-          const parsed = parseFloat(values["monthly_plan_start_weight"] ?? "");
-          return isFinite(parsed) ? parsed : null;
-        })(),
-        goalDeadlineDate: values["contest_date"] || null,
-        overrides: monthlyPlanOverrides,
-        currentWeight,
-        today,
-      }),
-    [values, monthlyPlanOverrides, currentWeight, today]
-  );
 
   /** PFC由来kcal と target_calories_kcal の差分（絶対値 > 100 kcal で警告）*/
   const pfcConsistencyWarning = useMemo((): string | null => {
@@ -254,7 +214,7 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
     setFieldErrors({});
 
     const result = await saveSettings({
-      goal_weight:             values["goal_weight"] ?? "",
+      goal_weight:             "",
       activity_factor:         values["activity_factor"] ?? "",
       height_cm:               values["height_cm"] ?? "",
       age:                     values["age"] ?? "",
@@ -262,17 +222,13 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
       target_protein_g:        values["target_protein_g"] ?? "",
       target_fat_g:            values["target_fat_g"] ?? "",
       target_carbs_g:          values["target_carbs_g"] ?? "",
-      current_season:          values["current_season"] ?? "",
-      current_phase:           values["current_phase"] ?? "",
+      current_season:          "",
+      current_phase:           "",
       sex:                     values["sex"] ?? "",
-      contest_date:            values["contest_date"] ?? "",
-      monthly_plan_start_month: resolvedMonthlyPlanHistory.startMonth ?? "",
-      monthly_plan_start_weight: resolvedMonthlyPlanHistory.startWeight !== null
-        ? String(resolvedMonthlyPlanHistory.startWeight)
-        : "",
-      monthly_plan_overrides:  monthlyPlanOverrides.length > 0
-        ? JSON.stringify(monthlyPlanOverrides)
-        : "",
+      contest_date:            "",
+      monthly_plan_start_month: "",
+      monthly_plan_start_weight: "",
+      monthly_plan_overrides:  "",
     });
 
     if (!result.ok) {
@@ -372,27 +328,6 @@ export function SettingsForm({ initialSettings, currentWeight = null }: Settings
             {pfcConsistencyWarning}
           </p>
         )}
-      </FormSection>
-
-      {/* ── セクション 4: 月次目標計画 ── */}
-      <FormSection
-        id="plan"
-        title="月次目標計画"
-        subtitle={`${deadlineLabel}・目標体重をもとに月末目標体重を自動配分します`}
-        isOpen={openSections.has("plan")}
-        onToggle={() => toggleSection("plan")}
-      >
-        <MonthlyGoalPlanSection
-          goalWeight={(() => { const v = parseFloat(values["goal_weight"] ?? ""); return isFinite(v) ? v : null; })()}
-          contestDate={values["contest_date"] || null}
-          phase={values["current_phase"] ?? "Cut"}
-          currentWeight={currentWeight}
-          today={today}
-          planStartMonth={resolvedMonthlyPlanHistory.startMonth}
-          planStartWeight={resolvedMonthlyPlanHistory.startWeight}
-          overrides={monthlyPlanOverrides}
-          onOverridesChange={setMonthlyPlanOverrides}
-        />
       </FormSection>
 
       {/* ── 保存エリア ──

@@ -27,6 +27,7 @@ const baseRow = {
   monthly_plan_start_month: "2026-04",
   monthly_plan_start_weight: 75,
   monthly_plan_overrides: [],
+  monthly_plan_snapshot: null,
   created_at: "2026-04-01T00:00:00Z",
   updated_at: "2026-04-01T00:00:00Z",
 };
