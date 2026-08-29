@@ -221,10 +221,10 @@ body-comp-tracker-v2/
 - query 関数は pure な async 関数として書き、テスト可能にする
 - **主要クエリは `QueryResult<T>` で状態を明示する**:
   - `kind: "ok"` / `kind: "error"` の discriminated union で DB エラーと正常な空状態を型レベルで分離
-  - 対象: `fetchDailyLogs` / `fetchDailyLogsForSettings` / `fetchCareerLogs` / `fetchSettings` / `fetchSettingsRows`
+  - 対象: `fetchDailyLogs` / `fetchSeasonHistoryDailyLogs` / `fetchDailyLogsForSettings` / `fetchCareerLogs` / `fetchSettings` / `fetchSettingsRows`
   - 各ページで `kind: "error"` 時に error banner を表示し、graceful degradation を維持する
 - **補助クエリはベストエフォート（空配列フォールバック）**:
-  - 対象: `fetchWeightLogs` / `fetchCareerLogsForDashboard` / `fetchPredictions` / `fetchMacroTargets`
+  - 対象: `fetchCareerLogsForDashboard` / `fetchPredictions` / `fetchMacroTargets`
   - エラー時は空配列 / null を返し、ページ全体はブロックしない
   - 意図（なぜ QueryResult 化しないか）を各関数の JSDoc に明記する
 

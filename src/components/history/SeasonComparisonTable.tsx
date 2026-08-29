@@ -1,8 +1,8 @@
 /**
  * SeasonComparisonTable — 全シーズン × マイルストーン 数値テーブル
  *
- * Server Component。全シーズンを列、大会前マイルストーンを行として
- * 体重を並べて表示する。「前回比」列は最新の過去シーズンとの差分。
+ * Server Component。同フェーズのシーズンを列、目標日基準マイルストーンを行として
+ * 体重を並べて表示する。差分列は選択中シーズンと最新の比較先との差分。
  *
  * 想定ユース:
  *   - YearOverYearSummary が「判断用の要約」
@@ -19,22 +19,23 @@ import type { MilestoneRow, SeasonMeta } from "@/lib/utils/calcSeason";
 interface SeasonComparisonTableProps {
   milestoneRows: MilestoneRow[];
   seasonMeta: SeasonMeta[];   // 仕上がり体重行の追加用
-  /** 全シーズン名リスト (古い順。current が最後) */
+  /** 同フェーズのシーズン名リスト（開始日が古い順） */
   seasons: string[];
   currentSeason: string;
   isCut?: boolean;
   /**
-   * true (default / Cut)  : 今季列・差列を表示
-   * false (Bulk)           : 今季列・差列を非表示（過去シーズン参照モード）
+   * true: 選択中列・差列を表示
+   * false: 参照列だけを表示
    */
   showCurrentSeason?: boolean;
+  deadlineLabel?: "大会日" | "目標日";
 }
 
 // ─── ヘルパー ────────────────────────────────────────────────────────────────
 
-function daysOutLabel(d: number): string {
-  if (d === 0) return "大会日";
-  if (d === Infinity) return "仕上がり";
+function daysOutLabel(d: number, deadlineLabel: "大会日" | "目標日", isCut: boolean): string {
+  if (d === 0) return deadlineLabel;
+  if (d === Infinity) return isCut ? "仕上がり" : "最高体重";
   return `D${d}`;
 }
 
@@ -97,6 +98,7 @@ export function SeasonComparisonTable({
   currentSeason,
   isCut = true,
   showCurrentSeason = true,
+  deadlineLabel = "大会日",
 }: SeasonComparisonTableProps) {
   const pastSeasons = seasons.filter((s) => s !== currentSeason);
 
@@ -135,8 +137,8 @@ export function SeasonComparisonTable({
         <p className="text-sm font-bold text-slate-700 dark:text-slate-200">シーズン比較テーブル</p>
         <p className="text-xs text-slate-400 dark:text-slate-500">
           {showCurrentSeason
-            ? `体重は 7日移動平均 / 大会 ±3日以内の最近接値 / 差は今季 − ${prevSeason}`
-            : "体重は 7日移動平均 / 大会 ±3日以内の最近接値（参照用）"}
+            ? `体重は 7日移動平均 / ${deadlineLabel} ±3日以内の最近接値 / 差は選択中 − ${prevSeason}`
+            : `体重は 7日移動平均 / ${deadlineLabel} ±3日以内の最近接値（参照用）`}
         </p>
       </div>
 
@@ -164,7 +166,7 @@ export function SeasonComparisonTable({
               {showCurrentSeason && (
                 <th className="px-3 py-2.5 text-right text-red-500">
                   {currentSeason}
-                  <span className="ml-1 rounded bg-red-50 px-1 text-[9px] font-bold dark:bg-red-900/30">今季</span>
+                  <span className="ml-1 rounded bg-red-50 px-1 text-[9px] font-bold dark:bg-red-900/30">選択中</span>
                 </th>
               )}
               {/* 差分列 — Bulk 時非表示 */}
@@ -178,7 +180,7 @@ export function SeasonComparisonTable({
           <tbody className="divide-y divide-slate-50 dark:divide-slate-700/60">
             {displayRows.map((row, rowIdx) => {
               const isFinisher = row.daysOut === Infinity;
-              const label = daysOutLabel(row.daysOut);
+              const label = daysOutLabel(row.daysOut, deadlineLabel, isCut);
               const curVal = row.bySeasons[currentSeason] ?? null;
               const prvVal = row.bySeasons[prevSeason] ?? null;
 
@@ -261,13 +263,13 @@ export function SeasonComparisonTable({
         {showCurrentSeason && (
           <span className="flex items-center gap-1">
             <TrendingDown size={11} className="text-emerald-600" />
-            {isCut ? "今季が前回より軽い (先行)" : "今季が前回より重い (先行)"}
+            {isCut ? "選択中が比較先より軽い (先行)" : "選択中が比較先より重い (先行)"}
           </span>
         )}
         {showCurrentSeason && (
           <span className="flex items-center gap-1">
             <TrendingUp size={11} className="text-amber-600" />
-            {isCut ? "今季が前回より重い (遅れ)" : "今季が前回より軽い (遅れ)"}
+            {isCut ? "選択中が比較先より重い (遅れ)" : "選択中が比較先より軽い (遅れ)"}
           </span>
         )}
         <span className="ml-auto">

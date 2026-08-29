@@ -5,7 +5,7 @@
  *
  * SeasonComparisonTable の mobile 代替。
  * 各過去シーズンを 1 枚のアコーディオン行として表示し、
- * タップで展開するとマイルストーン別の体重 + 今季との差分を確認できる。
+ * タップで展開するとマイルストーン別の体重 + 選択中シーズンとの差分を確認できる。
  *
  * - デスクトップ (md+) では非表示 (SeasonComparisonTable を表示)
  * - データ形状は SeasonComparisonTable と同じ props を受け取る
@@ -18,22 +18,23 @@ import type { MilestoneRow, SeasonMeta } from "@/lib/utils/calcSeason";
 interface SeasonComparisonAccordionProps {
   milestoneRows: MilestoneRow[];
   seasonMeta: SeasonMeta[];
-  /** 全シーズン名リスト (古い順。current が最後) */
+  /** 同フェーズのシーズン名リスト（開始日が古い順） */
   seasons: string[];
   currentSeason: string;
   isCut?: boolean;
   /**
-   * true (default / Cut)  : 今季列・差列を表示
-   * false (Bulk)           : 今季列・差列を非表示（過去シーズン参照モード）
+   * true: 選択中列・差列を表示
+   * false: 参照列だけを表示
    */
   showCurrentSeason?: boolean;
+  deadlineLabel?: "大会日" | "目標日";
 }
 
 // ─── ヘルパー ────────────────────────────────────────────────────────────────
 
-function daysOutLabel(d: number): string {
-  if (d === 0) return "大会日";
-  if (d === Infinity) return "仕上がり";
+function daysOutLabel(d: number, deadlineLabel: "大会日" | "目標日", isCut: boolean): string {
+  if (d === 0) return deadlineLabel;
+  if (d === Infinity) return isCut ? "仕上がり" : "最高体重";
   return `D${d}`;
 }
 
@@ -78,6 +79,7 @@ export function SeasonComparisonAccordion({
   currentSeason,
   isCut = true,
   showCurrentSeason = true,
+  deadlineLabel = "大会日",
 }: SeasonComparisonAccordionProps) {
   const [openSeason, setOpenSeason] = useState<string | null>(null);
 
@@ -153,7 +155,7 @@ export function SeasonComparisonAccordion({
                   <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{season}</span>
                   {pastFinisher !== null && (
                     <span className="text-xs text-slate-400 tabular-nums dark:text-slate-500">
-                      仕上がり {pastFinisher.toFixed(1)} kg
+                      {isCut ? "仕上がり" : "最高"} {pastFinisher.toFixed(1)} kg
                     </span>
                   )}
                 </div>
@@ -217,7 +219,7 @@ export function SeasonComparisonAccordion({
                             }`}
                           >
                             <td className="px-4 py-2 text-slate-600 whitespace-nowrap dark:text-slate-300">
-                              {daysOutLabel(row.daysOut)}
+                              {daysOutLabel(row.daysOut, deadlineLabel, isCut)}
                             </td>
                             <td className="px-3 py-2 text-right tabular-nums text-slate-500 dark:text-slate-400">
                               {pastVal !== null ? (
@@ -259,11 +261,11 @@ export function SeasonComparisonAccordion({
         <div className="flex flex-wrap items-center gap-4 border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
           <span className="flex items-center gap-1">
             <TrendingDown size={11} className="text-emerald-600 dark:text-emerald-400" />
-            {isCut ? "今季が前回より軽い（先行）" : "今季が前回より重い（先行）"}
+            {isCut ? "選択中が比較先より軽い（先行）" : "選択中が比較先より重い（先行）"}
           </span>
           <span className="flex items-center gap-1">
             <TrendingUp size={11} className="text-amber-600 dark:text-amber-400" />
-            {isCut ? "今季が前回より重い（遅れ）" : "今季が前回より軽い（遅れ）"}
+            {isCut ? "選択中が比較先より重い（遅れ）" : "選択中が比較先より軽い（遅れ）"}
           </span>
         </div>
       )}

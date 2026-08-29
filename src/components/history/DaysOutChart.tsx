@@ -30,6 +30,7 @@ interface DaysOutChartProps {
   currentSeason?: string;
   /** 今日の daysOut (大会前は負値). 指定すると「今日」基準線を描画する */
   todayDaysOut?: number | null;
+  deadlineLabel?: "大会日" | "目標日";
 }
 
 // 過去シーズン: 古→新 でグレー系（薄→濃）
@@ -49,18 +50,18 @@ function lastNonNullDaysOut(
   return last;
 }
 
-export function DaysOutChart({ data, seasons, currentSeason, todayDaysOut }: DaysOutChartProps) {
+export function DaysOutChart({ data, seasons, currentSeason, todayDaysOut, deadlineLabel = "大会日" }: DaysOutChartProps) {
   const [showAll, setShowAll] = useState(false);
   const isDark = useIsDark();
   const gridColor = isDark ? "#334155" : "#f0f0f0";
   const tickColor = isDark ? "#94a3b8" : "#64748b";
   const tooltipStyle = buildTooltipStyle(isDark);
 
-  const sortedSeasons = [...seasons].sort((a, b) => {
-    if (a === currentSeason) return 1;
-    if (b === currentSeason) return -1;
-    return a.localeCompare(b);
-  });
+  // 呼び出し元のseason開始日順を維持し、選択中だけ末尾へ移動する。
+  const sortedSeasons = [
+    ...seasons.filter((season) => season !== currentSeason),
+    ...(currentSeason && seasons.includes(currentSeason) ? [currentSeason] : []),
+  ];
 
   const pastSeasons = sortedSeasons.filter((s) => s !== currentSeason);
   const displayedPastSeasons = showAll ? pastSeasons : pastSeasons.slice(-MAX_DEFAULT_PAST);
@@ -74,9 +75,9 @@ export function DaysOutChart({ data, seasons, currentSeason, todayDaysOut }: Day
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
-      <h2 className="mb-1 text-base font-semibold text-gray-700 dark:text-slate-200">シーズン比較（大会日基準）</h2>
+      <h2 className="mb-1 text-base font-semibold text-gray-700 dark:text-slate-200">シーズン比較（{deadlineLabel}基準）</h2>
       <p className="mb-4 text-xs text-gray-400 dark:text-slate-500">
-        X 軸: 大会日を 0 として遡った日数 | Y 軸: 体重 7 日移動平均 (kg)
+        X 軸: {deadlineLabel}を 0 として遡った日数 | Y 軸: 体重 7 日移動平均 (kg)
       </p>
       <ResponsiveContainer width="100%" height={320}>
         <LineChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
@@ -87,7 +88,7 @@ export function DaysOutChart({ data, seasons, currentSeason, todayDaysOut }: Day
             domain={["dataMin", 0]}
             tick={{ fontSize: 11, fill: tickColor }}
             tickFormatter={(v: number) => `${v}日`}
-            label={{ value: "大会まで", position: "insideBottomRight", fontSize: 10, offset: -4, fill: tickColor }}
+            label={{ value: `${deadlineLabel}まで`, position: "insideBottomRight", fontSize: 10, offset: -4, fill: tickColor }}
           />
           <YAxis
             domain={["auto", "auto"]}
@@ -101,10 +102,10 @@ export function DaysOutChart({ data, seasons, currentSeason, todayDaysOut }: Day
               v != null ? `${Number(v).toFixed(1)} kg` : "—",
               name ?? "",
             ]}
-            labelFormatter={(label: unknown) => `大会 ${Math.abs(Number(label))} 日前`}
+            labelFormatter={(label: unknown) => `${deadlineLabel} ${Math.abs(Number(label))} 日前`}
           />
           <Legend />
-          <ReferenceLine x={0} stroke="#ef4444" strokeDasharray="4 4" label={{ value: "大会日", fontSize: 10 }} />
+          <ReferenceLine x={0} stroke="#ef4444" strokeDasharray="4 4" label={{ value: deadlineLabel, fontSize: 10 }} />
           {todayDaysOut != null && (
             <ReferenceLine
               x={todayDaysOut}

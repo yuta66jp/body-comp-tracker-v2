@@ -15,6 +15,7 @@ import type { TooltipValueType, RenderableText } from "recharts";
 import type { SeasonMeta } from "@/lib/utils/calcSeason";
 import { useIsDark } from "@/lib/hooks/useIsDark";
 import { buildTooltipStyle } from "@/lib/utils/rechartsFormatter";
+import type { SeasonPhase } from "@/lib/domain/season";
 
 interface SeasonLowTooltipEntry {
   payload?: {
@@ -25,19 +26,23 @@ interface SeasonLowTooltipEntry {
 }
 
 interface SeasonLowChartProps {
-  seasons: SeasonMeta[];       // 過去シーズン（career_logs）
-  currentSeason?: string;      // 現在シーズンのラベル
+  seasons: SeasonMeta[];       // 同フェーズのシーズン集計
+  currentSeason?: string;      // 選択中シーズンのラベル
+  phase?: SeasonPhase;
 }
 
 // 過去シーズン: 古→新 でグレー系（薄→濃）、現在シーズン: 青
 const PAST_COLORS = ["#d1d5db", "#9ca3af", "#6b7280", "#4b5563", "#334155"];
 const CURRENT_COLOR = "#3b82f6";
 
-export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) {
+export function SeasonLowChart({ seasons, currentSeason, phase = "Cut" }: SeasonLowChartProps) {
   const isDark = useIsDark();
   const gridColor = isDark ? "#334155" : "#f0f0f0";
   const tickColor = isDark ? "#94a3b8" : "#64748b";
   const tooltipStyle = buildTooltipStyle(isDark);
+  const isCut = phase === "Cut";
+  const peakLabel = isCut ? "仕上がり体重" : "最高体重";
+  const deadlineLabel = isCut ? "大会日" : "目標日";
 
   const data = seasons.map((s, i) => {
     const prev = seasons[i - 1];
@@ -63,8 +68,8 @@ export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) 
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
-      <h2 className="mb-1 text-base font-semibold text-gray-700 dark:text-slate-200">年別 仕上がり体重（Season Low）</h2>
-      <p className="mb-4 text-xs text-gray-400 dark:text-slate-500">各シーズンの最小体重 = 仕上がり体重</p>
+      <h2 className="mb-1 text-base font-semibold text-gray-700 dark:text-slate-200">シーズン別 {peakLabel}（Season {isCut ? "Low" : "High"}）</h2>
+      <p className="mb-4 text-xs text-gray-400 dark:text-slate-500">各シーズンの{isCut ? "最小" : "最大"}体重を同フェーズで比較します</p>
       <ResponsiveContainer width="100%" height={260}>
         <BarChart data={data} margin={{ top: 24, right: 8, bottom: 4, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
@@ -82,9 +87,9 @@ export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) 
               const deltaStr = delta !== null && delta !== undefined
                 ? ` (前年比 ${delta > 0 ? "+" : ""}${delta.toFixed(1)}kg)`
                 : "";
-              const tag = isCurrent ? " [今季]" : "";
+              const tag = isCurrent ? " [選択中]" : "";
               const dateStr = peakDate ? ` / ${peakDate}` : "";
-              return [`${Number(v).toFixed(1)} kg${deltaStr}${dateStr}${tag}`, "仕上がり体重"];
+              return [`${Number(v).toFixed(1)} kg${deltaStr}${dateStr}${tag}`, peakLabel];
             }}
           />
           <Bar dataKey="weight" radius={[6, 6, 0, 0]}>
@@ -115,8 +120,8 @@ export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) 
           <thead>
             <tr className="border-b border-gray-100 text-left text-xs text-gray-500 dark:border-slate-700 dark:text-slate-400">
               <th className="pb-2 pr-4 font-medium">シーズン</th>
-              <th className="pb-2 pr-4 font-medium text-right">大会日</th>
-              <th className="pb-2 pr-4 font-medium text-right">仕上がり体重</th>
+              <th className="pb-2 pr-4 font-medium text-right">{deadlineLabel}</th>
+              <th className="pb-2 pr-4 font-medium text-right">{peakLabel}</th>
               <th className="pb-2 font-medium text-right">前年差</th>
             </tr>
           </thead>
@@ -130,7 +135,7 @@ export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) 
                   {row.season}
                   {row.isCurrent && (
                     <span className="ml-1.5 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
-                      今季
+                      選択中
                     </span>
                   )}
                 </td>
@@ -141,7 +146,7 @@ export function SeasonLowChart({ seasons, currentSeason }: SeasonLowChartProps) 
                 <td className={`py-2 text-right text-sm font-medium ${
                   row.delta === null
                     ? "text-gray-300 dark:text-slate-600"
-                    : row.delta < 0
+                    : (isCut ? row.delta < 0 : row.delta > 0)
                     ? "text-emerald-600 dark:text-emerald-400"
                     : "text-rose-500 dark:text-rose-400"
                 }`}>

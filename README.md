@@ -126,6 +126,14 @@ ForecastChart（`src/components/charts/ForecastChart.tsx`）は 3 タブ（7日 
   - backtest の再実行ではなく、保存済み結果の再表示（キャッシュ再検証）である
   - 通常の 1 時間キャッシュ戦略は維持されており、backtest 実行直後の確認時のみ使う
 
+### 履歴（History）
+
+- `seasons` を正本として、進行中・終了済み、Cut・Bulkが分かる一覧を表示
+- 選択したシーズンと同じフェーズだけを、各シーズンの目標日基準で比較
+- 日次系列は `daily_logs.season_id` を優先し、存在しない終了済み履歴だけ `career_logs` を使用して二重計上を防止
+- 終了済み月次計画は保存済み `monthly_plan_snapshot` を表示し、現在設定から再計算しない
+- シーズン未所属ログとphase不明のlegacy履歴は件数・扱いを案内し、比較から除外
+
 ### 設定（Settings）
 
 - 目標体重・大会日付・TDEE 設定などを管理

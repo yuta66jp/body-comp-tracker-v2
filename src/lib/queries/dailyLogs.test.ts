@@ -8,21 +8,21 @@ import {
   fetchMacroDailyLogs,
   fetchTdeeDailyLogs,
   fetchLatestUpdatedAt,
-  fetchWeightLogs,
+  fetchSeasonHistoryDailyLogs,
   fetchDailyLogsForSettings,
   fetchCareerLogs,
   fetchCareerLogsForDashboard,
   fetchPredictions,
 } from "./dailyLogs";
 
-// fetchMacroDailyLogs, fetchTdeeDailyLogs, fetchDailyLogsForSettings, fetchCareerLogs は QueryResult<T> を返す。
-// fetchLatestUpdatedAt, fetchWeightLogs, fetchCareerLogsForDashboard, fetchPredictions はベストエフォートで null/空配列を返す。
+// fetchMacroDailyLogs, fetchTdeeDailyLogs, fetchSeasonHistoryDailyLogs,
+// fetchDailyLogsForSettings, fetchCareerLogs は QueryResult<T> を返す。
+// fetchLatestUpdatedAt, fetchCareerLogsForDashboard, fetchPredictions はベストエフォートで null/空配列を返す。
 
 // ── Mock ──────────────────────────────────────────────────────────────────────
 
 const mockLimit = jest.fn();
 const mockOrder = jest.fn();
-const mockNot = jest.fn();
 const mockSelect = jest.fn();
 const mockFrom = jest.fn();
 
@@ -35,17 +35,13 @@ jest.mock("@/lib/supabase/server", () => ({
 type ChainResult = { data: unknown; error: unknown };
 
 /**
- * .from().select().order() または .from().select().not().order() チェーンの
+ * .from().select().order() チェーンの
  * 最終 await 値を設定する。order() が直接 await される（limit なし）クエリ用。
  */
 function setupChain(result: ChainResult) {
   const terminal = Promise.resolve(result);
   mockOrder.mockReturnValue(terminal);
-  mockNot.mockReturnValue({ order: mockOrder });
-  mockSelect.mockReturnValue({
-    order: mockOrder,
-    not: mockNot,
-  });
+  mockSelect.mockReturnValue({ order: mockOrder });
   mockFrom.mockReturnValue({ select: mockSelect });
 }
 
@@ -163,27 +159,29 @@ describe("fetchLatestUpdatedAt", () => {
   });
 });
 
-// ── fetchWeightLogs ───────────────────────────────────────────────────────────
-
-describe("fetchWeightLogs", () => {
+describe("fetchSeasonHistoryDailyLogs", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("正常系: log_date と weight のみを返す", async () => {
+  it("season_id nullを含む履歴用projectionをQueryResultで返す", async () => {
     const rows = [
-      { log_date: "2026-03-01", weight: 72.5 },
-      { log_date: "2026-03-02", weight: 72.3 },
+      { log_date: "2026-03-01", weight: 72.5, season_id: 1 },
+      { log_date: "2026-03-02", weight: 72.3, season_id: null },
     ];
     setupChain({ data: rows, error: null });
-    const result = await fetchWeightLogs();
-    expect(result).toHaveLength(2);
-    expect(result[0]).toHaveProperty("log_date");
-    expect(result[0]).toHaveProperty("weight");
+
+    await expect(fetchSeasonHistoryDailyLogs()).resolves.toEqual({
+      kind: "ok",
+      data: rows,
+    });
+    expect(mockSelect).toHaveBeenCalledWith("log_date, weight, season_id");
   });
 
-  it("異常系: DB エラーのとき空配列を返す", async () => {
-    setupChain({ data: null, error: { message: "DB error" } });
-    const result = await fetchWeightLogs();
-    expect(result).toEqual([]);
+  it("DBエラーをQueryResult errorとして返す", async () => {
+    setupChain({ data: null, error: { message: "DB error", code: "PGRST000" } });
+    await expect(fetchSeasonHistoryDailyLogs()).resolves.toEqual({
+      kind: "error",
+      message: "DB error",
+    });
   });
 });
 
