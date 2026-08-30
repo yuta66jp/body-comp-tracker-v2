@@ -96,6 +96,14 @@ function makeGoogleHealthMetric(
 }
 
 describe("calcWeeklyReview", () => {
+  it.each([0, 2, 7])("品質レポートの評価対象%d日を画面用データへ渡す", (totalDays) => {
+    const report = makeQualityReport();
+    report.period7.totalDays = totalDays;
+    const result = calcWeeklyReview([], makeMetrics(), report, { today: "2026-04-02", phase: "Bulk" });
+    expect(result.quality.totalDays).toBe(totalDays);
+    expect(result.quality.score).toBe(report.period7.score);
+  });
+
   it("タンパク質 g/kg BW と脂質カロリー比を算出する", () => {
     const logs = [
       makeLog("2026-03-27"),

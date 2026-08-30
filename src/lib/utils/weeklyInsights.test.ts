@@ -71,6 +71,7 @@ function makeData(overrides: Partial<WeeklyReviewData> = {}): WeeklyReviewData {
       },
     },
     quality: {
+      totalDays: 7,
       score: 90,
       weightMissingDays: 0,
       caloriesMissingDays: 0,
@@ -671,7 +672,7 @@ describe("deriveWeeklyInsightItems", () => {
 
   describe("データ品質警告 InsightItem", () => {
     it("weightMissingDays > 0 → caution item が生成される", () => {
-      const data = makeData({ quality: { score: 80, weightMissingDays: 2, caloriesMissingDays: 0 } });
+      const data = makeData({ quality: { totalDays: 7, score: 80, weightMissingDays: 2, caloriesMissingDays: 0 } });
       const items = deriveWeeklyInsightItems(data, "Cut");
       const qItem = items.find((i) => i.title.includes("未入力"));
       expect(qItem).toBeDefined();
@@ -680,7 +681,7 @@ describe("deriveWeeklyInsightItems", () => {
     });
 
     it("caloriesMissingDays >= 2 → caution item が生成される", () => {
-      const data = makeData({ quality: { score: 80, weightMissingDays: 0, caloriesMissingDays: 3 } });
+      const data = makeData({ quality: { totalDays: 7, score: 80, weightMissingDays: 0, caloriesMissingDays: 3 } });
       const items = deriveWeeklyInsightItems(data, "Cut");
       const qItem = items.find((i) => i.title.includes("未入力"));
       expect(qItem).toBeDefined();
@@ -688,13 +689,13 @@ describe("deriveWeeklyInsightItems", () => {
     });
 
     it("caloriesMissingDays = 1 → 品質 item が生成されない (閾値は 2 以上)", () => {
-      const data = makeData({ quality: { score: 90, weightMissingDays: 0, caloriesMissingDays: 1 } });
+      const data = makeData({ quality: { totalDays: 7, score: 90, weightMissingDays: 0, caloriesMissingDays: 1 } });
       const items = deriveWeeklyInsightItems(data, "Cut");
       expect(items.every((i) => !i.title.includes("未入力"))).toBe(true);
     });
 
     it("両方欠損 → title に両方のラベルが含まれる", () => {
-      const data = makeData({ quality: { score: 70, weightMissingDays: 1, caloriesMissingDays: 2 } });
+      const data = makeData({ quality: { totalDays: 7, score: 70, weightMissingDays: 1, caloriesMissingDays: 2 } });
       const items = deriveWeeklyInsightItems(data, "Cut");
       const qItem = items.find((i) => i.title.includes("未入力"));
       expect(qItem!.title).toContain("体重 1 日");
@@ -766,7 +767,7 @@ describe("deriveWeeklyInsightItems", () => {
 
     it("特殊日あり / 欠損あり → 6 件", () => {
       const data = makeData({
-        quality: { score: 75, weightMissingDays: 1, caloriesMissingDays: 2 },
+        quality: { totalDays: 7, score: 75, weightMissingDays: 1, caloriesMissingDays: 2 },
         specialDays: { cheatDays: 1, refeedDays: 0, eatingOutDays: 0, travelDays: 0, totalTaggedDays: 1 },
       });
       const items = deriveWeeklyInsightItems(data, "Cut");
