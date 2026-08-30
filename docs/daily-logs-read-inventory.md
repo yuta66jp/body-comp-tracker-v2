@@ -4,6 +4,8 @@
 > 作成日: 2026-03-21 / #165 追記: 2026-03-21 / #166 追記: 2026-03-21 / #167 追記: 2026-03-21
 > 目的: 後続 Issue (#165 #166 #167) が迷わず着手できる粒度での設計整理
 
+> #765 更新: Dashboard は月別の所属表示用に `season_id` を追加取得（現行17列）。月別は `seasons` を正本として表示し、現在シーズンへ補完しない。以下の #165 実装サマリーは当時の記録。
+
 ---
 
 ## 0a. #165 実装サマリー（Dashboard read 整理）
@@ -73,7 +75,7 @@ Dashboard は 18列中 16列を使用しており全列に近い。ただし:
 
 | 関数名 | 取得テーブル | SELECT 列 | 絞り込み | sort | 戻り値型 | fallback 方針 |
 |---|---|---|---|---|---|---|
-| `fetchDashboardDailyLogs()` | `daily_logs` | 16列（note・leg_flag 除く） | なし | log_date ASC・全期間 | `QueryResult<DashboardDailyLog[]>` | error banner 表示、空配列フォールバック |
+| `fetchDashboardDailyLogs()` | `daily_logs` | 17列（season_id 含む） | なし | log_date ASC・全期間 | `QueryResult<DashboardDailyLog[]>` | error banner 表示、空配列フォールバック |
 | `fetchMacroDailyLogs(days)` | `daily_logs` | 6列（log_date/weight/calories/protein/fat/carbs） | なし | log_date DESC LIMIT days | `QueryResult<MacroDailyLog[]>` | error banner 表示・早期 return |
 | `fetchTdeeDailyLogs(limit=180)` | `daily_logs` | 3列（log_date/weight/calories） | なし | log_date DESC LIMIT 180 | `QueryResult<TdeeDailyLog[]>` | error banner 表示、空配列フォールバック |
 | `fetchLatestUpdatedAt()` | `daily_logs` | updated_at | なし | updated_at DESC LIMIT 1 | `string \| null` | null（ベストエフォート） |
@@ -149,7 +151,7 @@ anon key ではなく service_role key を使用し、JS の query layer と完�
 
 ### 2-1. Dashboard (`src/app/page.tsx`)
 
-**使用クエリ:** `fetchDashboardDailyLogs()` (16列・全期間 — #165 実装済み)
+**使用クエリ:** `fetchDashboardDailyLogs()` (17列・全期間 — #165 実装、#765 所属列追加)
 
 **実際に参照する列:**
 
@@ -165,6 +167,7 @@ anon key ではなく service_role key を使用し、JS の query layer と完�
 | `work_mode` | RecentLogsTable, calendarUtils (タグ表示) | null 許容 |
 | `had_bowel_movement` | RecentLogsTable, calendarUtils (タグ表示) | null 許容 |
 | `updated_at` | stale 判定 (`MAX(updated_at)` → fetchEnrichedLogs に渡す) | **全ログ分が必要** |
+| `season_id` | buildMonthlySeasonSummary | `seasons.id` と照合。null は未所属、未取得・参照先不明は所属不明。未入力日は数えない |
 
 睡眠・歩数・HRV・安静時心拍数は `daily_logs` ではなく `google_health_daily_metrics` から別 query で取得し、日付でマージする。
 旧 `daily_logs.sleep_hours` / `daily_logs.step_count` / `daily_logs.last_meal_end_time` は #710 で削除済み。

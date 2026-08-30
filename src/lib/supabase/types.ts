@@ -825,6 +825,7 @@ export type DailyLog = Omit<OptionalUserId<DailyLogRow>, "season_id"> & {
 /**
  * Dashboard 専用の daily_logs projection 型。
  * fetchDashboardDailyLogs() が取得する列に対応する（#577 で is_tanning_day / is_posing_day 追加、#710 で旧歩数・睡眠・断食列を削除）。
+ * #765 で月別の所属表示用に season_id を取得列へ追加。
  *
  * 除外列:
  *   - note     : Dashboard のいずれの関数・コンポーネントでも参照されない

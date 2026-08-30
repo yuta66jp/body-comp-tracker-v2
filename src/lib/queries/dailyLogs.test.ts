@@ -5,6 +5,7 @@
  */
 
 import {
+  fetchDashboardDailyLogs,
   fetchMacroDailyLogs,
   fetchTdeeDailyLogs,
   fetchLatestUpdatedAt,
@@ -56,6 +57,37 @@ function setupLimitChain(result: ChainResult) {
   mockSelect.mockReturnValue({ order: mockOrder });
   mockFrom.mockReturnValue({ select: mockSelect });
 }
+
+describe("fetchDashboardDailyLogs", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("所属IDと未所属のnullを含む17列を取得し、日付昇順で返す", async () => {
+    const rows = [
+      { log_date: "2026-06-01", weight: 70, season_id: 6 },
+      { log_date: "2026-08-24", weight: 70, season_id: null },
+    ];
+    setupChain({ data: rows, error: null });
+    expect(await fetchDashboardDailyLogs()).toEqual({ kind: "ok", data: rows });
+    expect(mockFrom).toHaveBeenCalledWith("daily_logs");
+    expect(mockSelect).toHaveBeenCalledWith(
+      "log_date, weight, calories, protein, fat, carbs, " +
+      "is_cheat_day, is_refeed_day, is_eating_out, is_travel_day, " +
+      "is_tanning_day, is_posing_day, " +
+      "had_bowel_movement, training_type, work_mode, updated_at, season_id"
+    );
+    expect(mockOrder).toHaveBeenCalledWith("log_date", { ascending: true });
+  });
+
+  it("取得失敗を空の記録として扱わない", async () => {
+    setupChain({ data: null, error: { message: "DB error", code: "PGRST000" } });
+    await expect(fetchDashboardDailyLogs()).resolves.toEqual({ kind: "error", message: "DB error" });
+  });
+
+  it("正常取得のnullデータは空配列を返す", async () => {
+    setupChain({ data: null, error: null });
+    await expect(fetchDashboardDailyLogs()).resolves.toEqual({ kind: "ok", data: [] });
+  });
+});
 
 // ── fetchMacroDailyLogs ───────────────────────────────────────────────────────
 

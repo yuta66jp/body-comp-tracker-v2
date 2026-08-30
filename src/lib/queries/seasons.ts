@@ -34,7 +34,12 @@ export async function fetchActiveSeason(): Promise<QueryResult<Season | null>> {
   const result = await fetchSeasons();
   if (result.kind === "error") return result;
 
-  const active = result.data.filter((season) => season.status === "active");
+  return selectActiveSeason(result.data);
+}
+
+/** 取得済み一覧を再利用しても、進行中シーズンの複数件チェックを維持する。 */
+export function selectActiveSeason(seasons: Season[]): QueryResult<Season | null> {
+  const active = seasons.filter((season) => season.status === "active");
   if (active.length > 1) {
     return { kind: "error", message: "multiple_active_seasons" };
   }
