@@ -283,6 +283,10 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
   const StIcon = stCfg.icon;
 
   const { weight, nutrition, tdee, sleep, quality } = data;
+  const qualityNotEvaluated = !isCut && quality.totalDays === 0;
+  const qualityLabel = qualityNotEvaluated
+    ? "品質 未評価（今シーズン0日分）"
+    : `品質 ${quality.score}/100${isCut ? "" : `（今シーズン${quality.totalDays}日分）`}`;
   const cardio = data.cardio;
   const showCardio = cardio.hrv.avg7d !== null || cardio.rhr.avg7d !== null;
 
@@ -605,14 +609,14 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
       </div>
 
       {/* ── フッター ── */}
-      <div className="flex items-center justify-between border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
+      <div className={`flex items-center justify-between border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500${isCut ? "" : " flex-wrap gap-x-3 gap-y-1"}`}>
         <span>
           {isCut
             ? "%BW/週 = 14日線形回帰÷7日平均体重 / GoalNavigator の必要ペースは絶対量（kg/2週）/ 直近7暦日ローリング集計 / あくまで推定値"
             : "Bulkの判定は月次計画上の前週比と実績前週比を比較 / 開始日を含めて14日目以降・各期間5日以上の体重記録が必要 / 今週＝今日を含む直近7日・前週＝その前7日（今シーズン内）/ あくまで推定値"}
         </span>
-        <span className={`font-semibold ${qualityScoreColor(quality.score)}`}>
-          品質 {quality.score}/100
+        <span className={`font-semibold ${qualityNotEvaluated ? "text-slate-400 dark:text-slate-500" : qualityScoreColor(quality.score)}`}>
+          {qualityLabel}
         </span>
       </div>
     </div>

@@ -78,6 +78,7 @@ function makeData(overrides: Partial<WeeklyReviewData> = {}): WeeklyReviewData {
       },
     },
     quality: {
+      totalDays: 7,
       score: 90,
       weightMissingDays: 0,
       caloriesMissingDays: 0,
@@ -101,6 +102,15 @@ function makeData(overrides: Partial<WeeklyReviewData> = {}): WeeklyReviewData {
 }
 
 describe("WeeklyReviewCard", () => {
+  it("Bulkの品質は対象0日を100点ではなく未評価と表示する", () => {
+    render(<WeeklyReviewCard data={makeData({
+      quality: { totalDays: 0, score: 100, weightMissingDays: 0, caloriesMissingDays: 0 },
+    })} phase="Bulk" />);
+    expect(screen.getByText("品質 未評価（今シーズン0日分）")).toBeInTheDocument();
+    expect(screen.queryByText(/品質 100/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/が未入力/)).not.toBeInTheDocument();
+  });
+
   const bulkInput = {
     startDate: "2026-04-01",
     startWeight: 75,

@@ -169,6 +169,7 @@ export interface WeeklyReviewData {
   sleep: WeeklySleep;
   cardio: WeeklyCardio;
   quality: {
+    totalDays: number;
     score: number;
     weightMissingDays: number;
     caloriesMissingDays: number;
@@ -755,6 +756,7 @@ export function calcWeeklyReview(
 
   // ── Quality ──
   const quality = {
+    totalDays: qualityReport.period7.totalDays,
     score: qualityReport.period7.score,
     weightMissingDays: qualityReport.period7.weightMissingDays,
     caloriesMissingDays: qualityReport.period7.caloriesMissingDays,

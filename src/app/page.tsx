@@ -286,7 +286,7 @@ export default async function DashboardPage() {
       )
     : readinessMetrics;
   const weeklyQualityReport = phase === "Bulk"
-    ? calcDataQuality(weeklyLogs, today)
+    ? calcDataQuality(weeklyLogs, today, { startDate: activeSeason?.startDate })
     : qualityReport;
   const bulkPlanPace =
     phase === "Bulk" &&

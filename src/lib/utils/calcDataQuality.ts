@@ -1,7 +1,7 @@
 /**
  * データ品質チェック (DataQualityReport)
  *
- * 直近 7日 / 14日 ウィンドウで以下を算出:
+ * 直近 7日 / 14日 ウィンドウ（startDate指定時は開始日以降）で以下を算出:
  *   - 体重・カロリーの欠損日数 (ログなし日も含む) → スコアに反映
  *   - 異常値候補 (前日比 ±3kg 超 / カロリー極端値) → スコアに反映
  *   - 必須項目の未記録日数 (-2/日/項目 でスコアに反映)
@@ -84,7 +84,7 @@ export interface MissingFields {
 }
 
 export interface QualityWindow {
-  /** ウィンドウの暦日数 */
+  /** 評価対象の暦日数。開始日で区切った場合は7日/14日未満になる。0日は未評価。 */
   totalDays: number;
   /** 体重が欠損している日数 (ログなし日も含む) */
   weightMissingDays: number;
@@ -218,18 +218,24 @@ function buildWindow(
  *
  * @param logs         daily_logs 全件
  * @param today        基準日 (YYYY-MM-DD JST). 省略時は JST 今日
+ * @param options.startDate 評価開始日 (YYYY-MM-DD JST)。指定時は開始前のログ・欠損を除外
  */
 export function calcDataQuality(
   logs: DataQualityLog[],
   today?: string,
+  options: { startDate?: string } = {},
 ): DataQualityReport {
   const todayStr = today ?? toJstDateStr(new Date());
+  const { startDate } = options;
+  const scopedLogs = startDate
+    ? logs.filter((log) => log.log_date >= startDate && log.log_date <= todayStr)
+    : logs;
 
   // ---- 日付→ログ Map ----
   const logByDate = new Map<string, DataQualityLog>();
   const dateCount = new Map<string, number>();
 
-  for (const log of logs) {
+  for (const log of scopedLogs) {
     logByDate.set(log.log_date, log);
     dateCount.set(log.log_date, (dateCount.get(log.log_date) ?? 0) + 1);
   }
@@ -241,7 +247,7 @@ export function calcDataQuality(
     .sort();
 
   // ---- 体重あり日付を昇順で保持 (ジャンプ検出用) ----
-  const sortedWithWeight = [...logs]
+  const sortedWithWeight = [...scopedLogs]
     .filter((l) => l.weight !== null)
     .sort((a, b) => a.log_date.localeCompare(b.log_date))
     .map((l) => ({ date: l.log_date, weight: l.weight! }));
@@ -252,8 +258,9 @@ export function calcDataQuality(
   const d7Start = addDaysStr(todayStr, -6) ?? todayStr;   // 7日間 (today-6 〜 today)
   const d14Start = addDaysStr(todayStr, -13) ?? todayStr; // 14日間 (today-13 〜 today)
 
-  const dates7 = dateRangeStr(d7Start, todayStr);
-  const dates14 = dateRangeStr(d14Start, todayStr);
+  // 最初の記録日ではなく設定上の開始日で区切り、開始後の記録漏れは欠損にする。
+  const dates7 = dateRangeStr(d7Start, todayStr).filter((date) => !startDate || date >= startDate);
+  const dates14 = dateRangeStr(d14Start, todayStr).filter((date) => !startDate || date >= startDate);
 
   const period7 = buildWindow(dates7, logByDate, sortedWithWeight);
   const period14 = buildWindow(dates14, logByDate, sortedWithWeight);
