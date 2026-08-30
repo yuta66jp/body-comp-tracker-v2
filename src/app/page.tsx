@@ -20,8 +20,9 @@ import { calcWeightTrend } from "@/lib/utils/calcTrend";
 import { buildMonthlyGoalPlan } from "@/lib/utils/monthlyGoalPlan";
 import { buildMonthlyGoalSummaryRows, buildMonthlyGoalComparisonRows } from "@/lib/utils/monthlyGoalVisualization";
 import { calcMonthlyBehaviorStats } from "@/lib/utils/calcMonthlyBehaviorStats";
+import { buildMonthlySeasonSummary } from "@/lib/utils/monthlySeasonSummary";
 import { fetchDashboardDailyLogs, fetchPredictions, fetchCareerLogsForDashboard } from "@/lib/queries/dailyLogs";
-import { fetchActiveSeason } from "@/lib/queries/seasons";
+import { fetchSeasons, selectActiveSeason } from "@/lib/queries/seasons";
 import { fetchGoogleHealthDailyMetricsForRange } from "@/lib/queries/googleHealthDailyMetrics";
 import { fetchSettings } from "@/lib/queries/settings";
 import { fetchEnrichedLogs } from "@/lib/queries/analytics";
@@ -44,32 +45,7 @@ function buildSeasonMap(careerLogs: Pick<CareerLog, "log_date" | "season" | "tar
   return map;
 }
 
-/** career_logs の各シーズンの日付範囲を算出 */
-function buildSeasonRanges(careerLogs: Pick<CareerLog, "log_date" | "season" | "target_date">[]): Array<{ season: string; start: string; end: string }> {
-  const map = new Map<string, { start: string; end: string }>();
-  for (const log of careerLogs) {
-    const cur = map.get(log.season);
-    if (!cur) {
-      map.set(log.season, { start: log.log_date, end: log.log_date });
-    } else {
-      if (log.log_date < cur.start) cur.start = log.log_date;
-      if (log.log_date > cur.end) cur.end = log.log_date;
-    }
-  }
-  return Array.from(map.entries()).map(([season, { start, end }]) => ({ season, start, end }));
-}
-
-/** 月（YYYY-MM）が属するシーズンを推定 */
-function getSeasonForMonth(month: string, ranges: Array<{ season: string; start: string; end: string }>, currentSeason: string | null): string | null {
-  const monthStart = `${month}-01`;
-  const monthEnd = `${month}-31`;
-  for (const r of ranges) {
-    if (r.start <= monthEnd && r.end >= monthStart) return r.season;
-  }
-  return currentSeason; // career_logs に該当なし → 現在シーズン
-}
-
-function buildMonthStats(logs: DashboardDailyLog[], months = 3): MonthStats[] {
+function buildMonthStats(logs: DashboardDailyLog[], months = 3): Omit<MonthStats, "seasonSummary">[] {
   const map = new Map<string, DashboardDailyLog[]>();
   for (const log of logs) {
     const month = log.log_date.slice(0, 7);
@@ -113,18 +89,21 @@ export default async function DashboardPage() {
   // toJstDateStr() は常に JST 当日を返す。
   const today = toJstDateStr();
 
-  const [logsResult, predictions, settingsResult, careerLogs, activeSeasonResult, googleHealthStatus] = await Promise.all([
+  const [logsResult, predictions, settingsResult, careerLogs, seasonsResult, googleHealthStatus] = await Promise.all([
     fetchDashboardDailyLogs(),
     fetchPredictions(),
     fetchSettings(),
     fetchCareerLogsForDashboard(),
-    fetchActiveSeason(),
+    fetchSeasons(),
     fetchGoogleHealthStatusForDashboard(),
   ]);
 
   // QueryResult を展開。エラー時はフォールバック値で graceful degradation を維持する。
   const logs = logsResult.kind === "ok" ? logsResult.data : [];
   const settings = settingsResult.kind === "ok" ? settingsResult.data : mapToAppSettings([]);
+  const activeSeasonResult = seasonsResult.kind === "ok"
+    ? selectActiveSeason(seasonsResult.data)
+    : seasonsResult;
   const activeSeason = activeSeasonResult.kind === "ok" ? activeSeasonResult.data : null;
 
   const firstLogDate = logs.at(0)?.log_date ?? null;
@@ -172,11 +151,13 @@ export default async function DashboardPage() {
 
   // シーズン関連データ
   const seasonMap = buildSeasonMap(careerLogs);
-  const seasonRanges = buildSeasonRanges(careerLogs);
 
   const monthStats = buildMonthStats(logs, 3).map((s) => ({
     ...s,
-    season: getSeasonForMonth(s.month, seasonRanges, currentSeason),
+    seasonSummary: buildMonthlySeasonSummary(
+      logs.filter((log) => log.log_date.startsWith(s.month)),
+      seasonsResult.kind === "ok" ? seasonsResult.data : null
+    ),
   }));
 
   const qualityReport = calcDataQuality(logs, today);
@@ -343,7 +324,9 @@ export default async function DashboardPage() {
           )}
           {activeSeasonResult.kind === "error" && (
             <StatusNotice status="error">
-              シーズン情報の取得中にエラーが発生しました。月次計画は表示されません。
+              {seasonsResult.kind === "error"
+                ? "シーズン情報の取得中にエラーが発生しました。月別のシーズン名と月次計画は表示できません。"
+                : "シーズン情報の取得中にエラーが発生しました。月次計画は表示されません。"}
             </StatusNotice>
           )}
           {googleHealthMetricsResult.kind === "error" && (

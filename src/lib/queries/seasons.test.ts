@@ -67,6 +67,16 @@ describe("season queries", () => {
     expect(result).toMatchObject({ kind: "ok", data: { id: 1 } });
   });
 
+  it("fetchActiveSeason は進行中0件ならnullを返す", async () => {
+    setup({ data: [{ ...baseRow, status: "completed" }], error: null });
+    await expect(fetchActiveSeason()).resolves.toEqual({ kind: "ok", data: null });
+  });
+
+  it("fetchActiveSeason は取得失敗を維持する", async () => {
+    setup({ data: null, error: { message: "DB error", code: "PGRST000" } });
+    await expect(fetchActiveSeason()).resolves.toEqual({ kind: "error", message: "DB error" });
+  });
+
   it("fetchActiveSeason は active 複数件をデータ異常として扱う", async () => {
     setup({
       data: [baseRow, { ...baseRow, id: 2, name: "duplicate" }],

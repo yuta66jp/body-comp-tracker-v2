@@ -9,7 +9,7 @@
  *   error              — "取得エラー" (DB 接続失敗・認証エラー等)
  *
  * この型を使用する関数 (空状態と取得エラーを区別すべき主要クエリ):
- *   - fetchDashboardDailyLogs   (daily_logs 16列 — Dashboard 専用)
+ *   - fetchDashboardDailyLogs   (daily_logs 17列 — Dashboard 専用)
  *   - fetchMacroDailyLogs       (daily_logs 6列 LIMIT 60 — Macro 専用)
  *   - fetchTdeeDailyLogs        (daily_logs 3列 LIMIT 180 — TDEE 専用)
  *   - fetchSeasonHistoryDailyLogs (daily_logs — season履歴ページ用)

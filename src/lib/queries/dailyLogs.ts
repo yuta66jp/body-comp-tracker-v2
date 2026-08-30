@@ -22,7 +22,7 @@
  *
  * | 関数 | 取得列 | 用途 | 戻り値型 |
  * |---|---|---|---|
- * | fetchDashboardDailyLogs()   | 16列（note・leg_flag 除く）  | Dashboard 専用 (#165)                | QueryResult |
+ * | fetchDashboardDailyLogs()   | 17列（season_id含む）       | Dashboard 専用 (#165, #765)          | QueryResult |
  * | fetchMacroDailyLogs(days)   | 6列・DESC LIMIT days         | Macro 専用 (#166)                    | QueryResult |
  * | fetchTdeeDailyLogs(limit)   | 3列・DESC LIMIT limit        | TDEE raw fallback 専用 (#166)        | QueryResult |
  * | fetchLatestUpdatedAt()      | updated_at 1行               | TDEE stale 判定用                    | ベストエフォート |
@@ -37,15 +37,15 @@ import type { DataQualityLog } from "@/lib/utils/calcDataQuality";
 import type { QueryResult } from "./queryResult";
 
 /**
- * Dashboard 専用: daily_logs を 16 列・全期間・日付昇順で取得する。
+ * Dashboard 専用: daily_logs を 17 列・全期間・日付昇順で取得する。
  *
  * ## 取得列と除外列の根拠（#165 棚卸し済み、#710 で旧歩数・睡眠・断食列を削除）
  *
- * 取得列 (16列):
+ * 取得列 (17列、#765 で season_id 追加):
  *   log_date, weight, calories, protein, fat, carbs,
  *   is_cheat_day, is_refeed_day, is_eating_out, is_travel_day,
  *   is_tanning_day, is_posing_day,
- *   had_bowel_movement, training_type, work_mode, updated_at
+ *   had_bowel_movement, training_type, work_mode, updated_at, season_id
  *
  * 除外列 (4列):
  *   - note          : Dashboard のいずれの関数・コンポーネントでも参照されない
@@ -65,6 +65,7 @@ import type { QueryResult } from "./queryResult";
  *                              is_eating_out, is_travel_day
  *   - ForecastChart          : log_date, weight
  *   - buildMonthStats        : log_date, weight, calories, protein
+ *   - monthlySeasonSummary   : log_date, season_id
  *   - stale 判定             : updated_at (MAX を page.tsx で算出して fetchEnrichedLogs に渡す)
  *
  * ## 全期間が必要な理由
@@ -85,7 +86,7 @@ export async function fetchDashboardDailyLogs(): Promise<QueryResult<DashboardDa
       "log_date, weight, calories, protein, fat, carbs, " +
       "is_cheat_day, is_refeed_day, is_eating_out, is_travel_day, " +
       "is_tanning_day, is_posing_day, " +
-      "had_bowel_movement, training_type, work_mode, updated_at"
+      "had_bowel_movement, training_type, work_mode, updated_at, season_id"
     )
     .order("log_date", { ascending: true });
   if (error) {
