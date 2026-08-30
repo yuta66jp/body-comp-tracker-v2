@@ -181,12 +181,13 @@ describe("deriveWeeklyInsightItems", () => {
       expect(items[0]!.detail).toContain("カロリー設定・活動量の見直し");
     });
 
-    it("suspected → detail にアクション提案 (Bulk)", () => {
+    it("Bulkの計画未取得時は停滞を根拠に摂取増加を提案しない", () => {
       const data = makeData({
         stagnation: makeStagnation({ level: "suspected", trendKgPerWeek: 0.02 }),
       });
       const items = deriveWeeklyInsightItems(data, "Bulk");
-      expect(items[0]!.detail).toContain("摂取カロリーを増やすことを検討");
+      expect(items[0]!.detail).toContain("月次計画を確認");
+      expect(items[0]!.detail).not.toContain("摂取カロリーを増やす");
     });
 
     it("data_insufficient → status neutral", () => {
@@ -197,12 +198,14 @@ describe("deriveWeeklyInsightItems", () => {
       expect(items[0]!.status).toBe("neutral");
     });
 
-    it("Bulk + advancing → detail に『順調に増量中』", () => {
+    it("Bulkの計画未取得時は増加を順調と評価しない", () => {
       const data = makeData({
         stagnation: makeStagnation({ level: "advancing", trendKgPerWeek: 0.40 }),
       });
       const items = deriveWeeklyInsightItems(data, "Bulk");
-      expect(items[0]!.detail).toContain("順調に増量中");
+      expect(items[0]!.status).toBe("caution");
+      expect(items[0]!.detail).toContain("月次計画を確認");
+      expect(items[0]!.detail).not.toContain("順調に増量中");
     });
 
     it("Bulkの月次計画ペース超過を最優先のalertとして表示する", () => {

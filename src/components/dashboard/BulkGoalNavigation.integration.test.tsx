@@ -143,6 +143,7 @@ describe("BulkのKPI・目標達成ナビ・週次サマリーの共通判定", 
     });
     const { nav } = renderPanels({ pace, deadline: kind === "expired" ? "2026-04-01" : null, goal: null });
     expect(screen.getAllByText("月次計画を確認")).toHaveLength(3);
+    expect(within(screen.getByTestId("weekly")).queryByText(/順調に増量中|摂取カロリーを増やすことを検討/)).not.toBeInTheDocument();
     expect(nav.queryByText(/順調|現状維持|先行/)).not.toBeInTheDocument();
     expect(nav.getByText("目標体重が未設定です")).toBeInTheDocument();
   });

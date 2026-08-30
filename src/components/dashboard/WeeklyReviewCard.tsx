@@ -250,8 +250,8 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
       : TrendingUp;
 
   const trendColor =
-    bulkPlanPace
-      ? stCfg.color
+    !isCut
+      ? bulkPlanPace ? stCfg.color : "text-slate-400"
       : weight.trendKgPerWeek === null
       ? "text-slate-400"
       : (isCut ? weight.trendKgPerWeek < 0 : weight.trendKgPerWeek > 0)
@@ -312,8 +312,8 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
                     : undefined
                 }
                 valueColor={
-                  bulkPlanPace
-                    ? stCfg.color
+                  !isCut
+                    ? bulkPlanPace ? stCfg.color : "text-slate-400"
                     : weight.change === null
                     ? "text-slate-400"
                     : (isCut ? weight.change < -0.05 : weight.change > 0.05)

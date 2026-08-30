@@ -141,6 +141,12 @@ export function deriveWeeklyInsightItems(
         title,
         detail,
       });
+    } else if (!isCut) {
+      items.push({
+        status: "caution",
+        title: "増量ペースは判定できません",
+        detail: "月次計画を比較できません。シーズンの開始情報・目標日・月次計画を確認してください",
+      });
     } else {
     const statusMap: Record<string, InsightStatus> = {
       advancing:         "ok",
