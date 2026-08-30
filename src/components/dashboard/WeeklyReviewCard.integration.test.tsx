@@ -11,6 +11,7 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { WeeklyReviewCard } from "@/components/dashboard/WeeklyReviewCard";
 import type { WeeklyReviewData } from "@/lib/utils/calcWeeklyReview";
+import { calcBulkWeeklyPlanPace } from "@/lib/utils/bulkWeeklyPlanPace";
 
 jest.mock("lucide-react", () => ({
   ClipboardList: () => <span data-testid="icon-clipboard" />,
@@ -100,6 +101,98 @@ function makeData(overrides: Partial<WeeklyReviewData> = {}): WeeklyReviewData {
 }
 
 describe("WeeklyReviewCard", () => {
+  const bulkInput = {
+    startDate: "2026-04-01",
+    startWeight: 75,
+    targetDate: "2026-04-30",
+    entries: [{
+      month: "2026-04",
+      targetWeight: 76,
+      requiredDeltaKg: 1,
+      source: "auto_redistributed" as const,
+      actualWeight: null,
+    }],
+    logs: Array.from({ length: 14 }, (_, index) => ({
+      log_date: `2026-04-${String(index + 1).padStart(2, "0")}`,
+      weight: 75 + index / 29,
+    })),
+  };
+
+  it.each([
+    [1, 1, 0],
+    [7, 7, 0],
+    [13, 7, 6],
+  ])("Bulk開始%d日目は判定待ち・実際の日数・最短判定開始日を表示する", (day, currentDays, previousDays) => {
+    render(<WeeklyReviewCard data={makeData({
+      bulkPlanPace: calcBulkWeeklyPlanPace({
+        ...bulkInput,
+        today: `2026-04-${String(day).padStart(2, "0")}`,
+      }),
+    })} phase="Bulk" />);
+
+    expect(screen.getByText("判定待ち")).toBeInTheDocument();
+    expect(screen.queryByText("体重記録不足")).not.toBeInTheDocument();
+    expect(screen.queryByText("データ不足")).not.toBeInTheDocument();
+    expect(screen.getByText(/最短で2026-04-14から判定できます/)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`今週 ${currentDays}日 / 前週 ${previousDays}日（今シーズン内）`))).toBeInTheDocument();
+    expect(screen.getByText("70.0")).toBeInTheDocument();
+    expect(screen.getByText("-0.3 kg")).toBeInTheDocument();
+    expect(screen.queryByText("計画比")).not.toBeInTheDocument();
+    expect(screen.getByText(/開始日を含めて14日目以降/)).toBeInTheDocument();
+  });
+
+  it("Bulk開始14日目で日数不足なら判定待ちではなく体重記録不足を表示する", () => {
+    render(<WeeklyReviewCard data={makeData({
+      bulkPlanPace: calcBulkWeeklyPlanPace({
+        ...bulkInput,
+        today: "2026-04-14",
+        logs: bulkInput.logs.slice(0, 11),
+      }),
+    })} phase="Bulk" />);
+
+    expect(screen.getByText("体重記録不足")).toBeInTheDocument();
+    expect(screen.queryByText("判定待ち")).not.toBeInTheDocument();
+    expect(screen.queryByText(/最短で/)).not.toBeInTheDocument();
+    expect(screen.getByText(/今週 4日 \/ 前週 7日/)).toBeInTheDocument();
+  });
+
+  it("Bulk開始14日目で日数がそろえば通常の計画内表示へ切り替わる", () => {
+    render(<WeeklyReviewCard data={makeData({
+      bulkPlanPace: calcBulkWeeklyPlanPace({ ...bulkInput, today: "2026-04-14" }),
+    })} phase="Bulk" />);
+
+    expect(screen.getByText("計画内")).toBeInTheDocument();
+    expect(screen.getByText("100%")).toBeInTheDocument();
+    expect(screen.queryByText("判定待ち")).not.toBeInTheDocument();
+    expect(screen.queryByText(/最短で/)).not.toBeInTheDocument();
+  });
+
+  it("Bulk開始直後でも月次計画の警告が判定待ちより優先される", () => {
+    render(<WeeklyReviewCard data={makeData({
+      bulkPlanPace: calcBulkWeeklyPlanPace({
+        ...bulkInput,
+        today: "2026-04-13",
+        entries: [{ ...bulkInput.entries[0]!, targetWeight: 76.1, requiredDeltaKg: 1.1 }],
+      }),
+    })} phase="Bulk" />);
+
+    expect(screen.getByText("月次計画を確認")).toBeInTheDocument();
+    expect(screen.getByText(/上限を超える月次目標があります/)).toBeInTheDocument();
+    expect(screen.queryByText("判定待ち")).not.toBeInTheDocument();
+    expect(screen.queryByText(/最短で/)).not.toBeInTheDocument();
+  });
+
+  it("CutではBulkの判定待ち情報を使用しない", () => {
+    render(<WeeklyReviewCard data={makeData({
+      bulkPlanPace: calcBulkWeeklyPlanPace({ ...bulkInput, today: "2026-04-13" }),
+    })} phase="Cut" />);
+
+    expect(screen.getByText("順調")).toBeInTheDocument();
+    expect(screen.queryByText("判定待ち")).not.toBeInTheDocument();
+    expect(screen.queryByText(/最短で/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/開始日を含めて14日目以降/)).not.toBeInTheDocument();
+  });
+
   it("Bulkは月次計画比で超過表示し、Cut固有の%BW基準を表示しない", () => {
     render(
       <WeeklyReviewCard
@@ -119,6 +212,8 @@ describe("WeeklyReviewCard", () => {
             actualChangePct: 0.53,
             currentWeightDays: 7,
             previousWeightDays: 7,
+            dataInsufficientReason: null,
+            earliestEvaluationDate: "2026-04-14",
             monthlyLimitViolations: [],
           },
         })}

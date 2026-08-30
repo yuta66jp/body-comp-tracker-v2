@@ -110,7 +110,13 @@ export function deriveWeeklyInsightItems(
         slightly_fast: "月次計画より増量ペースがやや速めです。特殊日や水分変動も確認してください",
         over_pace: "増量ペース超過です。特殊日や水分変動を確認し、14日トレンドも速い場合は摂取量の見直しを検討してください",
         wrong_direction: "月次計画とは逆に体重が減少しています。記録状況と摂取量を確認してください",
-        data_insufficient: `判定には今週・前週それぞれ5日以上の体重記録が必要です（今週 ${bulkPlanPace.currentWeightDays}日 / 前週 ${bulkPlanPace.previousWeightDays}日）`,
+        data_insufficient: bulkPlanPace.dataInsufficientReason === "season_start"
+          ? "シーズン開始直後のため、増量ペースの判定は保留しています。" +
+            (bulkPlanPace.earliestEvaluationDate !== null
+              ? `最短で${bulkPlanPace.earliestEvaluationDate}から判定できます。`
+              : "") +
+            `各期間5日以上の体重記録が必要です。体重記録：今週 ${bulkPlanPace.currentWeightDays}日 / 前週 ${bulkPlanPace.previousWeightDays}日（今シーズン内）`
+          : `判定には今週・前週それぞれ5日以上の体重記録が必要です（今週 ${bulkPlanPace.currentWeightDays}日 / 前週 ${bulkPlanPace.previousWeightDays}日・今シーズン内）`,
         plan_check: bulkPlanPace.monthlyLimitViolations.length > 0
           ? `月+1.0 kg（端数月は日数按分）の上限を超える月次目標があります: ${bulkPlanPace.monthlyLimitViolations.map((violation) => violation.month).join("、")}`
           : "月次計画の対象期間または目標値を確認してください",

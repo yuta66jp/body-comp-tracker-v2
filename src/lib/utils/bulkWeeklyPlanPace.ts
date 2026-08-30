@@ -3,7 +3,7 @@ import {
   type MonthlyGoalEntry,
   type MonthlyGoalOverride,
 } from "@/lib/utils/monthlyGoalPlan";
-import { dateRangeStr } from "@/lib/utils/date";
+import { addDaysStr, dateRangeStr } from "@/lib/utils/date";
 
 export const MAX_BULK_MONTHLY_GAIN_KG = 1.0;
 export const MIN_BULK_WEEKLY_WEIGHT_DAYS = 5;
@@ -40,6 +40,9 @@ export interface BulkWeeklyPlanPace {
   actualChangePct: number | null;
   currentWeightDays: number;
   previousWeightDays: number;
+  dataInsufficientReason: "season_start" | "weight_records" | null;
+  /** 開始日を1日目とした14日目。各期間5日以上の記録も必要。 */
+  earliestEvaluationDate: string | null;
   monthlyLimitViolations: BulkMonthlyGainLimitViolation[];
 }
 
@@ -187,7 +190,8 @@ export function classifyBulkWeeklyPace(
 
 /**
  * 実績と同じ記録日を使って、実績前週比と月次計画上の前週比を比較する。
- * 直近/前週のどちらかが5日未満、シーズン開始から14日未満なら判定保留。
+ * 開始日を含めて14日未満、または直近/前週のどちらかが5日未満なら判定保留。
+ * 保留時も今日基準の各7日窓で実際の記録日数を返す。
  */
 export function calcBulkWeeklyPlanPace(input: {
   startDate: string;
@@ -198,35 +202,14 @@ export function calcBulkWeeklyPlanPace(input: {
   today: string;
 }): BulkWeeklyPlanPace {
   const monthlyLimitViolations = findBulkMonthlyGainLimitViolations(input);
-  const fallback = (
-    state: BulkWeeklyPaceState,
-    currentWeightDays = 0,
-    previousWeightDays = 0
-  ): BulkWeeklyPlanPace => ({
-    state,
-    actualChangeKg: null,
-    plannedChangeKg: null,
-    paceRatioPct: null,
-    actualChangePct: null,
-    currentWeightDays,
-    previousWeightDays,
-    monthlyLimitViolations,
-  });
-
-  if (monthlyLimitViolations.length > 0 || input.today > input.targetDate) {
-    return fallback("plan_check");
-  }
-
-  const dailyPlan = buildBulkDailyPlanWeightMap(input);
-  const comparisonDates = dateRangeStr(input.startDate, input.today);
-  if (comparisonDates.length < 14) return fallback("data_insufficient");
-
-  const currentStartIndex = comparisonDates.length - 7;
-  const previousStartIndex = comparisonDates.length - 14;
-  const currentDateSet = new Set(comparisonDates.slice(currentStartIndex));
-  const previousDateSet = new Set(
-    comparisonDates.slice(previousStartIndex, currentStartIndex)
+  const earliestEvaluationDate = addDaysStr(input.startDate, 13);
+  // シーズン開始直後も固定の14日窓を使い、短い配列への負のsliceを避ける。
+  const comparisonDates = dateRangeStr(
+    addDaysStr(input.today, -13) ?? input.today,
+    input.today
   );
+  const currentDateSet = new Set(comparisonDates.slice(7));
+  const previousDateSet = new Set(comparisonDates.slice(0, 7));
 
   const latestWeightByDate = new Map<string, number>();
   for (const log of input.logs) {
@@ -241,13 +224,36 @@ export function calcBulkWeeklyPlanPace(input: {
 
   const currentDates = [...currentDateSet].filter((date) => latestWeightByDate.has(date));
   const previousDates = [...previousDateSet].filter((date) => latestWeightByDate.has(date));
+  const fallback = (
+    state: BulkWeeklyPaceState,
+    dataInsufficientReason: BulkWeeklyPlanPace["dataInsufficientReason"] = null
+  ): BulkWeeklyPlanPace => ({
+    state,
+    actualChangeKg: null,
+    plannedChangeKg: null,
+    paceRatioPct: null,
+    actualChangePct: null,
+    currentWeightDays: currentDates.length,
+    previousWeightDays: previousDates.length,
+    dataInsufficientReason,
+    earliestEvaluationDate,
+    monthlyLimitViolations,
+  });
+
+  if (monthlyLimitViolations.length > 0 || input.today > input.targetDate) {
+    return fallback("plan_check");
+  }
+  if (dateRangeStr(input.startDate, input.today).length < 14) {
+    return fallback("data_insufficient", "season_start");
+  }
   if (
     currentDates.length < MIN_BULK_WEEKLY_WEIGHT_DAYS ||
     previousDates.length < MIN_BULK_WEEKLY_WEIGHT_DAYS
   ) {
-    return fallback("data_insufficient", currentDates.length, previousDates.length);
+    return fallback("data_insufficient", "weight_records");
   }
 
+  const dailyPlan = buildBulkDailyPlanWeightMap(input);
   const currentActualAvg = average(currentDates.map((date) => latestWeightByDate.get(date)!));
   const previousActualAvg = average(previousDates.map((date) => latestWeightByDate.get(date)!));
   const currentPlanValues = currentDates.map((date) => dailyPlan.get(date));
@@ -258,13 +264,13 @@ export function calcBulkWeeklyPlanPace(input: {
     currentPlanValues.some((value) => value === undefined) ||
     previousPlanValues.some((value) => value === undefined)
   ) {
-    return fallback("plan_check", currentDates.length, previousDates.length);
+    return fallback("plan_check");
   }
 
   const currentPlanAvg = average(currentPlanValues as number[]);
   const previousPlanAvg = average(previousPlanValues as number[]);
   if (currentPlanAvg === null || previousPlanAvg === null) {
-    return fallback("plan_check", currentDates.length, previousDates.length);
+    return fallback("plan_check");
   }
 
   const actualChangeKg = currentActualAvg - previousActualAvg;
@@ -285,6 +291,8 @@ export function calcBulkWeeklyPlanPace(input: {
     actualChangePct,
     currentWeightDays: currentDates.length,
     previousWeightDays: previousDates.length,
+    dataInsufficientReason: null,
+    earliestEvaluationDate,
     monthlyLimitViolations,
   };
 }

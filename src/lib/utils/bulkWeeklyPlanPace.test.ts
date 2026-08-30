@@ -1,4 +1,5 @@
 import type { MonthlyGoalEntry } from "@/lib/utils/monthlyGoalPlan";
+import { addDaysStr } from "@/lib/utils/date";
 import {
   buildBulkDailyPlanWeightMap,
   calcBulkWeeklyPlanPace,
@@ -135,6 +136,144 @@ describe("calcBulkWeeklyPlanPace", () => {
     entries: [entry("2026-04", 76, 1)],
     today: "2026-04-14",
   };
+
+  it.each([
+    [1, 1, 0],
+    [7, 7, 0],
+    [12, 7, 5],
+    [13, 7, 6],
+  ])("開始%d日目は実際の記録日数を返して判定を保留する", (day, currentDays, previousDays) => {
+    const result = calcBulkWeeklyPlanPace({
+      ...base,
+      today: `2026-04-${String(day).padStart(2, "0")}`,
+      logs: dailyLogs(1, day, 0.03),
+    });
+    expect(result).toMatchObject({
+      state: "data_insufficient",
+      dataInsufficientReason: "season_start",
+      earliestEvaluationDate: "2026-04-14",
+      currentWeightDays: currentDays,
+      previousWeightDays: previousDays,
+      actualChangeKg: null,
+      plannedChangeKg: null,
+      paceRatioPct: null,
+      actualChangePct: null,
+    });
+  });
+
+  it("開始直後は前シーズン・未来日・体重未入力を数えない", () => {
+    const result = calcBulkWeeklyPlanPace({
+      ...base,
+      startDate: "2026-04-10",
+      today: "2026-04-13",
+      entries: [entry("2026-04", 75.5, 0.5)],
+      logs: dailyLogs(1, 15, 0.03).map((log) => ({
+        ...log,
+        weight: log.log_date === "2026-04-12" ? null : log.weight,
+      })),
+    });
+    expect(result).toMatchObject({
+      dataInsufficientReason: "season_start",
+      earliestEvaluationDate: "2026-04-23",
+      currentWeightDays: 3,
+      previousWeightDays: 0,
+    });
+  });
+
+  it("開始14日目は各期間ちょうど5日でも通常判定する（重複・nullは加算しない）", () => {
+    const result = calcBulkWeeklyPlanPace({
+      ...base,
+      logs: [
+        ...dailyLogs(1, 5, 1 / 29),
+        ...dailyLogs(8, 12, 1 / 29),
+        ...dailyLogs(1, 1, 1 / 29),
+        ...dailyLogs(8, 8, 1 / 29),
+        { log_date: "2026-04-01", weight: null },
+        { log_date: "2026-04-06", weight: null },
+        { log_date: "2026-04-13", weight: null },
+      ],
+    });
+    expect(result).toMatchObject({
+      state: "on_plan",
+      dataInsufficientReason: null,
+      earliestEvaluationDate: "2026-04-14",
+      currentWeightDays: 5,
+      previousWeightDays: 5,
+    });
+    expect(result.paceRatioPct).toBeCloseTo(100);
+  });
+
+  it.each([
+    [4, 7],
+    [7, 4],
+    [0, 0],
+  ])("開始14日目でも今週%d日・前週%d日なら体重記録不足", (currentDays, previousDays) => {
+    const result = calcBulkWeeklyPlanPace({
+      ...base,
+      logs: [...dailyLogs(1, previousDays, 0.03), ...dailyLogs(8, 7 + currentDays, 0.03)],
+    });
+    expect(result).toMatchObject({
+      state: "data_insufficient",
+      dataInsufficientReason: "weight_records",
+      currentWeightDays: currentDays,
+      previousWeightDays: previousDays,
+    });
+  });
+
+  it.each([
+    ["2026-03-28", "2026-04-10", "2026-04-30"],
+    ["2026-12-28", "2027-01-10", "2027-01-31"],
+  ])("月・年をまたぐ開始日%sでも13日目から14日目の境界を正しく扱う", (startDate, today, targetDate) => {
+    const input = {
+      ...base,
+      startDate,
+      today,
+      targetDate,
+      entries: [entry(startDate.slice(0, 7), 75.1, 0.1), entry(targetDate.slice(0, 7), 75.6, 0.5)],
+    };
+    const logs = [...buildBulkDailyPlanWeightMap(input)].map(([log_date, weight]) => ({ log_date, weight }));
+    const waiting = calcBulkWeeklyPlanPace({ ...input, logs, today: addDaysStr(today, -1)! });
+    expect(waiting).toMatchObject({
+      dataInsufficientReason: "season_start",
+      earliestEvaluationDate: today,
+      currentWeightDays: 7,
+      previousWeightDays: 6,
+    });
+    const ready = calcBulkWeeklyPlanPace({ ...input, logs });
+    expect(ready).toMatchObject({
+      state: "on_plan",
+      dataInsufficientReason: null,
+      currentWeightDays: 7,
+      previousWeightDays: 7,
+    });
+    expect(ready.paceRatioPct).toBeCloseTo(100);
+  });
+
+  it("開始14日目より後も今日基準の14日窓だけを集計する", () => {
+    const result = calcBulkWeeklyPlanPace({
+      ...base,
+      today: "2026-04-20",
+      logs: [...dailyLogs(1, 6, 0.03), ...dailyLogs(8, 11, 0.03), ...dailyLogs(14, 20, 0.03)],
+    });
+    expect(result).toMatchObject({
+      dataInsufficientReason: "weight_records",
+      currentWeightDays: 7,
+      previousWeightDays: 4,
+    });
+  });
+
+  it.each([
+    { today: "2026-04-13", entries: [entry("2026-04", 76.1, 1.1)] },
+    { today: "2026-04-13", targetDate: "2026-04-12", entries: [entry("2026-04", 75.2, 0.2)] },
+  ])("開始直後でも月次計画の問題は判定待ちより優先する: %j", (overrides) => {
+    const result = calcBulkWeeklyPlanPace({ ...base, ...overrides, logs: dailyLogs(1, 13, 0.03) });
+    expect(result).toMatchObject({
+      state: "plan_check",
+      dataInsufficientReason: null,
+      currentWeightDays: 7,
+      previousWeightDays: 6,
+    });
+  });
 
   it("月+1kgに沿った実績を計画内と判定", () => {
     const result = calcBulkWeeklyPlanPace({
