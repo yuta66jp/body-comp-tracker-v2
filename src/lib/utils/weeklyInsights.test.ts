@@ -135,6 +135,8 @@ function makeBulkPace(
     actualChangePct: 0.33,
     currentWeightDays: 7,
     previousWeightDays: 7,
+    dataInsufficientReason: null,
+    earliestEvaluationDate: "2026-04-14",
     monthlyLimitViolations: [],
     ...overrides,
   };
@@ -222,6 +224,7 @@ describe("deriveWeeklyInsightItems", () => {
       const data = makeData({
         bulkPlanPace: makeBulkPace({
           state: "data_insufficient",
+          dataInsufficientReason: "weight_records",
           actualChangeKg: null,
           plannedChangeKg: null,
           paceRatioPct: null,
@@ -232,6 +235,28 @@ describe("deriveWeeklyInsightItems", () => {
       const items = deriveWeeklyInsightItems(data, "Bulk");
       expect(items[0]).toMatchObject({ status: "neutral" });
       expect(items[0]!.detail).toContain("今週 4日 / 前週 3日");
+      expect(items[0]!.detail).not.toContain("シーズン開始直後");
+      expect(items[0]!.detail).not.toContain("最短で");
+    });
+
+    it("Bulk開始直後は実際の日数と最短判定開始日を案内する", () => {
+      const items = deriveWeeklyInsightItems(makeData({
+        bulkPlanPace: makeBulkPace({
+          state: "data_insufficient",
+          dataInsufficientReason: "season_start",
+          actualChangeKg: null,
+          plannedChangeKg: null,
+          paceRatioPct: null,
+          currentWeightDays: 7,
+          previousWeightDays: 6,
+        }),
+      }), "Bulk");
+      expect(items[0]).toMatchObject({ status: "neutral" });
+      expect(items[0]!.title).toContain("今週平均 70.0 kg");
+      expect(items[0]!.detail).toContain("シーズン開始直後のため、増量ペースの判定は保留");
+      expect(items[0]!.detail).toContain("最短で2026-04-14から判定できます");
+      expect(items[0]!.detail).toContain("各期間5日以上の体重記録が必要");
+      expect(items[0]!.detail).toContain("今週 7日 / 前週 6日（今シーズン内）");
     });
 
     it("weight.avg が null のとき title に『体重データ不足』", () => {

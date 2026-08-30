@@ -197,7 +197,7 @@ const BULK_PACE_CONFIG: Record<
     icon: AlertTriangle,
   },
   data_insufficient: {
-    label: "データ不足",
+    label: "体重記録不足",
     color: "text-slate-500 dark:text-slate-400",
     bg: "bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-600",
     icon: HelpCircle,
@@ -276,6 +276,10 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
   const stCfg = bulkPlanPace
     ? BULK_PACE_CONFIG[bulkPlanPace.state]
     : STAGNATION_CONFIG[data.stagnation.level];
+  const statusLabel = bulkPlanPace?.state === "data_insufficient" &&
+    bulkPlanPace.dataInsufficientReason === "season_start"
+    ? "判定待ち"
+    : stCfg.label;
   const StIcon = stCfg.icon;
 
   const { weight, nutrition, tdee, sleep, quality } = data;
@@ -331,7 +335,7 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
           className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${stCfg.color} ${stCfg.bg}`}
         >
           <StIcon size={11} />
-          {stCfg.label}
+          {statusLabel}
         </span>
       </div>
 
@@ -605,7 +609,7 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
         <span>
           {isCut
             ? "%BW/週 = 14日線形回帰÷7日平均体重 / GoalNavigator の必要ペースは絶対量（kg/2週）/ 直近7暦日ローリング集計 / あくまで推定値"
-            : "Bulkの判定は月次計画上の前週比と実績前週比を比較 / 各7日窓で体重記録5日以上が必要 / あくまで推定値"}
+            : "Bulkの判定は月次計画上の前週比と実績前週比を比較 / 開始日を含めて14日目以降・各期間5日以上の体重記録が必要 / 今週＝今日を含む直近7日・前週＝その前7日（今シーズン内）/ あくまで推定値"}
         </span>
         <span className={`font-semibold ${qualityScoreColor(quality.score)}`}>
           品質 {quality.score}/100
