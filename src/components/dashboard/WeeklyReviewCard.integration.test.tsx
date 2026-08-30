@@ -233,7 +233,7 @@ describe("WeeklyReviewCard", () => {
 
     expect(screen.getByText("増量ペース超過")).toBeInTheDocument();
     expect(screen.getByText("計画ペース")).toBeInTheDocument();
-    expect(screen.getByText("+0.2 kg/週")).toBeInTheDocument();
+    expect(screen.getByText("+0.20 kg（前週比）")).toBeInTheDocument();
     expect(screen.getByText("計画比")).toBeInTheDocument();
     expect(screen.getByText("200%")).toBeInTheDocument();
     expect(screen.queryByText(/推奨レンジ 0.5〜1.0% BW\/週/)).not.toBeInTheDocument();
