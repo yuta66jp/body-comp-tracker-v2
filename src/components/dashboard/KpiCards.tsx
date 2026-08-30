@@ -4,6 +4,8 @@ import { TrendingDown, TrendingUp, Minus, Weight, CalendarClock, Target } from "
 import type { DashboardDailyLog } from "@/lib/supabase/types";
 import type { AppSettings } from "@/lib/domain/settings";
 import type { GoalReachResult } from "@/lib/utils/calcReadiness";
+import type { BulkWeeklyPlanPace } from "@/lib/utils/bulkWeeklyPlanPace";
+import { bulkPaceRecordNote, formatBulkChange, getBulkPacePresentation } from "./bulkPacePresentation";
 import { calcWeightTrend } from "@/lib/utils/calcTrend";
 import { toJstDateStr, calcDaysLeft, calcMonthsLeft, addDaysStr, dateRangeStr } from "@/lib/utils/date";
 
@@ -16,10 +18,11 @@ interface KpiCardsProps {
   /** 目標到達予定日の計算結果 (page.tsx で算出した共通値) */
   goalReachResult: GoalReachResult;
   /**
-   * 到達予測バッファ (日数)。page.tsx で「30日線形トレンド到達日 − 大会残日数」から算出。
+   * 到達予測バッファ (日数)。page.tsx で「大会までの日数 − 到達までの日数」から算出。
    * 正=余裕あり / 負=期限超過見込み / null=到達日が算出不能 (停滞中・データ不足・達成済み)
    */
   bufferDays: number | null;
+  bulkPlanPace?: BulkWeeklyPlanPace | null;
 }
 
 interface KpiCardProps {
@@ -37,7 +40,7 @@ interface KpiCardProps {
 
 function KpiCard({ label, value, unit, sub, icon, accent, iconColor, trendDir, trendPositive, tag }: KpiCardProps) {
   const TrendIcon = trendDir === "up" ? TrendingUp : trendDir === "down" ? TrendingDown : Minus;
-  const isGood = trendDir === undefined || trendDir === "flat"
+  const isGood = trendPositive === undefined || trendDir === undefined || trendDir === "flat"
     ? null
     : trendDir === trendPositive;
   const trendColor = isGood === null ? "text-slate-400" : isGood ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400";
@@ -65,7 +68,7 @@ function KpiCard({ label, value, unit, sub, icon, accent, iconColor, trendDir, t
   );
 }
 
-export function KpiCards({ logs, settings, currentWeight, currentSeason, goalReachResult, bufferDays }: KpiCardsProps) {
+export function KpiCards({ logs, settings, currentWeight, currentSeason, goalReachResult, bufferDays, bulkPlanPace }: KpiCardsProps) {
   const sorted = [...logs].sort((a, b) => a.log_date.localeCompare(b.log_date));
   const isCut = settings.currentPhase !== "Bulk";
   const deadlineLabel = isCut ? "大会日" : "目標日";
@@ -110,6 +113,8 @@ export function KpiCards({ logs, settings, currentWeight, currentSeason, goalRea
 
   const goalReachDate = goalReachResult.date;
   const goalReachLabel = goalReachResult.label;
+  const bulkStatus = getBulkPacePresentation(bulkPlanPace);
+  const bulkRecordNote = bulkPaceRecordNote(bulkPlanPace);
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -123,7 +128,7 @@ export function KpiCards({ logs, settings, currentWeight, currentSeason, goalRea
         accent="bg-blue-50 dark:bg-blue-900/30"
         iconColor="text-blue-600 dark:text-blue-400"
         trendDir={slopePerWeek !== null ? trendDir : undefined}
-        trendPositive={isCut ? "down" : "up"}
+        trendPositive={isCut ? "down" : undefined}
       />
 
       {/* 残り日数 + 残り週数 */}
@@ -155,7 +160,24 @@ export function KpiCards({ logs, settings, currentWeight, currentSeason, goalRea
         }
       />
 
-      {/* 目標到達予定日 */}
+      {/* Bulkは早期到達ではなく月次計画とのペース比較を表示する。 */}
+      {!isCut ? (
+        <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <p className="text-xs font-semibold text-slate-400 dark:text-slate-500">増量ペース</p>
+          <p className={`mt-3 text-2xl font-bold sm:text-lg lg:text-2xl ${bulkStatus.color}`}>{bulkStatus.label}</p>
+          <p className="mt-2 text-xs text-slate-700 dark:text-slate-300">
+            計画 {formatBulkChange(bulkPlanPace?.plannedChangeKg)}
+          </p>
+          <p className="mt-1 text-xs text-slate-700 dark:text-slate-300">
+            実績 {formatBulkChange(bulkPlanPace?.actualChangeKg)}
+          </p>
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+            {bulkRecordNote ?? (bulkPlanPace && bulkPlanPace.state !== "plan_check"
+              ? "今シーズンの実績と同じ記録日の月次計画を比較"
+              : bulkStatus.guidance)}
+          </p>
+        </div>
+      ) : (
       <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
         <div className="flex items-start justify-between">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">目標到達予定</p>
@@ -194,6 +216,7 @@ export function KpiCards({ logs, settings, currentWeight, currentSeason, goalRea
           <p className="mt-2 text-xs text-slate-300 dark:text-slate-600">目標体重未設定</p>
         )}
       </div>
+      )}
     </div>
   );
 }

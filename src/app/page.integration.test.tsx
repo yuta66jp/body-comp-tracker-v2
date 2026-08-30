@@ -10,6 +10,8 @@ import { mapToAppSettings } from "@/lib/domain/settings";
 import type { Season } from "@/lib/domain/season";
 import type { DashboardDailyLog } from "@/lib/supabase/types";
 import { dateRangeStr } from "@/lib/utils/date";
+import { KpiCards } from "@/components/dashboard/KpiCards";
+import { GoalNavigator } from "@/components/dashboard/GoalNavigator";
 
 // 品質・週次・月別表示は実装を通し、DBと無関係な画面部品だけを分離する。
 jest.mock("@/lib/queries/dailyLogs", () => ({
@@ -35,8 +37,8 @@ jest.mock("@/lib/googleHealth/status", () => ({
 jest.mock("@/components/dashboard/DashboardLayout", () => ({
   DashboardLayout: ({ children, header }: { children: React.ReactNode; header: React.ReactNode }) => <>{header}{children}</>,
 }));
-jest.mock("@/components/dashboard/KpiCards", () => ({ KpiCards: () => null }));
-jest.mock("@/components/dashboard/GoalNavigator", () => ({ GoalNavigator: () => null }));
+jest.mock("@/components/dashboard/KpiCards", () => ({ KpiCards: jest.fn(() => null) }));
+jest.mock("@/components/dashboard/GoalNavigator", () => ({ GoalNavigator: jest.fn(() => null) }));
 jest.mock("@/components/charts/ForecastChart", () => ({ ForecastChart: () => null }));
 
 const season: Season = {
@@ -102,6 +104,22 @@ describe("DashboardPageの週次品質集計", () => {
     expect(screen.getByText("判定待ち")).toBeInTheDocument();
     expect(screen.getByText(/最短で2026-09-11から判定できます/)).toBeInTheDocument();
     expect(screen.getByText("100 / 100")).toBeInTheDocument();
+    const kpi = jest.mocked(KpiCards).mock.calls[0]![0];
+    const nav = jest.mocked(GoalNavigator).mock.calls[0]![0];
+    expect(kpi.bulkPlanPace).toBe(nav.bulkPlanPace);
+    expect(nav.bulkPlanPace).toMatchObject({ state: "data_insufficient", dataInsufficientReason: "season_start", currentWeightDays: 2, previousWeightDays: 0 });
+    expect(kpi.logs.map((log) => log.log_date)).toEqual(["2026-08-29", "2026-08-30"]);
+  });
+
+  it("Bulkの現在体重とナビ基準体重にも旧シーズンの記録を混ぜない", async () => {
+    jest.mocked(fetchDashboardDailyLogs).mockResolvedValue({ kind: "ok", data: makeLogs()
+      .filter((log) => log.log_date < season.startDate)
+      .map((log) => ({ ...log, weight: 90 })) });
+    render(await DashboardPage());
+    expect(jest.mocked(KpiCards).mock.calls[0]![0].currentWeight).toBeNull();
+    expect(jest.mocked(GoalNavigator).mock.calls[0]![0].metrics).toMatchObject({
+      current_weight: null, weight_7d_avg: null, weekly_rate_kg: null,
+    });
   });
 
   it("Bulk週次品質だけを限定し、上部のデータ品質は直近7日のまま", async () => {

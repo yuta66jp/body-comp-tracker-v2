@@ -2,15 +2,14 @@
  * GoalNavigator — 目標達成ナビ
  *
  * KpiCards の「パッと見」カードを補完し、
- * 「このままで大会に間に合うか」を判断できるパネル。
+ * Cutは大会への到達、Bulkは月次増量計画への適合を判断するパネル。
  *
  * Server Component (状態・イベントなし)
  *
  * 設計方針:
  *   - 基準体重には weight_7d_avg を優先 (単日ノイズ排除)
- *   - 必要ペースも 7d avg ベースで再計算してペース差と一致させる
- *   - 実績ペースは calcReadiness の weekly_rate_kg (14日線形回帰)
- *   - ステータス判定・kcal補正は calcReadiness エクスポートの純粋関数を使う
+ *   - Cutの必要ペースは 7d avg、実績は14日回帰、kcal補正は既存の純粋関数を使う
+ *   - Bulkは週次サマリーと同じbulkPlanPaceを使い、月末目標との体重差とは分離する
  *   - 残り日数 / 残り週数 / 大会日付は KpiCards 側に集約
  */
 
@@ -29,6 +28,8 @@ import {
 import type { ReadinessMetrics } from "@/lib/utils/calcReadiness";
 import { calcGoalStatus, calcKcalCorrection, PACE_CALC_MIN_DAYS } from "@/lib/utils/calcReadiness";
 import type { MonthlyGoalProgress } from "@/lib/utils/calcMonthlyGoalProgress";
+import type { BulkWeeklyPlanPace } from "@/lib/utils/bulkWeeklyPlanPace";
+import { bulkPaceRecordNote, formatBulkChange, getBulkPacePresentation } from "./bulkPacePresentation";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 
 interface GoalNavigatorProps {
@@ -43,6 +44,7 @@ interface GoalNavigatorProps {
   monthlyGoalProgress: MonthlyGoalProgress;
   /** 当月内の最小実測体重 (kg) */
   currentMonthMinWeight?: number | null;
+  bulkPlanPace?: BulkWeeklyPlanPace | null;
 }
 
 // ─── ステータス表示マップ ──────────────────────────────────────────────────
@@ -205,12 +207,23 @@ export function GoalNavigator({
   avgCalories,
   monthlyGoalProgress,
   currentMonthMinWeight,
+  bulkPlanPace,
 }: GoalNavigatorProps) {
   const isCut = phase !== "Bulk";
+  const bulkStatus = getBulkPacePresentation(bulkPlanPace);
+  const bulkRecordNote = bulkPaceRecordNote(bulkPlanPace);
+  const bulkPaceGap = bulkPlanPace?.actualChangeKg != null && bulkPlanPace.plannedChangeKg !== null
+    ? bulkPlanPace.actualChangeKg - bulkPlanPace.plannedChangeKg
+    : null;
+  const bulkMonthlyLabels: Partial<Record<MonthlyGoalProgress["state"], string>> = {
+    achieved: "今月目標到達",
+    ahead: "月末目標を上回る",
+    over_pace: "月末目標を超過",
+    on_track: "月末目標未到達",
+    slightly_behind: "月末目標までの増量幅が大きい",
+  };
   const monthlyStateLabel =
-    !isCut && monthlyGoalProgress.state === "achieved"
-      ? "今月目標到達"
-      : MONTHLY_STATE_CONFIG[monthlyGoalProgress.state].label;
+    (!isCut && bulkMonthlyLabels[monthlyGoalProgress.state]) || MONTHLY_STATE_CONFIG[monthlyGoalProgress.state].label;
 
   // ── 基準体重: 7日平均 優先、なければ単日最新 ──
   const refWeight = metrics.weight_7d_avg ?? metrics.current_weight;
@@ -235,6 +248,7 @@ export function GoalNavigator({
 
   // ── 実績ペース (kg/2週) ──
   const actualRateKg2W = metrics.weekly_rate_kg_per_2weeks;
+  const displayedActualChange = isCut ? actualRateKg2W : bulkPlanPace?.actualChangeKg ?? null;
 
   // ── ペース差 (actual - required): 正=遅れ(Cut), 正=先行(Bulk) によって意味が変わる ──
   // kg/2週 ベースで統一: 比較の単位を揃えることで誤判定を防ぐ
@@ -247,7 +261,8 @@ export function GoalNavigator({
   const actualRateKgWeek = metrics.weekly_rate_kg;
   const requiredRateKgWeek =
     requiredRateKg2W !== null ? requiredRateKg2W / 2 : null;
-  const kcalCorrection = calcKcalCorrection(actualRateKgWeek, requiredRateKgWeek);
+  // Bulkの前週比は記録日平均の差であり、固定7日間の傾きとしてkcal換算しない。
+  const kcalCorrection = isCut ? calcKcalCorrection(actualRateKgWeek, requiredRateKgWeek) : null;
 
   // ── ステータス (kg/2週 ベースで統一して渡す) ──
   const status = calcGoalStatus(
@@ -259,19 +274,10 @@ export function GoalNavigator({
 
   const deadlineLabel = isCut ? "大会日" : "目標日";
 
-  const isMonthlyBulkOverPace =
-    !isCut && monthlyGoalProgress.state === "over_pace";
-  const statusCfg = isMonthlyBulkOverPace
-    ? {
-        label: "増量ペース超過",
-        color: "text-rose-600 dark:text-rose-400",
-        bg: "bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-700/50",
-        icon: AlertTriangle,
-      }
-    : STATUS_CONFIG[status];
+  const statusCfg = isCut ? STATUS_CONFIG[status] : bulkStatus;
   const StatusIcon = statusCfg.icon;
   // no_contest / contest_imminent ラベルは phase によって異なるため動的に解決する
-  const statusLabel = isMonthlyBulkOverPace
+  const statusLabel = !isCut
     ? statusCfg.label
     : status === "no_contest"
       ? `${deadlineLabel}未設定`
@@ -282,6 +288,12 @@ export function GoalNavigator({
       : status === "deadline_ended"
       ? "終了済"
       : statusCfg.label;
+  // Bulkは体重到達と期限の案内を分離し、目標到達で当日の案内を隠さない。
+  const dateStatus = isCut ? status
+    : daysLeft2W === null ? "no_contest"
+    : daysLeft2W < 0 ? "deadline_ended"
+    : daysLeft2W === 0 ? "deadline_today"
+    : null;
 
   // ── 設定欠落フォールバック ──
   const missingGoal = goalWeight === null;
@@ -296,7 +308,7 @@ export function GoalNavigator({
   return (
     <div className={`rounded-2xl border bg-white shadow-sm overflow-hidden dark:border-slate-700 dark:bg-slate-900 dark:shadow-none`}>
       {/* ── ヘッダー ── */}
-      <div className={`flex items-center justify-between border-b px-5 py-3 ${statusCfg.bg}`}>
+      <div className={`flex flex-wrap items-center justify-between gap-2 border-b px-5 py-3 ${statusCfg.bg}`}>
         <div className="flex items-center gap-2">
           <Gauge size={16} className={statusCfg.color} />
           <span className="text-sm font-bold text-slate-700 dark:text-slate-300">目標達成ナビ</span>
@@ -321,20 +333,20 @@ export function GoalNavigator({
       </div>
 
       {/* ── 状態別案内 (no_contest / deadline_today / deadline_ended) ── */}
-      {(status === "no_contest" || status === "deadline_today" || status === "deadline_ended") && (
+      {(dateStatus === "no_contest" || dateStatus === "deadline_today" || dateStatus === "deadline_ended") && (
         <div className="border-b border-slate-100 px-5 py-3 dark:border-slate-700">
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            {status === "no_contest"
+            {dateStatus === "no_contest"
               ? isCut
                 ? "大会日を設定してください"
                 : "目標日を設定してください"
-              : status === "deadline_today"
+              : dateStatus === "deadline_today"
               ? isCut
                 ? "本日が大会日です"
                 : "本日が目標日です"
               : isCut
               ? "大会が終了しました。設定からフェーズを更新してください"
-              : "増量期間が終了しました。設定を更新してください"}
+              : "目標日を過ぎています。設定から目標日・月次計画を確認してください"}
           </p>
         </div>
       )}
@@ -393,7 +405,7 @@ export function GoalNavigator({
         <div className="flex flex-col gap-1.5 border-t border-slate-100 p-5 sm:border-t-0 dark:border-slate-700">
           <SectionLabel
             icon={
-              actualRateKg2W !== null && actualRateKg2W < 0
+              displayedActualChange !== null && displayedActualChange < 0
                 ? <TrendingDown size={11} />
                 : <TrendingUp size={11} />
             }
@@ -401,6 +413,18 @@ export function GoalNavigator({
             ペース分析
           </SectionLabel>
 
+          {!isCut ? (
+            <>
+              <MetricRow label="計画ペース" value={formatBulkChange(bulkPlanPace?.plannedChangeKg)} />
+              <MetricRow label="実績ペース" value={formatBulkChange(bulkPlanPace?.actualChangeKg)} />
+              <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
+              <MetricRow label="計画との差" value={formatBulkChange(bulkPaceGap)} valueColor={bulkStatus.color} />
+              {bulkRecordNote && (
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">{bulkRecordNote}</p>
+              )}
+            </>
+          ) : (
+          <>
           <MetricRow
             label="必要ペース"
             value={fmtRate2W(requiredRateKg2W)}
@@ -439,6 +463,8 @@ export function GoalNavigator({
               {deadlineLabel}まで {daysLeft2W} 日のためペース算出なし
             </p>
           )}
+          </>
+          )}
         </div>
 
         <Divider />
@@ -447,6 +473,20 @@ export function GoalNavigator({
         <div className="flex flex-col gap-1.5 border-t border-slate-100 p-5 sm:border-t-0 dark:border-slate-700">
           <SectionLabel icon={<Utensils size={11} />}>調整提案</SectionLabel>
 
+          {!isCut ? (
+            <>
+              <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">{bulkStatus.guidance}</p>
+              {(monthlyGoalProgress.state === "ahead" || monthlyGoalProgress.state === "over_pace") && (
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  最新体重は月末目標を上回っています。増量ペースとは別に、月末目標との差を確認してください。
+                </p>
+              )}
+              <p className="mt-auto pt-2 text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">
+                記録日平均の前週比を比較しているため、ペース差からのカロリー自動換算は行いません。
+              </p>
+            </>
+          ) : (
+          <>
           {kcalCorrection !== null && Math.abs(kcalCorrection) >= 50 && (
             <>
               <MetricRow
@@ -494,6 +534,8 @@ export function GoalNavigator({
               {buildReasonLabel(paceGap, kcalCorrection, isCut)}
             </p>
           </div>
+          </>
+          )}
         </div>
       </div>
 
@@ -504,7 +546,7 @@ export function GoalNavigator({
             {/* セクションラベル + 状態バッジ */}
             <div className="flex items-center gap-2 shrink-0">
               <SectionLabel icon={<CalendarDays size={12} />} mb="mb-0">
-                今月目標進捗
+                {isCut ? "今月目標進捗" : "月末目標との差（最新体重）"}
               </SectionLabel>
               <span
                 className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
@@ -571,7 +613,7 @@ export function GoalNavigator({
             )}
 
             {/* 残必要ペース */}
-            {monthlyGoalProgress.requiredPaceKgPerWeek !== null && (
+            {isCut && monthlyGoalProgress.requiredPaceKgPerWeek !== null && (
               <span className="text-xs text-slate-500 dark:text-slate-400">
                 残必要ペース:{" "}
                 <span className="font-semibold tabular-nums text-slate-700 dark:text-slate-300">
@@ -602,7 +644,9 @@ export function GoalNavigator({
 
       {/* ── フッター注記 ── */}
       <div className="border-t border-slate-50 bg-slate-50 px-5 py-2 text-[11px] text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
-        体重進捗は 7 日移動平均ベース / 今月進捗は最新体重ベース / ペースは 14 日線形回帰・kg/2週 表示 / 推定値のため目安としてご利用ください
+        {isCut
+          ? "体重進捗は 7 日移動平均ベース / 今月進捗は最新体重ベース / ペースは 14 日線形回帰・kg/2週 表示 / 推定値のため目安としてご利用ください"
+          : "今シーズン内のみ / 実績ペースは直近7日平均 − 前の7日平均 / 計画ペースは同じ記録日の月次計画平均との差 / 月末目標との差は最新体重ベース"}
       </div>
     </div>
   );

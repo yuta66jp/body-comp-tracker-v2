@@ -35,7 +35,7 @@ import {
   HeartPulse,
 } from "lucide-react";
 import type { WeeklyReviewData, StagnationLevel } from "@/lib/utils/calcWeeklyReview";
-import type { BulkWeeklyPaceState } from "@/lib/utils/bulkWeeklyPlanPace";
+import { formatBulkChange, getBulkPacePresentation } from "./bulkPacePresentation";
 import { DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayTags";
 import { AnalyticsStatusNote } from "@/components/analytics/AnalyticsStatusNote";
 import type { AnalyticsAvailability } from "@/lib/analytics/status";
@@ -162,53 +162,6 @@ const STAGNATION_CONFIG: Record<
   },
 };
 
-const BULK_PACE_CONFIG: Record<
-  BulkWeeklyPaceState,
-  { label: string; color: string; bg: string; icon: typeof CheckCircle2 }
-> = {
-  on_plan: {
-    label: "計画内",
-    color: "text-emerald-600 dark:text-emerald-400",
-    bg: "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-700/50",
-    icon: CheckCircle2,
-  },
-  slow: {
-    label: "増量ペースが緩め",
-    color: "text-amber-700 dark:text-amber-400",
-    bg: "bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-700/50",
-    icon: CircleDot,
-  },
-  slightly_fast: {
-    label: "やや速い",
-    color: "text-amber-700 dark:text-amber-400",
-    bg: "bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:border-amber-700/50",
-    icon: CircleDot,
-  },
-  over_pace: {
-    label: "増量ペース超過",
-    color: "text-rose-700 dark:text-rose-400",
-    bg: "bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-700/50",
-    icon: AlertTriangle,
-  },
-  wrong_direction: {
-    label: "増量方向外",
-    color: "text-rose-700 dark:text-rose-400",
-    bg: "bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-700/50",
-    icon: AlertTriangle,
-  },
-  data_insufficient: {
-    label: "体重記録不足",
-    color: "text-slate-500 dark:text-slate-400",
-    bg: "bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-600",
-    icon: HelpCircle,
-  },
-  plan_check: {
-    label: "月次計画を確認",
-    color: "text-rose-700 dark:text-rose-400",
-    bg: "bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-700/50",
-    icon: AlertTriangle,
-  },
-};
 
 // ─── ヘルパー ────────────────────────────────────────────────────────────────
 
@@ -273,13 +226,8 @@ function StatRow({
 export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
   const isCut = phase !== "Bulk";
   const bulkPlanPace = isCut ? null : data.bulkPlanPace ?? null;
-  const stCfg = bulkPlanPace
-    ? BULK_PACE_CONFIG[bulkPlanPace.state]
-    : STAGNATION_CONFIG[data.stagnation.level];
-  const statusLabel = bulkPlanPace?.state === "data_insufficient" &&
-    bulkPlanPace.dataInsufficientReason === "season_start"
-    ? "判定待ち"
-    : stCfg.label;
+  const stCfg = isCut ? STAGNATION_CONFIG[data.stagnation.level] : getBulkPacePresentation(bulkPlanPace);
+  const statusLabel = stCfg.label;
   const StIcon = stCfg.icon;
 
   const { weight, nutrition, tdee, sleep, quality } = data;
@@ -302,8 +250,8 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
       : TrendingUp;
 
   const trendColor =
-    bulkPlanPace
-      ? stCfg.color
+    !isCut
+      ? bulkPlanPace ? stCfg.color : "text-slate-400"
       : weight.trendKgPerWeek === null
       ? "text-slate-400"
       : (isCut ? weight.trendKgPerWeek < 0 : weight.trendKgPerWeek > 0)
@@ -364,8 +312,8 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
                     : undefined
                 }
                 valueColor={
-                  bulkPlanPace
-                    ? stCfg.color
+                  !isCut
+                    ? bulkPlanPace ? stCfg.color : "text-slate-400"
                     : weight.change === null
                     ? "text-slate-400"
                     : (isCut ? weight.change < -0.05 : weight.change > 0.05)
@@ -379,7 +327,7 @@ export function WeeklyReviewCard({ data, phase, enrichedAvailability }: Props) {
                 bulkPlanPace?.plannedChangeKg !== undefined && (
                   <StatRow
                     label="計画ペース"
-                    value={`${fmtSigned1(bulkPlanPace.plannedChangeKg)} kg/週`}
+                    value={formatBulkChange(bulkPlanPace.plannedChangeKg)}
                     valueColor="text-slate-700 dark:text-slate-300"
                   />
                 )}

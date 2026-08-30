@@ -35,7 +35,7 @@ const metrics: ReadinessMetrics = {
 };
 
 describe("Bulk月次目標の超過表示", () => {
-  it("GoalNavigatorに増量ペース超過と具体的な警告を表示する", () => {
+  it("月末目標超過を週次ペース判定とは分離して表示する", () => {
     const monthlyGoalProgress: MonthlyGoalProgress = {
       hasData: true,
       monthlyTargetWeight: 75.5,
@@ -60,7 +60,9 @@ describe("Bulk月次目標の超過表示", () => {
       />
     );
 
-    expect(screen.getAllByText("増量ペース超過")).toHaveLength(2);
+    expect(screen.getByText("月末目標を超過")).toBeInTheDocument();
+    expect(screen.getByText("月次計画を確認")).toBeInTheDocument();
+    expect(screen.queryByText("増量ペース超過")).not.toBeInTheDocument();
     expect(
       screen.getByText("⚠ 今月末目標を0.8kg上回っています")
     ).toBeInTheDocument();

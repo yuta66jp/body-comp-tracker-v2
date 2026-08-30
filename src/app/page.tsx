@@ -172,9 +172,8 @@ export default async function DashboardPage() {
     goal_weight: goalWeight ?? null,
   });
 
-  // 到達予測 (7日平均 + 30日線形トレンド) — KpiCards と GoalNavigator の共通計算源
-  // KpiCards: goalReachResult を受け取って到達予定日ラベルを表示
-  // GoalNavigator: bufferDays を受け取ってバッファ行を表示
+  // Cutの到達予測 (7日平均 + 30日線形トレンド) — KpiCardsで表示。
+  // BulkのKPI・ナビは下記bulkPlanPaceを使い、早期到達を評価しない。
   const d30Start = addDaysStr(today, -29) ?? today;
   const logByDate30 = new Map(logs.map((l) => [l.log_date, l]));
   const trend30Data = dateRangeStr(d30Start, today)
@@ -348,15 +347,16 @@ export default async function DashboardPage() {
         </p>
       ) : logs.length > 0 ? (
         <>
-          <KpiCards logs={logs} settings={dashboardSettings} avgTdee={latestTdee} currentWeight={readinessMetrics.current_weight} currentSeason={currentSeason} goalReachResult={goalReachResult} bufferDays={bufferDays} />
+          <KpiCards logs={weeklyLogs} settings={dashboardSettings} avgTdee={latestTdee} currentWeight={weeklyReadinessMetrics.current_weight} currentSeason={currentSeason} goalReachResult={goalReachResult} bufferDays={bufferDays} bulkPlanPace={bulkPlanPace} />
           <GoalNavigator
-            metrics={readinessMetrics}
+            metrics={weeklyReadinessMetrics}
             phase={phase}
             goalWeight={goalWeight ?? null}
             contestDate={contestDate ?? null}
             avgCalories={weeklyReview.nutrition.avgCalories}
             monthlyGoalProgress={monthlyGoalProgress}
             currentMonthMinWeight={currentMonthMinWeight}
+            bulkPlanPace={bulkPlanPace}
           />
           <WeeklyReviewCard data={weeklyReview} phase={phase} enrichedAvailability={enrichedAvailability} />
           <DataQualityBadge report={qualityReport} />
