@@ -53,6 +53,7 @@ const season: Season = {
   status: "active",
   endDate: null,
   endWeight: null,
+  monthlyPlanStartDate: "2026-08-29",
   monthlyPlanStartMonth: "2026-08",
   monthlyPlanStartWeight: 70,
   monthlyPlanOverrides: [],
@@ -111,6 +112,25 @@ describe("DashboardPageの週次品質集計", () => {
     expect(kpi.logs.map((log) => log.log_date)).toEqual(["2026-08-29", "2026-08-30"]);
   });
 
+  it("増量計画開始日前のシーズンログをBulk週次評価から除外する", async () => {
+    jest.mocked(fetchSeasons).mockResolvedValue({
+      kind: "ok",
+      data: [{
+        ...season,
+        monthlyPlanStartDate: "2026-08-30",
+        monthlyPlanStartMonth: "2026-08",
+      }],
+    });
+    render(await DashboardPage());
+
+    expect(screen.getByText("品質 100/100（今シーズン1日分）")).toBeInTheDocument();
+    expect(jest.mocked(GoalNavigator).mock.calls[0]![0].bulkPlanPace).toMatchObject({
+      currentWeightDays: 1,
+      previousWeightDays: 0,
+      earliestEvaluationDate: "2026-09-12",
+    });
+  });
+
   it("Bulkの現在体重とナビ基準体重にも旧シーズンの記録を混ぜない", async () => {
     jest.mocked(fetchDashboardDailyLogs).mockResolvedValue({ kind: "ok", data: makeLogs()
       .filter((log) => log.log_date < season.startDate)
@@ -132,7 +152,10 @@ describe("DashboardPageの週次品質集計", () => {
   });
 
   it("開始日以降に2日未記録なら実際の欠損・減点を表示する", async () => {
-    jest.mocked(fetchSeasons).mockResolvedValue({ kind: "ok", data: [{ ...season, startDate: "2026-08-28" }] });
+    jest.mocked(fetchSeasons).mockResolvedValue({
+      kind: "ok",
+      data: [{ ...season, startDate: "2026-08-28", monthlyPlanStartDate: "2026-08-28" }],
+    });
     jest.mocked(fetchDashboardDailyLogs).mockResolvedValue({ kind: "ok", data: makeLogs("2026-08-30") });
     render(await DashboardPage());
 
@@ -158,7 +181,10 @@ describe("DashboardPageの週次品質集計", () => {
   });
 
   it("Bulkの評価対象日が0日なら未評価を表示する", async () => {
-    jest.mocked(fetchSeasons).mockResolvedValue({ kind: "ok", data: [{ ...season, startDate: "2026-08-31" }] });
+    jest.mocked(fetchSeasons).mockResolvedValue({
+      kind: "ok",
+      data: [{ ...season, startDate: "2026-08-31", monthlyPlanStartDate: "2026-08-31" }],
+    });
     render(await DashboardPage());
 
     expect(screen.getByText("品質 未評価（今シーズン0日分）")).toBeInTheDocument();

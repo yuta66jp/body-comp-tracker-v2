@@ -14,6 +14,7 @@ function makeRow(overrides: Partial<SeasonRow> = {}): SeasonRow {
     status: "completed",
     end_date: "2026-03-31",
     end_weight: 74.5,
+    monthly_plan_start_date: "2026-01-01",
     monthly_plan_start_month: "2026-01",
     monthly_plan_start_weight: 70,
     monthly_plan_overrides: [{ month: "2026-02", targetWeight: 72.5 }],
@@ -34,6 +35,7 @@ describe("mapSeasonRow", () => {
 
     expect(season.phase).toBe("Bulk");
     expect(season.startDate).toBe("2026-01-01");
+    expect(season.monthlyPlanStartDate).toBe("2026-01-01");
     expect(season.monthlyPlanOverrides).toEqual([
       { month: "2026-02", targetWeight: 72.5 },
     ]);

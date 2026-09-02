@@ -35,6 +35,7 @@ const activeSeason: Season = {
   status: "active",
   endDate: null,
   endWeight: null,
+  monthlyPlanStartDate: "2026-03-01",
   monthlyPlanStartMonth: "2026-03",
   monthlyPlanStartWeight: 75,
   monthlyPlanOverrides: [],

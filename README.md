@@ -141,7 +141,8 @@ ForecastChart（`src/components/charts/ForecastChart.tsx`）は 3 タブ（7日 
 - 読み取りは typed domain model（AppSettings）に変換して利用
 - UI integration test（jsdom）で保存導線・fallback 導線を自動検証
 - **月次目標計画セクション（MonthlyGoalPlanSection）**: `buildMonthlyGoalPlan` を使い、大会日・目標体重から月末目標を自動配分してプレビュー表示
-  - 進行中 `season` の開始日・開始月・開始体重・目標を計画入力として使用する
+  - 進行中 `season` の計画開始日・開始月・開始体重・目標を計画入力として使用する
+  - Bulkはシーズン開始日以降の体重記録日を増量計画開始日に選べる。開始体重は同日の記録から自動設定し、それ以前を体重調整期間として評価から除外する
   - 各月を手動 override すると、その月の目標体重が固定され、残余 kg が後続月に線形再配分される
   - override 済み月には「解除」ボタンを表示。解除すると override 配列から削除され `buildMonthlyGoalPlan` が再計算する
   - override は upsert 方式で管理: 既存 override を上書きし、他月の override を消さない

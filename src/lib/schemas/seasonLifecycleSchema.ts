@@ -32,6 +32,12 @@ export interface SeasonPlanOverridesInput {
   resetAll: boolean;
 }
 
+export interface SeasonPlanStartInput {
+  expectedActiveSeasonId: number;
+  expectedActiveSeasonUpdatedAt: string;
+  planStartDate: string;
+}
+
 export interface CompletedSeasonEditInput {
   expectedCompletedSeasonId: number;
   expectedCompletedSeasonUpdatedAt: string;
@@ -302,6 +308,48 @@ export function parseSeasonGoalInput(
       targetWeight,
       expectedActiveSeasonId,
       expectedActiveSeasonUpdatedAt,
+    },
+  };
+}
+
+export function parseSeasonPlanStartInput(
+  input: SeasonPlanStartInput,
+  today: string
+): ValidationResult<SeasonPlanStartInput> {
+  const errors: SeasonLifecycleValidationError[] = [];
+  const expectedActiveSeasonId = validateExpectedSeasonId(
+    input.expectedActiveSeasonId,
+    false,
+    errors
+  );
+  const expectedActiveSeasonUpdatedAt = validateExpectedSeasonUpdatedAt(
+    input.expectedActiveSeasonUpdatedAt,
+    false,
+    errors
+  );
+  const planStartDate = validateDate(
+    "planStartDate",
+    input.planStartDate,
+    "増量計画開始日",
+    errors
+  );
+  if (planStartDate !== null && planStartDate > today) {
+    errors.push({ field: "planStartDate", message: "増量計画開始日は今日以前にしてください" });
+  }
+  if (
+    errors.length > 0 ||
+    expectedActiveSeasonId === null ||
+    expectedActiveSeasonUpdatedAt === null ||
+    planStartDate === null
+  ) {
+    return { ok: false, errors };
+  }
+  return {
+    ok: true,
+    data: {
+      expectedActiveSeasonId,
+      expectedActiveSeasonUpdatedAt,
+      planStartDate,
     },
   };
 }

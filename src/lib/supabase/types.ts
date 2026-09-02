@@ -554,6 +554,7 @@ export type Database = {
           id: number
           monthly_plan_overrides: Json
           monthly_plan_snapshot: Json | null
+          monthly_plan_start_date: string | null
           monthly_plan_start_month: string | null
           monthly_plan_start_weight: number | null
           name: string
@@ -573,6 +574,7 @@ export type Database = {
           id?: number
           monthly_plan_overrides?: Json
           monthly_plan_snapshot?: Json | null
+          monthly_plan_start_date?: string | null
           monthly_plan_start_month?: string | null
           monthly_plan_start_weight?: number | null
           name: string
@@ -592,6 +594,7 @@ export type Database = {
           id?: number
           monthly_plan_overrides?: Json
           monthly_plan_snapshot?: Json | null
+          monthly_plan_start_date?: string | null
           monthly_plan_start_month?: string | null
           monthly_plan_start_weight?: number | null
           name?: string
@@ -666,6 +669,14 @@ export type Database = {
           p_expected_active_season_updated_at: string
           p_overrides: Json
           p_reset_all: boolean
+        }
+        Returns: number
+      }
+      update_active_season_plan_start: {
+        Args: {
+          p_expected_active_season_id: number
+          p_expected_active_season_updated_at: string
+          p_plan_start_date: string
         }
         Returns: number
       }

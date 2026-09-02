@@ -3,6 +3,7 @@ import {
   parseSeasonEndInput,
   parseSeasonGoalInput,
   parseSeasonPlanOverridesInput,
+  parseSeasonPlanStartInput,
   parseSeasonStartInput,
 } from "./seasonLifecycleSchema";
 
@@ -132,5 +133,31 @@ describe("parseSeasonPlanOverridesInput", () => {
   it("全件リセットでは空配列だけを受け入れる", () => {
     expect(parseSeasonPlanOverridesInput({ ...base, overrides: [], resetAll: true })).toMatchObject({ ok: true });
     expect(parseSeasonPlanOverridesInput({ ...base, resetAll: true })).toMatchObject({ ok: false });
+  });
+});
+
+describe("parseSeasonPlanStartInput", () => {
+  const valid = {
+    expectedActiveSeasonId: 1,
+    expectedActiveSeasonUpdatedAt: "2026-04-01T00:00:00Z",
+    planStartDate: "2026-04-01",
+  };
+
+  it("今日以前の実在日を受け入れる", () => {
+    expect(parseSeasonPlanStartInput(valid, "2026-04-01")).toEqual({
+      ok: true,
+      data: valid,
+    });
+  });
+
+  it("未来日と不正日付を拒否する", () => {
+    expect(parseSeasonPlanStartInput(
+      { ...valid, planStartDate: "2026-04-02" },
+      "2026-04-01"
+    )).toMatchObject({ ok: false, errors: [{ field: "planStartDate" }] });
+    expect(parseSeasonPlanStartInput(
+      { ...valid, planStartDate: "2026-02-30" },
+      "2026-04-01"
+    )).toMatchObject({ ok: false, errors: [{ field: "planStartDate" }] });
   });
 });

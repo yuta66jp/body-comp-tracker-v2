@@ -51,6 +51,7 @@ export function validateBulkMonthlyPlanLimit(input: {
   phase: string;
   startDate: string;
   startWeight: number;
+  planStartDate?: string | null;
   targetDate: string;
   targetWeight: number;
   planStartMonth?: string | null;
@@ -61,9 +62,9 @@ export function validateBulkMonthlyPlanLimit(input: {
 
   const plan = buildMonthlyGoalPlan({
     currentWeight: input.planStartWeight ?? input.startWeight,
-    today: input.startDate,
+    today: input.planStartDate ?? input.startDate,
     planStartMonth: input.planStartMonth ?? input.startDate.slice(0, 7),
-    planStartDate: input.startDate,
+    planStartDate: input.planStartDate ?? input.startDate,
     phase: input.phase,
     finalGoalWeight: input.targetWeight,
     goalDeadlineDate: input.targetDate,
@@ -73,7 +74,7 @@ export function validateBulkMonthlyPlanLimit(input: {
   if (!plan.isValid) return [];
 
   return findBulkMonthlyGainLimitViolations({
-    startDate: input.startDate,
+    startDate: input.planStartDate ?? input.startDate,
     targetDate: input.targetDate,
     entries: plan.entries,
   });

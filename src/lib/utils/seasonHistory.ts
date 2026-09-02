@@ -172,6 +172,7 @@ export function buildSeasonHistoryData(
           phase: season.phase,
           startDate: season.startDate,
           startWeight: season.startWeight,
+          planStartDate: season.monthlyPlanStartDate ?? season.startDate,
           targetDate: season.targetDate,
           targetWeight: season.targetWeight,
           planStartMonth: season.monthlyPlanStartMonth,

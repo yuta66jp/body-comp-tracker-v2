@@ -47,6 +47,7 @@ function season(id: number, name: string, phase: "Cut" | "Bulk", status: "active
     status,
     endDate: status === "completed" ? `202${id}-06-30` : null,
     endWeight: status === "completed" ? (phase === "Cut" ? 68 : 75) : null,
+    monthlyPlanStartDate: `202${id}-01-01`,
     monthlyPlanStartMonth: `202${id}-01`,
     monthlyPlanStartWeight: phase === "Cut" ? 75 : 70,
     monthlyPlanOverrides: [],

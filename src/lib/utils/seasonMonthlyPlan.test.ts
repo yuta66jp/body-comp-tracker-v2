@@ -6,6 +6,7 @@ import {
 const season = {
   startDate: "2026-03-15",
   startWeight: 75,
+  planStartDate: "2026-03-15",
   targetDate: "2026-06-30",
   targetWeight: 69,
   planStartMonth: "2026-03",
@@ -115,5 +116,28 @@ describe("buildSeasonMonthlyPlanSnapshot", () => {
       actualWeight: 73.5,
     });
     expect(snapshot.every((entry) => entry.requiredDeltaKg >= 0)).toBe(true);
+  });
+
+  it("増量計画開始日前の体重を月末実績へ混入させない", () => {
+    const snapshot = buildSeasonMonthlyPlanSnapshot(
+      {
+        ...season,
+        phase: "Bulk",
+        planStartDate: "2026-04-15",
+        planStartMonth: "2026-04",
+        planStartWeight: 70,
+        targetWeight: 72,
+        overrides: [],
+      },
+      [
+        { log_date: "2026-04-10", weight: 75 },
+      ],
+      "2026-04-30"
+    );
+
+    expect(snapshot[0]).toMatchObject({
+      month: "2026-04",
+      actualWeight: null,
+    });
   });
 });

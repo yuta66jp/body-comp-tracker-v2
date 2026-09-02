@@ -220,11 +220,12 @@ export default async function DashboardPage() {
   const currentMonthMinWeight = currentMonthWeights.length > 0
     ? Math.min(...currentMonthWeights)
     : null;
+  const monthlyPlanStartDate = activeSeason?.monthlyPlanStartDate ?? activeSeason?.startDate ?? null;
   const monthlyGoalProgress = calcMonthlyGoalProgress({
     contestDate: contestDate ?? null,
     targetWeight: goalWeight ?? null,
     monthlyPlanStartMonth: activeSeason?.monthlyPlanStartMonth ?? null,
-    monthlyPlanStartDate: activeSeason?.startDate ?? null,
+    monthlyPlanStartDate,
     monthlyPlanStartWeight: activeSeason?.monthlyPlanStartWeight ?? null,
     monthlyPlanOverrides: activeSeason?.monthlyPlanOverrides ?? [],
     comparisonWeight,
@@ -243,7 +244,7 @@ export default async function DashboardPage() {
           currentWeight: activeSeason.monthlyPlanStartWeight,
           today,
           planStartMonth: activeSeason.monthlyPlanStartMonth,
-          planStartDate: activeSeason.startDate,
+          planStartDate: monthlyPlanStartDate,
           phase: activeSeason.phase,
           finalGoalWeight: goalWeight,
           goalDeadlineDate: contestDate,
@@ -254,7 +255,10 @@ export default async function DashboardPage() {
 
   // Bulkの週次評価は進行中シーズン内のログと月次計画だけを使う。
   // Cutから切り替えた直後に過去シーズンの減量ログを混ぜない。
-  const weeklyLogs = phase === "Bulk" ? activeSeasonLogs : logs;
+  const bulkEvaluationLogs = monthlyPlanStartDate
+    ? activeSeasonLogs.filter((log) => log.log_date >= monthlyPlanStartDate)
+    : activeSeasonLogs;
+  const weeklyLogs = phase === "Bulk" ? bulkEvaluationLogs : logs;
   const weeklyReadinessMetrics = phase === "Bulk"
     ? calcReadiness(
         weeklyLogs,
@@ -266,7 +270,7 @@ export default async function DashboardPage() {
       )
     : readinessMetrics;
   const weeklyQualityReport = phase === "Bulk"
-    ? calcDataQuality(weeklyLogs, today, { startDate: activeSeason?.startDate })
+    ? calcDataQuality(weeklyLogs, today, { startDate: monthlyPlanStartDate ?? undefined })
     : qualityReport;
   const bulkPlanPace =
     phase === "Bulk" &&
@@ -274,11 +278,11 @@ export default async function DashboardPage() {
     monthlyGoalPlan?.isValid &&
     monthlyGoalPlan.entries.length > 0
       ? calcBulkWeeklyPlanPace({
-          startDate: activeSeason.startDate,
+          startDate: monthlyPlanStartDate!,
           startWeight: activeSeason.monthlyPlanStartWeight!,
           targetDate: activeSeason.targetDate,
           entries: monthlyGoalPlan.entries,
-          logs: activeSeasonLogs,
+          logs: bulkEvaluationLogs,
           today,
         })
       : null;
