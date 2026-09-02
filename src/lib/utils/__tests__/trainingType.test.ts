@@ -3,6 +3,7 @@ import {
   isValidTrainingType,
   isValidWorkMode,
   formatConditionSummary,
+  TRAINING_TYPE_INPUT_ORDER,
   TRAINING_TYPES,
   WORK_MODES,
 } from "../trainingType";
@@ -40,6 +41,26 @@ describe("TRAINING_TYPES と DB 制約の整合", () => {
     expect(isValidTrainingType("legs")).toBe(false);
     expect(isValidTrainingType("")).toBe(false);
     expect(isValidTrainingType("OFF")).toBe(false);
+  });
+});
+
+describe("TRAINING_TYPE_INPUT_ORDER", () => {
+  test("食事ログの指定順で定義されている", () => {
+    expect(TRAINING_TYPE_INPUT_ORDER).toEqual([
+      "chest",
+      "back",
+      "arms",
+      "shoulders",
+      "glutes_hamstrings",
+      "quads",
+      "off",
+    ]);
+  });
+
+  test("TRAINING_TYPES の全許可値を重複・欠落なく含む", () => {
+    expect([...new Set(TRAINING_TYPE_INPUT_ORDER)].sort()).toEqual(
+      [...TRAINING_TYPES].sort(),
+    );
   });
 });
 
