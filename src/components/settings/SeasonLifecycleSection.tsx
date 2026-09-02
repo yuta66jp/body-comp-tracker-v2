@@ -115,6 +115,7 @@ export function SeasonLifecycleSection({
         phase: initialSeason.phase,
         startDate: initialSeason.startDate,
         startWeight: initialSeason.startWeight,
+        planStartDate: initialSeason.monthlyPlanStartDate ?? initialSeason.startDate,
         targetDate: initialSeason.targetDate,
         targetWeight: initialSeason.targetWeight,
         planStartMonth: initialSeason.monthlyPlanStartMonth,

@@ -14,6 +14,7 @@ const completedCut: Season = {
   status: "completed",
   endDate: "2026-03-31",
   endWeight: 69.9,
+  monthlyPlanStartDate: "2026-01-01",
   monthlyPlanStartMonth: "2026-01",
   monthlyPlanStartWeight: 75,
   monthlyPlanOverrides: [],

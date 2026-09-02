@@ -16,6 +16,7 @@ export interface Season {
   status: SeasonStatus;
   endDate: string | null;
   endWeight: number | null;
+  monthlyPlanStartDate: string | null;
   monthlyPlanStartMonth: string | null;
   monthlyPlanStartWeight: number | null;
   monthlyPlanOverrides: MonthlyGoalOverride[];
@@ -112,6 +113,7 @@ export function mapSeasonRow(row: SeasonRow): Season {
     status: row.status,
     endDate: row.end_date,
     endWeight: row.end_weight,
+    monthlyPlanStartDate: row.monthly_plan_start_date,
     monthlyPlanStartMonth: row.monthly_plan_start_month,
     monthlyPlanStartWeight: row.monthly_plan_start_weight,
     monthlyPlanOverrides: parseMonthlyPlanOverrides(row.monthly_plan_overrides),

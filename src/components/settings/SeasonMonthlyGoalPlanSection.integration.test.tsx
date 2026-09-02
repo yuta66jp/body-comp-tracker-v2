@@ -7,13 +7,15 @@ const mockRefresh = jest.fn();
 jest.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
 jest.mock("@/app/settings/seasonActions", () => ({
   saveSeasonPlanOverrides: jest.fn(),
+  updateSeasonPlanStart: jest.fn(),
 }));
 
-import { saveSeasonPlanOverrides } from "@/app/settings/seasonActions";
+import { saveSeasonPlanOverrides, updateSeasonPlanStart } from "@/app/settings/seasonActions";
 import { SeasonMonthlyGoalPlanSection } from "./SeasonMonthlyGoalPlanSection";
 import type { Season } from "@/lib/domain/season";
 
 const mockSave = saveSeasonPlanOverrides as jest.MockedFunction<typeof saveSeasonPlanOverrides>;
+const mockPlanStart = updateSeasonPlanStart as jest.MockedFunction<typeof updateSeasonPlanStart>;
 
 const activeSeason: Season = {
   id: 20,
@@ -27,6 +29,7 @@ const activeSeason: Season = {
   status: "active",
   endDate: null,
   endWeight: null,
+  monthlyPlanStartDate: "2026-03-15",
   monthlyPlanStartMonth: "2026-03",
   monthlyPlanStartWeight: 75,
   monthlyPlanOverrides: [{ month: "2026-05", targetWeight: 71 }],
@@ -39,6 +42,7 @@ describe("SeasonMonthlyGoalPlanSection", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSave.mockResolvedValue({ ok: true });
+    mockPlanStart.mockResolvedValue({ ok: true });
   });
 
   it("進行中シーズンの計画開始情報を読み取り専用で表示する", () => {
@@ -132,5 +136,55 @@ describe("SeasonMonthlyGoalPlanSection", () => {
     expect(screen.getByRole("button", { name: "手動設定を保存" })).toBeDisabled();
     expect(screen.getByText(/上限を超えるため、手動設定を保存できません/)).toBeInTheDocument();
     expect(mockSave).not.toHaveBeenCalled();
+  });
+
+  it("Bulkの増量計画開始日は同日の記録体重を表示して保存する", async () => {
+    const bulkSeason: Season = {
+      ...activeSeason,
+      name: "2026_Bulk",
+      phase: "Bulk",
+      startDate: "2026-03-15",
+      monthlyPlanStartDate: "2026-03-15",
+      targetWeight: 75.5,
+      monthlyPlanOverrides: [],
+    };
+    render(
+      <SeasonMonthlyGoalPlanSection
+        initialSeason={bulkSeason}
+        weightLogs={[
+          { log_date: "2026-03-15", weight: 75 },
+          { log_date: "2026-04-01", weight: 73.5 },
+        ]}
+        today="2026-04-01"
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("増量計画開始日"), {
+      target: { value: "2026-04-01" },
+    });
+    expect(screen.getByText("73.5 kg")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "開始日を保存" }));
+
+    await waitFor(() => expect(mockPlanStart).toHaveBeenCalledWith({
+      expectedActiveSeasonId: 20,
+      expectedActiveSeasonUpdatedAt: activeSeason.updatedAt,
+      planStartDate: "2026-04-01",
+    }));
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("記録のない日は増量計画開始日として保存できない", () => {
+    render(
+      <SeasonMonthlyGoalPlanSection
+        initialSeason={{ ...activeSeason, phase: "Bulk", monthlyPlanOverrides: [] }}
+        weightLogs={[]}
+        today="2026-04-01"
+      />
+    );
+    fireEvent.change(screen.getByLabelText("増量計画開始日"), {
+      target: { value: "2026-04-01" },
+    });
+    expect(screen.getByText("体重を記録した日を選択してください。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "開始日を保存" })).toBeDisabled();
   });
 });

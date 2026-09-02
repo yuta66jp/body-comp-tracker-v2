@@ -11,6 +11,7 @@ export interface SeasonMonthlyPlanInput {
   phase?: string;
   startDate: string;
   startWeight: number;
+  planStartDate: string;
   targetDate: string;
   targetWeight: number;
   planStartMonth: string;
@@ -45,9 +46,9 @@ export function previewSeasonGoalChange(
   );
   const plan = buildMonthlyGoalPlan({
     currentWeight: season.planStartWeight,
-    today: season.startDate,
+    today: season.planStartDate,
     planStartMonth: season.planStartMonth,
-    planStartDate: season.startDate,
+    planStartDate: season.planStartDate,
     phase: season.phase,
     finalGoalWeight: targetWeight,
     goalDeadlineDate: targetDate,
@@ -68,7 +69,7 @@ export function buildSeasonMonthlyPlanSnapshot(
   for (const log of logs) {
     if (
       log.weight === null ||
-      log.log_date < season.startDate ||
+      log.log_date < season.planStartDate ||
       log.log_date > snapshotDate
     ) {
       continue;
@@ -82,9 +83,9 @@ export function buildSeasonMonthlyPlanSnapshot(
 
   const plan = buildMonthlyGoalPlan({
     currentWeight: season.planStartWeight,
-    today: season.startDate,
+    today: season.planStartDate,
     planStartMonth: season.planStartMonth,
-    planStartDate: season.startDate,
+    planStartDate: season.planStartDate,
     phase: season.phase,
     finalGoalWeight: season.targetWeight,
     goalDeadlineDate: season.targetDate,

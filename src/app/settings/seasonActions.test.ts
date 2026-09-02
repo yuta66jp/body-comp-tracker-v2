@@ -13,6 +13,7 @@ import {
   saveSeasonPlanOverrides,
   startOrSwitchSeason,
   updateSeasonGoal,
+  updateSeasonPlanStart,
 } from "./seasonActions";
 import { revalidateAfterSettingsMutation } from "@/lib/cache/revalidate";
 import { createClient, requireCurrentUser } from "@/lib/supabase/server";
@@ -23,6 +24,7 @@ const mockRpc = jest.fn();
 const mockSeasonMaybeSingle = jest.fn();
 const mockLogOrder = jest.fn();
 const mockStartLogMaybeSingle = jest.fn();
+const mockPlanStartLogMaybeSingle = jest.fn();
 const mockFrom = jest.fn((table: string) => {
   if (table === "seasons") {
     return {
@@ -33,6 +35,7 @@ const mockFrom = jest.fn((table: string) => {
   }
   return {
     select: () => ({
+      eq: () => ({ maybeSingle: mockPlanStartLogMaybeSingle }),
       gte: () => ({ lte: () => ({ order: mockLogOrder }) }),
       lte: () => ({
         not: () => ({
@@ -59,6 +62,7 @@ describe("season lifecycle actions", () => {
         start_weight: 75,
         target_date: "2026-06-30",
         target_weight: 69,
+        monthly_plan_start_date: "2026-03-01",
         monthly_plan_start_month: "2026-03",
         monthly_plan_start_weight: 75,
         monthly_plan_overrides: [],
@@ -71,6 +75,10 @@ describe("season lifecycle actions", () => {
       error: null,
     });
     mockStartLogMaybeSingle.mockResolvedValue({
+      data: { weight: 75 },
+      error: null,
+    });
+    mockPlanStartLogMaybeSingle.mockResolvedValue({
       data: { weight: 75 },
       error: null,
     });
@@ -192,6 +200,69 @@ describe("season lifecycle actions", () => {
       p_expected_active_season_updated_at: updatedAt,
       p_overrides: [{ month: "2026-04", targetWeight: 72 }],
       p_reset_all: false,
+    });
+  });
+
+  it("増量計画開始日は専用RPCで保存する", async () => {
+    mockSeasonMaybeSingle.mockResolvedValueOnce({
+      data: {
+        id: 1,
+        phase: "Bulk",
+        start_date: "2026-03-01",
+        start_weight: 75,
+        target_date: "2026-06-30",
+        target_weight: 76,
+        monthly_plan_start_date: "2026-03-01",
+        monthly_plan_start_month: "2026-03",
+        monthly_plan_start_weight: 75,
+        monthly_plan_overrides: [],
+        updated_at: updatedAt,
+      },
+      error: null,
+    });
+    await expect(updateSeasonPlanStart({
+      expectedActiveSeasonId: 1,
+      expectedActiveSeasonUpdatedAt: updatedAt,
+      planStartDate: "2026-04-01",
+    })).resolves.toEqual({ ok: true });
+
+    expect(mockRpc).toHaveBeenCalledWith("update_active_season_plan_start", {
+      p_expected_active_season_id: 1,
+      p_expected_active_season_updated_at: updatedAt,
+      p_plan_start_date: "2026-04-01",
+    });
+  });
+
+  it("増量計画開始日に体重記録がなければ案内を返す", async () => {
+    mockSeasonMaybeSingle.mockResolvedValueOnce({
+      data: {
+        id: 1,
+        phase: "Bulk",
+        start_date: "2026-03-01",
+        start_weight: 75,
+        target_date: "2026-06-30",
+        target_weight: 76,
+        monthly_plan_start_date: "2026-03-01",
+        monthly_plan_start_month: "2026-03",
+        monthly_plan_start_weight: 75,
+        monthly_plan_overrides: [],
+        updated_at: updatedAt,
+      },
+      error: null,
+    });
+    mockPlanStartLogMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: "P0001", message: "season_plan_start_weight_missing" },
+    });
+    await expect(updateSeasonPlanStart({
+      expectedActiveSeasonId: 1,
+      expectedActiveSeasonUpdatedAt: updatedAt,
+      planStartDate: "2026-04-01",
+    })).resolves.toEqual({
+      ok: false,
+      error: "選択日の体重記録がありません。体重を記録した日を選択してください。",
+      reason: "validation",
     });
   });
 

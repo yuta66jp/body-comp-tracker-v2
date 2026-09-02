@@ -6,6 +6,7 @@ import {
   parseSeasonEndInput,
   parseSeasonGoalInput,
   parseSeasonPlanOverridesInput,
+  parseSeasonPlanStartInput,
   parseSeasonStartInput,
 } from "@/lib/schemas/seasonLifecycleSchema";
 import type {
@@ -13,6 +14,7 @@ import type {
   SeasonGoalInput,
   SeasonLifecycleValidationError,
   SeasonPlanOverridesInput,
+  SeasonPlanStartInput,
   SeasonStartInput,
 } from "@/lib/schemas/seasonLifecycleSchema";
 import { createClient, requireCurrentUser } from "@/lib/supabase/server";
@@ -46,6 +48,18 @@ function databaseError(error: { code?: string; message: string }): SeasonLifecyc
   const message = error.message;
   if (message.includes("season_start_weight_missing")) {
     return { ok: false, error: "開始日時点の体重記録がありません。先に体重を記録してください。" };
+  }
+  if (message.includes("season_plan_start_weight_missing")) {
+    return { ok: false, error: "選択日の体重記録がありません。体重を記録した日を選択してください。", reason: "validation" };
+  }
+  if (message.includes("season_plan_start_date_invalid")) {
+    return { ok: false, error: "増量計画開始日はシーズン開始日から今日までの範囲で選択してください。", reason: "validation" };
+  }
+  if (message.includes("season_plan_start_bulk_only")) {
+    return { ok: false, error: "増量計画開始日はBulkシーズンでのみ変更できます。", reason: "validation" };
+  }
+  if (message.includes("season_plan_start_log_required")) {
+    return { ok: false, error: "増量計画開始日の体重記録は削除できません。先に開始日を変更してください。", reason: "validation" };
   }
   if (message.includes("active_season_not_found")) {
     return { ok: false, error: "進行中のシーズンが見つかりません。画面を再読み込みしてください。", reason: "conflict" };
@@ -93,6 +107,7 @@ interface SnapshotSeasonRow {
   start_weight: number;
   target_date: string;
   target_weight: number | null;
+  monthly_plan_start_date: string | null;
   monthly_plan_start_month: string | null;
   monthly_plan_start_weight: number | null;
   monthly_plan_overrides: Json;
@@ -100,7 +115,7 @@ interface SnapshotSeasonRow {
 }
 
 function bulkLimitValidationResult(
-  field: "targetWeight" | "overrides",
+  field: "targetWeight" | "overrides" | "planStartDate",
   months: string[]
 ): SeasonLifecycleResult {
   return validationError([{
@@ -117,14 +132,15 @@ async function validateActiveBulkPlan(
     targetDate?: string;
     targetWeight?: number;
     overrides?: Array<{ month: string; targetWeight: number }>;
-    field: "targetWeight" | "overrides";
+    planStartDate?: string;
+    field: "targetWeight" | "overrides" | "planStartDate";
   }
 ): Promise<SeasonLifecycleResult | null> {
   const { data, error } = await supabase
     .from("seasons")
     .select(
       "id, phase, start_date, start_weight, target_date, target_weight, " +
-      "monthly_plan_start_month, monthly_plan_start_weight, monthly_plan_overrides, updated_at"
+      "monthly_plan_start_date, monthly_plan_start_month, monthly_plan_start_weight, monthly_plan_overrides, updated_at"
     )
     .eq("id", input.seasonId)
     .eq("status", "active")
@@ -147,14 +163,33 @@ async function validateActiveBulkPlan(
     return databaseError({ message: "season_plan_snapshot_invalid" });
   }
 
+  let planStartDate = season.monthly_plan_start_date ?? season.start_date;
+  let planStartWeight = season.monthly_plan_start_weight;
+  if (input.planStartDate) {
+    const { data: startLog, error: startLogError } = await supabase
+      .from("daily_logs")
+      .select("weight")
+      .eq("log_date", input.planStartDate)
+      .maybeSingle();
+    if (startLogError) return databaseError(startLogError);
+    if (startLog?.weight === null || startLog?.weight === undefined) {
+      return databaseError({ message: "season_plan_start_weight_missing" });
+    }
+    planStartDate = input.planStartDate;
+    planStartWeight = startLog.weight;
+  }
+
   const violations = validateBulkMonthlyPlanLimit({
     phase: season.phase,
     startDate: season.start_date,
     startWeight: season.start_weight,
+    planStartDate,
     targetDate: input.targetDate ?? season.target_date,
     targetWeight: input.targetWeight ?? season.target_weight,
-    planStartMonth: season.monthly_plan_start_month,
-    planStartWeight: season.monthly_plan_start_weight,
+    planStartMonth: input.planStartDate
+      ? input.planStartDate.slice(0, 7)
+      : season.monthly_plan_start_month,
+    planStartWeight,
     overrides: input.overrides ?? parseOverrides(season.monthly_plan_overrides),
   });
   return violations.length > 0
@@ -182,7 +217,7 @@ async function preparePlanSnapshot(
     .from("seasons")
     .select(
       "id, start_date, start_weight, target_date, target_weight, " +
-      "phase, monthly_plan_start_month, monthly_plan_start_weight, monthly_plan_overrides, updated_at"
+      "phase, monthly_plan_start_date, monthly_plan_start_month, monthly_plan_start_weight, monthly_plan_overrides, updated_at"
     )
     .eq("id", seasonId)
     .eq("status", "active")
@@ -223,6 +258,7 @@ async function preparePlanSnapshot(
       phase: season.phase,
       startDate: season.start_date,
       startWeight: season.start_weight,
+      planStartDate: season.monthly_plan_start_date ?? season.start_date,
       targetDate: season.target_date,
       targetWeight: season.target_weight,
       planStartMonth: season.monthly_plan_start_month,
@@ -400,6 +436,34 @@ export async function saveSeasonPlanOverrides(
     p_expected_active_season_updated_at: parsed.data.expectedActiveSeasonUpdatedAt,
     p_overrides: parsed.data.overrides as unknown as Json,
     p_reset_all: parsed.data.resetAll,
+  });
+  if (error) return databaseError(error);
+
+  revalidateAfterSettingsMutation();
+  return { ok: true };
+}
+
+export async function updateSeasonPlanStart(
+  input: SeasonPlanStartInput
+): Promise<SeasonLifecycleResult> {
+  const parsed = parseSeasonPlanStartInput(input, toJstDateStr());
+  if (!parsed.ok) return validationError(parsed.errors);
+
+  const authError = await requireAuth();
+  if (authError) return authError;
+
+  const supabase = await createClient();
+  const bulkValidationError = await validateActiveBulkPlan(supabase, {
+    seasonId: parsed.data.expectedActiveSeasonId,
+    expectedUpdatedAt: parsed.data.expectedActiveSeasonUpdatedAt,
+    planStartDate: parsed.data.planStartDate,
+    field: "planStartDate",
+  });
+  if (bulkValidationError) return bulkValidationError;
+  const { error } = await supabase.rpc("update_active_season_plan_start", {
+    p_expected_active_season_id: parsed.data.expectedActiveSeasonId,
+    p_expected_active_season_updated_at: parsed.data.expectedActiveSeasonUpdatedAt,
+    p_plan_start_date: parsed.data.planStartDate,
   });
   if (error) return databaseError(error);
 
