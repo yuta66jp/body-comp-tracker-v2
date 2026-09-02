@@ -3,6 +3,11 @@
 ALTER TABLE public.seasons
   ADD COLUMN IF NOT EXISTS monthly_plan_start_date DATE;
 
+-- 終了済みシーズンも既存の開始月・開始体重を変更せず日付列だけ補完する。
+-- lifecycle triggerはcompleted rowの全UPDATEを拒否するため、backfill中だけ停止する。
+ALTER TABLE public.seasons
+  DISABLE TRIGGER enforce_season_lifecycle_immutability;
+
 UPDATE public.seasons
 SET monthly_plan_start_date = GREATEST(
   start_date,
@@ -11,6 +16,9 @@ SET monthly_plan_start_date = GREATEST(
 WHERE monthly_plan_start_date IS NULL
   AND monthly_plan_start_month IS NOT NULL
   AND monthly_plan_start_weight IS NOT NULL;
+
+ALTER TABLE public.seasons
+  ENABLE TRIGGER enforce_season_lifecycle_immutability;
 
 DO $$
 BEGIN
