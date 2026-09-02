@@ -22,6 +22,17 @@ export const TRAINING_TYPES = [
 
 export type TrainingType = typeof TRAINING_TYPES[number];
 
+/** 食事ログのトレーニング部位チップ表示順 */
+export const TRAINING_TYPE_INPUT_ORDER = [
+  "chest",
+  "back",
+  "arms",
+  "shoulders",
+  "glutes_hamstrings",
+  "quads",
+  "off",
+] as const satisfies readonly TrainingType[];
+
 export const TRAINING_TYPE_LABELS: Record<TrainingType, string> = {
   off:               "オフ",
   chest:             "胸",

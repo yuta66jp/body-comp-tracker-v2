@@ -17,7 +17,7 @@ import {
   emptyTagState,
 } from "@/lib/utils/dayTags";
 import {
-  TRAINING_TYPES,
+  TRAINING_TYPE_INPUT_ORDER,
   TRAINING_TYPE_LABELS,
   WORK_MODES,
   WORK_MODE_LABELS,
@@ -643,7 +643,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       <div>
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">トレーニング部位</p>
         <div className="flex flex-wrap gap-2">
-          {TRAINING_TYPES.map((type) => (
+          {TRAINING_TYPE_INPUT_ORDER.map((type) => (
             <button
               key={type}
               type="button"
