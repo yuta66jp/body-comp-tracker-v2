@@ -12,7 +12,7 @@ import {
 //
 // DB の daily_logs_training_type_check 制約が許可する値と TRAINING_TYPES が一致すること。
 // TRAINING_TYPES を変更する際は、対応する migration も更新すること。
-// 参照: supabase/migrations/20260316000000_fix_training_type_check_add_off.sql
+// 参照: supabase/migrations/20260902000000_add_arms_to_training_type_check.sql
 // ════════════════════════════════════════════════════════════════════════════
 
 const DB_ALLOWED_TRAINING_TYPES = [
@@ -20,6 +20,7 @@ const DB_ALLOWED_TRAINING_TYPES = [
   "chest",
   "back",
   "shoulders",
+  "arms",
   "glutes_hamstrings",
   "quads",
 ] as const;
@@ -65,6 +66,10 @@ describe("deriveLegFlag", () => {
 
   test("shoulders → false (非レッグ日)", () => {
     expect(deriveLegFlag("shoulders")).toBe(false);
+  });
+
+  test("arms → false (非レッグ日)", () => {
+    expect(deriveLegFlag("arms")).toBe(false);
   });
 
   test("off → false (オフ日 = 非レッグ日と確定)", () => {
@@ -114,7 +119,7 @@ describe("isValidTrainingType", () => {
     expect(isValidTrainingType("legs")).toBe(false);
     expect(isValidTrainingType("")).toBe(false);
     expect(isValidTrainingType("CHEST")).toBe(false);
-    expect(isValidTrainingType("arms")).toBe(false);
+    expect(isValidTrainingType("arm")).toBe(false);
   });
 });
 
@@ -201,6 +206,7 @@ describe("formatConditionSummary", () => {
       ["chest",             "胸"],
       ["back",              "背中"],
       ["shoulders",         "肩"],
+      ["arms",              "腕"],
       ["glutes_hamstrings", "ハム・ケツ"],
       ["quads",             "四頭"],
     ];

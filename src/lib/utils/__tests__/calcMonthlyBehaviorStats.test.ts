@@ -73,12 +73,14 @@ describe("calcMonthlyBehaviorStats", () => {
         makeLog("2026-03-02", { training_type: "chest" }),
         makeLog("2026-03-03", { training_type: "back" }),
         makeLog("2026-03-04", { training_type: "off" }),
+        makeLog("2026-03-05", { training_type: "arms" }),
       ];
       const result = calcMonthlyBehaviorStats(logs);
       expect(result[0]!.trainingCounts).toEqual({
         chest: 2,
         back: 1,
         off: 1,
+        arms: 1,
       });
     });
 
@@ -419,11 +421,11 @@ describe("calcMonthlyBehaviorStats — sleepStats", () => {
 
 describe("sortedTrainingEntries", () => {
   test("TRAINING_TYPES の定義順で返す", () => {
-    const counts = { back: 3, chest: 2, off: 1 };
+    const counts = { arms: 4, back: 3, chest: 2, off: 1 };
     const result = sortedTrainingEntries(counts);
-    // TRAINING_TYPES = ["off", "chest", "back", "shoulders", "glutes_hamstrings", "quads"]
-    expect(result.map((e) => e.type)).toEqual(["off", "chest", "back"]);
-    expect(result.map((e) => e.count)).toEqual([1, 2, 3]);
+    // TRAINING_TYPES = ["off", "chest", "back", "shoulders", "arms", "glutes_hamstrings", "quads"]
+    expect(result.map((e) => e.type)).toEqual(["off", "chest", "back", "arms"]);
+    expect(result.map((e) => e.count)).toEqual([1, 2, 3, 4]);
   });
 
   test("件数が 0 のエントリーは含まない", () => {

@@ -15,6 +15,7 @@ export const TRAINING_TYPES = [
   "chest",
   "back",
   "shoulders",
+  "arms",
   "glutes_hamstrings",
   "quads",
 ] as const;
@@ -26,6 +27,7 @@ export const TRAINING_TYPE_LABELS: Record<TrainingType, string> = {
   chest:             "胸",
   back:              "背中",
   shoulders:         "肩",
+  arms:              "腕",
   glutes_hamstrings: "ハム・ケツ",
   quads:             "四頭",
 };
@@ -53,7 +55,7 @@ export const WORK_MODE_LABELS: Record<WorkMode, string> = {
  *
  * ルール:
  *   - quads または glutes_hamstrings → true  (レッグ日)
- *   - chest / back / shoulders / off → false (非レッグ日)
+ *   - chest / back / shoulders / arms / off → false (非レッグ日)
  *   - null / undefined (未入力)      → null  (未判定 ≠ false)
  *
  * off は「トレーニングなしと明示した日」であり、脚トレをしていないことが確定するため false。

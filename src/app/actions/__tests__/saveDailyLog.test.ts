@@ -166,6 +166,12 @@ describe("buildUpdatePayload — Phase 2.5 新規フィールド", () => {
     expect(payload.leg_flag).toBe(false);
   });
 
+  test("training_type: 'arms' → leg_flag: false が同時に設定される", () => {
+    const payload = buildUpdatePayload({ training_type: "arms" });
+    expect(payload.training_type).toBe("arms");
+    expect(payload.leg_flag).toBe(false);
+  });
+
   test("training_type: 'quads' → leg_flag: true が同時に設定される", () => {
     const payload = buildUpdatePayload({ training_type: "quads" });
     expect(payload.training_type).toBe("quads");
@@ -577,6 +583,14 @@ describe("saveDailyLog — Phase 2.5 バリデーション", () => {
     const result = await saveDailyLog({ log_date: "2026-03-13", training_type: "off" });
     expect(result.ok).toBe(true);
     expect(capture.p_fields?.training_type).toBe("off");
+    expect(capture.p_fields?.leg_flag).toBe(false);
+  });
+
+  test("training_type: 'arms' → ok: true (有効値)", async () => {
+    const capture = makeRpcMock();
+    const result = await saveDailyLog({ log_date: "2026-03-13", training_type: "arms" });
+    expect(result.ok).toBe(true);
+    expect(capture.p_fields?.training_type).toBe("arms");
     expect(capture.p_fields?.leg_flag).toBe(false);
   });
 

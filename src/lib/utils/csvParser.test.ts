@@ -192,12 +192,14 @@ describe("parseCSV", () => {
       "log_date,weight,training_type",
       "2026-03-01,65.0,quads",
       "2026-03-02,64.5,off",
+      "2026-03-03,64.0,arms",
     ].join("\n");
 
     const result = parseCSV(csv);
     expect(result.errors).toHaveLength(0);
     expect(result.rows[0]!.training_type).toBe("quads");
     expect(result.rows[1]!.training_type).toBe("off");
+    expect(result.rows[2]!.training_type).toBe("arms");
   });
 
   it("不正な work_mode はエラーに記録して行をスキップする", () => {
