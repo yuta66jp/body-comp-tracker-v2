@@ -331,6 +331,10 @@ describe("getMobileTrainingLabel", () => {
     expect(getMobileTrainingLabel("glutes_hamstrings")!.label).toBe("ハム・ケツ");
   });
 
+  it("arms → 腕 を返す", () => {
+    expect(getMobileTrainingLabel("arms")!.label).toBe("腕");
+  });
+
   it("training_type = off → オフ ラベルを返す（月全体のトレーニング配分確認のため表示する）", () => {
     const result = getMobileTrainingLabel("off");
     expect(result).not.toBeNull();

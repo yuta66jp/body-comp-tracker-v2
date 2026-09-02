@@ -22,6 +22,7 @@ const TRAINING_SHORT_LABELS: Record<string, string> = {
   chest:             "胸",
   back:              "背",
   shoulders:         "肩",
+  arms:              "腕",
   glutes_hamstrings: "ハム",
   quads:             "四頭",
 };
