@@ -27,6 +27,7 @@ import type { CurrentPhase } from "@/lib/utils/energyBalance";
 import { PageShell } from "@/components/ui/PageShell";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { toJstDateStr, addDaysStr, dateRangeStr } from "@/lib/utils/date";
+import { isRecordedCalories, recordedCaloriesOrNull } from "@/lib/utils/nutritionRecord";
 
 export const revalidate = 3600;
 
@@ -88,12 +89,15 @@ export default async function TdeePage() {
   const lastEnrichedRow = enrichedRows.at(-1);
   const batchAvgTdee7d: number | null = lastEnrichedRow?.avg_tdee_7d ?? null;
   const batchAvgTdee14d: number | null = lastEnrichedRow?.avg_tdee_14d ?? null;
-  const batchAvgCalories7d: number | null = lastEnrichedRow?.avg_calories_7d ?? null;
+  const batchAvgCalories7d: number | null =
+    enrichedResult.availability.status === "fresh"
+      ? recordedCaloriesOrNull(lastEnrichedRow?.avg_calories_7d)
+      : null;
 
   // グラフ用データ: per-row canonical 値を直接参照する。
   // enriched がある場合はその日付軸を使う。ない場合は rawLogs を軸に tdee=null で描画。
   const rawCaloriesMap = new Map<string, number | null>(
-    sortedRaw.map((r) => [r.log_date, r.calories])
+    sortedRaw.map((r) => [r.log_date, recordedCaloriesOrNull(r.calories)])
   );
   const hasEnrichedData = enrichedResult.availability.status === "fresh" || enrichedResult.availability.status === "stale";
   const chartData = hasEnrichedData
@@ -102,9 +106,10 @@ export default async function TdeePage() {
         tdee: row.tdee_estimated,              // per-row canonical (常に存在)
         tdee7d: row.avg_tdee_7d ?? null,       // per-row canonical (旧バッチは null)
         tdee14d: row.avg_tdee_14d ?? null,     // per-row canonical (旧バッチは null)
-        intake: row.avg_calories_7d            // per-row canonical (旧バッチは null)
-          ?? rawCaloriesMap.get(row.log_date)  //   旧バッチ互換 fallback: raw calories
-          ?? null,
+        intake: recordedCaloriesOrNull(
+          row.avg_calories_7d                  // per-row canonical (旧バッチは null)
+            ?? rawCaloriesMap.get(row.log_date) // 旧バッチ互換 fallback: raw calories
+        ),
         theoretical: theoreticalTdee,          // frontend-computed (設定値から算出)
       }))
     : sortedRaw.map((row) => ({
@@ -112,7 +117,7 @@ export default async function TdeePage() {
         tdee: null,
         tdee7d: null,
         tdee14d: null,
-        intake: row.calories,
+        intake: recordedCaloriesOrNull(row.calories),
         theoretical: theoreticalTdee,
       }));
 
@@ -141,7 +146,7 @@ export default async function TdeePage() {
   // KPI: 直近7日平均カロリー — canonical は batchAvgCalories7d (enrich.py の avg_calories_7d 最終値)。
   // 旧バッチ互換 fallback: 直近7暦日の rawLogs calories 平均。
   const avgCalories7: number | null = batchAvgCalories7d ?? (() => {
-    const last7Cal = sortedRaw.filter((d) => d7Dates.has(d.log_date) && d.calories !== null);
+    const last7Cal = sortedRaw.filter((d) => d7Dates.has(d.log_date) && isRecordedCalories(d.calories));
     return last7Cal.length > 0 ? last7Cal.reduce((s, d) => s + d.calories!, 0) / last7Cal.length : null;
   })();
 
@@ -179,7 +184,7 @@ export default async function TdeePage() {
 
   // 信頼度算出（直近7暦日内の記録日数・体重 stddev）
   // batch canonical には存在しないため、フロント側で rawLogs から算出する。
-  const calDays = last7.filter((d) => d.calories !== null).length;
+  const calDays = last7.filter((d) => isRecordedCalories(d.calories)).length;
   const weightDays = weights7.length;
   const weightStdDev =
     weights7.length > 1 && avgW7 !== null
@@ -209,7 +214,7 @@ export default async function TdeePage() {
   );
   const tableData = sortedRaw.slice(-14).map((row) => ({
     date: row.log_date,
-    calories: row.calories,
+    calories: recordedCaloriesOrNull(row.calories),
     tdee: enrichedTdeeMap.get(row.log_date) ?? null,
   }));
 

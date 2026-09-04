@@ -5,10 +5,10 @@ import { getNormalizedDiffWidth } from "@/lib/utils/calorieDiff";
 
 interface DailyRow {
   fullDate: string;
-  calories: number;
-  protein: number;
-  fat: number;
-  carbs: number;
+  calories: number | null;
+  protein: number | null;
+  fat: number | null;
+  carbs: number | null;
 }
 
 interface MacroDailyTableProps {
@@ -17,8 +17,8 @@ interface MacroDailyTableProps {
   calTarget?: number | null;
 }
 
-function pct(macro_g: number, total_kcal: number, multiplier: number) {
-  if (!total_kcal) return "—";
+function pct(macro_g: number | null, total_kcal: number | null, multiplier: number) {
+  if (macro_g === null || total_kcal === null || total_kcal <= 0) return "—";
   return `${Math.round((macro_g * multiplier / total_kcal) * 100)}%`;
 }
 
@@ -28,7 +28,9 @@ export function MacroDailyTable({ data, calTarget = null }: MacroDailyTableProps
   // diverging bar 正規化用: 表示14行の diff 絶対値最大値
   const maxAbs = (() => {
     if (calTarget == null) return 0;
-    const absDiffs = recent.map((row) => Math.abs(row.calories - calTarget));
+    const absDiffs = recent
+      .filter((row) => row.calories !== null)
+      .map((row) => Math.abs(row.calories! - calTarget));
     return absDiffs.length > 0 ? Math.max(...absDiffs) : 0;
   })();
 
@@ -50,7 +52,7 @@ export function MacroDailyTable({ data, calTarget = null }: MacroDailyTableProps
       {/* ── モバイル: カードリスト (md 未満) ── */}
       <div className="md:hidden divide-y divide-slate-50 dark:divide-slate-700/60 px-4 pb-4">
         {recent.map((row) => {
-          const calDiff = calTarget != null ? row.calories - calTarget : null;
+          const calDiff = calTarget != null && row.calories !== null ? row.calories - calTarget : null;
           const calRatio = calDiff !== null ? getNormalizedDiffWidth(calDiff, maxAbs) : 0;
 
           return (
@@ -60,9 +62,11 @@ export function MacroDailyTable({ data, calTarget = null }: MacroDailyTableProps
                 <span className="font-mono text-xs font-medium text-slate-600 dark:text-slate-300">{row.fullDate}</span>
                 <div className="flex items-baseline gap-1">
                   <span className="tabular-nums text-sm font-semibold text-slate-700 dark:text-slate-200">
-                    {row.calories.toLocaleString()}
+                    {row.calories !== null ? row.calories.toLocaleString() : "未記録"}
                   </span>
-                  <span className="text-xs text-slate-400 dark:text-slate-500">kcal</span>
+                  {row.calories !== null && (
+                    <span className="text-xs text-slate-400 dark:text-slate-500">kcal</span>
+                  )}
                   {calDiff !== null && (
                     <span
                       className={`tabular-nums text-xs font-medium ${
@@ -93,7 +97,9 @@ export function MacroDailyTable({ data, calTarget = null }: MacroDailyTableProps
                     <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                       {label}
                     </div>
-                    <div className="font-medium text-slate-700 dark:text-slate-200 tabular-nums">{value}g</div>
+                    <div className="font-medium text-slate-700 dark:text-slate-200 tabular-nums">
+                      {value !== null ? `${value}g` : "—"}
+                    </div>
                     <div className="text-[10px] text-slate-400 dark:text-slate-500">
                       {pct(value, row.calories, mult)}
                     </div>
@@ -131,15 +137,19 @@ export function MacroDailyTable({ data, calTarget = null }: MacroDailyTableProps
           </thead>
           <tbody>
             {recent.map((row) => {
-              const calDiff = calTarget != null ? row.calories - calTarget : null;
+              const calDiff = calTarget != null && row.calories !== null ? row.calories - calTarget : null;
               const calRatio = calDiff !== null ? getNormalizedDiffWidth(calDiff, maxAbs) : 0;
               return (
                 <tr key={row.fullDate} className="border-b border-gray-50 dark:border-slate-700/60 hover:bg-gray-50 dark:hover:bg-slate-800">
                   <td className="py-2 pr-4 font-medium text-gray-700 dark:text-slate-300">{row.fullDate}</td>
                   <td className="py-2 pr-4">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-xs text-gray-600 dark:text-slate-400">{row.calories.toLocaleString()}</span>
-                      <span className="text-[10px] text-gray-400 dark:text-slate-500">kcal</span>
+                      <span className="text-xs text-gray-600 dark:text-slate-400">
+                        {row.calories !== null ? row.calories.toLocaleString() : "未記録"}
+                      </span>
+                      {row.calories !== null && (
+                        <span className="text-[10px] text-gray-400 dark:text-slate-500">kcal</span>
+                      )}
                       {calDiff !== null && (
                         <span
                           className={`text-[10px] font-medium ${
@@ -166,13 +176,19 @@ export function MacroDailyTable({ data, calTarget = null }: MacroDailyTableProps
                     )}
                   </td>
                   <td className="py-2 pr-4 text-right text-xs text-gray-600 dark:text-slate-400">
-                    {row.protein}g <span className="text-gray-400 dark:text-slate-500">({pct(row.protein, row.calories, 4)})</span>
+                    {row.protein !== null && row.calories !== null ? (
+                      <>{row.protein}g <span className="text-gray-400 dark:text-slate-500">({pct(row.protein, row.calories, 4)})</span></>
+                    ) : "—"}
                   </td>
                   <td className="py-2 pr-4 text-right text-xs text-gray-600 dark:text-slate-400">
-                    {row.fat}g <span className="text-gray-400 dark:text-slate-500">({pct(row.fat, row.calories, 9)})</span>
+                    {row.fat !== null && row.calories !== null ? (
+                      <>{row.fat}g <span className="text-gray-400 dark:text-slate-500">({pct(row.fat, row.calories, 9)})</span></>
+                    ) : "—"}
                   </td>
                   <td className="py-2 text-right text-xs text-gray-600 dark:text-slate-400">
-                    {row.carbs}g <span className="text-gray-400 dark:text-slate-500">({pct(row.carbs, row.calories, 4)})</span>
+                    {row.carbs !== null && row.calories !== null ? (
+                      <>{row.carbs}g <span className="text-gray-400 dark:text-slate-500">({pct(row.carbs, row.calories, 4)})</span></>
+                    ) : "—"}
                   </td>
                 </tr>
               );

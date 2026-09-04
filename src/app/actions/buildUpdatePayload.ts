@@ -1,4 +1,5 @@
 import { deriveLegFlag } from "@/lib/utils/trainingType";
+import { normalizeNutritionFields } from "@/lib/utils/nutritionRecord";
 import type { SaveDailyLogInput, DailyLogPayload } from "./saveDailyLog";
 
 /**
@@ -16,13 +17,14 @@ export function buildUpdatePayload(
   input: Omit<SaveDailyLogInput, "log_date">
 ): DailyLogPayload {
   const payload: DailyLogPayload = {};
+  const nutrition = normalizeNutritionFields(input);
 
   // 既存フィールド
   if (input.weight !== undefined)        payload.weight        = input.weight;
-  if (input.calories !== undefined)      payload.calories      = input.calories;
-  if (input.protein !== undefined)       payload.protein       = input.protein;
-  if (input.fat !== undefined)           payload.fat           = input.fat;
-  if (input.carbs !== undefined)         payload.carbs         = input.carbs;
+  if (nutrition.calories !== undefined)  payload.calories      = nutrition.calories;
+  if (nutrition.protein !== undefined)   payload.protein       = nutrition.protein;
+  if (nutrition.fat !== undefined)       payload.fat           = nutrition.fat;
+  if (nutrition.carbs !== undefined)     payload.carbs         = nutrition.carbs;
   if (input.note !== undefined)          payload.note          = input.note;
   if (input.is_cheat_day !== undefined)   payload.is_cheat_day   = input.is_cheat_day;
   if (input.is_refeed_day !== undefined)  payload.is_refeed_day  = input.is_refeed_day;

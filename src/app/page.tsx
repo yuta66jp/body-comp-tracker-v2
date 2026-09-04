@@ -20,6 +20,7 @@ import { calcWeightTrend } from "@/lib/utils/calcTrend";
 import { buildMonthlyGoalPlan } from "@/lib/utils/monthlyGoalPlan";
 import { buildMonthlyGoalSummaryRows, buildMonthlyGoalComparisonRows } from "@/lib/utils/monthlyGoalVisualization";
 import { calcMonthlyBehaviorStats } from "@/lib/utils/calcMonthlyBehaviorStats";
+import { isRecordedCalories } from "@/lib/utils/nutritionRecord";
 import { buildMonthlySeasonSummary } from "@/lib/utils/monthlySeasonSummary";
 import { fetchDashboardDailyLogs, fetchPredictions, fetchCareerLogsForDashboard } from "@/lib/queries/dailyLogs";
 import { fetchSeasons, selectActiveSeason } from "@/lib/queries/seasons";
@@ -61,11 +62,12 @@ function buildMonthStats(logs: DashboardDailyLog[], months = 3): Omit<MonthStats
     .slice(0, months)
     .map(([month, entries]) => {
       const withWeight = entries.filter((d) => d.weight !== null);
+      const withNutrition = entries.filter((d) => isRecordedCalories(d.calories));
       return {
         month,
         avgWeight: avg(entries.map((d) => d.weight)),
-        avgCalories: avg(entries.map((d) => d.calories)),
-        avgProtein: avg(entries.map((d) => d.protein)),
+        avgCalories: avg(withNutrition.map((d) => d.calories)),
+        avgProtein: avg(withNutrition.map((d) => d.protein)),
         startWeight: withWeight[0]?.weight ?? null,
         endWeight: withWeight[withWeight.length - 1]?.weight ?? null,
         days: entries.length,

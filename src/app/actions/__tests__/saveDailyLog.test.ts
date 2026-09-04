@@ -126,6 +126,11 @@ describe("buildUpdatePayload — undefined/null/値の区別", () => {
     expect(Object.keys(payload)).toHaveLength(10);
     expect(payload).toEqual(input);
   });
+
+  test("macro 4 項目がすべて 0 なら食事未記録としてすべて null にする", () => {
+    const payload = buildUpdatePayload({ calories: 0, protein: 0, fat: 0, carbs: 0 });
+    expect(payload).toEqual({ calories: null, protein: null, fat: null, carbs: null });
+  });
 });
 
 describe("buildUpdatePayload — Phase 2.5 新規フィールド", () => {
@@ -349,6 +354,42 @@ describe("saveDailyLog — atomic upsert (RPC 呼び出し検証)", () => {
     expect(capture.p_fields?.calories).toBe(2000);
     expect(capture.p_fields?.protein).toBe(150);
     expect("weight" in (capture.p_fields ?? {})).toBe(false);
+  });
+
+  test("macro 4 項目がすべて 0 なら p_fields にすべて null を送る", async () => {
+    const capture = makeRpcMock();
+    const result = await saveDailyLog({
+      log_date: "2026-09-03",
+      calories: 0,
+      protein: 0,
+      fat: 0,
+      carbs: 0,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(capture.p_fields).toMatchObject({
+      calories: null,
+      protein: null,
+      fat: null,
+      carbs: null,
+    });
+  });
+
+  test("calories = 0 で PFC が全項目 0 でなければ保存しない", async () => {
+    mockCreateClient.mockClear();
+    const result = await saveDailyLog({
+      log_date: "2026-09-03",
+      calories: 0,
+      protein: 10,
+      fat: 0,
+      carbs: 0,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "カロリーは正数で入力するか、食事未記録として空にしてください",
+    });
+    expect(mockCreateClient).not.toHaveBeenCalled();
   });
 
   // 全フィールド undefined → DB アクセスなしでエラー

@@ -1,4 +1,5 @@
 import type { MacroDailyLog } from "@/lib/supabase/types";
+import { isRecordedCalories } from "./nutritionRecord";
 
 /** Macro 画面用の目標値（settings から取得）*/
 export interface MacroTargets {
@@ -94,12 +95,13 @@ function avg(vals: (number | null)[]): number | null {
 }
 
 function periodStats(logs: MacroDailyLog[]): MacroPeriodStats {
+  const nutritionLogs = logs.filter((log) => isRecordedCalories(log.calories));
   return {
-    avgCalories: avg(logs.map((d) => d.calories)),
-    avgProtein: avg(logs.map((d) => d.protein)),
-    avgFat: avg(logs.map((d) => d.fat)),
-    avgCarbs: avg(logs.map((d) => d.carbs)),
-    days: logs.length,
+    avgCalories: avg(nutritionLogs.map((d) => d.calories)),
+    avgProtein: avg(nutritionLogs.map((d) => d.protein)),
+    avgFat: avg(nutritionLogs.map((d) => d.fat)),
+    avgCarbs: avg(nutritionLogs.map((d) => d.carbs)),
+    days: nutritionLogs.length,
   };
 }
 
@@ -141,12 +143,15 @@ export function calcDailyMacro(logs: MacroDailyLog[], days = 60) {
   return [...logs]
     .sort((a, b) => a.log_date.localeCompare(b.log_date))
     .slice(-days)
-    .map((d) => ({
-      date: d.log_date.slice(5), // MM-DD
-      fullDate: d.log_date,
-      calories: d.calories ?? 0,
-      protein: d.protein ?? 0,
-      fat: d.fat ?? 0,
-      carbs: d.carbs ?? 0,
-    }));
+    .map((d) => {
+      const hasMealRecord = isRecordedCalories(d.calories);
+      return {
+        date: d.log_date.slice(5), // MM-DD
+        fullDate: d.log_date,
+        calories: hasMealRecord ? d.calories : null,
+        protein: hasMealRecord ? d.protein : null,
+        fat: hasMealRecord ? d.fat : null,
+        carbs: hasMealRecord ? d.carbs : null,
+      };
+    });
 }
