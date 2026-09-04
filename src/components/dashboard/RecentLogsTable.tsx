@@ -5,6 +5,7 @@ import type { DashboardDailyLog } from "@/lib/supabase/types";
 import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayTags";
 import { formatConditionSummary } from "@/lib/utils/trainingType";
 import { computeWeightDelta, buildRecentLogArrays } from "@/lib/utils/recentLogsUtils";
+import { isRecordedCalories } from "@/lib/utils/nutritionRecord";
 import {
   buildGoogleHealthDailyMetricMap,
   formatGoogleHealthDailyMetricLine,
@@ -23,13 +24,13 @@ export function RecentLogsTable({ logs, googleHealthMetrics = [], embedded = fal
   const { sorted, ascending } = buildRecentLogArrays(logs);
   const googleHealthMetricByDate = buildGoogleHealthDailyMetricMap(googleHealthMetrics);
 
-  /** 直前ログとのカロリー差分。calories / 前回 calories いずれかが null なら null */
+  /** 直前ログとのカロリー差分。現在 / 前回のどちらかが未記録なら null */
   function getCalDelta(log: DashboardDailyLog): number | null {
-    if (log.calories === null) return null;
+    if (!isRecordedCalories(log.calories)) return null;
     const idx = ascending.findIndex((d) => d.log_date === log.log_date);
     if (idx <= 0) return null;
     const prev = ascending[idx - 1]!;
-    if (prev.calories === null) return null;
+    if (!isRecordedCalories(prev.calories)) return null;
     return log.calories - prev.calories;
   }
 
@@ -120,7 +121,7 @@ export function RecentLogsTable({ logs, googleHealthMetrics = [], embedded = fal
                   )}
                 </td>
                 <td className="py-2 pl-2 text-right text-xs">
-                  {log.calories !== null ? (
+                  {isRecordedCalories(log.calories) ? (
                     <>
                       <span className="text-slate-700 dark:text-slate-300">{log.calories.toLocaleString()}</span>
                       <span className="ml-0.5 text-[10px] text-slate-400 dark:text-slate-500">kcal</span>

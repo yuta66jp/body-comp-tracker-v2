@@ -185,14 +185,16 @@ describe("calcDataQuality", () => {
       expect(report.period7.weightMissingDays).toBe(0); // weight は全日 non-null
     });
 
-    it("calories === 0 は欠損扱いしない (有効な記録値として扱う)", () => {
+    it("calories === 0 は食事未記録として欠損扱いする", () => {
       const today = "2026-04-25";
       const logs = Array.from({ length: 7 }, (_, i) =>
         makeLog(daysBack(today, i), { calories: i === 0 ? 0 : 2000 })
       );
       const report = calcDataQuality(logs, today);
-      // 0 kcal は欠損でない (calories !== null)
-      expect(report.period7.caloriesMissingDays).toBe(0);
+      expect(report.period7.caloriesMissingDays).toBe(1);
+      expect(report.period7.anomalies).not.toEqual(
+        expect.arrayContaining([expect.objectContaining({ type: "calories_low", value: 0 })])
+      );
     });
   });
 

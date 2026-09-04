@@ -87,28 +87,19 @@ describe("calcMacroKpi", () => {
     expect(kpi.weekly.avgCalories).toBeCloseTo(2000, 1);
   });
 
-  /**
-   * 未記録 と 実測 0（絶食日）の意味論の違いを固定するテスト。
-   *
-   * NULL = 未記録（欠損値）→ 平均計算から除外される
-   * 0    = 実測値（絶食日など）→ 平均計算に含まれる
-   *
-   * 未記録由来の 0 は migration 20260316000001_backfill_zero_macros_to_null.sql で NULL に補正済み。
-   * 現行保存経路（MealLogger）は食事未入力時に calories: undefined を送り、DB には NULL が保存される。
-   */
-  it("calories = null（未記録）は平均から除外され、calories = 0（実測絶食日）は含まれる", () => {
+  it("calories = null / 0 は未記録として平均と記録日数から除外される", () => {
     const logs = [
-      makeLog("2026-03-01", { calories: null }), // 未記録 → 除外
-      makeLog("2026-03-02", { calories: 0 }),     // 実測 0（絶食日）→ 含む
-      makeLog("2026-03-03", { calories: 3000 }),  // 含む
-      makeLog("2026-03-04", { calories: null }), // 未記録 → 除外
-      makeLog("2026-03-05", { calories: 1000 }),  // 含む
-      makeLog("2026-03-06", { calories: null }), // 未記録 → 除外
-      makeLog("2026-03-07", { calories: 2000 }),  // 含む
+      makeLog("2026-03-01", { calories: null, protein: null, fat: null, carbs: null }),
+      makeLog("2026-03-02", { calories: 0, protein: 0, fat: 0, carbs: 0 }),
+      makeLog("2026-03-03", { calories: 3000 }),
+      makeLog("2026-03-04", { calories: null, protein: null, fat: null, carbs: null }),
+      makeLog("2026-03-05", { calories: 1000 }),
+      makeLog("2026-03-06", { calories: null, protein: null, fat: null, carbs: null }),
+      makeLog("2026-03-07", { calories: 2000 }),
     ];
     const kpi = calcMacroKpi(logs);
-    // 平均 = (0 + 3000 + 1000 + 2000) / 4 = 1500 (null 3件は除外、0 は含む)
-    expect(kpi.weekly.avgCalories).toBeCloseTo(1500, 1);
+    expect(kpi.weekly.avgCalories).toBeCloseTo(2000, 1);
+    expect(kpi.weekly.days).toBe(3);
   });
 
   it("全て calories = null なら avgCalories = null を返す", () => {
@@ -132,11 +123,22 @@ describe("calcDailyMacro", () => {
     expect(result).toHaveLength(30);
   });
 
-  it("null の栄養素は 0 に変換される", () => {
-    const logs = [makeLog("2026-03-08", { calories: null, protein: null, fat: null, carbs: null })];
+  it("null と calories = 0 の栄養素は未記録のまま返す", () => {
+    const logs = [
+      makeLog("2026-03-07", { calories: 0, protein: 0, fat: 0, carbs: 0 }),
+      makeLog("2026-03-08", { calories: null, protein: null, fat: null, carbs: null }),
+    ];
     const result = calcDailyMacro(logs);
-    expect(result[0]!.calories).toBe(0);
-    expect(result[0]!.protein).toBe(0);
+    expect(result[0]!.calories).toBeNull();
+    expect(result[0]!.protein).toBeNull();
+    expect(result[1]!.calories).toBeNull();
+  });
+
+  it("食事記録がある場合は P/F/C の個別 0 を保持する", () => {
+    const result = calcDailyMacro([
+      makeLog("2026-03-08", { calories: 1800, protein: 150, fat: 0, carbs: 200 }),
+    ]);
+    expect(result[0]).toMatchObject({ calories: 1800, protein: 150, fat: 0, carbs: 200 });
   });
 });
 

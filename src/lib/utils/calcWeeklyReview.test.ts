@@ -127,6 +127,25 @@ describe("calcWeeklyReview", () => {
     expect(result.nutrition.fatCaloriesRatioPct).toBeCloseTo(22.5, 1);
   });
 
+  it("0 kcal は未記録として週平均と記録日数から除外する", () => {
+    const logs = [
+      makeLog("2026-03-31", { calories: 0, protein: 0, fat: 0, carbs: 0 }),
+      makeLog("2026-04-01", { calories: 1800, protein: 130, fat: 50, carbs: 190 }),
+      makeLog("2026-04-02", { calories: 2200, protein: 150, fat: 60, carbs: 230 }),
+    ];
+
+    const result = calcWeeklyReview(
+      logs,
+      makeMetrics(),
+      makeQualityReport(),
+      { today: "2026-04-02", phase: "Cut" }
+    );
+
+    expect(result.nutrition.avgCalories).toBe(2000);
+    expect(result.nutrition.avgProtein).toBe(140);
+    expect(result.nutrition.daysLogged).toBe(2);
+  });
+
   it("直近 7 暦日の平均睡眠時間を算出する", () => {
     const logs = [
       makeLog("2026-03-27"),

@@ -4,6 +4,7 @@ import { createClient, requireCurrentUser } from "@/lib/supabase/server";
 import { authRequiredMessage } from "@/lib/auth/actionErrors";
 import { revalidateAfterDailyLogMutation } from "@/lib/cache/revalidate";
 import { isValidTrainingType, isValidWorkMode } from "@/lib/utils/trainingType";
+import { isAllZeroNutrition } from "@/lib/utils/nutritionRecord";
 import { buildUpdatePayload } from "./buildUpdatePayload";
 import { parseLocalDateStr } from "@/lib/utils/date";
 
@@ -82,6 +83,13 @@ export async function saveDailyLog(
     if (v !== undefined && v !== null && (!isFinite(v) || v < 0 || v > 99999)) {
       return { ok: false, message: `${key} の値が不正です` };
     }
+  }
+
+  if (input.calories === 0 && !isAllZeroNutrition(input)) {
+    return {
+      ok: false,
+      message: "カロリーは正数で入力するか、食事未記録として空にしてください",
+    };
   }
 
   if (input.note !== undefined && input.note !== null && input.note.length > 500) {

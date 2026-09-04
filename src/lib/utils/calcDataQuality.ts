@@ -21,6 +21,7 @@
 
 import type { DailyLog } from "@/lib/supabase/types";
 import { toJstDateStr, addDaysStr, dateRangeStr } from "./date";
+import { isRecordedCalories } from "./nutritionRecord";
 
 /**
  * calcDataQuality が実際に参照する列のみを持つ軽量型。
@@ -141,7 +142,7 @@ function buildWindow(
 
     // スコア反映: 体重・カロリー
     if (!log || log.weight === null) weightMissingDays++;
-    if (!log || log.calories === null) caloriesMissingDays++;
+    if (!log || !isRecordedCalories(log.calories)) caloriesMissingDays++;
 
     // 必須項目未記録: ログ自体がなければすべて未記録として計上
     // had_bowel_movement: null = 未記録。false (便通なし) は記録済み扱い
@@ -156,7 +157,7 @@ function buildWindow(
     const log = logByDate.get(d);
     if (!log) continue;
 
-    if (log.calories !== null) {
+    if (isRecordedCalories(log.calories)) {
       if (log.calories < CALORIES_LOW_THRESHOLD) {
         anomalies.push({
           date: d,

@@ -16,13 +16,31 @@ import { buildTooltipStyle } from "@/lib/utils/rechartsFormatter";
 
 interface MacroPoint {
   date: string;
-  protein: number;
-  fat: number;
-  carbs: number;
+  protein: number | null;
+  fat: number | null;
+  carbs: number | null;
 }
 
 interface MacroStackedChartProps {
   data: MacroPoint[];
+}
+
+export function normalizeMacroPoint(d: MacroPoint) {
+  if (d.protein === null || d.fat === null || d.carbs === null) {
+    return { date: d.date, タンパク質: null, 脂質: null, 炭水化物: null };
+  }
+  const total = d.protein + d.fat + d.carbs;
+  if (total <= 0) {
+    return { date: d.date, タンパク質: null, 脂質: null, 炭水化物: null };
+  }
+  const proteinPct = Math.round((d.protein / total) * 100);
+  const fatPct = Math.round((d.fat / total) * 100);
+  return {
+    date: d.date,
+    タンパク質: proteinPct,
+    脂質: fatPct,
+    炭水化物: 100 - proteinPct - fatPct,
+  };
 }
 
 export function MacroStackedChart({ data }: MacroStackedChartProps) {
@@ -32,15 +50,7 @@ export function MacroStackedChart({ data }: MacroStackedChartProps) {
   const tooltipStyle = buildTooltipStyle(isDark);
 
   // 各日の合計を出して % に変換
-  const normalized = data.map((d) => {
-    const total = d.protein + d.fat + d.carbs || 1;
-    return {
-      date: d.date,
-      タンパク質: Math.round((d.protein / total) * 100),
-      脂質: Math.round((d.fat / total) * 100),
-      炭水化物: 100 - Math.round((d.protein / total) * 100) - Math.round((d.fat / total) * 100),
-    };
-  });
+  const normalized = data.map(normalizeMacroPoint);
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
@@ -52,7 +62,7 @@ export function MacroStackedChart({ data }: MacroStackedChartProps) {
           <YAxis tick={{ fontSize: 11, fill: tickColor }} tickFormatter={(v: number) => `${Math.round(v * 100)}%`} />
           <Tooltip
             {...tooltipStyle}
-            formatter={(v: TooltipValueType | undefined, name: number | string | undefined) => [`${v ?? ""}%`, name ?? ""]}
+            formatter={(v: TooltipValueType | undefined, name: number | string | undefined) => [v == null ? "未記録" : `${v}%`, name ?? ""]}
           />
           <Legend />
           <Area type="monotone" dataKey="タンパク質" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.7} />

@@ -14,6 +14,7 @@ import type { DailyLog } from "@/lib/supabase/types";
 import { makeTooltipFormatter } from "@/lib/utils/rechartsFormatter";
 import { lastNEntries } from "@/lib/utils/timeWindow";
 import { useIsDark } from "@/lib/hooks/useIsDark";
+import { isRecordedCalories } from "@/lib/utils/nutritionRecord";
 
 interface MacroChartProps {
   logs: DailyLog[];
@@ -35,12 +36,15 @@ export function MacroChart({ logs, days = 30 }: MacroChartProps) {
     days
   );
 
-  const data = sorted.map((d) => ({
-    date: d.log_date.slice(5), // MM-DD
-    タンパク質: d.protein ?? 0,
-    脂質: d.fat ?? 0,
-    炭水化物: d.carbs ?? 0,
-  }));
+  const data = sorted.map((d) => {
+    const hasMealRecord = isRecordedCalories(d.calories);
+    return {
+      date: d.log_date.slice(5), // MM-DD
+      タンパク質: hasMealRecord ? d.protein : null,
+      脂質: hasMealRecord ? d.fat : null,
+      炭水化物: hasMealRecord ? d.carbs : null,
+    };
+  });
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">

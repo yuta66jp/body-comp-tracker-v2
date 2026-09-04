@@ -124,6 +124,17 @@ def test_missing_calories_no_crash():
     assert "tdee_estimated" in df.columns
 
 
+def test_zero_calories_are_excluded_as_missing():
+    """0 kcal は絶食日ではなく未記録として TDEE 候補に含めない"""
+    df_raw = pd.DataFrame({
+        "log_date": pd.date_range("2026-09-01", periods=4, freq="D"),
+        "weight": [65.0] * 4,
+        "calories": [2000.0, 2000.0, 0.0, 2000.0],
+    })
+    df = enrich_data(df_raw)
+    assert pd.isna(df.loc[3, "tdee_estimated"])
+
+
 def test_all_missing_weight_no_crash():
     """体重が全欠損でもクラッシュしない"""
     df_raw = _make_df(10)
@@ -219,6 +230,16 @@ class TestBuildEnrichedPayload:
         later_values = [r["avg_tdee_14d"] for r in records[-10:]]
         finite_later = [v for v in later_values if v is not None]
         assert len(finite_later) >= 1, "30日分入力して後半に 14日平均が 1 件も出ていない"
+
+    def test_avg_calories_7d_excludes_zero_as_missing(self):
+        """0 kcal を週平均の分母・分子に含めない。"""
+        df_raw = pd.DataFrame({
+            "log_date": pd.date_range("2026-09-01", periods=7, freq="D"),
+            "weight": [65.0] * 7,
+            "calories": [2000.0, 2000.0, 0.0, 2000.0, 2000.0, 2000.0, 2000.0],
+        })
+        records = build_enriched_payload(enrich_data(df_raw))
+        assert records[-1]["avg_calories_7d"] == pytest.approx(2000.0)
 
     def test_avg_tdee_14d_less_volatile_than_7d(self):
         """14日平均は 7日平均より変動が小さい (安定した基準線として機能する)。"""

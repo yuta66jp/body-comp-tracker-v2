@@ -6,6 +6,8 @@
 
 > #765 更新: Dashboard は月別の所属表示用に `season_id` を追加取得（現行17列）。月別は `seasons` を正本として表示し、現在シーズンへ補完しない。以下の #165 実装サマリーは当時の記録。
 
+> #778 更新: 食事記録は `calories > 0` を記録済み、`calories / protein / fat / carbs` の全 `NULL` を未記録とする。`0 kcal` は絶食日として扱わず、保存・集計・表示・ML処理から除外する。
+
 ---
 
 ## 0a. #165 実装サマリー（Dashboard read 整理）
@@ -194,6 +196,8 @@ anon key ではなく service_role key を使用し、JS の query layer と完�
 | `protein` | calcMacroKpi, calcDailyMacro | null 許容 |
 | `fat` | calcMacroKpi, calcDailyMacro | null 許容 |
 | `carbs` | calcMacroKpi, calcDailyMacro | null 許容 |
+
+栄養平均・記録日数は `calories > 0` の行だけを対象にする。未記録日は日次表で「未記録」と表示し、差分バーを出さない。PFC構成比グラフは未記録日を空白として扱う。
 **必要期間（表示 window）:**
 - **グラフ・テーブル: 直近 60 日固定**（`calcDailyMacro(logs, 60)` で slice）
 - KPI 計算: 直近 7 / 14 / 30 日（`slice(-7)` / `slice(-14,-7)` / `slice(-30)`）
@@ -220,6 +224,8 @@ anon key ではなく service_role key を使用し、JS の query layer と完�
 | `weight` | latestWeight (最新値取得), last7/prev7 平均 (KPI 計算) | null 許容 |
 | `calories` | rawCaloriesMap (enriched fallback), last7 平均 (KPI 計算), tableData | null 許容 |
 | `updated_at` | stale 判定 (`MAX(updated_at)` → fetchEnrichedLogs に渡す) | **全ログ分が必要** |
+
+raw fallback と記録日数は `calories > 0` の行だけを対象にする。MLバッチも `0 kcal` を欠損へ正規化してから TDEE 候補・7日平均を計算する。
 
 **必要期間（表示 window）:**
 - **グラフ: enriched_logs を主軸とする「約 6 か月以上の全履歴」** — rawLogs はグラフ fallback 専用

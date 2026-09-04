@@ -46,6 +46,7 @@ import { buildCalendarDayMap, getMobileTrainingLabel, toDateKey, type CalendarDa
 import type { DayProps } from "react-day-picker";
 import { toJstDateStr } from "@/lib/utils/date";
 import { extractJstHHMM } from "@/lib/utils/sleepSession";
+import { isRecordedCalories } from "@/lib/utils/nutritionRecord";
 
 // ── コンテキスト ──────────────────────────────────────────────────────────────
 
@@ -208,7 +209,7 @@ function CalendarDayCell({ day, modifiers }: DayProps) {
         </div>
 
         {/* ③ カロリー + 差分 */}
-        {data?.log.calories != null && (
+        {isRecordedCalories(data?.log.calories) && (
           <div className="mt-0.5 flex items-baseline gap-0.5 leading-none flex-wrap">
             <span className="text-[10px] sm:text-xs font-medium text-slate-600 dark:text-slate-300">
               {data.log.calories.toLocaleString()}

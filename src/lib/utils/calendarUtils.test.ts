@@ -154,6 +154,17 @@ describe("buildCalendarDayMap", () => {
       expect(map.get("2026-03-11")!.calDelta).toBeNull();
     });
 
+    it("calories が 0 の場合は未記録として差分計算から除外する", () => {
+      const logs = [
+        makeLog({ log_date: "2026-03-10", calories: 2000 }),
+        makeLog({ log_date: "2026-03-11", calories: 0 }),
+        makeLog({ log_date: "2026-03-12", calories: 2200 }),
+      ];
+      const map = buildCalendarDayMap(logs);
+      expect(map.get("2026-03-11")!.calDelta).toBeNull();
+      expect(map.get("2026-03-12")!.calDelta).toBe(200);
+    });
+
     it("欠損日を跨いだカロリー差分: 直前カロリー記録との差分を返す", () => {
       const logs = [
         makeLog({ log_date: "2026-03-10", calories: 2000 }),

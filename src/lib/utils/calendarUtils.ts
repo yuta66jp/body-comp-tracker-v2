@@ -14,6 +14,7 @@ import type { DashboardDailyLog } from "@/lib/supabase/types";
 import type { GoogleHealthDailyMetricForDisplay } from "@/lib/googleHealth/displayMetrics";
 import { metricMinutesToHours } from "@/lib/googleHealth/displayMetrics";
 import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "./dayTags";
+import { isRecordedCalories } from "./nutritionRecord";
 import { formatConditionSummary, isValidTrainingType, isValidWorkMode, TRAINING_TYPE_LABELS, WORK_MODE_LABELS } from "./trainingType";
 
 // ── 型定義 ──────────────────────────────────────────────────────────────────
@@ -155,7 +156,7 @@ export function buildCalendarDayMap(
 
   // 体重・カロリーそれぞれの「記録ありログ」リスト（差分計算用）
   const withWeight = sorted.filter((d) => d.weight !== null);
-  const withCals   = sorted.filter((d) => d.calories !== null);
+  const withCals   = sorted.filter((d) => isRecordedCalories(d.calories));
 
   const googleHealthMetricByDate = new Map(
     googleHealthMetrics.map((metric) => [metric.metric_date, metric])
@@ -175,7 +176,7 @@ export function buildCalendarDayMap(
 
     // カロリー差分
     let calDelta: number | null = null;
-    if (log.calories !== null) {
+    if (isRecordedCalories(log.calories)) {
       const idx = withCals.findIndex((d) => d.log_date === log.log_date);
       if (idx > 0) {
         calDelta = Math.round(log.calories - withCals[idx - 1]!.calories!);

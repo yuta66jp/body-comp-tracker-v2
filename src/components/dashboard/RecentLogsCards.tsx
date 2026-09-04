@@ -19,6 +19,7 @@ import type { DashboardDailyLog } from "@/lib/supabase/types";
 import { DAY_TAGS, DAY_TAG_LABELS, DAY_TAG_BADGE_COLORS } from "@/lib/utils/dayTags";
 import { formatConditionSummary } from "@/lib/utils/trainingType";
 import { computeWeightDelta, buildRecentLogArrays } from "@/lib/utils/recentLogsUtils";
+import { isRecordedCalories } from "@/lib/utils/nutritionRecord";
 import {
   buildGoogleHealthDailyMetricMap,
   formatGoogleHealthDailyMetricLine,
@@ -130,7 +131,7 @@ export function RecentLogsCards({ logs, googleHealthMetrics = [], seasonMap, cur
                 )}
               </div>
               <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-300">
-                {log.calories !== null ? (
+                {isRecordedCalories(log.calories) ? (
                   <>
                     {log.calories.toLocaleString()}
                     <span className="ml-0.5 text-[10px] text-slate-400 dark:text-slate-500">kcal</span>

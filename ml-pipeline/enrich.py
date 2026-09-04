@@ -73,13 +73,11 @@ def enrich_data(df: pd.DataFrame) -> pd.DataFrame:
     #       さらに rolling median (min_periods=3) で外れ値日のカロリー記録を平滑化する
     #
     # calories 列の意味論:
-    #   NULL (pandas NaN) = 未記録・不明。tdee_candidates も NaN になり rolling median でスキップされる。
-    #   0                 = 実測値（絶食日など）。TDEE 計算に含まれる。
-    #   未記録由来の 0 は migration 20260316000001_backfill_zero_macros_to_null.sql で NULL に補正済み。
-    #   現行保存経路（MealLogger → save_daily_log_partial RPC）は食事未入力を NULL で保存するため
-    #   未記録 0 の再発生は防がれている。
+    #   正数               = 食事記録あり。TDEE 計算に含める。
+    #   NULL / 0 以下      = 食事未記録。防御的に NaN へ正規化し計算から除外する。
     weight_sma7_delta = df["weight_sma7"].diff()  # kg/day (SMA7 の差分: ≒ (w_t - w_{t-6}) / 6)
-    tdee_candidates = df["calories"] - weight_sma7_delta * KCAL_PER_KG_FAT
+    recorded_calories = df["calories"].where(df["calories"] > 0)
+    tdee_candidates = recorded_calories - weight_sma7_delta * KCAL_PER_KG_FAT
     df["tdee_estimated"] = tdee_candidates.rolling(
         window=SMA_WINDOW, min_periods=3  # min_periods=3: 3日分あれば中央値推定を開始する。
         #   mean より median を採用するのは、カロリー記録が飛び抜けた日（祭典・絶食）でも
@@ -126,7 +124,8 @@ def build_enriched_payload(df: pd.DataFrame) -> list[dict]:
 
     # 後方 SMA_WINDOW 日のカロリー平均 (calories 列がある場合のみ)
     if "calories" in work.columns:
-        work["avg_calories_7d"] = work["calories"].rolling(
+        recorded_calories = work["calories"].where(work["calories"] > 0)
+        work["avg_calories_7d"] = recorded_calories.rolling(
             window=SMA_WINDOW, min_periods=1
         ).mean()
     else:

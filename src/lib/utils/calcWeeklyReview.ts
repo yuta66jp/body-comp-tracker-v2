@@ -26,6 +26,7 @@ import {
   WEEKLY_REVIEW_FAT_CALORIES_RATIO_RANGE,
   WEEKLY_REVIEW_PROTEIN_G_PER_KG_BW_RANGE,
 } from "./weeklyNutritionRanges";
+import { isRecordedCalories } from "./nutritionRecord";
 
 // ─── 公開型 ─────────────────────────────────────────────────────────────────
 
@@ -61,7 +62,7 @@ export interface WeeklyNutrition {
   avgProtein: number | null;
   avgFat: number | null;
   avgCarbs: number | null;
-  /** calories が非 null の日数 */
+  /** calories が正数の食事記録日数 */
   daysLogged: number;
   /** タンパク質エネルギー比 (%) = avgProtein × 4 / avgCalories × 100 */
   proteinRatioPct: number | null;
@@ -638,11 +639,12 @@ export function calcWeeklyReview(
   const windowLogs = last7Dates
     .map((d) => logByDate.get(d))
     .filter((l): l is DashboardDailyLog => l !== undefined);
+  const nutritionLogs = windowLogs.filter((l) => isRecordedCalories(l.calories));
 
   function fieldAvg(
     field: keyof Pick<DashboardDailyLog, "calories" | "protein" | "fat" | "carbs">
   ): number | null {
-    const vals = windowLogs
+    const vals = nutritionLogs
       .filter((l) => l[field] !== null)
       .map((l) => l[field] as number);
     return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
@@ -652,7 +654,7 @@ export function calcWeeklyReview(
   const avgProtein = fieldAvg("protein");
   const avgFat = fieldAvg("fat");
   const avgCarbs = fieldAvg("carbs");
-  const daysLogged = windowLogs.filter((l) => l.calories !== null).length;
+  const daysLogged = nutritionLogs.length;
   const proteinRatioPct =
     avgCalories !== null && avgCalories > 0 && avgProtein !== null
       ? (avgProtein * 4) / avgCalories * 100
