@@ -4,8 +4,7 @@ import { ImportSection } from "@/components/settings/ImportSection";
 import { DataQualityPanel } from "@/components/settings/DataQualityPanel";
 import { ThemeSection } from "@/components/settings/ThemeSection";
 import { GoogleHealthSection } from "@/components/settings/GoogleHealthSection";
-import { SeasonLifecycleSection } from "@/components/settings/SeasonLifecycleSection";
-import { SeasonMonthlyGoalPlanSection } from "@/components/settings/SeasonMonthlyGoalPlanSection";
+import { SeasonSettingsSections } from "@/components/settings/SeasonSettingsSections";
 import { calcDataQuality } from "@/lib/utils/calcDataQuality";
 import { fetchSettingsRows } from "@/lib/queries/settings";
 import { fetchDailyLogsForSettings } from "@/lib/queries/dailyLogs";
@@ -70,13 +69,7 @@ export default async function SettingsPage() {
       <div className="space-y-6">
         <ThemeSection />
         <GoogleHealthSection initialStatus={googleHealthStatus} />
-        <SeasonLifecycleSection
-          initialSeason={activeSeason}
-          weightLogs={logs}
-          today={today}
-          readError={activeSeasonResult.kind === "error"}
-        />
-        <SeasonMonthlyGoalPlanSection
+        <SeasonSettingsSections
           key={activeSeason ? `${activeSeason.id}:${activeSeason.updatedAt}` : "no-active-season-plan"}
           initialSeason={activeSeason}
           weightLogs={logs}

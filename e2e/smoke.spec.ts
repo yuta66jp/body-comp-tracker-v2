@@ -92,12 +92,12 @@ test("設定ページ: 設定セクションが表示できる", async ({ page }
   // h1 "設定" が表示される
   await expect(page.getByRole("heading", { name: "設定", exact: true })).toBeVisible();
 
-  // フェーズに応じた SettingsForm セクション見出しが表示される
-  await expect(page.getByRole("heading", { name: /^シーズン・(コンテスト|目標)$/ })).toBeVisible();
+  // シーズン設定と月別目標の役割を分けて表示する
   await expect(
     page.getByRole("button", { name: /^(シーズンを開始|次のシーズンを開始)$/ })
   ).toBeVisible();
-  await expect(page.getByRole("heading", { name: "月次目標計画", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "シーズン設定", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "月別目標", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "目標・身体情報", exact: true })).toBeVisible();
 });
 

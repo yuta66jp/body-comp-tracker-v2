@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   endSeason,
   startOrSwitchSeason,
   updateSeasonGoal,
+  updateSeasonPlanStart,
 } from "@/app/settings/seasonActions";
+import { SeasonPlanStartEditor } from "./SeasonPlanStartEditor";
 import type { SeasonLifecycleResult } from "@/app/settings/seasonActions";
 import type { Season, SeasonPhase } from "@/lib/domain/season";
 import {
@@ -31,9 +33,10 @@ interface SeasonLifecycleSectionProps {
   weightLogs: WeightLog[];
   today: string;
   readError?: boolean;
+  onEditingChange?: (editing: boolean) => void;
 }
 
-type Mode = "start" | "switch" | "end" | "goal" | null;
+type Mode = "start" | "switch" | "end" | "goal" | "planStart" | null;
 type FieldErrors = Record<string, string>;
 
 const inputClass =
@@ -63,10 +66,14 @@ export function SeasonLifecycleSection({
   weightLogs,
   today,
   readError = false,
+  onEditingChange,
 }: SeasonLifecycleSectionProps) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(null);
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    onEditingChange?.(mode !== null || busy);
+  }, [mode, busy, onEditingChange]);
   const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -98,7 +105,7 @@ export function SeasonLifecycleSection({
     [weightLogs, endDate]
   );
   const deadlineEnded = initialSeason !== null && initialSeason.targetDate < today;
-  const heading = initialSeason?.phase === "Bulk" ? "シーズン・目標" : "シーズン・コンテスト";
+  const planStartDate = initialSeason?.monthlyPlanStartDate ?? initialSeason?.startDate;
   const goalPreview = useMemo(() => {
     if (
       !initialSeason ||
@@ -159,6 +166,7 @@ export function SeasonLifecycleSection({
       startWeight: initialSeason.startWeight,
       targetDate: goalInput.targetDate,
       targetWeight,
+      planStartDate: initialSeason.monthlyPlanStartDate ?? initialSeason.startDate,
       planStartMonth: initialSeason.monthlyPlanStartMonth,
       planStartWeight: initialSeason.monthlyPlanStartWeight,
       overrides: goalPreview.retainedOverrides,
@@ -195,8 +203,15 @@ export function SeasonLifecycleSection({
   async function completeAction(action: () => Promise<SeasonLifecycleResult>, success: string) {
     setBusy(true);
     setMessage(null);
-    const result = await action();
-    setBusy(false);
+    let result: SeasonLifecycleResult;
+    try {
+      result = await action();
+    } catch {
+      setMessage({ kind: "error", text: "保存に失敗しました。入力内容を確認し、再試行してください。" });
+      return;
+    } finally {
+      setBusy(false);
+    }
     if (!result.ok) {
       setFieldErrors(errorsToMap(result));
       setMessage({ kind: "error", text: result.error });
@@ -281,12 +296,12 @@ export function SeasonLifecycleSection({
   }
 
   return (
-    <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+    <section aria-label="シーズン設定" className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">{heading}</h2>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">シーズン設定</h2>
           <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
-            BulkとCutを独立したシーズンとして管理します
+            シーズンの最終目標と、計画の開始条件を管理します
           </p>
         </div>
         {initialSeason && !readError && (
@@ -296,20 +311,31 @@ export function SeasonLifecycleSection({
         )}
       </div>
 
+      <fieldset disabled={busy} className="min-w-0">
       {readError ? (
         <p className="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">
           シーズン情報を取得できません。再読み込みしてから操作してください。
         </p>
       ) : initialSeason ? (
         <>
-          <dl className="mt-5 grid grid-cols-2 gap-4 text-sm sm:grid-cols-3 lg:grid-cols-6">
-            <div><dt className="text-xs text-slate-400">シーズン名</dt><dd className="mt-1 font-semibold">{initialSeason.name}</dd></div>
-            <div><dt className="text-xs text-slate-400">フェーズ</dt><dd className="mt-1 font-semibold">{initialSeason.phase}</dd></div>
-            <div><dt className="text-xs text-slate-400">開始日</dt><dd className="mt-1 font-semibold">{initialSeason.startDate}</dd></div>
-            <div><dt className="text-xs text-slate-400">開始体重</dt><dd className="mt-1 font-semibold">{formatWeight(initialSeason.startWeight)}</dd></div>
-            <div><dt className="text-xs text-slate-400">目標日</dt><dd className="mt-1 font-semibold">{initialSeason.targetDate}</dd></div>
-            <div><dt className="text-xs text-slate-400">目標体重</dt><dd className="mt-1 font-semibold">{formatWeight(initialSeason.targetWeight)}</dd></div>
-          </dl>
+          <div className="mt-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-semibold">{initialSeason.name}</p>
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold dark:bg-slate-800">{initialSeason.phase}</span>
+            </div>
+            <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">最終目標{initialSeason.phase === "Cut" ? "（コンテスト）" : ""}</p>
+            <p className="mt-1 flex flex-wrap items-baseline gap-x-2">
+              <span className="text-sm text-slate-600 dark:text-slate-300">{initialSeason.targetDate}までに</span>
+              <strong className="text-2xl text-slate-800 dark:text-slate-100">{formatWeight(initialSeason.targetWeight)}</strong>
+            </p>
+            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+              <div><dt className="text-xs text-slate-500 dark:text-slate-400">シーズン開始日・開始時体重</dt><dd className="mt-1">{initialSeason.startDate} ／ {formatWeight(initialSeason.startWeight)}</dd></div>
+              <div><dt className="text-xs text-slate-500 dark:text-slate-400">{initialSeason.phase === "Bulk" ? "増量計画開始日" : "計画開始日"}・基準体重</dt><dd className="mt-1">{planStartDate} ／ {formatWeight(initialSeason.monthlyPlanStartWeight)}</dd></div>
+            </dl>
+            {initialSeason.phase === "Bulk" && planStartDate && planStartDate > initialSeason.startDate && (
+              <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">{initialSeason.startDate}から{planStartDate}の前日までは体重調整期間としてBulk評価から除外されます。</p>
+            )}
+          </div>
 
           {deadlineEnded && (
             <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700/50 dark:bg-amber-900/30 dark:text-amber-300">
@@ -318,13 +344,13 @@ export function SeasonLifecycleSection({
           )}
 
           <div className="mt-5 flex flex-wrap gap-2">
-            <button type="button" onClick={() => changeMode("switch")} className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+            <button type="button" onClick={() => changeMode("goal")} className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40">
+              シーズン設定を編集
+            </button>
+            <button type="button" onClick={() => changeMode("switch")} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800">
               次のシーズンを開始
             </button>
-            <button type="button" onClick={() => changeMode("goal")} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800">
-              目標を変更
-            </button>
-            <button type="button" onClick={() => changeMode("end")} className="rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-900/20">
+            <button type="button" onClick={() => changeMode("end")} className="rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-40 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-900/20">
               シーズンを終了
             </button>
           </div>
@@ -412,9 +438,37 @@ export function SeasonLifecycleSection({
         </div>
       )}
 
+      {(mode === "goal" || mode === "planStart") && initialSeason && (
+        <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-700">
+          <h3 className="text-sm font-semibold">シーズン設定を編集</h3>
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+            シーズン開始日 {initialSeason.startDate}・開始時体重 {formatWeight(initialSeason.startWeight)}（変更不可）
+          </p>
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">変更する項目を選び、再計算結果を確認して保存してください。</p>
+          <div className="mt-3 flex flex-wrap gap-2" aria-label="シーズン設定の変更対象">
+            <button type="button" aria-pressed={mode === "goal"} onClick={() => changeMode("goal")} className="rounded-xl border border-slate-200 px-3 py-2 text-sm aria-pressed:bg-blue-50 aria-pressed:text-blue-700 dark:border-slate-600 dark:aria-pressed:bg-blue-900/30 dark:aria-pressed:text-blue-300">最終目標</button>
+            {initialSeason.phase === "Bulk" && <button type="button" aria-pressed={mode === "planStart"} onClick={() => changeMode("planStart")} className="rounded-xl border border-slate-200 px-3 py-2 text-sm aria-pressed:bg-blue-50 aria-pressed:text-blue-700 dark:border-slate-600 dark:aria-pressed:bg-blue-900/30 dark:aria-pressed:text-blue-300">増量計画開始日</button>}
+          </div>
+          {mode === "planStart" && (
+            <SeasonPlanStartEditor
+              season={initialSeason}
+              weightLogs={weightLogs}
+              today={today}
+              busy={busy}
+              onSave={(nextDate) => completeAction(() => updateSeasonPlanStart({
+                expectedActiveSeasonId: initialSeason.id,
+                expectedActiveSeasonUpdatedAt: initialSeason.updatedAt,
+                planStartDate: nextDate,
+              }), "増量計画開始日を更新しました")}
+              onCancel={() => changeMode(null)}
+            />
+          )}
+        </div>
+      )}
+
       {mode === "goal" && initialSeason && (
         <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-700">
-          <h3 className="text-sm font-semibold">目標を変更</h3>
+          <h4 className="text-sm font-semibold">最終目標を変更</h4>
           {!confirming ? (
             <>
               <div className="mt-4 grid max-w-xl grid-cols-1 gap-4 sm:grid-cols-2">
@@ -430,7 +484,7 @@ export function SeasonLifecycleSection({
             </>
           ) : (
             <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm dark:bg-slate-800">
-              <p className="font-semibold">再計算後の月次計画</p>
+              <p className="font-semibold">再計算後の月別目標</p>
               {goalPreview ? (
                 <>
                   <ul className="mt-2 grid gap-1 text-slate-600 dark:text-slate-300 sm:grid-cols-2">
@@ -453,6 +507,8 @@ export function SeasonLifecycleSection({
           )}
         </div>
       )}
+
+      </fieldset>
 
       {message && <p role="status" className={`mt-4 text-sm ${message.kind === "error" ? "text-rose-600" : "text-emerald-600"}`}>{message.text}</p>}
     </section>

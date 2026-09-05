@@ -1,11 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  saveSeasonPlanOverrides,
-  updateSeasonPlanStart,
-} from "@/app/settings/seasonActions";
+import { saveSeasonPlanOverrides } from "@/app/settings/seasonActions";
+import type { SeasonLifecycleResult } from "@/app/settings/seasonActions";
 import { MonthlyGoalPlanSection } from "@/components/settings/MonthlyGoalPlanSection";
 import type { Season } from "@/lib/domain/season";
 import type { MonthlyGoalOverride } from "@/lib/utils/monthlyGoalPlan";
@@ -16,13 +14,9 @@ import {
 
 interface SeasonMonthlyGoalPlanSectionProps {
   initialSeason: Season | null;
-  weightLogs?: Array<{ log_date: string; weight: number | null }>;
+  onEditingChange?: (editing: boolean) => void;
   today: string;
   readError?: boolean;
-}
-
-function formatWeight(weight: number): string {
-  return `${weight.toFixed(1)} kg`;
 }
 
 function overrideSignature(overrides: MonthlyGoalOverride[]): string {
@@ -33,7 +27,7 @@ function overrideSignature(overrides: MonthlyGoalOverride[]): string {
 
 export function SeasonMonthlyGoalPlanSection({
   initialSeason,
-  weightLogs = [],
+  onEditingChange,
   today,
   readError = false,
 }: SeasonMonthlyGoalPlanSectionProps) {
@@ -46,39 +40,15 @@ export function SeasonMonthlyGoalPlanSection({
   }));
   const [busy, setBusy] = useState(false);
   const initialPlanStartDate = initialSeason?.monthlyPlanStartDate ?? initialSeason?.startDate ?? "";
-  const [planStartDate, setPlanStartDate] = useState(initialPlanStartDate);
   const [resetConfirming, setResetConfirming] = useState(false);
   const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const overrides = draft.baseSignature === initialSignature
     ? draft.overrides
     : initialOverrides;
   const dirty = overrideSignature(overrides) !== initialSignature;
-  const selectedPlanStartWeight = useMemo(
-    () => weightLogs.find((log) => log.log_date === planStartDate)?.weight ?? null,
-    [planStartDate, weightLogs]
-  );
-  const planStartDirty = planStartDate !== initialPlanStartDate;
-  const planStartLimitViolations = useMemo(() => {
-    if (
-      initialSeason?.phase !== "Bulk" ||
-      initialSeason.targetWeight === null ||
-      selectedPlanStartWeight === null ||
-      !planStartDate
-    ) {
-      return [];
-    }
-    return validateBulkMonthlyPlanLimit({
-      phase: initialSeason.phase,
-      startDate: initialSeason.startDate,
-      startWeight: initialSeason.startWeight,
-      planStartDate,
-      targetDate: initialSeason.targetDate,
-      targetWeight: initialSeason.targetWeight,
-      planStartMonth: planStartDate.slice(0, 7),
-      planStartWeight: selectedPlanStartWeight,
-      overrides,
-    });
-  }, [initialSeason, overrides, planStartDate, selectedPlanStartWeight]);
+  useEffect(() => {
+    onEditingChange?.(dirty || busy || resetConfirming);
+  }, [dirty, busy, resetConfirming, onEditingChange]);
   const bulkLimitViolations = useMemo(() => {
     if (
       initialSeason?.phase !== "Bulk" ||
@@ -101,35 +71,24 @@ export function SeasonMonthlyGoalPlanSection({
     });
   }, [initialSeason, overrides]);
 
-  async function savePlanStart() {
-    if (!initialSeason || initialSeason.phase !== "Bulk") return;
-    setBusy(true);
-    setMessage(null);
-    const result = await updateSeasonPlanStart({
-      expectedActiveSeasonId: initialSeason.id,
-      expectedActiveSeasonUpdatedAt: initialSeason.updatedAt,
-      planStartDate,
-    });
-    setBusy(false);
-    if (!result.ok) {
-      setMessage({ kind: "error", text: result.error });
-      return;
-    }
-    setMessage({ kind: "success", text: "増量計画開始日を更新しました" });
-    router.refresh();
-  }
-
   async function save(nextOverrides: MonthlyGoalOverride[], resetAll: boolean) {
     if (!initialSeason) return;
     setBusy(true);
     setMessage(null);
-    const result = await saveSeasonPlanOverrides({
-      expectedActiveSeasonId: initialSeason.id,
-      expectedActiveSeasonUpdatedAt: initialSeason.updatedAt,
-      overrides: nextOverrides,
-      resetAll,
-    });
-    setBusy(false);
+    let result: SeasonLifecycleResult;
+    try {
+      result = await saveSeasonPlanOverrides({
+        expectedActiveSeasonId: initialSeason.id,
+        expectedActiveSeasonUpdatedAt: initialSeason.updatedAt,
+        overrides: nextOverrides,
+        resetAll,
+      });
+    } catch {
+      setMessage({ kind: "error", text: "保存に失敗しました。入力内容を確認し、再試行してください。" });
+      return;
+    } finally {
+      setBusy(false);
+    }
     if (!result.ok) {
       setMessage({ kind: "error", text: result.error });
       setResetConfirming(false);
@@ -145,14 +104,15 @@ export function SeasonMonthlyGoalPlanSection({
   }
 
   return (
-    <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
+    <section aria-label="月別目標" className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
       <div>
-        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">月次目標計画</h2>
+        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">月別目標</h2>
         <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
-          進行中シーズンの月末目標体重を管理します
+          シーズン設定をもとに、各月の目標体重を自動配分します。途中月は調整できます。
         </p>
       </div>
 
+      <fieldset disabled={busy} className="min-w-0">
       {readError ? (
         <p className="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">
           シーズン情報を取得できません。再読み込みしてください。
@@ -169,72 +129,6 @@ export function SeasonMonthlyGoalPlanSection({
         </p>
       ) : (
         <>
-          <dl className="mt-5 grid grid-cols-2 gap-4 text-sm sm:grid-cols-4 lg:grid-cols-7">
-            <div><dt className="text-xs text-slate-400">シーズン</dt><dd className="mt-1 font-semibold">{initialSeason.name}</dd></div>
-            <div><dt className="text-xs text-slate-400">フェーズ</dt><dd className="mt-1 font-semibold">{initialSeason.phase}</dd></div>
-            <div><dt className="text-xs text-slate-400">計画開始日</dt><dd className="mt-1 font-semibold">{initialPlanStartDate}</dd></div>
-            <div><dt className="text-xs text-slate-400">開始月</dt><dd className="mt-1 font-semibold">{initialSeason.monthlyPlanStartMonth}</dd></div>
-            <div><dt className="text-xs text-slate-400">開始体重</dt><dd className="mt-1 font-semibold">{formatWeight(initialSeason.monthlyPlanStartWeight)}</dd></div>
-            <div><dt className="text-xs text-slate-400">目標日</dt><dd className="mt-1 font-semibold">{initialSeason.targetDate}</dd></div>
-            <div><dt className="text-xs text-slate-400">目標体重</dt><dd className="mt-1 font-semibold">{formatWeight(initialSeason.targetWeight)}</dd></div>
-          </dl>
-
-          {initialSeason.phase === "Bulk" && (
-            <div className="mt-5 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">増量計画の開始</h3>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                シーズン開始後の体重調整期間を除外し、選択日の記録体重からBulk評価を開始します。
-              </p>
-              <div className="mt-3 flex flex-wrap items-end gap-3">
-                <label className="text-sm text-slate-600 dark:text-slate-300">
-                  <span className="mb-1 block text-xs text-slate-400">増量計画開始日</span>
-                  <input
-                    aria-label="増量計画開始日"
-                    type="date"
-                    min={initialSeason.startDate}
-                    max={today < initialSeason.targetDate ? today : initialSeason.targetDate}
-                    value={planStartDate}
-                    onChange={(event) => {
-                      setPlanStartDate(event.target.value);
-                      setMessage(null);
-                    }}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"
-                  />
-                </label>
-                <div className="min-w-36 text-sm">
-                  <span className="block text-xs text-slate-400">開始日の記録体重</span>
-                  <strong className={selectedPlanStartWeight === null ? "text-rose-600" : "text-slate-700 dark:text-slate-200"}>
-                    {selectedPlanStartWeight === null ? "記録なし" : formatWeight(selectedPlanStartWeight)}
-                  </strong>
-                </div>
-                <button
-                  type="button"
-                  disabled={!planStartDirty || selectedPlanStartWeight === null || dirty || busy || planStartLimitViolations.length > 0}
-                  onClick={() => void savePlanStart()}
-                  className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
-                >
-                  {busy ? "保存中..." : "開始日を保存"}
-                </button>
-              </div>
-              {selectedPlanStartWeight === null && (
-                <p className="mt-2 text-xs text-rose-600 dark:text-rose-300">体重を記録した日を選択してください。</p>
-              )}
-              {dirty && (
-                <p className="mt-2 text-xs text-amber-600 dark:text-amber-300">先に月次目標の手動設定を保存または元に戻してください。</p>
-              )}
-              {planStartLimitViolations.length > 0 && (
-                <p className="mt-2 text-xs text-rose-600 dark:text-rose-300">
-                  この開始日では月+{MAX_BULK_MONTHLY_GAIN_KG.toFixed(1)} kg（端数月は日数按分）の上限を超える月があります。
-                </p>
-              )}
-              {initialPlanStartDate > initialSeason.startDate && (
-                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                  {initialSeason.startDate}〜{initialPlanStartDate}の前日までは体重調整期間としてBulk評価から除外されます。
-                </p>
-              )}
-            </div>
-          )}
-
           <div className="mt-5">
             <MonthlyGoalPlanSection
               goalWeight={initialSeason.targetWeight}
@@ -256,11 +150,22 @@ export function SeasonMonthlyGoalPlanSection({
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <button
               type="button"
+              disabled={!dirty || busy}
+              onClick={() => {
+                setDraft({ baseSignature: initialSignature, overrides: initialOverrides });
+                setMessage(null);
+              }}
+              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-600 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300"
+            >
+              未保存の変更を元に戻す
+            </button>
+            <button
+              type="button"
               disabled={!dirty || busy || bulkLimitViolations.length > 0}
               onClick={() => void save(overrides, false)}
               className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
             >
-              {busy ? "保存中..." : "手動設定を保存"}
+              {busy ? "保存中..." : "変更を保存"}
             </button>
             <button
               type="button"
@@ -274,7 +179,7 @@ export function SeasonMonthlyGoalPlanSection({
 
           {bulkLimitViolations.length > 0 && (
             <p className="mt-3 text-xs text-rose-600 dark:text-rose-300">
-              月+{MAX_BULK_MONTHLY_GAIN_KG.toFixed(1)} kg（端数月は日数按分）の上限を超えるため、手動設定を保存できません。
+              月+{MAX_BULK_MONTHLY_GAIN_KG.toFixed(1)} kg（端数月は日数按分）の上限を超えるため、変更を保存できません。
             </p>
           )}
 
@@ -289,6 +194,8 @@ export function SeasonMonthlyGoalPlanSection({
           )}
         </>
       )}
+
+      </fieldset>
 
       {message && (
         <p role="status" className={`mt-4 text-sm ${message.kind === "error" ? "text-rose-600" : "text-emerald-600"}`}>
