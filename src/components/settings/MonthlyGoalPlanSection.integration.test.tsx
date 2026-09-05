@@ -152,8 +152,8 @@ describe("MonthlyGoalPlanSection — 月別テーブル表示", () => {
       />
     );
     // 最終月のセルに input がない (目標体重が固定表示)
-    // 最終月のラベルが "終点" バッジとして存在する
-    expect(screen.getByText("終点")).toBeInTheDocument();
+    // 最終月のラベルが "最終目標" バッジとして存在する
+    expect(screen.getByText("最終目標")).toBeInTheDocument();
   });
 
   it("入力フィールドが最終月以外の月数だけ存在する", () => {

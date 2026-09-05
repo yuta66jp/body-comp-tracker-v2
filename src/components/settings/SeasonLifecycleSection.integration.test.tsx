@@ -61,7 +61,7 @@ describe("SeasonLifecycleSection", () => {
       />
     );
 
-    expect(screen.getByRole("heading", { name: "シーズン・目標" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "シーズン設定" })).toBeInTheDocument();
     expect(screen.getByText("2026_Bulk")).toBeInTheDocument();
     expect(screen.getByText("Bulk")).toBeInTheDocument();
     expect(screen.queryByLabelText("新しいフェーズ")).not.toBeInTheDocument();
@@ -142,7 +142,7 @@ describe("SeasonLifecycleSection", () => {
     );
     expect(screen.getByText(/自動終了はしません/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "次のシーズンを開始" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "目標を変更" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "シーズン設定を編集" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "シーズンを終了" })).toBeInTheDocument();
   });
 
@@ -154,7 +154,7 @@ describe("SeasonLifecycleSection", () => {
         today="2026-04-01"
       />
     );
-    fireEvent.click(screen.getByRole("button", { name: "目標を変更" }));
+    fireEvent.click(screen.getByRole("button", { name: "シーズン設定を編集" }));
     fireEvent.change(screen.getByLabelText("変更後の目標日"), {
       target: { value: "2026-07-31" },
     });
@@ -162,7 +162,7 @@ describe("SeasonLifecycleSection", () => {
       target: { value: "80" },
     });
     fireEvent.click(screen.getByRole("button", { name: "変更内容を確認" }));
-    expect(screen.getByText("再計算後の月次計画")).toBeInTheDocument();
+    expect(screen.getByText("再計算後の月別目標")).toBeInTheDocument();
     expect(screen.getByText(/2026-07: 80.0 kg/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "目標変更を確定" }));
 
@@ -190,7 +190,7 @@ describe("SeasonLifecycleSection", () => {
         today="2026-04-01"
       />
     );
-    fireEvent.click(screen.getByRole("button", { name: "目標を変更" }));
+    fireEvent.click(screen.getByRole("button", { name: "シーズン設定を編集" }));
     fireEvent.change(screen.getByLabelText("変更後の目標日"), {
       target: { value: "2026-06-30" },
     });

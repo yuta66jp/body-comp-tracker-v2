@@ -414,7 +414,7 @@ function PlanContent({
                   <td className="px-3 py-2 text-center">
                     {isLast ? (
                       <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-600 dark:bg-teal-900/30 dark:text-teal-400">
-                        終点
+                        最終目標
                       </span>
                     ) : isPast && isManual ? (
                       <div className="flex flex-col items-center gap-0.5">
@@ -490,7 +490,7 @@ function PlanContent({
 
       {/* 補足説明 */}
       <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-        過去月は履歴として固定表示し、今月以降のみ編集できます。複数月を手動設定すると各月が anchor として扱われ、間の月が自動配分されます。「解除」で自動に戻せます。下の「手動設定を保存」で確定します。
+        過去月は履歴として固定表示し、今月以降のみ編集できます。複数月を手動設定すると、その目標体重を基準に間の月が自動配分されます。「解除」で自動に戻せます。下の「変更を保存」で確定します。
       </p>
     </div>
   );
