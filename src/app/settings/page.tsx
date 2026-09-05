@@ -70,14 +70,14 @@ export default async function SettingsPage() {
         <ThemeSection />
         <GoogleHealthSection initialStatus={googleHealthStatus} />
         <SeasonSettingsSections
-          key={activeSeason ? `${activeSeason.id}:${activeSeason.updatedAt}` : "no-active-season-plan"}
+          key={activeSeason ? `season-plan:${activeSeason.id}:${activeSeason.updatedAt}` : "no-active-season-plan"}
           initialSeason={activeSeason}
           weightLogs={logs}
           today={today}
           readError={activeSeasonResult.kind === "error"}
         />
         <SettingsForm
-          key={activeSeason ? `${activeSeason.id}:${activeSeason.updatedAt}` : "no-active-season"}
+          key={activeSeason ? `settings:${activeSeason.id}:${activeSeason.updatedAt}` : "no-active-season"}
           initialSettings={settingsRows}
         />
         <DataQualityPanel report={qualityReport} />
