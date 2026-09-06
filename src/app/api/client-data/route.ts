@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { isValidDateParam } from "@/lib/utils/date";
+import { fetchRecipes } from "@/lib/queries/recipes";
 
 const RESOURCES = [
   "daily_logs",
   "food_master",
   "menu_master",
+  "recipe_master",
   "predictions",
   "daily_log_dates",
 ] as const;
@@ -25,6 +27,13 @@ export async function GET(request: NextRequest) {
   const resource = request.nextUrl.searchParams.get("resource") ?? "";
   if (!isResource(resource)) {
     return NextResponse.json({ error: "Invalid resource" }, { status: 400 });
+  }
+
+  if (resource === "recipe_master") {
+    const result = await fetchRecipes();
+    return result.kind === "ok"
+      ? NextResponse.json({ data: result.data })
+      : NextResponse.json({ error: result.message }, { status: 500 });
   }
 
   const supabase = await createClient();

@@ -31,8 +31,8 @@
  * forecast backtest 更新:
  *   /forecast-accuracy  fetchLatestRuns / fetchMetrics
  *
- * food_master / menu_master 更新:
- *   /foods       fetchFoods / fetchMenus
+ * food_master / menu_master / recipe_master 更新:
+ *   /foods       fetchFoods / fetchMenus / fetchRecipes
  *
  * analytics_cache (enriched_logs) 更新:
  *   /tdee         fetchEnrichedLogs
@@ -86,7 +86,7 @@ export function revalidateAfterForecastMutation(): void {
 }
 
 /**
- * food_master / menu_master への書き込み後に呼ぶ。
+ * food_master / menu_master / recipe_master への書き込み後に呼ぶ。
  * 食品データベースページの Server Component 初期値を再検証する。
  */
 export function revalidateAfterFoodMutation(): void {

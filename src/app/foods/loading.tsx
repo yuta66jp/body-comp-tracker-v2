@@ -1,5 +1,5 @@
 /**
- * Foods page loading skeleton — mirrors PageShell + FoodTable + MenuTable layout.
+ * Foods page loading skeleton — mirrors PageShell + FoodTable + RecipeTable + MenuTable layout.
  */
 import { SkeletonBlock } from "@/components/ui/Skeleton";
 
@@ -11,6 +11,8 @@ export default function FoodsLoading() {
         <SkeletonBlock className="h-8 w-48" />
         {/* FoodTable (search + list) */}
         <SkeletonBlock className="h-72" />
+        {/* RecipeTable */}
+        <SkeletonBlock className="h-56" />
         {/* MenuTable */}
         <SkeletonBlock className="h-56" />
       </div>

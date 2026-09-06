@@ -2,10 +2,13 @@ jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn(),
   getCurrentUser: jest.fn(),
 }));
+jest.mock("@/lib/queries/recipes", () => ({ fetchRecipes: jest.fn() }));
 
 import { NextRequest } from "next/server";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { GET } from "./route";
+import { fetchRecipes } from "@/lib/queries/recipes";
+import { TEST_RECIPE } from "@/test/recipeFixtures";
 
 const mockCreateClient = createClient as jest.Mock;
 const mockGetCurrentUser = getCurrentUser as jest.Mock;
@@ -44,6 +47,24 @@ describe("GET /api/client-data", () => {
 
     expect(response.status).toBe(400);
     expect(mockCreateClient).not.toHaveBeenCalled();
+  });
+
+  it("料理も未認証なら取得しない", async () => {
+    mockGetCurrentUser.mockResolvedValue(null);
+    (fetchRecipes as jest.Mock).mockClear();
+    expect((await GET(makeRequest({ resource: "recipe_master" }))).status).toBe(401);
+    expect(fetchRecipes).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [{ kind: "ok", data: [TEST_RECIPE] }, 200],
+    [{ kind: "error", message: "取得失敗" }, 500],
+  ])("料理の取得結果をAPIに反映する", async (result, status) => {
+    mockGetCurrentUser.mockResolvedValue({ id: "user-id" });
+    (fetchRecipes as jest.Mock).mockResolvedValue(result);
+    const response = await GET(makeRequest({ resource: "recipe_master" }));
+    expect(response.status).toBe(status);
+    expect(await response.json()).toEqual(status === 200 ? { data: [TEST_RECIPE] } : { error: "取得失敗" });
   });
 
   it("fetches recent daily logs through the server Supabase client", async () => {

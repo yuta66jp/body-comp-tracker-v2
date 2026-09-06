@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import type { FoodMaster } from "@/lib/supabase/types";
+import { calcRecipeNutrition, NUTRIENT_KEYS, positiveRecipeAmount, recipeCartKey } from "@/lib/recipes";
+import type { Recipe } from "@/lib/recipes";
 
 /**
  * 食品DB未登録の一時食品。
@@ -24,10 +26,24 @@ export interface TempFoodItem {
  * CartItem は通常食品（food_master 由来）と一時食品の discriminated union。
  * - kind: "regular" — food_master に登録済み。grams を変えると栄養値が再計算される。
  * - kind: "temp"    — その日だけの一時食品。栄養値はユーザーが直接入力した摂取量そのもの。
+ * - kind: "recipe"  — 材料スナップショットを保持する料理。食数を掛けて1行単位で丸める。
  */
 export type CartItem =
   | { kind: "regular"; food: FoodMaster; grams: number }
+  | { kind: "recipe"; recipe: Recipe; servings: number; servingsInput?: string }
   | { kind: "temp"; food: TempFoodItem };
+
+export function isValidRecipeCartItem(item: Extract<CartItem, { kind: "recipe" }>): boolean {
+  const servings = positiveRecipeAmount(item.servingsInput ?? String(item.servings));
+  return servings !== null && NUTRIENT_KEYS.every((key) => Number.isFinite(calcRecipeNutrition(item.recipe.ingredients, servings)[key]));
+}
+
+export function addRecipeToCart(items: CartItem[], recipe: Recipe): CartItem[] {
+  const key = recipeCartKey(recipe);
+  const index = items.findIndex((item) => item.kind === "recipe" && recipeCartKey(item.recipe) === key);
+  if (index < 0) return [...items, { kind: "recipe", recipe, servings: 1 }];
+  return items.map((item, i) => i === index && item.kind === "recipe" ? { kind: "recipe", recipe: item.recipe, servings: item.servings + 1 } : item);
+}
 
 interface CartProps {
   items: CartItem[];
@@ -39,6 +55,7 @@ function calcNutrient(food: FoodMaster, grams: number, key: keyof Pick<FoodMaste
 }
 
 export function calcCartItemCalories(item: CartItem): number {
+  if (item.kind === "recipe") return calcRecipeNutrition(item.recipe.ingredients, item.servings, true).calories;
   if (item.kind === "regular") {
     return calcNutrient(item.food, item.grams, "calories");
   }
@@ -72,6 +89,14 @@ export function calcCartTotals(items: CartItem[]) {
           protein:  acc.protein  + calcNutrient(item.food, item.grams, "protein"),
           fat:      acc.fat      + calcNutrient(item.food, item.grams, "fat"),
           carbs:    acc.carbs    + calcNutrient(item.food, item.grams, "carbs"),
+        };
+      } else if (item.kind === "recipe") {
+        const nutrition = calcRecipeNutrition(item.recipe.ingredients, item.servings, true);
+        return {
+          calories: acc.calories + nutrition.calories,
+          protein: acc.protein + nutrition.protein,
+          fat: acc.fat + nutrition.fat,
+          carbs: acc.carbs + nutrition.carbs,
         };
       } else {
         // 一時食品: ユーザーが入力した摂取量をそのまま合算する
@@ -162,6 +187,36 @@ export function Cart({ items, onChange }: CartProps) {
     <div className="flex flex-col gap-3">
       <ul className="flex flex-col gap-2">
         {sortedItems.map(({ item, index }) => {
+          if (item.kind === "recipe") {
+            const nutrition = calcRecipeNutrition(item.recipe.ingredients, item.servings, true);
+            const valid = isValidRecipeCartItem(item);
+            return (
+              <li key={recipeCartKey(item.recipe)} className="rounded-lg border border-emerald-200 bg-white px-3 py-2 dark:border-emerald-800 dark:bg-slate-900">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <details>
+                      <summary className="cursor-pointer break-words text-sm font-medium text-slate-800 dark:text-slate-100">{item.recipe.name}<span className="ml-1 text-xs text-emerald-600">料理</span></summary>
+                      <ul className="my-2 space-y-1 text-xs text-slate-500">{item.recipe.ingredients.map((ingredient) => <li key={ingredient.name}>{ingredient.name}：{ingredient.grams}g / 1食</li>)}</ul>
+                      {item.recipe.note && <p className="mb-2 whitespace-pre-wrap break-words text-xs text-slate-500">{item.recipe.note}</p>}
+                    </details>
+                    <p className="text-xs text-slate-500">{nutrition.calories} kcal · P {nutrition.protein}g F {nutrition.fat}g C {nutrition.carbs}g</p>
+                  </div>
+                  <label className="flex items-center gap-1 text-xs text-slate-500">
+                    <span className="sr-only">{item.recipe.name}の食数</span>
+                    <input type="number" inputMode="decimal" step="any" value={item.servingsInput ?? item.servings} aria-label={`${item.recipe.name}の食数`} aria-invalid={!valid}
+                      onChange={(event) => {
+                        const raw = event.target.value;
+                        const servings = positiveRecipeAmount(raw);
+                        onChange(items.map((row, i) => i === index ? { ...item, servings: servings ?? item.servings, servingsInput: raw } : row));
+                      }}
+                      className="w-20 rounded border border-slate-200 px-2 py-2.5 text-right text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />食
+                  </label>
+                  <button type="button" onClick={() => remove(index)} aria-label={`${item.recipe.name}をカートから削除`} className="p-2 text-slate-400 hover:text-rose-500"><Trash2 size={15} /></button>
+                </div>
+                {!valid && <p role="alert" className="mt-1 text-xs text-rose-600">食数は計算できる範囲の0より大きい数値で入力してください</p>}
+              </li>
+            );
+          }
           if (item.kind === "regular") {
             return (
               <li key={`regular-${item.food.name}`} className="flex items-center gap-2 rounded-lg border border-gray-100 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
