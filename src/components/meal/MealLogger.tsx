@@ -5,8 +5,9 @@ import { Loader2, PenLine, X, Undo2, ChevronDown, Plus } from "lucide-react";
 import { Toast } from "@/components/ui/Toast";
 import { saveDailyLog } from "@/app/actions/saveDailyLog";
 import { FoodPicker } from "./FoodPicker";
-import { Cart, calcCartTotals } from "./Cart";
+import { Cart, addRecipeToCart, calcCartTotals, isValidRecipeCartItem } from "./Cart";
 import type { CartItem, TempFoodItem } from "./Cart";
+import type { Recipe } from "@/lib/recipes";
 import type { FoodMaster, DailyLog } from "@/lib/supabase/types";
 import { toJstDateStr } from "@/lib/utils/date";
 import {
@@ -347,9 +348,16 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
     setCartItems((prev) => [...prev, { kind: "temp" as const, food }]);
   }
 
+  function addRecipe(recipe: Recipe) {
+    setCartEverHadItems(true);
+    setCartItems((prev) => addRecipeToCart(prev, recipe));
+  }
+
+  const hasInvalidRecipeAmount = cartItems.some((item) => item.kind === "recipe" && !isValidRecipeCartItem(item));
+
   async function handleSave() {
     // 二重送信ガード: saving 中は呼び出し元（ボタン以外の経路含む）からの再起動を防ぐ
-    if (status === "saving") return;
+    if (status === "saving" || hasInvalidRecipeAmount) return;
 
     setStatus("saving");
 
@@ -699,7 +707,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
 
         {foodPickerOpen && (
           <div className="flex flex-col gap-3">
-            <FoodPicker onAdd={addFood} onAddSet={addFromMenu} onAddTemp={addTempFood} />
+            <FoodPicker onAdd={addFood} onAddSet={addFromMenu} onAddTemp={addTempFood} onAddRecipe={addRecipe} />
             {cartItems.length > 0 && (
               <div>
                 <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">カート</p>
@@ -722,7 +730,7 @@ export function MealLogger({ sidebar = false, showHeader = true, onSaveSuccess }
       <div className="flex items-center justify-end">
         <button
           onClick={handleSave}
-          disabled={status === "saving" || !hasContent || !date}
+          disabled={status === "saving" || !hasContent || !date || hasInvalidRecipeAmount}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md disabled:opacity-40"
         >
           {status === "saving"

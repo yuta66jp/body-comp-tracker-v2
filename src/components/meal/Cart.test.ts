@@ -1,6 +1,7 @@
-import { normalizeGrams, sortCartItemsByCalories } from "./Cart";
+import { addRecipeToCart, calcCartTotals, isValidRecipeCartItem, normalizeGrams, sortCartItemsByCalories } from "./Cart";
 import type { CartItem } from "./Cart";
 import type { FoodMaster } from "@/lib/supabase/types";
+import { TEST_RECIPE, RECIPE_FOOD, RECIPE_INGREDIENT } from "@/test/recipeFixtures";
 
 function regularItem(name: string, calories: number, grams: number): CartItem {
   return {
@@ -89,13 +90,13 @@ describe("sortCartItemsByCalories", () => {
       regularItem("中カロリー食品", 150, 200),
     ];
 
-    expect(sortCartItemsByCalories(items).map((item) => item.food.name)).toEqual([
+    expect(sortCartItemsByCalories(items).map((item) => item.kind === "recipe" ? item.recipe.name : item.food.name)).toEqual([
       "高カロリー食品",
       "一時食品",
       "中カロリー食品",
       "低カロリー食品",
     ]);
-    expect(items.map((item) => item.food.name)).toEqual([
+    expect(items.map((item) => item.kind === "recipe" ? item.recipe.name : item.food.name)).toEqual([
       "低カロリー食品",
       "高カロリー食品",
       "一時食品",
@@ -113,8 +114,8 @@ describe("sortCartItemsByCalories", () => {
       regularItem("食品B", 150, 100),
     ];
 
-    expect(sortCartItemsByCalories(before).map((item) => item.food.name)).toEqual(["食品A", "食品B"]);
-    expect(sortCartItemsByCalories(after).map((item) => item.food.name)).toEqual(["食品B", "食品A"]);
+    expect(sortCartItemsByCalories(before).map((item) => item.kind === "recipe" ? item.recipe.name : item.food.name)).toEqual(["食品A", "食品B"]);
+    expect(sortCartItemsByCalories(after).map((item) => item.kind === "recipe" ? item.recipe.name : item.food.name)).toEqual(["食品B", "食品A"]);
   });
 
   it("合計カロリーが同じ商品は元のカート順を維持する", () => {
@@ -124,10 +125,36 @@ describe("sortCartItemsByCalories", () => {
       regularItem("低カロリー食品", 100, 100),
     ];
 
-    expect(sortCartItemsByCalories(items).map((item) => item.food.name)).toEqual([
+    expect(sortCartItemsByCalories(items).map((item) => item.kind === "recipe" ? item.recipe.name : item.food.name)).toEqual([
       "先に追加した食品",
       "次に追加した食品",
       "低カロリー食品",
     ]);
+  });
+});
+
+describe("料理を含むカート", () => {
+  it("料理1.5食と材料の単品・一時食品をそれぞれ合算する", () => {
+    const items: CartItem[] = [
+      { kind: "recipe", recipe: TEST_RECIPE, servings: 1.5 },
+      { kind: "regular", food: RECIPE_FOOD, grams: 100 },
+      { kind: "temp", food: { tempId: "temp", name: "一時", grams: 0, calories: 50, protein: 1, fat: 2, carbs: 3 } },
+    ];
+    expect(calcCartTotals(items)).toEqual({ calories: 417, protein: 76, fat: 8, carbs: 3 });
+    expect(sortCartItemsByCalories(items)).toEqual(items);
+  });
+  it("同一内容だけ食数を加算し、編集前後の内容は別行に保持する", () => {
+    const first = addRecipeToCart([], TEST_RECIPE);
+    const second = addRecipeToCart(first, { ...TEST_RECIPE, updated_at: "later" });
+    expect(second).toHaveLength(1);
+    expect(second[0]).toMatchObject({ servings: 2 });
+    expect(first[0]).toMatchObject({ servings: 1 });
+    const edited = { ...TEST_RECIPE, ingredients: [{ ...RECIPE_INGREDIENT, grams: 300 }] };
+    const third = addRecipeToCart(second, edited);
+    expect(third).toHaveLength(2);
+    expect(third[0]).toEqual(second[0]);
+  });
+  it.each(["", "0", "-1", "1e308"])("不正な食数入力中は保存対象にできない (%s)", (raw) => {
+    expect(isValidRecipeCartItem({ kind: "recipe", recipe: TEST_RECIPE, servings: 1, servingsInput: raw })).toBe(false);
   });
 });

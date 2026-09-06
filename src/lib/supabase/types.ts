@@ -228,6 +228,36 @@ export type Database = {
           },
         ]
       }
+      recipe_master: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          ingredients: Json
+          note: string
+          is_archived: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          name: string
+          ingredients: Json
+          note?: string
+          is_archived?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          ingredients?: Json
+          note?: string
+          is_archived?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       food_master: {
         Row: {
           calories: number | null

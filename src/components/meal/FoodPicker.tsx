@@ -5,6 +5,8 @@ import { Search, Plus, Check } from "lucide-react";
 import { useFoodList } from "@/lib/hooks/useFoodList";
 import { MenuPicker } from "./MenuPicker";
 import { TempFoodForm } from "./TempFoodForm";
+import { RecipePicker } from "./RecipePicker";
+import type { Recipe } from "@/lib/recipes";
 import type { FoodMaster } from "@/lib/supabase/types";
 import type { CartItem, TempFoodItem } from "./Cart";
 
@@ -12,11 +14,12 @@ interface FoodPickerProps {
   onAdd: (food: FoodMaster) => void;
   onAddSet: (items: CartItem[]) => void;
   onAddTemp: (food: TempFoodItem) => void;
+  onAddRecipe: (recipe: Recipe) => void;
 }
 
-type Tab = "single" | "set" | "temp";
+type Tab = "single" | "recipe" | "set" | "temp";
 
-export function FoodPicker({ onAdd, onAddSet, onAddTemp }: FoodPickerProps) {
+export function FoodPicker({ onAdd, onAddSet, onAddTemp, onAddRecipe }: FoodPickerProps) {
   const { data: foods = [], isLoading } = useFoodList();
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("single");
@@ -59,15 +62,16 @@ export function FoodPicker({ onAdd, onAddSet, onAddTemp }: FoodPickerProps) {
 
   const TAB_LABELS: Record<Tab, string> = {
     single: "単品",
+    recipe: "料理",
     set: "セット",
     temp: "一時",
   };
 
   return (
     <div className="flex flex-col gap-2">
-      {/* 単品 / セット / 一時食品 タブ */}
+      {/* 単品 / 料理 / セット / 一時食品 タブ */}
       <div role="tablist" className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 dark:border-slate-600 dark:bg-slate-800">
-        {(["single", "set", "temp"] as Tab[]).map((t) => (
+        {(["single", "recipe", "set", "temp"] as Tab[]).map((t) => (
           <button
             key={t}
             id={`foodpicker-tab-${t}`}
@@ -86,7 +90,11 @@ export function FoodPicker({ onAdd, onAddSet, onAddTemp }: FoodPickerProps) {
         ))}
       </div>
 
-      {tab === "set" ? (
+      {tab === "recipe" ? (
+        <div role="tabpanel" id="foodpicker-panel-recipe" aria-labelledby="foodpicker-tab-recipe">
+          <RecipePicker onAdd={onAddRecipe} />
+        </div>
+      ) : tab === "set" ? (
         <div role="tabpanel" id="foodpicker-panel-set" aria-labelledby="foodpicker-tab-set">
           <MenuPicker foods={foods} onAddSet={onAddSet} />
         </div>
